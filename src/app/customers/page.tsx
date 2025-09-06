@@ -227,8 +227,8 @@ export default function CustomersPage() {
         <Table>
           <TableHeader>
             <TableRow>
-              <TableHead>Project Name</TableHead>
               <TableHead>Client Name</TableHead>
+              <TableHead>Project Name</TableHead>
               <TableHead>BOQ Number</TableHead>
               <TableHead>Address</TableHead>
               <TableHead>
@@ -240,8 +240,8 @@ export default function CustomersPage() {
             {loading ? (
               Array.from({ length: 8 }).map((_, i) => (
                 <TableRow key={i}>
-                  <TableCell><Skeleton className="h-4 w-32" /></TableCell>
                   <TableCell><Skeleton className="h-4 w-48" /></TableCell>
+                  <TableCell><Skeleton className="h-4 w-32" /></TableCell>
                   <TableCell><Skeleton className="h-4 w-24" /></TableCell>
                   <TableCell><Skeleton className="h-4 w-48" /></TableCell>
                   <TableCell><Skeleton className="h-8 w-8" /></TableCell>
@@ -250,8 +250,8 @@ export default function CustomersPage() {
             ) : (
               customers.map((customer) => (
                 <TableRow key={customer.id}>
-                  <TableCell className="font-medium">{customer.projectName}</TableCell>
-                  <TableCell>{customer.clientName}</TableCell>
+                  <TableCell className="font-medium">{customer.clientName}</TableCell>
+                  <TableCell>{customer.projectName}</TableCell>
                   <TableCell>{customer.boqNumber}</TableCell>
                   <TableCell>{customer.address}</TableCell>
                   <TableCell>

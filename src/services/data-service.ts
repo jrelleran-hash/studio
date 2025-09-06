@@ -149,10 +149,43 @@ export async function getProducts(): Promise<Product[]> {
     }
 }
 
+async function checkStockAndCreateNotification(product: Omit<Product, 'id'>, productId: string) {
+  if (product.stock <= product.reorderLimit) {
+    const status = product.stock === 0 ? "Out of Stock" : "Low Stock";
+    const notification: Omit<Notification, 'id'> = {
+      title: `${status} Alert: ${product.name}`,
+      description: `${product.name} is ${status.toLowerCase()}.`,
+      details: `Product "${product.name}" (SKU: ${product.sku}) has a stock level of ${product.stock}, which is at or below the reorder limit of ${product.reorderLimit}. Please reorder soon.`,
+      href: `/inventory`,
+      timestamp: Timestamp.now(),
+      read: false
+    };
+
+    try {
+      // Check if a recent, similar notification already exists to avoid spam.
+      const notificationsCol = collection(db, "notifications");
+      const fiveMinutesAgo = Timestamp.fromMillis(Date.now() - 5 * 60 * 1000);
+      const q = query(
+        notificationsCol, 
+        where('title', '==', notification.title), 
+        where('timestamp', '>', fiveMinutesAgo)
+      );
+      const existingNotifs = await getDocs(q);
+
+      if (existingNotifs.empty) {
+        await addDoc(notificationsCol, notification);
+      }
+    } catch (error) {
+      console.error("Error creating stock notification:", error);
+    }
+  }
+}
+
 export async function addProduct(product: Omit<Product, 'id'>): Promise<DocumentReference> {
   try {
     const productsCol = collection(db, "products");
     const docRef = await addDoc(productsCol, product);
+    await checkStockAndCreateNotification(product, docRef.id);
     return docRef;
   } catch (error) {
     console.error("Error adding product:", error);
@@ -164,6 +197,13 @@ export async function updateProduct(productId: string, productData: Partial<Omit
   try {
     const productRef = doc(db, "products", productId);
     await updateDoc(productRef, productData);
+
+    const updatedDoc = await getDoc(productRef);
+    if(updatedDoc.exists()) {
+        const fullProduct = { ...updatedDoc.data() as Omit<Product, 'id' | 'id'>, id: productId };
+        await checkStockAndCreateNotification(fullProduct, productId);
+    }
+    
   } catch (error) {
     console.error("Error updating product:", error);
     throw new Error("Failed to update product.");
@@ -219,7 +259,7 @@ export async function updateOrderStatus(orderId: string, status: Order['status']
 export async function getCustomers(): Promise<Customer[]> {
   try {
     const customersCol = collection(db, "customers");
-    const q = query(customersCol, orderBy("projectName", "asc"));
+    const q = query(customersCol, orderBy("clientName", "asc"));
     const customerSnapshot = await getDocs(q);
     return customerSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Customer));
   } catch (error) {
