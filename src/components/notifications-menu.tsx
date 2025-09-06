@@ -1,8 +1,8 @@
-
 "use client";
 
 import { useState, useEffect } from "react";
 import { Bell, Check } from "lucide-react";
+import Link from "next/link";
 
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
@@ -33,16 +33,19 @@ const notifications = [
     title: "New order #1245 received.",
     description: "1 hour ago",
     details: "A new order has been placed by a customer. The total amount is $150. Please check the order details and process it.",
+    href: "/orders",
   },
   {
     title: "Your subscription is expiring soon!",
     description: "2 hours ago",
     details: "Your current subscription plan is about to expire in 3 days. Please renew your subscription to continue enjoying our services without interruption.",
+    href: "/settings",
   },
   {
     title: "Item 'Wireless Mouse' is low on stock.",
     description: "1 day ago",
     details: "The stock for 'Wireless Mouse' is running low. There are only 5 units left. Please reorder soon to avoid stockout.",
+    href: "/inventory",
   },
 ];
 
@@ -50,15 +53,6 @@ type Notification = typeof notifications[number];
 
 export function NotificationsMenu() {
   const [selectedNotification, setSelectedNotification] = useState<Notification | null>(null);
-  const [isClient, setIsClient] = useState(false);
-
-  useEffect(() => {
-    setIsClient(true);
-  }, []);
-
-  if (!isClient) {
-    return null;
-  }
 
   return (
     <>
@@ -120,7 +114,9 @@ export function NotificationsMenu() {
             </div>
             <DialogFooter>
                 <Button variant="secondary" onClick={() => setSelectedNotification(null)}>Close</Button>
-                <Button>View</Button>
+                <Link href={selectedNotification.href}>
+                  <Button>View</Button>
+                </Link>
             </DialogFooter>
           </DialogContent>
         </Dialog>
