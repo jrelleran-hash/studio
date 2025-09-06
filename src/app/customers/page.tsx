@@ -6,7 +6,7 @@ import { useState, useEffect, useRef } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
-import { PlusCircle, MoreHorizontal, Upload } from "lucide-react";
+import { PlusCircle, MoreHorizontal, Upload, Loader2 } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -32,6 +32,7 @@ import { Label } from "@/components/ui/label";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useToast } from "@/hooks/use-toast";
 import { getCustomers, addCustomer } from "@/services/data-service";
+import { importCustomersAction } from "@/app/actions";
 import type { Customer } from "@/types";
 
 const customerSchema = z.object({
@@ -48,6 +49,7 @@ export default function CustomersPage() {
   const [loading, setLoading] = useState(true);
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
   const [isImportDialogOpen, setIsImportDialogOpen] = useState(false);
+  const [isImporting, setIsImporting] = useState(false);
   const { toast } = useToast();
   const [sheetLink, setSheetLink] = useState("");
 
@@ -98,22 +100,33 @@ export default function CustomersPage() {
     }
   };
 
-  const handleImport = () => {
-    // This is a placeholder for the actual import logic
-    if (sheetLink) {
-       toast({
-        title: "Import Started",
-        description: `Importing from the provided link. This may take a moment.`,
-      });
-      // In a real app, you would fetch and parse the sheet and add customers.
-      // For now, we'll just close the dialog.
-      setIsImportDialogOpen(false);
-      setSheetLink("");
-    } else {
+  const handleImport = async () => {
+    if (!sheetLink) {
        toast({
         variant: "destructive",
         title: "No link provided",
         description: "Please provide a link to the spreadsheet.",
+      });
+      return;
+    }
+    
+    setIsImporting(true);
+    const result = await importCustomersAction({ sheetUrl: sheetLink });
+    setIsImporting(false);
+
+    if (result.success) {
+      toast({
+        title: "Import Successful",
+        description: `${result.importedCount} customers were imported.`,
+      });
+      setIsImportDialogOpen(false);
+      setSheetLink("");
+      fetchCustomers(); // Refresh the customer list
+    } else {
+       toast({
+        variant: "destructive",
+        title: "Import Failed",
+        description: result.error || "An unknown error occurred.",
       });
     }
   };
@@ -149,12 +162,16 @@ export default function CustomersPage() {
                       placeholder="https://docs.google.com/spreadsheets/d/..."
                       value={sheetLink}
                       onChange={(e) => setSheetLink(e.target.value)}
+                      disabled={isImporting}
                     />
                  </div>
               </div>
               <DialogFooter>
-                 <Button type="button" variant="outline" onClick={() => setIsImportDialogOpen(false)}>Cancel</Button>
-                 <Button type="button" onClick={handleImport}>Import</Button>
+                 <Button type="button" variant="outline" onClick={() => setIsImportDialogOpen(false)} disabled={isImporting}>Cancel</Button>
+                 <Button type="button" onClick={handleImport} disabled={isImporting}>
+                  {isImporting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
+                  {isImporting ? 'Importing...' : 'Import'}
+                 </Button>
               </DialogFooter>
             </DialogContent>
           </Dialog>
