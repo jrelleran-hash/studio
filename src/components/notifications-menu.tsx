@@ -1,9 +1,10 @@
 
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Bell, Check } from "lucide-react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 
 import { Button } from "@/components/ui/button";
 import {
@@ -27,39 +28,43 @@ import {
   DialogDescription,
   DialogFooter,
 } from "@/components/ui/dialog";
+import { getNotifications } from "@/services/data-service";
+import type { Notification } from "@/types";
+import { Skeleton } from "./ui/skeleton";
 
-const notifications = [
-  {
-    title: "New order #1245 received.",
-    description: "1 hour ago",
-    details: "A new order has been placed by a customer. The total amount is $150. Please check the order details and process it.",
-    href: "/orders",
-  },
-  {
-    title: "Your subscription is expiring soon!",
-    description: "2 hours ago",
-    details: "Your current subscription plan is about to expire in 3 days. Please renew your subscription to continue enjoying our services without interruption.",
-    href: "/settings",
-  },
-  {
-    title: "Item 'Wireless Mouse' is low on stock.",
-    description: "1 day ago",
-    details: "The stock for 'Wireless Mouse' is running low. There are only 5 units left. Please reorder soon to avoid stockout.",
-    href: "/inventory",
-  },
-];
-
-type Notification = typeof notifications[number];
+type NotificationWithTime = Notification & { time: string };
 
 export function NotificationsMenu() {
-  const [selectedNotification, setSelectedNotification] = useState<Notification | null>(null);
+  const [notifications, setNotifications] = useState<NotificationWithTime[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [selectedNotification, setSelectedNotification] = useState<NotificationWithTime | null>(null);
+  const router = useRouter();
+
+  useEffect(() => {
+    async function fetchNotifications() {
+      setLoading(true);
+      const fetchedNotifications = await getNotifications();
+      setNotifications(fetchedNotifications);
+      setLoading(false);
+    }
+    fetchNotifications();
+  }, []);
+
+  const unreadCount = notifications.filter(n => !n.read).length;
+
+  const handleViewClick = () => {
+    if (selectedNotification) {
+      router.push(selectedNotification.href);
+      setSelectedNotification(null);
+    }
+  }
 
   return (
     <>
       <Popover>
         <PopoverTrigger asChild>
           <Button variant="ghost" size="icon" className="relative">
-            <div className="absolute top-1.5 right-1.5 size-2 rounded-full bg-primary" />
+            {unreadCount > 0 && <div className="absolute top-1.5 right-1.5 size-2 rounded-full bg-primary" />}
             <Bell className="h-5 w-5" />
             <span className="sr-only">Toggle notifications</span>
           </Button>
@@ -69,31 +74,42 @@ export function NotificationsMenu() {
             <CardHeader className="p-4">
               <CardTitle className="text-lg">Notifications</CardTitle>
               <CardDescription>
-                You have {notifications.length} unread messages.
+                {loading ? 'Loading...' : `You have ${unreadCount} unread messages.`}
               </CardDescription>
             </CardHeader>
             <CardContent className="p-0">
               <div className="flex flex-col">
-                {notifications.map((notification, index) => (
-                  <div
-                    key={index}
-                    className="flex items-center space-x-4 rounded-md p-3 transition-all hover:bg-accent hover:text-accent-foreground cursor-pointer"
-                    onClick={() => setSelectedNotification(notification)}
-                  >
-                    <div className="flex-1 space-y-1">
-                      <p className="text-sm font-medium leading-none">
-                        {notification.title}
-                      </p>
-                      <p className="text-sm text-muted-foreground">
-                        {notification.description}
-                      </p>
+                {loading ? (
+                  Array.from({ length: 3 }).map((_, index) => (
+                    <div key={index} className="flex items-center space-x-4 p-3">
+                      <div className="flex-1 space-y-2">
+                        <Skeleton className="h-4 w-3/4" />
+                        <Skeleton className="h-4 w-1/4" />
+                      </div>
                     </div>
-                  </div>
-                ))}
+                  ))
+                ) : (
+                  notifications.map((notification) => (
+                    <div
+                      key={notification.id}
+                      className="flex items-center space-x-4 rounded-md p-3 transition-all hover:bg-accent hover:text-accent-foreground cursor-pointer"
+                      onClick={() => setSelectedNotification(notification)}
+                    >
+                      <div className="flex-1 space-y-1">
+                        <p className="text-sm font-medium leading-none">
+                          {notification.title}
+                        </p>
+                        <p className="text-sm text-muted-foreground">
+                          {notification.time}
+                        </p>
+                      </div>
+                    </div>
+                  ))
+                )}
               </div>
             </CardContent>
             <CardFooter className="p-2 border-t">
-              <Button size="sm" className="w-full">
+              <Button size="sm" className="w-full" disabled={loading || unreadCount === 0}>
                 <Check className="mr-2 h-4 w-4" />
                 Mark all as read
               </Button>
@@ -107,16 +123,14 @@ export function NotificationsMenu() {
           <DialogContent>
             <DialogHeader>
               <DialogTitle>{selectedNotification.title}</DialogTitle>
-              <DialogDescription>{selectedNotification.description}</DialogDescription>
+              <DialogDescription>{selectedNotification.time}</DialogDescription>
             </DialogHeader>
             <div className="py-4">
               <p>{selectedNotification.details}</p>
             </div>
             <DialogFooter>
                 <Button variant="secondary" onClick={() => setSelectedNotification(null)}>Close</Button>
-                <Link href={selectedNotification.href}>
-                  <Button>View</Button>
-                </Link>
+                <Button onClick={handleViewClick}>View</Button>
             </DialogFooter>
           </DialogContent>
         </Dialog>
