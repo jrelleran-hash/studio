@@ -1,3 +1,6 @@
+
+"use client";
+
 import { WelcomeCard } from "@/components/dashboard/welcome-card";
 import { KpiCard } from "@/components/dashboard/kpi-card";
 import { RecentActivity } from "@/components/dashboard/recent-activity";
@@ -5,8 +8,28 @@ import { LowStockItems } from "@/components/dashboard/low-stock-items";
 import { ActiveOrders } from "@/components/dashboard/active-orders";
 import { RevenueChart } from "@/components/dashboard/revenue-chart";
 import { DollarSign, Package, ShoppingCart, Users } from "lucide-react";
+import { useAuth } from "@/hooks/use-auth";
+import { useRouter } from "next/navigation";
+import { useEffect } from "react";
 
 export default function DashboardPage() {
+  const { user, loading } = useAuth();
+  const router = useRouter();
+
+  useEffect(() => {
+    if (!loading && !user) {
+      router.push("/login");
+    }
+  }, [user, loading, router]);
+
+  if (loading || !user) {
+    return (
+      <div className="flex h-screen items-center justify-center">
+        <p>Loading...</p>
+      </div>
+    );
+  }
+
   return (
     <div className="flex flex-col gap-6">
       <WelcomeCard />

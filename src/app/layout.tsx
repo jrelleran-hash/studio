@@ -3,11 +3,8 @@ import { Inter, Space_Grotesk, Source_Code_Pro } from "next/font/google";
 import "./globals.css";
 import { cn } from "@/lib/utils";
 import { Toaster } from "@/components/ui/toaster";
-import { Sidebar } from "@/components/layout/sidebar";
-import { Header } from "@/components/layout/header";
-import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
-import { Button } from "@/components/ui/button";
-import { Menu } from "lucide-react";
+import { AuthProvider } from "@/context/auth-context";
+import { AppContent } from "@/components/layout/app-content";
 
 const fontBody = Inter({
   subsets: ["latin"],
@@ -52,13 +49,11 @@ export default function RootLayout({
           fontCode.variable
         )}
       >
-        <div className="flex min-h-screen w-full bg-background">
-          <Sidebar className="hidden lg:flex" />
-          <div className="flex flex-1 flex-col lg:pl-64">
-            <Header />
-            <main className="flex-1 p-4 sm:p-6">{children}</main>
-          </div>
-        </div>
+        <AuthProvider>
+          <AppContent>
+            {children}
+          </AppContent>
+        </AuthProvider>
         <Toaster />
       </body>
     </html>

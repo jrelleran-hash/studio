@@ -1,10 +1,13 @@
+
 "use client";
 
 import { useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
 import Link from "next/link";
+import { useAuth } from "@/hooks/use-auth";
 
 export function WelcomeCard() {
+  const { user } = useAuth();
   const [currentDate, setCurrentDate] = useState("");
 
   useEffect(() => {
@@ -22,7 +25,7 @@ export function WelcomeCard() {
     <div className="flex items-center justify-between">
       <div>
         <h1 className="text-2xl font-bold font-headline tracking-tight">
-          Welcome Back, User!
+          Welcome Back, {user?.displayName || user?.email || "User"}!
         </h1>
         <p className="text-muted-foreground">{currentDate}</p>
       </div>
