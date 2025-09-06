@@ -1,10 +1,10 @@
+
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { Bell, Check } from "lucide-react";
 import Link from "next/link";
 
-import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -73,11 +73,11 @@ export function NotificationsMenu() {
               </CardDescription>
             </CardHeader>
             <CardContent className="p-0">
-              <div className="flex flex-col -mx-2">
+              <div className="flex flex-col">
                 {notifications.map((notification, index) => (
                   <div
                     key={index}
-                    className="flex items-start space-x-4 rounded-md p-2 transition-all hover:bg-accent hover:text-accent-foreground cursor-pointer"
+                    className="flex items-center space-x-4 rounded-md p-3 transition-all hover:bg-accent hover:text-accent-foreground cursor-pointer"
                     onClick={() => setSelectedNotification(notification)}
                   >
                     <div className="flex-1 space-y-1">
