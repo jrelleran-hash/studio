@@ -27,6 +27,11 @@ export interface Customer {
     address: string;
 }
 
+export interface ProductHistory {
+    date: string; // YYYY-MM-DD
+    stock: number;
+}
+
 export interface Product {
     id:string;
     name: string;
@@ -37,6 +42,7 @@ export interface Product {
     location?: string;
     imageUrl?: string;
     aiHint?: string;
+    history?: ProductHistory[];
 }
 
 export interface OrderItem {

@@ -1,8 +1,10 @@
 
 
+
 import { db } from "@/lib/firebase";
 import { collection, getDocs, getDoc, doc, orderBy, query, limit, Timestamp, where, DocumentReference, addDoc, updateDoc, deleteDoc } from "firebase/firestore";
 import type { Activity, Notification, Order, Product, Customer } from "@/types";
+import { format, subDays } from 'date-fns';
 
 function timeSince(date: Date) {
   const seconds = Math.floor((new Date().getTime() - date.getTime()) / 1000);
@@ -136,13 +138,32 @@ export async function getRecentOrders(count: number): Promise<Order[]> {
     }
 }
 
+// Helper to generate mock historical data for the last 7 days
+const generateMockHistory = (currentStock: number) => {
+    const history = [];
+    const today = new Date();
+    for (let i = 0; i < 7; i++) {
+        const date = subDays(today, i);
+        // Simulate some stock fluctuation
+        const stock = Math.max(0, currentStock + Math.floor(Math.random() * 10) - 5);
+        history.push({ date: format(date, 'yyyy-MM-dd'), stock });
+    }
+    return history;
+};
 
 export async function getProducts(): Promise<Product[]> {
     try {
         const productsCol = collection(db, "inventory");
         const q = query(productsCol, orderBy("name", "asc"));
         const productSnapshot = await getDocs(q);
-        return productSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Product));
+        return productSnapshot.docs.map(doc => {
+            const data = doc.data() as Product;
+            // Add mock history if it doesn't exist, for demonstration purposes
+            if (!data.history) {
+                data.history = generateMockHistory(data.stock);
+            }
+            return { id: doc.id, ...data };
+        });
     } catch (error) {
         console.error("Error fetching products:", error);
         return [];
