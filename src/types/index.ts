@@ -1,4 +1,5 @@
-import { Timestamp } from "firebase/firestore";
+
+import { Timestamp, DocumentReference } from "firebase/firestore";
 
 export interface Activity {
   id: string;
@@ -16,4 +17,36 @@ export interface Notification {
   href: string;
   timestamp: Timestamp;
   read: boolean;
+}
+
+export interface Customer {
+    id: string;
+    name: string;
+    email: string;
+    phone?: string;
+}
+
+export interface Product {
+    id: string;
+    name: string;
+    sku: string;
+    stock: number;
+    price: number;
+    imageUrl?: string;
+    aiHint?: string;
+}
+
+export interface OrderItem {
+    quantity: number;
+    price: number; // Price at the time of order
+    product: Product;
+}
+
+export interface Order {
+    id: string;
+    date: Date;
+    status: "Processing" | "Shipped" | "Fulfilled" | "Cancelled";
+    total: number;
+    customer: Customer;
+    items: OrderItem[];
 }

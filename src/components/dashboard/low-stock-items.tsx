@@ -1,41 +1,32 @@
+
 "use client";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import Image from "next/image";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { getLowStockProducts } from "@/services/data-service";
+import type { Product } from "@/types";
+import { Skeleton } from "../ui/skeleton";
 
-const lowStockItems = [
-  {
-    name: "Ergo-Comfort Mouse",
-    stock: 8,
-    sku: "EC-M-001",
-    img: "https://picsum.photos/100/100?random=1",
-    aiHint: "computer mouse",
-  },
-  {
-    name: "Mechanical Keyboard",
-    stock: 5,
-    sku: "MK-K-003",
-    img: "https://picsum.photos/100/100?random=2",
-    aiHint: "computer keyboard",
-  },
-  {
-    name: "4K UHD Monitor",
-    stock: 2,
-    sku: "4K-M-007",
-    img: "https://picsum.photos/100/100?random=3",
-    aiHint: "computer monitor",
-  },
-];
-
-type Item = (typeof lowStockItems)[0];
 
 export function LowStockItems() {
-  const [selectedItem, setSelectedItem] = useState<Item | null>(null);
+  const [lowStockItems, setLowStockItems] = useState<Product[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [selectedItem, setSelectedItem] = useState<Product | null>(null);
   const [isReorderOpen, setIsReorderOpen] = useState(false);
+
+  useEffect(() => {
+    async function fetchItems() {
+      setLoading(true);
+      const fetchedItems = await getLowStockProducts(10); // Check for stock <= 10
+      setLowStockItems(fetchedItems);
+      setLoading(false);
+    }
+    fetchItems();
+  }, []);
 
   const handleReorderClick = () => {
     setIsReorderOpen(true);
@@ -51,22 +42,34 @@ export function LowStockItems() {
       </CardHeader>
       <CardContent>
         <div className="space-y-4">
-          {lowStockItems.map((item) => (
-            <div key={item.sku} className="flex items-center gap-4 cursor-pointer hover:bg-muted/50 p-2 rounded-lg" onClick={() => setSelectedItem(item)}>
-              <Image
-                alt={item.name}
-                className="rounded-md"
-                height={48}
-                width={48}
-                src={item.img}
-                data-ai-hint={item.aiHint}
-              />
-              <div className="flex-1">
-                <p className="text-sm font-medium">{item.name}</p>
-                <p className="text-xs text-muted-foreground">Stock: {item.stock}</p>
+          {loading ? (
+             Array.from({ length: 3 }).map((_, index) => (
+              <div key={index} className="flex items-center gap-4 p-2">
+                <Skeleton className="h-12 w-12 rounded-md" />
+                <div className="flex-1 space-y-2">
+                  <Skeleton className="h-4 w-3/4" />
+                  <Skeleton className="h-4 w-1/4" />
+                </div>
               </div>
-            </div>
-          ))}
+            ))
+          ) : (
+            lowStockItems.map((item) => (
+              <div key={item.id} className="flex items-center gap-4 cursor-pointer hover:bg-muted/50 p-2 rounded-lg" onClick={() => setSelectedItem(item)}>
+                <Image
+                  alt={item.name}
+                  className="rounded-md"
+                  height={48}
+                  width={48}
+                  src={item.imageUrl || "https://picsum.photos/100/100"}
+                  data-ai-hint={item.aiHint}
+                />
+                <div className="flex-1">
+                  <p className="text-sm font-medium">{item.name}</p>
+                  <p className="text-xs text-muted-foreground">Stock: {item.stock}</p>
+                </div>
+              </div>
+            ))
+          )}
         </div>
 
         {selectedItem && (
@@ -82,7 +85,7 @@ export function LowStockItems() {
                   className="rounded-lg"
                   height={100}
                   width={100}
-                  src={selectedItem.img}
+                  src={selectedItem.imageUrl || "https://picsum.photos/100/100"}
                   data-ai-hint={selectedItem.aiHint}
                 />
                 <div>
