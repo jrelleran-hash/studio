@@ -21,13 +21,14 @@ export interface Notification {
 
 export interface Customer {
     id: string;
-    name: string;
-    email: string;
-    phone?: string;
+    projectName: string;
+    clientName: string;
+    boqNumber: string;
+    address: string;
 }
 
 export interface Product {
-    id: string;
+    id:string;
     name: string;
     sku: string;
     stock: number;

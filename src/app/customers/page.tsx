@@ -34,9 +34,10 @@ import { getCustomers, addCustomer } from "@/services/data-service";
 import type { Customer } from "@/types";
 
 const customerSchema = z.object({
-  name: z.string().min(1, "Customer name is required."),
-  email: z.string().email("Invalid email address."),
-  phone: z.string().optional(),
+  projectName: z.string().min(1, "Project name is required."),
+  clientName: z.string().min(1, "Client name is required."),
+  boqNumber: z.string().min(1, "BOQ number is required."),
+  address: z.string().min(1, "Address is required."),
 });
 
 type CustomerFormValues = z.infer<typeof customerSchema>;
@@ -50,9 +51,10 @@ export default function CustomersPage() {
   const form = useForm<CustomerFormValues>({
     resolver: zodResolver(customerSchema),
     defaultValues: {
-      name: "",
-      email: "",
-      phone: "",
+      projectName: "",
+      clientName: "",
+      boqNumber: "",
+      address: "",
     },
   });
 
@@ -114,18 +116,24 @@ export default function CustomersPage() {
             </DialogHeader>
             <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
               <div className="space-y-2">
-                <Label htmlFor="name">Name</Label>
-                <Input id="name" {...form.register("name")} />
-                {form.formState.errors.name && <p className="text-sm text-destructive">{form.formState.errors.name.message}</p>}
+                <Label htmlFor="projectName">Project Name</Label>
+                <Input id="projectName" {...form.register("projectName")} />
+                {form.formState.errors.projectName && <p className="text-sm text-destructive">{form.formState.errors.projectName.message}</p>}
               </div>
               <div className="space-y-2">
-                <Label htmlFor="email">Email</Label>
-                <Input id="email" type="email" {...form.register("email")} />
-                {form.formState.errors.email && <p className="text-sm text-destructive">{form.formState.errors.email.message}</p>}
+                <Label htmlFor="clientName">Client Name</Label>
+                <Input id="clientName" {...form.register("clientName")} />
+                {form.formState.errors.clientName && <p className="text-sm text-destructive">{form.formState.errors.clientName.message}</p>}
+              </div>
+               <div className="space-y-2">
+                <Label htmlFor="boqNumber">BOQ Number</Label>
+                <Input id="boqNumber" {...form.register("boqNumber")} />
+                {form.formState.errors.boqNumber && <p className="text-sm text-destructive">{form.formState.errors.boqNumber.message}</p>}
               </div>
               <div className="space-y-2">
-                <Label htmlFor="phone">Phone (Optional)</Label>
-                <Input id="phone" type="tel" {...form.register("phone")} />
+                <Label htmlFor="address">Address</Label>
+                <Input id="address" {...form.register("address")} />
+                {form.formState.errors.address && <p className="text-sm text-destructive">{form.formState.errors.address.message}</p>}
               </div>
               <DialogFooter>
                 <Button type="button" variant="outline" onClick={() => setIsDialogOpen(false)}>Cancel</Button>
@@ -141,9 +149,10 @@ export default function CustomersPage() {
         <Table>
           <TableHeader>
             <TableRow>
-              <TableHead>Name</TableHead>
-              <TableHead>Email</TableHead>
-              <TableHead>Phone</TableHead>
+              <TableHead>Project Name</TableHead>
+              <TableHead>Client Name</TableHead>
+              <TableHead>BOQ Number</TableHead>
+              <TableHead>Address</TableHead>
               <TableHead>
                 <span className="sr-only">Actions</span>
               </TableHead>
@@ -156,15 +165,17 @@ export default function CustomersPage() {
                   <TableCell><Skeleton className="h-4 w-32" /></TableCell>
                   <TableCell><Skeleton className="h-4 w-48" /></TableCell>
                   <TableCell><Skeleton className="h-4 w-24" /></TableCell>
+                  <TableCell><Skeleton className="h-4 w-48" /></TableCell>
                   <TableCell><Skeleton className="h-8 w-8" /></TableCell>
                 </TableRow>
               ))
             ) : (
               customers.map((customer) => (
                 <TableRow key={customer.id}>
-                  <TableCell className="font-medium">{customer.name}</TableCell>
-                  <TableCell>{customer.email}</TableCell>
-                  <TableCell>{customer.phone || "N/A"}</TableCell>
+                  <TableCell className="font-medium">{customer.projectName}</TableCell>
+                  <TableCell>{customer.clientName}</TableCell>
+                  <TableCell>{customer.boqNumber}</TableCell>
+                  <TableCell>{customer.address}</TableCell>
                   <TableCell>
                     <DropdownMenu>
                       <DropdownMenuTrigger asChild>

@@ -203,7 +203,7 @@ export async function updateOrderStatus(orderId: string, status: Order['status']
 export async function getCustomers(): Promise<Customer[]> {
   try {
     const customersCol = collection(db, "customers");
-    const q = query(customersCol, orderBy("name", "asc"));
+    const q = query(customersCol, orderBy("projectName", "asc"));
     const customerSnapshot = await getDocs(q);
     return customerSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Customer));
   } catch (error) {

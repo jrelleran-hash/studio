@@ -186,7 +186,7 @@ export default function OrdersPage() {
                         <SelectValue placeholder="Select a customer" />
                     </SelectTrigger>
                     <SelectContent>
-                        {customers.map(c => <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>)}
+                        {customers.map(c => <SelectItem key={c.id} value={c.id}>{c.clientName} - {c.projectName}</SelectItem>)}
                     </SelectContent>
                 </Select>
                 {form.formState.errors.customerId && <p className="text-sm text-destructive">{form.formState.errors.customerId.message}</p>}
@@ -274,7 +274,7 @@ export default function OrdersPage() {
               orders.map((order) => (
                 <TableRow key={order.id}>
                   <TableCell className="font-medium">{order.id}</TableCell>
-                  <TableCell>{order.customer.name}</TableCell>
+                  <TableCell>{order.customer.clientName}</TableCell>
                   <TableCell>{formatDate(order.date)}</TableCell>
                   <TableCell>
                     <Badge variant={statusVariant[order.status] || "default"}>{order.status}</Badge>

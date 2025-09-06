@@ -81,7 +81,7 @@ export function ActiveOrders() {
               orders.map((order) => (
                 <TableRow key={order.id} className="cursor-pointer" onClick={() => setSelectedOrder(order)}>
                   <TableCell className="font-medium">{order.id}</TableCell>
-                  <TableCell>{order.customer.name}</TableCell>
+                  <TableCell>{order.customer.clientName}</TableCell>
                   <TableCell>{formatDate(order.date)}</TableCell>
                   <TableCell>
                     <Badge variant={statusVariant[order.status] || "default"}>{order.status}</Badge>
@@ -99,13 +99,15 @@ export function ActiveOrders() {
               <DialogHeader>
                 <DialogTitle>Order Details: {selectedOrder.id}</DialogTitle>
                 <DialogDescription>
-                  Customer: {selectedOrder.customer.name} ({selectedOrder.customer.email})
+                  Customer: {selectedOrder.customer.clientName} ({selectedOrder.customer.projectName})
                 </DialogDescription>
               </DialogHeader>
               <div className="py-4 space-y-2">
                 <p><strong>Date:</strong> {formatDate(selectedOrder.date)}</p>
                 <p><strong>Total:</strong> {formatCurrency(selectedOrder.total)}</p>
                 <p><strong>Status:</strong> <Badge variant={statusVariant[selectedOrder.status] || "default"}>{selectedOrder.status}</Badge></p>
+                 <p><strong>BOQ Number:</strong> {selectedOrder.customer.boqNumber}</p>
+                <p><strong>Address:</strong> {selectedOrder.customer.address}</p>
                 <div>
                   <h4 className="font-semibold mt-2">Items:</h4>
                   <ul className="list-disc list-inside text-muted-foreground">
