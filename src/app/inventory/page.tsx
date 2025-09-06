@@ -103,9 +103,9 @@ export default function InventoryPage() {
     }
   }, [editingProduct, editForm]);
 
-   const getStatus = (product: Product): { text: string; variant: "default" | "secondary" | "destructive" } => {
-    if (product.stock === 0) return { text: "Out of Stock", variant: "destructive" };
-    if (product.stock <= product.reorderLimit) return { text: "Low Stock", variant: "secondary" };
+   const getStatus = (product: Product): { text: string; variant: "default" | "secondary" | "destructive", className?: string } => {
+    if (product.stock === 0) return { text: "Out of Stock", variant: "destructive", className: "font-semibold" };
+    if (product.stock <= product.reorderLimit) return { text: "Low Stock", variant: "destructive" };
     return { text: "In Stock", variant: "default" };
   };
 
@@ -300,7 +300,7 @@ export default function InventoryPage() {
                       <TableCell>{formatter ? formatter.format(product.price) : `$${product.price}`}</TableCell>
                       <TableCell>{product.stock}</TableCell>
                       <TableCell>
-                        <Badge variant={status.variant}>{status.text}</Badge>
+                        <Badge variant={status.variant} className={status.className}>{status.text}</Badge>
                       </TableCell>
                       <TableCell>{product.location}</TableCell>
                       <TableCell>
@@ -390,3 +390,5 @@ export default function InventoryPage() {
     </>
   );
 }
+
+    
