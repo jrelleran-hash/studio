@@ -143,7 +143,7 @@ export async function getProducts(): Promise<Product[]> {
     }
 }
 
-export async function addProduct(product: Omit<Product, 'id'>): Promise<DocumentReference> {
+export async function addProduct(product: Partial<Omit<Product, 'id'>>): Promise<DocumentReference> {
   try {
     const productsCol = collection(db, "products");
     const docRef = await addDoc(productsCol, product);
@@ -209,6 +209,17 @@ export async function getCustomers(): Promise<Customer[]> {
   } catch (error) {
     console.error("Error fetching customers:", error);
     return [];
+  }
+}
+
+export async function addCustomer(customer: Omit<Customer, 'id'>): Promise<DocumentReference> {
+  try {
+    const customersCol = collection(db, "customers");
+    const docRef = await addDoc(customersCol, customer);
+    return docRef;
+  } catch (error) {
+    console.error("Error adding customer:", error);
+    throw new Error("Failed to add customer.");
   }
 }
 
