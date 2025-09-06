@@ -6,15 +6,42 @@ import { KpiCard } from "@/components/dashboard/kpi-card";
 import { RecentActivity } from "@/components/dashboard/recent-activity";
 import { LowStockItems } from "@/components/dashboard/low-stock-items";
 import { ActiveOrders } from "@/components/dashboard/active-orders";
-import { RevenueChart } from "@/components/dashboard/revenue-chart";
+import { RevenueChart, chartData, chartConfig, type FilterType } from "@/components/dashboard/revenue-chart";
 import { DollarSign, Package, ShoppingCart, Users } from "lucide-react";
 import { useAuth } from "@/hooks/use-auth";
 import { useRouter } from "next/navigation";
-import { useEffect } from "react";
+import { useEffect, useState, useMemo } from "react";
 
 export default function DashboardPage() {
   const { user, loading } = useAuth();
   const router = useRouter();
+  const [revenueFilter, setRevenueFilter] = useState<FilterType>("month");
+
+  const { totalRevenue, changeText, title } = useMemo(() => {
+    const data = chartData[revenueFilter];
+    const total = data.reduce((acc, item) => acc + item.revenue, 0);
+    
+    // Note: This is a simplified change calculation. A real app would compare to the previous period.
+    const change = revenueFilter === 'month' ? "+20.1%" : "+10.5%"; 
+    const changeMessage = `from last ${revenueFilter}`;
+
+    const newTitle = {
+      day: "Daily Revenue",
+      week: "Weekly Revenue",
+      month: "Monthly Revenue",
+      year: "Yearly Revenue",
+    }[revenueFilter];
+
+    return {
+      totalRevenue: new Intl.NumberFormat("en-US", {
+        style: "currency",
+        currency: "USD",
+      }).format(total),
+      changeText: `${change} ${changeMessage}`,
+      title: newTitle
+    };
+  }, [revenueFilter]);
+
 
   useEffect(() => {
     if (!loading && !user) {
@@ -35,12 +62,12 @@ export default function DashboardPage() {
       <WelcomeCard />
       <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-4">
         <KpiCard
-          title="Monthly Revenue"
-          value="$45,231.89"
-          change="+20.1% from last month"
+          title={title}
+          value={totalRevenue}
+          change={changeText}
           icon={<DollarSign className="size-5 text-primary" />}
         >
-           <RevenueChart />
+           <RevenueChart filter={revenueFilter} setFilter={setRevenueFilter} />
         </KpiCard>
         <KpiCard
           title="Inventory Value"

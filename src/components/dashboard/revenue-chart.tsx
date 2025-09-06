@@ -1,3 +1,4 @@
+
 "use client";
 
 import { Bar, BarChart, ResponsiveContainer, XAxis, YAxis } from "recharts";
@@ -8,9 +9,8 @@ import {
   ChartTooltipContent,
 } from "@/components/ui/chart";
 import { Button } from "../ui/button";
-import { useState } from "react";
 
-const chartData = {
+export const chartData = {
   day: [
     { date: "Mon", revenue: 820, expenses: 400 },
     { date: "Tue", revenue: 960, expenses: 450 },
@@ -42,7 +42,7 @@ const chartData = {
   ]
 };
 
-const chartConfig = {
+export const chartConfig = {
   revenue: {
     label: "Revenue",
     color: "hsl(var(--chart-1))",
@@ -53,11 +53,14 @@ const chartConfig = {
   },
 } satisfies ChartConfig;
 
-type FilterType = "day" | "week" | "month" | "year";
+export type FilterType = "day" | "week" | "month" | "year";
 
-export function RevenueChart() {
-  const [filter, setFilter] = useState<FilterType>("month");
-  
+interface RevenueChartProps {
+  filter: FilterType;
+  setFilter: (filter: FilterType) => void;
+}
+
+export function RevenueChart({ filter, setFilter }: RevenueChartProps) {
   const dataKey = filter === "day" ? "date" : filter;
   const data = chartData[filter];
 
