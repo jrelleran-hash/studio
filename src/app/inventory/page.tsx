@@ -50,6 +50,15 @@ export default function InventoryPage() {
   const [loading, setLoading] = useState(true);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const { toast } = useToast();
+  const [formatter, setFormatter] = useState<Intl.NumberFormat | null>(null);
+
+  useEffect(() => {
+    // Initialize formatter on the client side to avoid SSR issues.
+    setFormatter(new Intl.NumberFormat("en-US", {
+      style: "currency",
+      currency: "USD",
+    }));
+  }, []);
 
   const form = useForm<ProductFormValues>({
     resolver: zodResolver(productSchema),
@@ -75,22 +84,16 @@ export default function InventoryPage() {
     fetchProducts();
   }, []);
 
-  const formatCurrency = (amount: number) => {
-    return new Intl.NumberFormat("en-US", {
-      style: "currency",
-      currency: "USD",
-    }).format(amount);
-  };
   
   const onSubmit = async (data: ProductFormValues) => {
     try {
-      const productData: Omit<Product, 'id'> = {
+      const productData: Partial<Omit<Product, 'id'>> & Pick<Product, 'name' | 'sku' | 'price' | 'stock'> = {
         name: data.name,
         sku: data.sku,
         price: data.price,
         stock: data.stock,
       };
-
+      
       // Conditionally add optional fields only if they have a value
       if (data.location) {
         productData.location = data.location;
@@ -102,7 +105,7 @@ export default function InventoryPage() {
         productData.aiHint = data.aiHint;
       }
       
-      await addProduct(productData);
+      await addProduct(productData as Omit<Product, 'id'>);
       toast({ title: "Success", description: "Product added successfully." });
       setIsDialogOpen(false);
       form.reset();
@@ -228,7 +231,7 @@ export default function InventoryPage() {
                   </TableCell>
                   <TableCell className="font-medium">{product.name}</TableCell>
                   <TableCell>{product.sku}</TableCell>
-                  <TableCell>{formatCurrency(product.price)}</TableCell>
+                  <TableCell>{formatter ? formatter.format(product.price) : `$${product.price}`}</TableCell>
                   <TableCell>{product.stock}</TableCell>
                   <TableCell>{product.location}</TableCell>
                   <TableCell>
