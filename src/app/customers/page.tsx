@@ -1,11 +1,12 @@
 
+
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
-import { PlusCircle, MoreHorizontal } from "lucide-react";
+import { PlusCircle, MoreHorizontal, Upload } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -45,8 +46,10 @@ type CustomerFormValues = z.infer<typeof customerSchema>;
 export default function CustomersPage() {
   const [customers, setCustomers] = useState<Customer[]>([]);
   const [loading, setLoading] = useState(true);
-  const [isDialogOpen, setIsDialogOpen] = useState(false);
+  const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
+  const [isImportDialogOpen, setIsImportDialogOpen] = useState(false);
   const { toast } = useToast();
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const form = useForm<CustomerFormValues>({
     resolver: zodResolver(customerSchema),
@@ -82,7 +85,7 @@ export default function CustomersPage() {
     try {
       await addCustomer(data);
       toast({ title: "Success", description: "Customer added successfully." });
-      setIsDialogOpen(false);
+      setIsAddDialogOpen(false);
       form.reset();
       fetchCustomers(); // Refresh the list
     } catch (error) {
@@ -95,6 +98,25 @@ export default function CustomersPage() {
     }
   };
 
+  const handleImport = () => {
+    // This is a placeholder for the actual import logic
+    if (fileInputRef.current?.files?.length) {
+       toast({
+        title: "Import Started",
+        description: `Importing ${fileInputRef.current.files[0].name}. This may take a moment.`,
+      });
+      // In a real app, you would parse the sheet and add customers.
+      // For now, we'll just close the dialog.
+      setIsImportDialogOpen(false);
+    } else {
+       toast({
+        variant: "destructive",
+        title: "No file selected",
+        description: "Please select a sheet file to import.",
+      });
+    }
+  };
+
   return (
     <Card>
       <CardHeader className="flex flex-row items-start justify-between">
@@ -102,48 +124,77 @@ export default function CustomersPage() {
           <CardTitle>Customers</CardTitle>
           <CardDescription>Manage your customer database.</CardDescription>
         </div>
-        <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
-          <DialogTrigger asChild>
-            <Button size="sm" className="gap-1">
-              <PlusCircle className="h-4 w-4" />
-              Add Customer
-            </Button>
-          </DialogTrigger>
-          <DialogContent className="sm:max-w-md">
-            <DialogHeader>
-              <DialogTitle>Add New Customer</DialogTitle>
-              <DialogDescription>Fill in the details for the new customer.</DialogDescription>
-            </DialogHeader>
-            <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
-              <div className="space-y-2">
-                <Label htmlFor="projectName">Project Name</Label>
-                <Input id="projectName" {...form.register("projectName")} />
-                {form.formState.errors.projectName && <p className="text-sm text-destructive">{form.formState.errors.projectName.message}</p>}
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="clientName">Client Name</Label>
-                <Input id="clientName" {...form.register("clientName")} />
-                {form.formState.errors.clientName && <p className="text-sm text-destructive">{form.formState.errors.clientName.message}</p>}
-              </div>
-               <div className="space-y-2">
-                <Label htmlFor="boqNumber">BOQ Number</Label>
-                <Input id="boqNumber" {...form.register("boqNumber")} />
-                {form.formState.errors.boqNumber && <p className="text-sm text-destructive">{form.formState.errors.boqNumber.message}</p>}
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="address">Address</Label>
-                <Input id="address" {...form.register("address")} />
-                {form.formState.errors.address && <p className="text-sm text-destructive">{form.formState.errors.address.message}</p>}
+        <div className="flex gap-2">
+          <Dialog open={isImportDialogOpen} onOpenChange={setIsImportDialogOpen}>
+            <DialogTrigger asChild>
+                <Button size="sm" variant="outline" className="gap-1">
+                  <Upload className="h-4 w-4" />
+                  Import from Sheet
+                </Button>
+            </DialogTrigger>
+            <DialogContent className="sm:max-w-md">
+              <DialogHeader>
+                <DialogTitle>Import Customers</DialogTitle>
+                <DialogDescription>
+                  Select a spreadsheet file (.csv, .xlsx) to import new customers.
+                </DialogDescription>
+              </DialogHeader>
+              <div className="space-y-4 py-4">
+                 <div className="space-y-2">
+                    <Label htmlFor="customer-file">Spreadsheet File</Label>
+                    <Input id="customer-file" type="file" ref={fileInputRef} accept=".csv, application/vnd.openxmlformats-officedocument.spreadsheetml.sheet, application/vnd.ms-excel" />
+                 </div>
               </div>
               <DialogFooter>
-                <Button type="button" variant="outline" onClick={() => setIsDialogOpen(false)}>Cancel</Button>
-                <Button type="submit" disabled={form.formState.isSubmitting}>
-                  {form.formState.isSubmitting ? "Adding..." : "Add Customer"}
-                </Button>
+                 <Button type="button" variant="outline" onClick={() => setIsImportDialogOpen(false)}>Cancel</Button>
+                 <Button type="button" onClick={handleImport}>Import</Button>
               </DialogFooter>
-            </form>
-          </DialogContent>
-        </Dialog>
+            </DialogContent>
+          </Dialog>
+
+          <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>
+            <DialogTrigger asChild>
+              <Button size="sm" className="gap-1">
+                <PlusCircle className="h-4 w-4" />
+                Add Customer
+              </Button>
+            </DialogTrigger>
+            <DialogContent className="sm:max-w-md">
+              <DialogHeader>
+                <DialogTitle>Add New Customer</DialogTitle>
+                <DialogDescription>Fill in the details for the new customer.</DialogDescription>
+              </DialogHeader>
+              <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+                <div className="space-y-2">
+                  <Label htmlFor="projectName">Project Name</Label>
+                  <Input id="projectName" {...form.register("projectName")} />
+                  {form.formState.errors.projectName && <p className="text-sm text-destructive">{form.formState.errors.projectName.message}</p>}
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="clientName">Client Name</Label>
+                  <Input id="clientName" {...form.register("clientName")} />
+                  {form.formState.errors.clientName && <p className="text-sm text-destructive">{form.formState.errors.clientName.message}</p>}
+                </div>
+                 <div className="space-y-2">
+                  <Label htmlFor="boqNumber">BOQ Number</Label>
+                  <Input id="boqNumber" {...form.register("boqNumber")} />
+                  {form.formState.errors.boqNumber && <p className="text-sm text-destructive">{form.formState.errors.boqNumber.message}</p>}
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="address">Address</Label>
+                  <Input id="address" {...form.register("address")} />
+                  {form.formState.errors.address && <p className="text-sm text-destructive">{form.formState.errors.address.message}</p>}
+                </div>
+                <DialogFooter>
+                  <Button type="button" variant="outline" onClick={() => setIsAddDialogOpen(false)}>Cancel</Button>
+                  <Button type="submit" disabled={form.formState.isSubmitting}>
+                    {form.formState.isSubmitting ? "Adding..." : "Add Customer"}
+                  </Button>
+                </DialogFooter>
+              </form>
+            </DialogContent>
+          </Dialog>
+        </div>
       </CardHeader>
       <CardContent>
         <Table>
