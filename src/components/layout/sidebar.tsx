@@ -14,6 +14,7 @@ import {
 import { CoreFlowLogo } from "@/components/icons";
 import { cn } from "@/lib/utils";
 import { SheetClose } from "@/components/ui/sheet";
+import { type LucideIcon } from "lucide-react";
 
 const navItems = [
   { href: "/", label: "Dashboard", icon: Home },
@@ -23,7 +24,37 @@ const navItems = [
   { href: "/analytics", label: "Analytics", icon: BarChart },
 ];
 
-export function Sidebar({ className }: { className?: string }) {
+interface SidebarLinkProps {
+  href: string;
+  label: string;
+  icon: LucideIcon;
+  pathname: string;
+  inSheet?: boolean;
+}
+
+function SidebarLink({ href, label, icon: Icon, pathname, inSheet }: SidebarLinkProps) {
+  const linkContent = (
+    <Link
+      href={href}
+      className={cn(
+        "flex items-center gap-3 rounded-lg px-3 py-2 text-muted-foreground transition-all hover:text-primary hover:bg-muted-foreground/10",
+        pathname === href && "bg-muted-foreground/10 text-primary"
+      )}
+    >
+      <Icon className="h-4 w-4" />
+      {label}
+    </Link>
+  );
+
+  if (inSheet) {
+    return <SheetClose asChild>{linkContent}</SheetClose>;
+  }
+  
+  return linkContent;
+}
+
+
+export function Sidebar({ className, inSheet }: { className?: string, inSheet?: boolean }) {
   const pathname = usePathname();
 
   return (
@@ -37,32 +68,19 @@ export function Sidebar({ className }: { className?: string }) {
         </div>
         <div className="flex-1 overflow-auto py-2">
           <nav className="grid items-start px-4 text-sm font-medium">
-            {navItems.map(({ href, label, icon: Icon }) => (
-              <SheetClose asChild key={href}>
-                <Link
-                  href={href}
-                  className={cn(
-                    "flex items-center gap-3 rounded-lg px-3 py-2 text-muted-foreground transition-all hover:text-primary hover:bg-muted-foreground/10",
-                    pathname === href && "bg-muted-foreground/10 text-primary"
-                  )}
-                >
-                  <Icon className="h-4 w-4" />
-                  {label}
-                </Link>
-              </SheetClose>
+            {navItems.map((item) => (
+              <SidebarLink key={item.href} {...item} pathname={pathname} inSheet={inSheet} />
             ))}
           </nav>
         </div>
         <div className="mt-auto p-4">
-           <SheetClose asChild>
-             <Link
-                href="/settings"
-                className="flex items-center gap-3 rounded-lg px-3 py-2 text-muted-foreground transition-all hover:text-primary hover:bg-muted-foreground/10"
-              >
-                <Settings className="h-4 w-4" />
-                Settings
-              </Link>
-            </SheetClose>
+            <SidebarLink 
+              href="/settings"
+              label="Settings"
+              icon={Settings}
+              pathname={pathname}
+              inSheet={inSheet}
+            />
         </div>
       </div>
     </aside>

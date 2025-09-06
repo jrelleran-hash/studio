@@ -1,3 +1,4 @@
+
 "use client";
 
 import Link from "next/link";
@@ -47,7 +48,7 @@ export function Header() {
               Navigate through your business management platform.
             </SheetDescription>
           </SheetHeader>
-          <Sidebar className="flex" />
+          <Sidebar className="flex" inSheet />
         </SheetContent>
       </Sheet>
       
