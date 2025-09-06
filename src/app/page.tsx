@@ -59,9 +59,9 @@ export default function DashboardPage() {
     }[revenueFilter];
 
     return {
-      totalRevenue: new Intl.NumberFormat("en-US", {
+      totalRevenue: new Intl.NumberFormat("en-PH", {
         style: "currency",
-        currency: "USD",
+        currency: "PHP",
       }).format(total),
       changeText: `${change} ${changeMessage}`,
       title: newTitle
@@ -87,9 +87,9 @@ export default function DashboardPage() {
     }
 
     return {
-      inventoryValue: new Intl.NumberFormat("en-US", {
+      inventoryValue: new Intl.NumberFormat("en-PH", {
         style: "currency",
-        currency: "USD",
+        currency: "PHP",
       }).format(totalValue),
       inventoryChangeText: `Across ${filteredProducts.length} products`,
       inventoryTitle: titleMap[inventoryFilter],
