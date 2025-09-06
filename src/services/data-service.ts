@@ -155,6 +155,16 @@ export async function addProduct(product: Partial<Omit<Product, 'id'>>): Promise
   }
 }
 
+export async function updateProduct(productId: string, productData: Partial<Omit<Product, 'id'>>): Promise<void> {
+  try {
+    const productRef = doc(db, "products", productId);
+    await updateDoc(productRef, productData);
+  } catch (error) {
+    console.error("Error updating product:", error);
+    throw new Error("Failed to update product.");
+  }
+}
+
 export async function getOrders(): Promise<Order[]> {
     try {
         const ordersCol = collection(db, "orders");

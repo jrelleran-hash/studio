@@ -1,4 +1,5 @@
 
+
 "use client";
 
 import { useState, useEffect, useMemo } from "react";
@@ -29,7 +30,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useToast } from "@/hooks/use-toast";
-import { getProducts, addProduct } from "@/services/data-service";
+import { getProducts, addProduct, updateProduct } from "@/services/data-service";
 import type { Product } from "@/types";
 import Image from "next/image";
 import { Badge } from "@/components/ui/badge";
@@ -51,7 +52,9 @@ type StatusFilter = "all" | "in-stock" | "low-stock" | "out-of-stock";
 export default function InventoryPage() {
   const [products, setProducts] = useState<Product[]>([]);
   const [loading, setLoading] = useState(true);
-  const [isDialogOpen, setIsDialogOpen] = useState(false);
+  const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
+  const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
+  const [editingProduct, setEditingProduct] = useState<Product | null>(null);
   const { toast } = useToast();
   const [formatter, setFormatter] = useState<Intl.NumberFormat | null>(null);
   const [statusFilter, setStatusFilter] = useState<StatusFilter>("all");
@@ -64,7 +67,7 @@ export default function InventoryPage() {
     }));
   }, []);
 
-  const form = useForm<ProductFormValues>({
+  const addForm = useForm<ProductFormValues>({
     resolver: zodResolver(productSchema),
     defaultValues: {
       name: "",
@@ -77,6 +80,10 @@ export default function InventoryPage() {
     },
   });
 
+  const editForm = useForm<ProductFormValues>({
+    resolver: zodResolver(productSchema),
+  });
+
   async function fetchProducts() {
     setLoading(true);
     const fetchedProducts = await getProducts();
@@ -87,6 +94,12 @@ export default function InventoryPage() {
   useEffect(() => {
     fetchProducts();
   }, []);
+
+  useEffect(() => {
+    if (editingProduct) {
+      editForm.reset(editingProduct);
+    }
+  }, [editingProduct, editForm]);
 
   const filteredProducts = useMemo(() => {
     if (statusFilter === "all") {
@@ -101,7 +114,7 @@ export default function InventoryPage() {
   }, [products, statusFilter]);
 
   
-  const onSubmit = async (data: ProductFormValues) => {
+  const onAddSubmit = async (data: ProductFormValues) => {
     try {
       const productData: Partial<Omit<Product, 'id'>> & Pick<Product, 'name' | 'sku' | 'price' | 'stock'> = {
         name: data.name,
@@ -110,16 +123,15 @@ export default function InventoryPage() {
         stock: data.stock,
       };
       
-      // Conditionally add optional fields only if they have a value
       if (data.location) productData.location = data.location;
       if (data.imageUrl) productData.imageUrl = data.imageUrl;
       if (data.aiHint) productData.aiHint = data.aiHint;
       
       await addProduct(productData as Omit<Product, 'id'>);
       toast({ title: "Success", description: "Product added successfully." });
-      setIsDialogOpen(false);
-      form.reset();
-      fetchProducts(); // Refresh the list
+      setIsAddDialogOpen(false);
+      addForm.reset();
+      fetchProducts();
     } catch (error) {
       console.error(error);
       toast({
@@ -130,6 +142,29 @@ export default function InventoryPage() {
     }
   };
 
+  const onEditSubmit = async (data: ProductFormValues) => {
+    if (!editingProduct) return;
+    try {
+      await updateProduct(editingProduct.id, data);
+      toast({ title: "Success", description: "Product updated successfully." });
+      setIsEditDialogOpen(false);
+      setEditingProduct(null);
+      fetchProducts();
+    } catch (error) {
+       console.error(error);
+       toast({
+        variant: "destructive",
+        title: "Error",
+        description: "Failed to update product. Please try again.",
+      });
+    }
+  };
+
+  const handleEditClick = (product: Product) => {
+    setEditingProduct(product);
+    setIsEditDialogOpen(true);
+  };
+
   const getStatus = (stock: number): { text: string; variant: "default" | "secondary" | "destructive" } => {
     if (stock === 0) return { text: "Out of Stock", variant: "destructive" };
     if (stock <= 10) return { text: "Low Stock", variant: "secondary" };
@@ -137,163 +172,219 @@ export default function InventoryPage() {
   };
 
   return (
-    <Card>
-      <CardHeader className="flex flex-row items-start justify-between">
-        <div>
-          <CardTitle>Inventory</CardTitle>
-          <CardDescription>Manage your product inventory.</CardDescription>
-           <div className="flex items-center gap-2 mt-4">
-            {(["all", "in-stock", "low-stock", "out-of-stock"] as StatusFilter[]).map((filter) => (
-              <Button
-                key={filter}
-                variant={statusFilter === filter ? "default" : "outline"}
-                size="sm"
-                onClick={() => setStatusFilter(filter)}
-                className="capitalize"
-              >
-                {filter.replace("-", " ")}
-              </Button>
-            ))}
+    <>
+      <Card>
+        <CardHeader className="flex flex-row items-start justify-between">
+          <div>
+            <CardTitle>Inventory</CardTitle>
+            <CardDescription>Manage your product inventory.</CardDescription>
+            <div className="flex items-center gap-2 mt-4">
+              {(["all", "in-stock", "low-stock", "out-of-stock"] as StatusFilter[]).map((filter) => (
+                <Button
+                  key={filter}
+                  variant={statusFilter === filter ? "default" : "outline"}
+                  size="sm"
+                  onClick={() => setStatusFilter(filter)}
+                  className="capitalize"
+                >
+                  {filter.replace("-", " ")}
+                </Button>
+              ))}
+            </div>
           </div>
-        </div>
-        <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
-          <DialogTrigger asChild>
-            <Button size="sm" className="gap-1">
-              <PlusCircle className="h-4 w-4" />
-              Add Product
-            </Button>
-          </DialogTrigger>
+          <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>
+            <DialogTrigger asChild>
+              <Button size="sm" className="gap-1">
+                <PlusCircle className="h-4 w-4" />
+                Add Product
+              </Button>
+            </DialogTrigger>
+            <DialogContent className="sm:max-w-md">
+              <DialogHeader>
+                <DialogTitle>Add New Product</DialogTitle>
+                <DialogDescription>Fill in the details for the new product.</DialogDescription>
+              </DialogHeader>
+              <form onSubmit={addForm.handleSubmit(onAddSubmit)} className="space-y-4">
+                <div className="space-y-2">
+                  <Label htmlFor="name">Product Name</Label>
+                  <Input id="name" {...addForm.register("name")} />
+                  {addForm.formState.errors.name && <p className="text-sm text-destructive">{addForm.formState.errors.name.message}</p>}
+                </div>
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="sku">SKU</Label>
+                    <Input id="sku" {...addForm.register("sku")} />
+                    {addForm.formState.errors.sku && <p className="text-sm text-destructive">{addForm.formState.errors.sku.message}</p>}
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="stock">Stock</Label>
+                    <Input id="stock" type="number" {...addForm.register("stock")} />
+                    {addForm.formState.errors.stock && <p className="text-sm text-destructive">{addForm.formState.errors.stock.message}</p>}
+                  </div>
+                </div>
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="price">Price</Label>
+                    <Input id="price" type="number" step="0.01" {...addForm.register("price")} />
+                    {addForm.formState.errors.price && <p className="text-sm text-destructive">{addForm.formState.errors.price.message}</p>}
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="location">Location</Label>
+                    <Input id="location" placeholder="e.g. 'Warehouse A'" {...addForm.register("location")} />
+                  </div>
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="imageUrl">Image URL</Label>
+                  <Input id="imageUrl" placeholder="https://picsum.photos/200/200" {...addForm.register("imageUrl")} />
+                  {addForm.formState.errors.imageUrl && <p className="text-sm text-destructive">{addForm.formState.errors.imageUrl.message}</p>}
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="aiHint">AI Hint</Label>
+                  <Input id="aiHint" placeholder="e.g. 'black shoe'" {...addForm.register("aiHint")} />
+                  <p className="text-xs text-muted-foreground">Optional. A hint for AI to find a better image.</p>
+                </div>
+                <DialogFooter>
+                  <Button type="button" variant="outline" onClick={() => setIsAddDialogOpen(false)}>Cancel</Button>
+                  <Button type="submit" disabled={addForm.formState.isSubmitting}>
+                    {addForm.formState.isSubmitting ? "Adding..." : "Add Product"}
+                  </Button>
+                </DialogFooter>
+              </form>
+            </DialogContent>
+          </Dialog>
+        </CardHeader>
+        <CardContent>
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead className="w-16">Image</TableHead>
+                <TableHead>Name</TableHead>
+                <TableHead>SKU</TableHead>
+                <TableHead>Price</TableHead>
+                <TableHead>Stock</TableHead>
+                <TableHead>Status</TableHead>
+                <TableHead>Location</TableHead>
+                <TableHead>
+                  <span className="sr-only">Actions</span>
+                </TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {loading ? (
+                Array.from({ length: 5 }).map((_, i) => (
+                  <TableRow key={i}>
+                    <TableCell><Skeleton className="h-12 w-12 rounded-md" /></TableCell>
+                    <TableCell><Skeleton className="h-4 w-48" /></TableCell>
+                    <TableCell><Skeleton className="h-4 w-24" /></TableCell>
+                    <TableCell><Skeleton className="h-4 w-16" /></TableCell>
+                    <TableCell><Skeleton className="h-4 w-12" /></TableCell>
+                    <TableCell><Skeleton className="h-6 w-24 rounded-full" /></TableCell>
+                    <TableCell><Skeleton className="h-4 w-24" /></TableCell>
+                    <TableCell><Skeleton className="h-8 w-8" /></TableCell>
+                  </TableRow>
+                ))
+              ) : (
+                filteredProducts.map((product) => {
+                  const status = getStatus(product.stock);
+                  return (
+                    <TableRow key={product.id}>
+                      <TableCell>
+                        <Image
+                          alt={product.name}
+                          className="aspect-square rounded-md object-cover"
+                          height="48"
+                          src={product.imageUrl || `https://picsum.photos/seed/${product.id}/48/48`}
+                          width="48"
+                          data-ai-hint={product.aiHint}
+                        />
+                      </TableCell>
+                      <TableCell className="font-medium">{product.name}</TableCell>
+                      <TableCell>{product.sku}</TableCell>
+                      <TableCell>{formatter ? formatter.format(product.price) : `$${product.price}`}</TableCell>
+                      <TableCell>{product.stock}</TableCell>
+                      <TableCell>
+                        <Badge variant={status.variant}>{status.text}</Badge>
+                      </TableCell>
+                      <TableCell>{product.location}</TableCell>
+                      <TableCell>
+                        <DropdownMenu>
+                          <DropdownMenuTrigger asChild>
+                            <Button aria-haspopup="true" size="icon" variant="ghost">
+                              <MoreHorizontal className="h-4 w-4" />
+                              <span className="sr-only">Toggle menu</span>
+                            </Button>
+                          </DropdownMenuTrigger>
+                          <DropdownMenuContent align="end">
+                            <DropdownMenuLabel>Actions</DropdownMenuLabel>
+                            <DropdownMenuItem onClick={() => handleEditClick(product)}>Edit</DropdownMenuItem>
+                            <DropdownMenuItem>Delete</DropdownMenuItem>
+                          </DropdownMenuContent>
+                        </DropdownMenu>
+                      </TableCell>
+                    </TableRow>
+                  )
+                })
+              )}
+            </TableBody>
+          </Table>
+        </CardContent>
+      </Card>
+      
+      {editingProduct && (
+        <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
           <DialogContent className="sm:max-w-md">
             <DialogHeader>
-              <DialogTitle>Add New Product</DialogTitle>
-              <DialogDescription>Fill in the details for the new product.</DialogDescription>
+              <DialogTitle>Edit Product</DialogTitle>
+              <DialogDescription>Update the details for {editingProduct.name}.</DialogDescription>
             </DialogHeader>
-            <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+            <form onSubmit={editForm.handleSubmit(onEditSubmit)} className="space-y-4">
               <div className="space-y-2">
-                <Label htmlFor="name">Product Name</Label>
-                <Input id="name" {...form.register("name")} />
-                {form.formState.errors.name && <p className="text-sm text-destructive">{form.formState.errors.name.message}</p>}
+                <Label htmlFor="edit-name">Product Name</Label>
+                <Input id="edit-name" {...editForm.register("name")} />
+                {editForm.formState.errors.name && <p className="text-sm text-destructive">{editForm.formState.errors.name.message}</p>}
               </div>
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
-                  <Label htmlFor="sku">SKU</Label>
-                  <Input id="sku" {...form.register("sku")} />
-                   {form.formState.errors.sku && <p className="text-sm text-destructive">{form.formState.errors.sku.message}</p>}
+                  <Label htmlFor="edit-sku">SKU</Label>
+                  <Input id="edit-sku" {...editForm.register("sku")} />
+                  {editForm.formState.errors.sku && <p className="text-sm text-destructive">{editForm.formState.errors.sku.message}</p>}
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="stock">Stock</Label>
-                  <Input id="stock" type="number" {...form.register("stock")} />
-                  {form.formState.errors.stock && <p className="text-sm text-destructive">{form.formState.errors.stock.message}</p>}
+                  <Label htmlFor="edit-stock">Stock</Label>
+                  <Input id="edit-stock" type="number" {...editForm.register("stock")} />
+                  {editForm.formState.errors.stock && <p className="text-sm text-destructive">{editForm.formState.errors.stock.message}</p>}
                 </div>
               </div>
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
-                  <Label htmlFor="price">Price</Label>
-                  <Input id="price" type="number" step="0.01" {...form.register("price")} />
-                  {form.formState.errors.price && <p className="text-sm text-destructive">{form.formState.errors.price.message}</p>}
+                  <Label htmlFor="edit-price">Price</Label>
+                  <Input id="edit-price" type="number" step="0.01" {...editForm.register("price")} />
+                  {editForm.formState.errors.price && <p className="text-sm text-destructive">{editForm.formState.errors.price.message}</p>}
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="location">Location</Label>
-                  <Input id="location" placeholder="e.g. 'Warehouse A'" {...form.register("location")} />
+                  <Label htmlFor="edit-location">Location</Label>
+                  <Input id="edit-location" {...editForm.register("location")} />
                 </div>
               </div>
-               <div className="space-y-2">
-                <Label htmlFor="imageUrl">Image URL</Label>
-                <Input id="imageUrl" placeholder="https://picsum.photos/200/200" {...form.register("imageUrl")} />
-                {form.formState.errors.imageUrl && <p className="text-sm text-destructive">{form.formState.errors.imageUrl.message}</p>}
+              <div className="space-y-2">
+                <Label htmlFor="edit-imageUrl">Image URL</Label>
+                <Input id="edit-imageUrl" {...editForm.register("imageUrl")} />
+                 {editForm.formState.errors.imageUrl && <p className="text-sm text-destructive">{editForm.formState.errors.imageUrl.message}</p>}
               </div>
               <div className="space-y-2">
-                <Label htmlFor="aiHint">AI Hint</Label>
-                <Input id="aiHint" placeholder="e.g. 'black shoe'" {...form.register("aiHint")} />
-                <p className="text-xs text-muted-foreground">Optional. A hint for AI to find a better image.</p>
+                <Label htmlFor="edit-aiHint">AI Hint</Label>
+                <Input id="edit-aiHint" {...editForm.register("aiHint")} />
               </div>
               <DialogFooter>
-                <Button type="button" variant="outline" onClick={() => setIsDialogOpen(false)}>Cancel</Button>
-                <Button type="submit" disabled={form.formState.isSubmitting}>
-                  {form.formState.isSubmitting ? "Adding..." : "Add Product"}
+                <Button type="button" variant="outline" onClick={() => setIsEditDialogOpen(false)}>Cancel</Button>
+                <Button type="submit" disabled={editForm.formState.isSubmitting}>
+                  {editForm.formState.isSubmitting ? "Saving..." : "Save Changes"}
                 </Button>
               </DialogFooter>
             </form>
           </DialogContent>
         </Dialog>
-      </CardHeader>
-      <CardContent>
-        <Table>
-          <TableHeader>
-            <TableRow>
-              <TableHead className="w-16">Image</TableHead>
-              <TableHead>Name</TableHead>
-              <TableHead>SKU</TableHead>
-              <TableHead>Price</TableHead>
-              <TableHead>Stock</TableHead>
-              <TableHead>Status</TableHead>
-              <TableHead>Location</TableHead>
-              <TableHead>
-                <span className="sr-only">Actions</span>
-              </TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {loading ? (
-              Array.from({ length: 5 }).map((_, i) => (
-                <TableRow key={i}>
-                  <TableCell><Skeleton className="h-12 w-12 rounded-md" /></TableCell>
-                  <TableCell><Skeleton className="h-4 w-48" /></TableCell>
-                  <TableCell><Skeleton className="h-4 w-24" /></TableCell>
-                  <TableCell><Skeleton className="h-4 w-16" /></TableCell>
-                  <TableCell><Skeleton className="h-4 w-12" /></TableCell>
-                  <TableCell><Skeleton className="h-6 w-24 rounded-full" /></TableCell>
-                  <TableCell><Skeleton className="h-4 w-24" /></TableCell>
-                  <TableCell><Skeleton className="h-8 w-8" /></TableCell>
-                </TableRow>
-              ))
-            ) : (
-              filteredProducts.map((product) => {
-                 const status = getStatus(product.stock);
-                return (
-                <TableRow key={product.id}>
-                  <TableCell>
-                     <Image
-                        alt={product.name}
-                        className="aspect-square rounded-md object-cover"
-                        height="48"
-                        src={product.imageUrl || `https://picsum.photos/seed/${product.id}/48/48`}
-                        width="48"
-                        data-ai-hint={product.aiHint}
-                      />
-                  </TableCell>
-                  <TableCell className="font-medium">{product.name}</TableCell>
-                  <TableCell>{product.sku}</TableCell>
-                  <TableCell>{formatter ? formatter.format(product.price) : `$${product.price}`}</TableCell>
-                  <TableCell>{product.stock}</TableCell>
-                  <TableCell>
-                    <Badge variant={status.variant}>{status.text}</Badge>
-                  </TableCell>
-                  <TableCell>{product.location}</TableCell>
-                  <TableCell>
-                    <DropdownMenu>
-                      <DropdownMenuTrigger asChild>
-                        <Button aria-haspopup="true" size="icon" variant="ghost">
-                          <MoreHorizontal className="h-4 w-4" />
-                          <span className="sr-only">Toggle menu</span>
-                        </Button>
-                      </DropdownMenuTrigger>
-                      <DropdownMenuContent align="end">
-                        <DropdownMenuLabel>Actions</DropdownMenuLabel>
-                        <DropdownMenuItem>Edit</DropdownMenuItem>
-                        <DropdownMenuItem>Delete</DropdownMenuItem>
-                      </DropdownMenuContent>
-                    </DropdownMenu>
-                  </TableCell>
-                </TableRow>
-                )
-              })
-            )}
-          </TableBody>
-        </Table>
-      </CardContent>
-    </Card>
+      )}
+    </>
   );
 }
-
-    
