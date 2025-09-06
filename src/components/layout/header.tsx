@@ -36,7 +36,7 @@ export function Header() {
             <span className="sr-only">Toggle navigation menu</span>
           </Button>
         </SheetTrigger>
-        <SheetContent side="left" className="flex flex-col p-0 w-64">
+        <SheetContent side="left" className="flex flex-col p-0 w-64" showCloseButton={false}>
           <SheetHeader className="p-4 border-b">
             <SheetTitle>
               <Link href="/" className="flex items-center gap-2 font-semibold font-headline">
