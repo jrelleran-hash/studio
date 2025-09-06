@@ -5,6 +5,9 @@ import { useState } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
+import { updateProfile } from "firebase/auth";
+import { auth } from "@/lib/firebase";
+
 
 import { Button } from "@/components/ui/button";
 import {
@@ -60,15 +63,41 @@ export default function SettingsPage() {
     },
   });
 
-  const onProfileSubmit = (data: ProfileFormValues) => {
-    // Here you would typically update the user's profile in your backend
-    // For example: updateProfile(user, { displayName: data.name, photoURL: data.photoURL, phoneNumber: data.phone });
-    console.log(data);
-    toast({
-      title: "Profile Updated",
-      description: "Your profile information has been saved.",
-    });
-    setIsProfileDialogOpen(false); // Close the dialog on successful submission
+  const onProfileSubmit = async (data: ProfileFormValues) => {
+    if (!user) {
+      toast({
+        variant: "destructive",
+        title: "Error",
+        description: "You must be logged in to update your profile.",
+      });
+      return;
+    }
+    try {
+      await updateProfile(user, {
+        displayName: data.name,
+        photoURL: data.photoURL,
+      });
+
+      // Note: Updating phone number requires more complex verification and is not handled here.
+
+      toast({
+        title: "Profile Updated",
+        description: "Your profile information has been saved.",
+      });
+      setIsProfileDialogOpen(false);
+      // The user object in useAuth should update automatically via onAuthStateChanged,
+      // but a manual refresh/refetch might be needed in some state management setups.
+      // Forcing a reload is a simple way to ensure the UI updates.
+      window.location.reload();
+
+    } catch (error) {
+      console.error("Profile update error:", error);
+      toast({
+        variant: "destructive",
+        title: "Update Failed",
+        description: "Could not save your profile changes.",
+      });
+    }
   };
   
   const onNotificationsSubmit = (data: any) => {
@@ -131,12 +160,14 @@ export default function SettingsPage() {
                     </div>
                      <div className="space-y-2">
                       <Label htmlFor="phone">Phone Number</Label>
-                      <Input id="phone" {...profileForm.register("phone")} />
+                      <Input id="phone" {...profileForm.register("phone")} placeholder="Verification required" disabled />
                       {profileForm.formState.errors.phone && <p className="text-sm text-destructive">{profileForm.formState.errors.phone.message}</p>}
                     </div>
                      <DialogFooter>
                       <Button variant="ghost" type="button" onClick={() => setIsProfileDialogOpen(false)}>Cancel</Button>
-                      <Button type="submit">Save Changes</Button>
+                      <Button type="submit" disabled={profileForm.formState.isSubmitting}>
+                        {profileForm.formState.isSubmitting ? 'Saving...' : 'Save Changes'}
+                      </Button>
                     </DialogFooter>
                   </form>
                 </DialogContent>
