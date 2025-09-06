@@ -32,6 +32,7 @@ export interface Product {
     sku: string;
     stock: number;
     price: number;
+    location?: string;
     imageUrl?: string;
     aiHint?: string;
 }

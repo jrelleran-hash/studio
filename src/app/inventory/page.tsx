@@ -38,6 +38,7 @@ const productSchema = z.object({
   sku: z.string().min(1, "SKU is required."),
   price: z.coerce.number().positive("Price must be a positive number."),
   stock: z.coerce.number().int().nonnegative("Stock must be a non-negative integer."),
+  location: z.string().optional(),
   imageUrl: z.string().url("Must be a valid URL.").optional().or(z.literal('')),
   aiHint: z.string().optional(),
 });
@@ -57,6 +58,7 @@ export default function InventoryPage() {
       sku: "",
       price: 0,
       stock: 0,
+      location: "",
       imageUrl: "",
       aiHint: "",
     },
@@ -90,6 +92,9 @@ export default function InventoryPage() {
       };
 
       // Conditionally add optional fields only if they have a value
+      if (data.location) {
+        productData.location = data.location;
+      }
       if (data.imageUrl) {
         productData.imageUrl = data.imageUrl;
       }
@@ -149,10 +154,16 @@ export default function InventoryPage() {
                   {form.formState.errors.stock && <p className="text-sm text-destructive">{form.formState.errors.stock.message}</p>}
                 </div>
               </div>
-              <div className="space-y-2">
-                <Label htmlFor="price">Price</Label>
-                <Input id="price" type="number" step="0.01" {...form.register("price")} />
-                {form.formState.errors.price && <p className="text-sm text-destructive">{form.formState.errors.price.message}</p>}
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="price">Price</Label>
+                  <Input id="price" type="number" step="0.01" {...form.register("price")} />
+                  {form.formState.errors.price && <p className="text-sm text-destructive">{form.formState.errors.price.message}</p>}
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="location">Location</Label>
+                  <Input id="location" placeholder="e.g. 'Warehouse A'" {...form.register("location")} />
+                </div>
               </div>
                <div className="space-y-2">
                 <Label htmlFor="imageUrl">Image URL</Label>
@@ -183,6 +194,7 @@ export default function InventoryPage() {
               <TableHead>SKU</TableHead>
               <TableHead>Price</TableHead>
               <TableHead>Stock</TableHead>
+              <TableHead>Location</TableHead>
               <TableHead>
                 <span className="sr-only">Actions</span>
               </TableHead>
@@ -197,6 +209,7 @@ export default function InventoryPage() {
                   <TableCell><Skeleton className="h-4 w-24" /></TableCell>
                   <TableCell><Skeleton className="h-4 w-16" /></TableCell>
                   <TableCell><Skeleton className="h-4 w-12" /></TableCell>
+                  <TableCell><Skeleton className="h-4 w-24" /></TableCell>
                   <TableCell><Skeleton className="h-8 w-8" /></TableCell>
                 </TableRow>
               ))
@@ -217,6 +230,7 @@ export default function InventoryPage() {
                   <TableCell>{product.sku}</TableCell>
                   <TableCell>{formatCurrency(product.price)}</TableCell>
                   <TableCell>{product.stock}</TableCell>
+                  <TableCell>{product.location}</TableCell>
                   <TableCell>
                     <DropdownMenu>
                       <DropdownMenuTrigger asChild>
