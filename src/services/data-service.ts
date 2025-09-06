@@ -3,6 +3,7 @@
 
 
 
+
 import { db } from "@/lib/firebase";
 import { collection, getDocs, getDoc, doc, orderBy, query, limit, Timestamp, where, DocumentReference, addDoc, updateDoc, deleteDoc, arrayUnion } from "firebase/firestore";
 import type { Activity, Notification, Order, Product, Customer } from "@/types";
@@ -147,8 +148,13 @@ export async function getProducts(): Promise<Product[]> {
         const q = query(productsCol, orderBy("name", "asc"));
         const productSnapshot = await getDocs(q);
         return productSnapshot.docs.map(doc => {
-            const data = doc.data() as Product;
-            return { id: doc.id, ...data };
+            const data = doc.data();
+            return {
+                id: doc.id,
+                ...data,
+                lastUpdated: data.lastUpdated, // Keep as Timestamp
+                history: data.history?.map((h: any) => ({...h, dateUpdated: h.dateUpdated})) // Keep as Timestamp
+            } as Product;
         });
     } catch (error) {
         console.error("Error fetching products:", error);
@@ -238,7 +244,7 @@ export async function updateProduct(productId: string, productData: Partial<Omit
 
     const updatedDoc = await getDoc(productRef);
     if(updatedDoc.exists()) {
-        const fullProduct = updatedDoc.data() as Product;
+        const fullProduct = {id: updatedDoc.id, ...updatedDoc.data()} as Product;
         await checkStockAndCreateNotification(fullProduct, productId);
     }
     

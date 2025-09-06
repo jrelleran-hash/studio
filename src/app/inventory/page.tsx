@@ -1,4 +1,5 @@
 
+
 "use client";
 
 import { useState, useEffect, useMemo } from "react";
@@ -189,7 +190,7 @@ export default function InventoryPage() {
     }
   };
   
-  const formatDate = (timestamp: Timestamp | undefined) => {
+  const formatDate = (timestamp?: Timestamp) => {
     if (!timestamp) return 'N/A';
     return format(timestamp.toDate(), 'PPpp');
   }
@@ -416,7 +417,7 @@ export default function InventoryPage() {
             <AlertDialogDescription>
               This action cannot be undone. This will permanently delete this
               product from your inventory.
-            </AlertDialogDescription>
+            </D_AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel>Cancel</AlertDialogCancel>
