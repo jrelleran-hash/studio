@@ -87,13 +87,15 @@ export default function InventoryPage() {
         sku: data.sku,
         price: data.price,
         stock: data.stock,
-        imageUrl: data.imageUrl || "",
-        aiHint: data.aiHint || "",
       };
 
-      // Remove optional fields if they are empty
-      if (!productData.imageUrl) delete productData.imageUrl;
-      if (!productData.aiHint) delete productData.aiHint;
+      // Conditionally add optional fields only if they have a value
+      if (data.imageUrl) {
+        productData.imageUrl = data.imageUrl;
+      }
+      if (data.aiHint) {
+        productData.aiHint = data.aiHint;
+      }
       
       await addProduct(productData);
       toast({ title: "Success", description: "Product added successfully." });
