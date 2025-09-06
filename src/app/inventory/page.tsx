@@ -417,7 +417,7 @@ export default function InventoryPage() {
             <AlertDialogDescription>
               This action cannot be undone. This will permanently delete this
               product from your inventory.
-            </D_AlertDialogDescription>
+            </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel>Cancel</AlertDialogCancel>
