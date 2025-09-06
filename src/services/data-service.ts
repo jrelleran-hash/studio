@@ -83,12 +83,17 @@ export async function getNotifications(): Promise<(Notification & { time: string
   }
 }
 
-export async function getLowStockProducts(stockLimit: number): Promise<Product[]> {
+export async function getLowStockProducts(): Promise<Product[]> {
     try {
         const productsCol = collection(db, "products");
-        const q = query(productsCol, where("stock", "<=", stockLimit), orderBy("stock", "asc"));
-        const productSnapshot = await getDocs(q);
-        return productSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Product));
+        const productSnapshot = await getDocs(productsCol);
+        const allProducts = productSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Product));
+        
+        // Firestore cannot compare two fields directly, so we filter in code.
+        const lowStockProducts = allProducts.filter(p => p.stock <= p.reorderLimit);
+        
+        // Sort by how far under the limit they are
+        return lowStockProducts.sort((a, b) => (a.stock - a.reorderLimit) - (b.stock - b.reorderLimit));
     } catch (error) {
         console.error("Error fetching low stock products:", error);
         return [];
@@ -144,7 +149,7 @@ export async function getProducts(): Promise<Product[]> {
     }
 }
 
-export async function addProduct(product: Partial<Omit<Product, 'id'>>): Promise<DocumentReference> {
+export async function addProduct(product: Omit<Product, 'id'>): Promise<DocumentReference> {
   try {
     const productsCol = collection(db, "products");
     const docRef = await addDoc(productsCol, product);

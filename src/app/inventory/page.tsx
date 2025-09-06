@@ -41,6 +41,7 @@ const productSchema = z.object({
   sku: z.string().min(1, "SKU is required."),
   price: z.coerce.number().positive("Price must be a positive number."),
   stock: z.coerce.number().int().nonnegative("Stock must be a non-negative integer."),
+  reorderLimit: z.coerce.number().int().nonnegative("Reorder limit must be a non-negative integer."),
   location: z.string().optional(),
   imageUrl: z.string().url("Must be a valid URL.").optional().or(z.literal('')),
   aiHint: z.string().optional(),
@@ -74,6 +75,7 @@ export default function InventoryPage() {
       sku: "",
       price: 0,
       stock: 0,
+      reorderLimit: 10,
       location: "",
       imageUrl: "",
       aiHint: "",
@@ -101,14 +103,21 @@ export default function InventoryPage() {
     }
   }, [editingProduct, editForm]);
 
+   const getStatus = (product: Product): { text: string; variant: "default" | "secondary" | "destructive" } => {
+    if (product.stock === 0) return { text: "Out of Stock", variant: "destructive" };
+    if (product.stock <= product.reorderLimit) return { text: "Low Stock", variant: "secondary" };
+    return { text: "In Stock", variant: "default" };
+  };
+
   const filteredProducts = useMemo(() => {
     if (statusFilter === "all") {
       return products;
     }
     return products.filter(product => {
-      if (statusFilter === "in-stock") return product.stock > 10;
-      if (statusFilter === "low-stock") return product.stock > 0 && product.stock <= 10;
-      if (statusFilter === "out-of-stock") return product.stock === 0;
+      const status = getStatus(product);
+      if (statusFilter === "in-stock") return status.text === "In Stock";
+      if (statusFilter === "low-stock") return status.text === "Low Stock";
+      if (statusFilter === "out-of-stock") return status.text === "Out of Stock";
       return true;
     });
   }, [products, statusFilter]);
@@ -116,18 +125,7 @@ export default function InventoryPage() {
   
   const onAddSubmit = async (data: ProductFormValues) => {
     try {
-      const productData: Partial<Omit<Product, 'id'>> & Pick<Product, 'name' | 'sku' | 'price' | 'stock'> = {
-        name: data.name,
-        sku: data.sku,
-        price: data.price,
-        stock: data.stock,
-      };
-      
-      if (data.location) productData.location = data.location;
-      if (data.imageUrl) productData.imageUrl = data.imageUrl;
-      if (data.aiHint) productData.aiHint = data.aiHint;
-      
-      await addProduct(productData as Omit<Product, 'id'>);
+      await addProduct(data);
       toast({ title: "Success", description: "Product added successfully." });
       setIsAddDialogOpen(false);
       addForm.reset();
@@ -165,12 +163,6 @@ export default function InventoryPage() {
     setIsEditDialogOpen(true);
   };
 
-  const getStatus = (stock: number): { text: string; variant: "default" | "secondary" | "destructive" } => {
-    if (stock === 0) return { text: "Out of Stock", variant: "destructive" };
-    if (stock <= 10) return { text: "Low Stock", variant: "secondary" };
-    return { text: "In Stock", variant: "default" };
-  };
-
   return (
     <>
       <Card>
@@ -199,7 +191,7 @@ export default function InventoryPage() {
                 Add Product
               </Button>
             </DialogTrigger>
-            <DialogContent className="sm:max-w-md">
+            <DialogContent className="sm:max-w-lg">
               <DialogHeader>
                 <DialogTitle>Add New Product</DialogTitle>
                 <DialogDescription>Fill in the details for the new product.</DialogDescription>
@@ -216,22 +208,27 @@ export default function InventoryPage() {
                     <Input id="sku" {...addForm.register("sku")} />
                     {addForm.formState.errors.sku && <p className="text-sm text-destructive">{addForm.formState.errors.sku.message}</p>}
                   </div>
+                   <div className="space-y-2">
+                    <Label htmlFor="price">Price</Label>
+                    <Input id="price" type="number" step="0.01" {...addForm.register("price")} />
+                    {addForm.formState.errors.price && <p className="text-sm text-destructive">{addForm.formState.errors.price.message}</p>}
+                  </div>
+                </div>
+                <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-2">
                     <Label htmlFor="stock">Stock</Label>
                     <Input id="stock" type="number" {...addForm.register("stock")} />
                     {addForm.formState.errors.stock && <p className="text-sm text-destructive">{addForm.formState.errors.stock.message}</p>}
                   </div>
+                   <div className="space-y-2">
+                    <Label htmlFor="reorderLimit">Reorder Limit</Label>
+                    <Input id="reorderLimit" type="number" {...addForm.register("reorderLimit")} />
+                    {addForm.formState.errors.reorderLimit && <p className="text-sm text-destructive">{addForm.formState.errors.reorderLimit.message}</p>}
+                  </div>
                 </div>
-                <div className="grid grid-cols-2 gap-4">
-                  <div className="space-y-2">
-                    <Label htmlFor="price">Price</Label>
-                    <Input id="price" type="number" step="0.01" {...addForm.register("price")} />
-                    {addForm.formState.errors.price && <p className="text-sm text-destructive">{addForm.formState.errors.price.message}</p>}
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="location">Location</Label>
-                    <Input id="location" placeholder="e.g. 'Warehouse A'" {...addForm.register("location")} />
-                  </div>
+                <div className="space-y-2">
+                  <Label htmlFor="location">Location</Label>
+                  <Input id="location" placeholder="e.g. 'Warehouse A'" {...addForm.register("location")} />
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="imageUrl">Image URL</Label>
@@ -285,7 +282,7 @@ export default function InventoryPage() {
                 ))
               ) : (
                 filteredProducts.map((product) => {
-                  const status = getStatus(product.stock);
+                  const status = getStatus(product);
                   return (
                     <TableRow key={product.id}>
                       <TableCell>
@@ -332,40 +329,45 @@ export default function InventoryPage() {
       
       {editingProduct && (
         <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
-          <DialogContent className="sm:max-w-md">
+          <DialogContent className="sm:max-w-lg">
             <DialogHeader>
               <DialogTitle>Edit Product</DialogTitle>
               <DialogDescription>Update the details for {editingProduct.name}.</DialogDescription>
             </DialogHeader>
             <form onSubmit={editForm.handleSubmit(onEditSubmit)} className="space-y-4">
-              <div className="space-y-2">
-                <Label htmlFor="edit-name">Product Name</Label>
-                <Input id="edit-name" {...editForm.register("name")} />
-                {editForm.formState.errors.name && <p className="text-sm text-destructive">{editForm.formState.errors.name.message}</p>}
-              </div>
-              <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <Label htmlFor="edit-sku">SKU</Label>
-                  <Input id="edit-sku" {...editForm.register("sku")} />
-                  {editForm.formState.errors.sku && <p className="text-sm text-destructive">{editForm.formState.errors.sku.message}</p>}
+               <div className="space-y-2">
+                  <Label htmlFor="edit-name">Product Name</Label>
+                  <Input id="edit-name" {...editForm.register("name")} />
+                  {editForm.formState.errors.name && <p className="text-sm text-destructive">{editForm.formState.errors.name.message}</p>}
                 </div>
-                <div className="space-y-2">
-                  <Label htmlFor="edit-stock">Stock</Label>
-                  <Input id="edit-stock" type="number" {...editForm.register("stock")} />
-                  {editForm.formState.errors.stock && <p className="text-sm text-destructive">{editForm.formState.errors.stock.message}</p>}
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="edit-sku">SKU</Label>
+                    <Input id="edit-sku" {...editForm.register("sku")} />
+                    {editForm.formState.errors.sku && <p className="text-sm text-destructive">{editForm.formState.errors.sku.message}</p>}
+                  </div>
+                   <div className="space-y-2">
+                    <Label htmlFor="edit-price">Price</Label>
+                    <Input id="edit-price" type="number" step="0.01" {...editForm.register("price")} />
+                    {editForm.formState.errors.price && <p className="text-sm text-destructive">{editForm.formState.errors.price.message}</p>}
+                  </div>
                 </div>
-              </div>
-              <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <Label htmlFor="edit-price">Price</Label>
-                  <Input id="edit-price" type="number" step="0.01" {...editForm.register("price")} />
-                  {editForm.formState.errors.price && <p className="text-sm text-destructive">{editForm.formState.errors.price.message}</p>}
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="edit-stock">Stock</Label>
+                    <Input id="edit-stock" type="number" {...editForm.register("stock")} />
+                    {editForm.formState.errors.stock && <p className="text-sm text-destructive">{editForm.formState.errors.stock.message}</p>}
+                  </div>
+                   <div className="space-y-2">
+                    <Label htmlFor="edit-reorderLimit">Reorder Limit</Label>
+                    <Input id="edit-reorderLimit" type="number" {...editForm.register("reorderLimit")} />
+                    {editForm.formState.errors.reorderLimit && <p className="text-sm text-destructive">{editForm.formState.errors.reorderLimit.message}</p>}
+                  </div>
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="edit-location">Location</Label>
                   <Input id="edit-location" {...editForm.register("location")} />
                 </div>
-              </div>
               <div className="space-y-2">
                 <Label htmlFor="edit-imageUrl">Image URL</Label>
                 <Input id="edit-imageUrl" {...editForm.register("imageUrl")} />

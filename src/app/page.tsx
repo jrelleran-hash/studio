@@ -1,4 +1,5 @@
 
+
 "use client";
 
 import { WelcomeCard } from "@/components/dashboard/welcome-card";
@@ -70,8 +71,8 @@ export default function DashboardPage() {
   const { inventoryValue, inventoryChangeText, inventoryTitle } = useMemo(() => {
     const filteredProducts = products.filter(p => {
         if (inventoryFilter === 'all') return true;
-        if (inventoryFilter === 'in-stock') return p.stock > 10;
-        if (inventoryFilter === 'low-stock') return p.stock > 0 && p.stock <= 10;
+        if (inventoryFilter === 'in-stock') return p.stock > p.reorderLimit;
+        if (inventoryFilter === 'low-stock') return p.stock > 0 && p.stock <= p.reorderLimit;
         if (inventoryFilter === 'out-of-stock') return p.stock === 0;
         return false;
     });

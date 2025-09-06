@@ -1,4 +1,5 @@
 
+
 "use client";
 
 import { Bar, BarChart, ResponsiveContainer, XAxis, YAxis } from "recharts";
@@ -30,10 +31,10 @@ interface InventoryStatusChartProps {
 export function InventoryStatusChart({ products, filter, setFilter }: InventoryStatusChartProps) {
   const chartData = useMemo(() => {
     const inStock = products
-      .filter(p => p.stock > 10)
+      .filter(p => p.stock > p.reorderLimit)
       .reduce((sum, p) => sum + p.stock, 0);
     const lowStock = products
-      .filter(p => p.stock > 0 && p.stock <= 10)
+      .filter(p => p.stock > 0 && p.stock <= p.reorderLimit)
       .reduce((sum, p) => sum + p.stock, 0);
     const outOfStock = products
       .filter(p => p.stock === 0)

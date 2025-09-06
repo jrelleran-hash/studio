@@ -1,4 +1,5 @@
 
+
 "use client";
 import { useState, useEffect } from "react";
 import Image from "next/image";
@@ -21,7 +22,7 @@ export function LowStockItems() {
   useEffect(() => {
     async function fetchItems() {
       setLoading(true);
-      const fetchedItems = await getLowStockProducts(10); // Check for stock <= 10
+      const fetchedItems = await getLowStockProducts();
       setLowStockItems(fetchedItems);
       setLoading(false);
     }
@@ -88,10 +89,17 @@ export function LowStockItems() {
                   src={selectedItem.imageUrl || "https://picsum.photos/100/100"}
                   data-ai-hint={selectedItem.aiHint}
                 />
-                <div>
-                  <h3 className="font-semibold">Current Stock</h3>
-                  <p className="text-4xl font-bold font-headline text-destructive">{selectedItem.stock}</p>
-                  <p className="text-sm text-muted-foreground">units</p>
+                <div className="grid grid-cols-2 gap-4 flex-1">
+                   <div>
+                    <h3 className="font-semibold">Current Stock</h3>
+                    <p className="text-4xl font-bold font-headline text-destructive">{selectedItem.stock}</p>
+                    <p className="text-sm text-muted-foreground">units</p>
+                  </div>
+                   <div>
+                    <h3 className="font-semibold">Reorder At</h3>
+                    <p className="text-4xl font-bold font-headline">{selectedItem.reorderLimit}</p>
+                    <p className="text-sm text-muted-foreground">units</p>
+                  </div>
                 </div>
               </div>
               <DialogFooter>
