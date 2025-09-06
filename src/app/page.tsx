@@ -1,5 +1,4 @@
 
-
 "use client";
 
 import { WelcomeCard } from "@/components/dashboard/welcome-card";
@@ -15,6 +14,7 @@ import { useRouter } from "next/navigation";
 import { useEffect, useState, useMemo } from "react";
 import { getProducts } from "@/services/data-service";
 import type { Product } from "@/types";
+import { formatCurrency } from "@/lib/currency";
 
 export default function DashboardPage() {
   const { user, loading: authLoading } = useAuth();
@@ -59,10 +59,7 @@ export default function DashboardPage() {
     }[revenueFilter];
 
     return {
-      totalRevenue: new Intl.NumberFormat("en-PH", {
-        style: "currency",
-        currency: "PHP",
-      }).format(total),
+      totalRevenue: formatCurrency(total),
       changeText: `${change} ${changeMessage}`,
       title: newTitle
     };
@@ -87,10 +84,7 @@ export default function DashboardPage() {
     }
 
     return {
-      inventoryValue: new Intl.NumberFormat("en-PH", {
-        style: "currency",
-        currency: "PHP",
-      }).format(totalValue),
+      inventoryValue: formatCurrency(totalValue),
       inventoryChangeText: `Across ${filteredProducts.length} products`,
       inventoryTitle: titleMap[inventoryFilter],
     };

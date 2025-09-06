@@ -44,6 +44,8 @@ import type { Product } from "@/types";
 import Image from "next/image";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
+import { CURRENCY_CONFIG } from "@/config/currency";
+import { formatCurrency } from "@/lib/currency";
 
 const productSchema = z.object({
   name: z.string().min(1, "Product name is required."),
@@ -68,16 +70,7 @@ export default function InventoryPage() {
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
   const [deletingProductId, setDeletingProductId] = useState<string | null>(null);
   const { toast } = useToast();
-  const [formatter, setFormatter] = useState<Intl.NumberFormat | null>(null);
   const [statusFilter, setStatusFilter] = useState<StatusFilter>("all");
-
-  useEffect(() => {
-    // Initialize formatter on the client side to avoid SSR issues.
-    setFormatter(new Intl.NumberFormat("en-PH", {
-      style: "currency",
-      currency: "PHP",
-    }));
-  }, []);
 
   const addForm = useForm<ProductFormValues>({
     resolver: zodResolver(productSchema),
@@ -247,7 +240,7 @@ export default function InventoryPage() {
                    <div className="space-y-2">
                     <Label htmlFor="price">Price</Label>
                     <div className="relative">
-                      <span className="absolute inset-y-0 left-0 flex items-center pl-3 text-muted-foreground">₱</span>
+                      <span className="absolute inset-y-0 left-0 flex items-center pl-3 text-muted-foreground">{CURRENCY_CONFIG.symbol}</span>
                       <Input id="price" type="number" step="0.01" className="pl-8" {...addForm.register("price")} />
                     </div>
                     {addForm.formState.errors.price && <p className="text-sm text-destructive">{addForm.formState.errors.price.message}</p>}
@@ -336,7 +329,7 @@ export default function InventoryPage() {
                       </TableCell>
                       <TableCell className="font-medium">{product.name}</TableCell>
                       <TableCell>{product.sku}</TableCell>
-                      <TableCell>{formatter ? formatter.format(product.price) : `₱${product.price}`}</TableCell>
+                      <TableCell>{formatCurrency(product.price)}</TableCell>
                       <TableCell>{product.stock}</TableCell>
                       <TableCell>
                         <Badge variant={status.variant} className={status.className}>{status.text}</Badge>
@@ -388,7 +381,7 @@ export default function InventoryPage() {
                    <div className="space-y-2">
                     <Label htmlFor="edit-price">Price</Label>
                     <div className="relative">
-                      <span className="absolute inset-y-0 left-0 flex items-center pl-3 text-muted-foreground">₱</span>
+                      <span className="absolute inset-y-0 left-0 flex items-center pl-3 text-muted-foreground">{CURRENCY_CONFIG.symbol}</span>
                       <Input id="edit-price" type="number" step="0.01" className="pl-8" {...editForm.register("price")} />
                     </div>
                     {editForm.formState.errors.price && <p className="text-sm text-destructive">{editForm.formState.errors.price.message}</p>}
@@ -450,5 +443,3 @@ export default function InventoryPage() {
     </>
   );
 }
-
-    

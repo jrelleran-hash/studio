@@ -10,6 +10,7 @@ import { Button } from "@/components/ui/button";
 import { getRecentOrders } from "@/services/data-service";
 import type { Order } from "@/types";
 import { Skeleton } from "../ui/skeleton";
+import { formatCurrency } from "@/lib/currency";
 
 const statusVariant: { [key: string]: "default" | "secondary" | "destructive" | "outline" } = {
   Fulfilled: "default",
@@ -31,13 +32,6 @@ export function ActiveOrders() {
     }
     fetchOrders();
   }, []);
-
-  const formatCurrency = (amount: number) => {
-    return new Intl.NumberFormat("en-PH", {
-      style: "currency",
-      currency: "PHP",
-    }).format(amount);
-  };
 
   const formatDate = (date: Date) => {
     return new Intl.DateTimeFormat("en-US", {

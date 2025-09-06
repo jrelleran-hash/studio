@@ -9,6 +9,7 @@ import {
   ChartTooltipContent,
 } from "@/components/ui/chart";
 import { Button } from "../ui/button";
+import { CURRENCY_CONFIG } from "@/config/currency";
 
 export const chartData = {
   day: [
@@ -69,7 +70,7 @@ export function RevenueChart({ filter, setFilter }: RevenueChartProps) {
       <ChartContainer config={chartConfig} className="h-[100px] w-full mt-4">
         <BarChart accessibilityLayer data={data} margin={{ top: 10, right: 0, left: -20, bottom: 0 }}>
           <XAxis dataKey={dataKey} stroke="#888888" fontSize={12} tickLine={false} axisLine={false} />
-          <YAxis stroke="#888888" fontSize={12} tickLine={false} axisLine={false} tickFormatter={(value) => `₱${value / 1000}k`} />
+          <YAxis stroke="#888888" fontSize={12} tickLine={false} axisLine={false} tickFormatter={(value) => `${CURRENCY_CONFIG.symbol}${value / 1000}k`} />
           <ChartTooltip cursor={false} content={<ChartTooltipContent indicator="dot" />} />
           <Bar dataKey="revenue" fill="var(--color-revenue)" radius={[4, 4, 0, 0]} />
           <Bar dataKey="expenses" fill="var(--color-expenses)" radius={[4, 4, 0, 0]} />

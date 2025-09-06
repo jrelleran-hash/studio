@@ -40,6 +40,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { useToast } from "@/hooks/use-toast";
 import { getOrders, updateOrderStatus, getCustomers, getProducts, addOrder } from "@/services/data-service";
 import type { Order, Customer, Product } from "@/types";
+import { formatCurrency } from "@/lib/currency";
 
 const statusVariant: { [key: string]: "default" | "secondary" | "destructive" | "outline" } = {
   Fulfilled: "default",
@@ -141,14 +142,6 @@ export default function OrdersPage() {
         description: "Failed to create order.",
       });
     }
-  };
-
-
-  const formatCurrency = (amount: number) => {
-    return new Intl.NumberFormat("en-PH", {
-      style: "currency",
-      currency: "PHP",
-    }).format(amount);
   };
 
   const formatDate = (date: Date) => {
