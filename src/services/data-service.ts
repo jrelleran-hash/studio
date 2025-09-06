@@ -85,7 +85,7 @@ export async function getNotifications(): Promise<(Notification & { time: string
 
 export async function getLowStockProducts(): Promise<Product[]> {
     try {
-        const productsCol = collection(db, "products");
+        const productsCol = collection(db, "inventory");
         const productSnapshot = await getDocs(productsCol);
         const allProducts = productSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Product));
         
@@ -139,7 +139,7 @@ export async function getRecentOrders(count: number): Promise<Order[]> {
 
 export async function getProducts(): Promise<Product[]> {
     try {
-        const productsCol = collection(db, "products");
+        const productsCol = collection(db, "inventory");
         const q = query(productsCol, orderBy("name", "asc"));
         const productSnapshot = await getDocs(q);
         return productSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Product));
@@ -184,7 +184,7 @@ async function checkStockAndCreateNotification(product: Omit<Product, 'id'>, pro
 
 export async function addProduct(product: Omit<Product, 'id'>): Promise<DocumentReference> {
   try {
-    const productsCol = collection(db, "products");
+    const productsCol = collection(db, "inventory");
     const docRef = await addDoc(productsCol, product);
     await checkStockAndCreateNotification(product, docRef.id);
     return docRef;
@@ -196,7 +196,7 @@ export async function addProduct(product: Omit<Product, 'id'>): Promise<Document
 
 export async function updateProduct(productId: string, productData: Partial<Omit<Product, 'id'>>): Promise<void> {
   try {
-    const productRef = doc(db, "products", productId);
+    const productRef = doc(db, "inventory", productId);
     await updateDoc(productRef, productData);
 
     const updatedDoc = await getDoc(productRef);
@@ -213,7 +213,7 @@ export async function updateProduct(productId: string, productData: Partial<Omit
 
 export async function deleteProduct(productId: string): Promise<void> {
   try {
-    const productRef = doc(db, "products", productId);
+    const productRef = doc(db, "inventory", productId);
     await deleteDoc(productRef);
   } catch (error) {
     console.error("Error deleting product:", error);
@@ -322,7 +322,7 @@ export async function addOrder(orderData: NewOrderData): Promise<DocumentReferen
     let total = 0;
     const resolvedItems = await Promise.all(
       orderData.items.map(async (item) => {
-        const productRef = doc(db, "products", item.productId);
+        const productRef = doc(db, "inventory", item.productId);
         const productDoc = await getDoc(productRef);
         if (!productDoc.exists()) {
           throw new Error(`Product with ID ${item.productId} not found.`);

@@ -80,7 +80,7 @@ export function ActiveOrders() {
             ) : (
               orders.map((order) => (
                 <TableRow key={order.id} className="cursor-pointer" onClick={() => setSelectedOrder(order)}>
-                  <TableCell className="font-medium">{order.id}</TableCell>
+                  <TableCell className="font-medium">{order.id.substring(0, 7)}</TableCell>
                   <TableCell>{order.customer.clientName}</TableCell>
                   <TableCell>{formatDate(order.date)}</TableCell>
                   <TableCell>

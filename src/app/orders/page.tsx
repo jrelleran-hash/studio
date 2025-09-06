@@ -273,7 +273,7 @@ export default function OrdersPage() {
             ) : (
               orders.map((order) => (
                 <TableRow key={order.id}>
-                  <TableCell className="font-medium">{order.id}</TableCell>
+                  <TableCell className="font-medium">{order.id.substring(0, 7)}</TableCell>
                   <TableCell>{order.customer.clientName}</TableCell>
                   <TableCell>{formatDate(order.date)}</TableCell>
                   <TableCell>
