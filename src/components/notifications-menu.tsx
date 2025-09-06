@@ -1,7 +1,7 @@
 
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Bell, Check } from "lucide-react";
 
 import { cn } from "@/lib/utils";
@@ -25,7 +25,7 @@ import {
   DialogHeader,
   DialogTitle,
   DialogDescription,
-  DialogClose,
+  DialogFooter,
 } from "@/components/ui/dialog";
 
 const notifications = [
@@ -50,6 +50,15 @@ type Notification = typeof notifications[number];
 
 export function NotificationsMenu() {
   const [selectedNotification, setSelectedNotification] = useState<Notification | null>(null);
+  const [isClient, setIsClient] = useState(false);
+
+  useEffect(() => {
+    setIsClient(true);
+  }, []);
+
+  if (!isClient) {
+    return null;
+  }
 
   return (
     <>
@@ -109,9 +118,10 @@ export function NotificationsMenu() {
             <div className="py-4">
               <p>{selectedNotification.details}</p>
             </div>
-            <DialogClose asChild>
-              <Button onClick={() => setSelectedNotification(null)}>Close</Button>
-            </DialogClose>
+            <DialogFooter>
+                <Button variant="secondary" onClick={() => setSelectedNotification(null)}>Close</Button>
+                <Button>View</Button>
+            </DialogFooter>
           </DialogContent>
         </Dialog>
       )}
