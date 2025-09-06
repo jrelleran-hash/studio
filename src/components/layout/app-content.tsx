@@ -6,6 +6,7 @@ import { useAuth } from "@/hooks/use-auth";
 import { Sidebar } from "@/components/layout/sidebar";
 import { Header } from "@/components/layout/header";
 import { ReactNode } from "react";
+import { cn } from "@/lib/utils";
 
 const unprotectedRoutes = ["/login", "/signup"];
 
@@ -32,7 +33,11 @@ export function AppContent({ children }: { children: ReactNode }) {
       <Sidebar className="hidden lg:flex" />
       <div className="flex flex-1 flex-col lg:pl-64">
         <Header />
-        <main className="flex-1 p-4 sm:p-6">{children}</main>
+        <main className="flex-1 p-4 sm:p-6">
+            <div className="w-full max-w-7xl mx-auto">
+             {children}
+            </div>
+        </main>
       </div>
     </div>
   );
