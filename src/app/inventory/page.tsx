@@ -1,7 +1,7 @@
 
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
@@ -32,6 +32,8 @@ import { useToast } from "@/hooks/use-toast";
 import { getProducts, addProduct } from "@/services/data-service";
 import type { Product } from "@/types";
 import Image from "next/image";
+import { Badge } from "@/components/ui/badge";
+import { cn } from "@/lib/utils";
 
 const productSchema = z.object({
   name: z.string().min(1, "Product name is required."),
@@ -44,6 +46,7 @@ const productSchema = z.object({
 });
 
 type ProductFormValues = z.infer<typeof productSchema>;
+type StatusFilter = "all" | "in-stock" | "low-stock" | "out-of-stock";
 
 export default function InventoryPage() {
   const [products, setProducts] = useState<Product[]>([]);
@@ -51,6 +54,7 @@ export default function InventoryPage() {
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const { toast } = useToast();
   const [formatter, setFormatter] = useState<Intl.NumberFormat | null>(null);
+  const [statusFilter, setStatusFilter] = useState<StatusFilter>("all");
 
   useEffect(() => {
     // Initialize formatter on the client side to avoid SSR issues.
@@ -84,6 +88,18 @@ export default function InventoryPage() {
     fetchProducts();
   }, []);
 
+  const filteredProducts = useMemo(() => {
+    if (statusFilter === "all") {
+      return products;
+    }
+    return products.filter(product => {
+      if (statusFilter === "in-stock") return product.stock > 10;
+      if (statusFilter === "low-stock") return product.stock > 0 && product.stock <= 10;
+      if (statusFilter === "out-of-stock") return product.stock === 0;
+      return true;
+    });
+  }, [products, statusFilter]);
+
   
   const onSubmit = async (data: ProductFormValues) => {
     try {
@@ -95,15 +111,9 @@ export default function InventoryPage() {
       };
       
       // Conditionally add optional fields only if they have a value
-      if (data.location) {
-        productData.location = data.location;
-      }
-      if (data.imageUrl) {
-        productData.imageUrl = data.imageUrl;
-      }
-      if (data.aiHint) {
-        productData.aiHint = data.aiHint;
-      }
+      if (data.location) productData.location = data.location;
+      if (data.imageUrl) productData.imageUrl = data.imageUrl;
+      if (data.aiHint) productData.aiHint = data.aiHint;
       
       await addProduct(productData as Omit<Product, 'id'>);
       toast({ title: "Success", description: "Product added successfully." });
@@ -120,12 +130,31 @@ export default function InventoryPage() {
     }
   };
 
+  const getStatus = (stock: number): { text: string; variant: "default" | "secondary" | "destructive" } => {
+    if (stock === 0) return { text: "Out of Stock", variant: "destructive" };
+    if (stock <= 10) return { text: "Low Stock", variant: "secondary" };
+    return { text: "In Stock", variant: "default" };
+  };
+
   return (
     <Card>
-      <CardHeader className="flex flex-row items-center justify-between">
+      <CardHeader className="flex flex-row items-start justify-between">
         <div>
           <CardTitle>Inventory</CardTitle>
           <CardDescription>Manage your product inventory.</CardDescription>
+           <div className="flex items-center gap-2 mt-4">
+            {(["all", "in-stock", "low-stock", "out-of-stock"] as StatusFilter[]).map((filter) => (
+              <Button
+                key={filter}
+                variant={statusFilter === filter ? "default" : "outline"}
+                size="sm"
+                onClick={() => setStatusFilter(filter)}
+                className="capitalize"
+              >
+                {filter.replace("-", " ")}
+              </Button>
+            ))}
+          </div>
         </div>
         <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
           <DialogTrigger asChild>
@@ -197,6 +226,7 @@ export default function InventoryPage() {
               <TableHead>SKU</TableHead>
               <TableHead>Price</TableHead>
               <TableHead>Stock</TableHead>
+              <TableHead>Status</TableHead>
               <TableHead>Location</TableHead>
               <TableHead>
                 <span className="sr-only">Actions</span>
@@ -212,12 +242,15 @@ export default function InventoryPage() {
                   <TableCell><Skeleton className="h-4 w-24" /></TableCell>
                   <TableCell><Skeleton className="h-4 w-16" /></TableCell>
                   <TableCell><Skeleton className="h-4 w-12" /></TableCell>
+                  <TableCell><Skeleton className="h-6 w-24 rounded-full" /></TableCell>
                   <TableCell><Skeleton className="h-4 w-24" /></TableCell>
                   <TableCell><Skeleton className="h-8 w-8" /></TableCell>
                 </TableRow>
               ))
             ) : (
-              products.map((product) => (
+              filteredProducts.map((product) => {
+                 const status = getStatus(product.stock);
+                return (
                 <TableRow key={product.id}>
                   <TableCell>
                      <Image
@@ -233,6 +266,9 @@ export default function InventoryPage() {
                   <TableCell>{product.sku}</TableCell>
                   <TableCell>{formatter ? formatter.format(product.price) : `$${product.price}`}</TableCell>
                   <TableCell>{product.stock}</TableCell>
+                  <TableCell>
+                    <Badge variant={status.variant}>{status.text}</Badge>
+                  </TableCell>
                   <TableCell>{product.location}</TableCell>
                   <TableCell>
                     <DropdownMenu>
@@ -250,7 +286,8 @@ export default function InventoryPage() {
                     </DropdownMenu>
                   </TableCell>
                 </TableRow>
-              ))
+                )
+              })
             )}
           </TableBody>
         </Table>
@@ -258,3 +295,5 @@ export default function InventoryPage() {
     </Card>
   );
 }
+
+    
