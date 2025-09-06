@@ -10,9 +10,15 @@ import {
   ChartTooltipContent,
 } from "@/components/ui/chart";
 import { Button } from "../ui/button";
-import type { Product, ProductHistory } from "@/types";
+import type { Product } from "@/types";
 import { subDays, format, parseISO, startOfDay } from 'date-fns';
 
+// Helper function to get the end of a day
+const endOfDay = (date: Date) => {
+  const end = new Date(date);
+  end.setHours(23, 59, 59, 999);
+  return end;
+}
 
 const chartConfig = {
   quantity: {
@@ -78,16 +84,20 @@ export function InventoryStatusChart({ products, filter, setFilter }: InventoryS
                 .filter(h => h.dateUpdated <= endOfDay(parseISO(dateStr)))
                 .sort((a, b) => b.dateUpdated.getTime() - a.dateUpdated.getTime());
             
-            const stockOnDate = relevantHistory && relevantHistory.length > 0 ? relevantHistory[0].stock : p.history?.[0]?.stock ?? p.stock;
-
+            const stockOnDate = relevantHistory && relevantHistory.length > 0 ? relevantHistory[0].stock : 0; // Default to 0 if no history
+            
             const status = getStatusForProduct(p, stockOnDate);
 
-            if (status === 'out-of-stock') {
-                dailyTotals['out-of-stock']++; // Count of items
-            } else if (status === 'low-stock') {
-                dailyTotals['low-stock'] += stockOnDate; // Sum of stock
-            } else if (status === 'in-stock') {
-                dailyTotals['in-stock'] += stockOnDate; // Sum of stock
+            if (stockOnDate > 0) { // Only process if there was stock
+              if (status === 'out-of-stock') {
+                  dailyTotals['out-of-stock']++;
+              } else if (status === 'low-stock') {
+                  dailyTotals['low-stock'] += stockOnDate;
+              } else if (status === 'in-stock') {
+                  dailyTotals['in-stock'] += stockOnDate;
+              }
+            } else if (status === 'out-of-stock') {
+                dailyTotals['out-of-stock']++;
             }
         });
 
@@ -129,7 +139,7 @@ export function InventoryStatusChart({ products, filter, setFilter }: InventoryS
       )
     }
 
-    const dataKey = filter.replace('-', '') as keyof typeof chartConfig;
+    const dataKey = filter as keyof typeof chartConfig;
 
     return (
        <BarChart
@@ -161,13 +171,6 @@ export function InventoryStatusChart({ products, filter, setFilter }: InventoryS
         />
       </BarChart>
     )
-  }
-
-  // Helper function to get the end of a day
-  const endOfDay = (date: Date) => {
-    const end = new Date(date);
-    end.setHours(23, 59, 59, 999);
-    return end;
   }
 
   return (
