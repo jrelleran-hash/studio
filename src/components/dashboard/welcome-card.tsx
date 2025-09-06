@@ -22,19 +22,19 @@ export function WelcomeCard() {
   }, []);
 
   return (
-    <div className="flex items-center justify-between">
+    <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
       <div>
         <h1 className="text-2xl font-bold font-headline tracking-tight">
           Welcome Back, {user?.displayName || user?.email || "User"}!
         </h1>
         <p className="text-muted-foreground">{currentDate}</p>
       </div>
-      <div className="flex items-center gap-2">
-        <Link href="/profile">
-          <Button variant="outline">View Profile</Button>
+      <div className="flex items-center gap-2 w-full sm:w-auto">
+        <Link href="/settings" className="flex-1 sm:flex-initial">
+          <Button variant="outline" className="w-full">View Profile</Button>
         </Link>
-        <Link href="/analytics">
-          <Button>View Analytics</Button>
+        <Link href="/analytics" className="flex-1 sm:flex-initial">
+          <Button className="w-full">View Analytics</Button>
         </Link>
       </div>
     </div>
