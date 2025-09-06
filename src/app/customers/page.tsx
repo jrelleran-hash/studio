@@ -49,7 +49,7 @@ export default function CustomersPage() {
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
   const [isImportDialogOpen, setIsImportDialogOpen] = useState(false);
   const { toast } = useToast();
-  const fileInputRef = useRef<HTMLInputElement>(null);
+  const [sheetLink, setSheetLink] = useState("");
 
   const form = useForm<CustomerFormValues>({
     resolver: zodResolver(customerSchema),
@@ -100,19 +100,20 @@ export default function CustomersPage() {
 
   const handleImport = () => {
     // This is a placeholder for the actual import logic
-    if (fileInputRef.current?.files?.length) {
+    if (sheetLink) {
        toast({
         title: "Import Started",
-        description: `Importing ${fileInputRef.current.files[0].name}. This may take a moment.`,
+        description: `Importing from the provided link. This may take a moment.`,
       });
-      // In a real app, you would parse the sheet and add customers.
+      // In a real app, you would fetch and parse the sheet and add customers.
       // For now, we'll just close the dialog.
       setIsImportDialogOpen(false);
+      setSheetLink("");
     } else {
        toast({
         variant: "destructive",
-        title: "No file selected",
-        description: "Please select a sheet file to import.",
+        title: "No link provided",
+        description: "Please provide a link to the spreadsheet.",
       });
     }
   };
@@ -136,13 +137,19 @@ export default function CustomersPage() {
               <DialogHeader>
                 <DialogTitle>Import Customers</DialogTitle>
                 <DialogDescription>
-                  Select a spreadsheet file (.csv, .xlsx) to import new customers.
+                  Enter the public link to your spreadsheet to import new customers.
                 </DialogDescription>
               </DialogHeader>
               <div className="space-y-4 py-4">
                  <div className="space-y-2">
-                    <Label htmlFor="customer-file">Spreadsheet File</Label>
-                    <Input id="customer-file" type="file" ref={fileInputRef} accept=".csv, application/vnd.openxmlformats-officedocument.spreadsheetml.sheet, application/vnd.ms-excel" />
+                    <Label htmlFor="customer-sheet-link">Spreadsheet Link</Label>
+                    <Input 
+                      id="customer-sheet-link" 
+                      type="url"
+                      placeholder="https://docs.google.com/spreadsheets/d/..."
+                      value={sheetLink}
+                      onChange={(e) => setSheetLink(e.target.value)}
+                    />
                  </div>
               </div>
               <DialogFooter>
