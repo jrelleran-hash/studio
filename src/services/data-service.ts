@@ -211,6 +211,16 @@ export async function updateProduct(productId: string, productData: Partial<Omit
   }
 }
 
+export async function deleteProduct(productId: string): Promise<void> {
+  try {
+    const productRef = doc(db, "products", productId);
+    await deleteDoc(productRef);
+  } catch (error) {
+    console.error("Error deleting product:", error);
+    throw new Error("Failed to delete product.");
+  }
+}
+
 export async function getOrders(): Promise<Order[]> {
     try {
         const ordersCol = collection(db, "orders");
