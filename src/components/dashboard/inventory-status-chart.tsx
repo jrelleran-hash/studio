@@ -42,9 +42,10 @@ interface InventoryStatusChartProps {
   setFilter: (filter: InventoryFilterType) => void;
 }
 
-const getStatusForProduct = (product: Product) => {
-    if (product.stock === 0) return "out-of-stock";
-    if (product.stock <= product.reorderLimit) return "low-stock";
+const getStatusForProduct = (product: Product, stockLevel?: number) => {
+    const stock = stockLevel ?? product.stock;
+    if (stock === 0) return "out-of-stock";
+    if (stock <= product.reorderLimit) return "low-stock";
     return "in-stock";
 };
 
@@ -67,21 +68,24 @@ export function InventoryStatusChart({ products, filter, setFilter }: InventoryS
         { status: "Out of Stock (Items)", quantity: summary['out-of-stock'] },
     ];
 
-
     // Historical data for filtered views
     const historical = last7Days.map(date => {
         const dailyTotals = { "in-stock": 0, "low-stock": 0, "out-of-stock": 0 };
         
         products.forEach(p => {
             const historyEntry = p.history?.find(h => h.date === date);
-            const stock = historyEntry ? historyEntry.stock : p.stock;
+            // Only consider products that have a history entry for the specific date
+            if (historyEntry) {
+                const stock = historyEntry.stock;
+                const status = getStatusForProduct(p, stock);
 
-            if (stock === 0) {
-                 dailyTotals['out-of-stock']++; // Count of items
-            } else if (stock <= p.reorderLimit) {
-                 dailyTotals['low-stock'] += stock; // Sum of stock
-            } else {
-                 dailyTotals['in-stock'] += stock; // Sum of stock
+                if (status === 'out-of-stock') {
+                    dailyTotals['out-of-stock']++; // Count of items
+                } else if (status === 'low-stock') {
+                    dailyTotals['low-stock'] += stock; // Sum of stock
+                } else if (status === 'in-stock') {
+                    dailyTotals['in-stock'] += stock; // Sum of stock
+                }
             }
         });
 
