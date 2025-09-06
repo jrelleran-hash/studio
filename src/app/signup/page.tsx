@@ -43,10 +43,16 @@ export default function SignupPage() {
       await createUserWithEmailAndPassword(auth, data.email, data.password);
       router.push("/");
     } catch (error: any) {
+      let errorMessage = "An unexpected error occurred.";
+      if (error.code === 'auth/email-already-in-use') {
+        errorMessage = "This email address is already in use.";
+      } else if (error.message) {
+        errorMessage = error.message;
+      }
       toast({
         variant: "destructive",
         title: "Signup Failed",
-        description: error.message,
+        description: errorMessage,
       });
     } finally {
       setIsLoading(false);
