@@ -88,6 +88,7 @@ export default function InventoryPage() {
       form.reset();
       fetchProducts(); // Refresh the list
     } catch (error) {
+      console.error(error);
       toast({
         variant: "destructive",
         title: "Error",
