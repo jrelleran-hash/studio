@@ -82,7 +82,21 @@ export default function InventoryPage() {
   
   const onSubmit = async (data: ProductFormValues) => {
     try {
-      await addProduct(data);
+      const productData: Omit<Product, 'id'> = {
+        name: data.name,
+        sku: data.sku,
+        price: data.price,
+        stock: data.stock,
+      };
+
+      if (data.imageUrl) {
+        productData.imageUrl = data.imageUrl;
+      }
+      if (data.aiHint) {
+        productData.aiHint = data.aiHint;
+      }
+      
+      await addProduct(productData);
       toast({ title: "Success", description: "Product added successfully." });
       setIsDialogOpen(false);
       form.reset();
