@@ -35,9 +35,12 @@ import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/use-auth";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { Switch } from "@/components/ui/switch";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 
 const profileFormSchema = z.object({
   name: z.string().min(1, "Name is required."),
+  photoURL: z.string().url("Please enter a valid URL.").optional().or(z.literal('')),
+  phone: z.string().optional(),
 });
 
 type ProfileFormValues = z.infer<typeof profileFormSchema>;
@@ -52,12 +55,14 @@ export default function SettingsPage() {
     resolver: zodResolver(profileFormSchema),
     values: {
       name: user?.displayName || "",
+      photoURL: user?.photoURL || "",
+      phone: user?.phoneNumber || "",
     },
   });
 
   const onProfileSubmit = (data: ProfileFormValues) => {
     // Here you would typically update the user's profile in your backend
-    // For example: updateProfile(user, { displayName: data.name });
+    // For example: updateProfile(user, { displayName: data.name, photoURL: data.photoURL, phoneNumber: data.phone });
     console.log(data);
     toast({
       title: "Profile Updated",
@@ -90,11 +95,17 @@ export default function SettingsPage() {
         <TabsContent value="profile" className="space-y-4">
           <Card>
             <CardHeader className="flex flex-row items-start justify-between">
-              <div>
-                <CardTitle>Profile Information</CardTitle>
-                <CardDescription>
-                  Your personal details.
-                </CardDescription>
+              <div className="flex items-center gap-4">
+                 <Avatar className="h-16 w-16">
+                    <AvatarImage src={user?.photoURL || "https://picsum.photos/100"} alt={user?.email || '@user'} data-ai-hint="person face" />
+                    <AvatarFallback>{user?.email?.[0].toUpperCase() || "U"}</AvatarFallback>
+                </Avatar>
+                <div>
+                  <CardTitle>Profile Information</CardTitle>
+                  <CardDescription>
+                    Your personal details.
+                  </CardDescription>
+                </div>
               </div>
                <Dialog open={isProfileDialogOpen} onOpenChange={setIsProfileDialogOpen}>
                 <DialogTrigger asChild>
@@ -113,8 +124,18 @@ export default function SettingsPage() {
                       <Input id="name" {...profileForm.register("name")} />
                       {profileForm.formState.errors.name && <p className="text-sm text-destructive">{profileForm.formState.errors.name.message}</p>}
                     </div>
+                     <div className="space-y-2">
+                      <Label htmlFor="photoURL">Photo URL</Label>
+                      <Input id="photoURL" {...profileForm.register("photoURL")} />
+                      {profileForm.formState.errors.photoURL && <p className="text-sm text-destructive">{profileForm.formState.errors.photoURL.message}</p>}
+                    </div>
+                     <div className="space-y-2">
+                      <Label htmlFor="phone">Phone Number</Label>
+                      <Input id="phone" {...profileForm.register("phone")} />
+                      {profileForm.formState.errors.phone && <p className="text-sm text-destructive">{profileForm.formState.errors.phone.message}</p>}
+                    </div>
                      <DialogFooter>
-                      <Button variant="ghost" onClick={() => setIsProfileDialogOpen(false)}>Cancel</Button>
+                      <Button variant="ghost" type="button" onClick={() => setIsProfileDialogOpen(false)}>Cancel</Button>
                       <Button type="submit">Save Changes</Button>
                     </DialogFooter>
                   </form>
@@ -129,6 +150,10 @@ export default function SettingsPage() {
                  <div className="space-y-2">
                   <Label>Email</Label>
                   <p className="text-muted-foreground">{user?.email}</p>
+                </div>
+                <div className="space-y-2">
+                  <Label>Phone Number</Label>
+                  <p className="text-muted-foreground">{user?.phoneNumber || "Not set"}</p>
                 </div>
             </CardContent>
           </Card>
