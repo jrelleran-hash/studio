@@ -13,8 +13,8 @@ import { Button } from "../ui/button";
 import type { Product } from "@/types";
 
 const chartConfig = {
-  count: {
-    label: "Product Count",
+  quantity: {
+    label: "Total Quantity",
     color: "hsl(var(--chart-1))",
   },
 } satisfies ChartConfig;
@@ -29,14 +29,20 @@ interface InventoryStatusChartProps {
 
 export function InventoryStatusChart({ products, filter, setFilter }: InventoryStatusChartProps) {
   const chartData = useMemo(() => {
-    const inStock = products.filter(p => p.stock > 10).length;
-    const lowStock = products.filter(p => p.stock > 0 && p.stock <= 10).length;
-    const outOfStock = products.filter(p => p.stock === 0).length;
+    const inStock = products
+      .filter(p => p.stock > 10)
+      .reduce((sum, p) => sum + p.stock, 0);
+    const lowStock = products
+      .filter(p => p.stock > 0 && p.stock <= 10)
+      .reduce((sum, p) => sum + p.stock, 0);
+    const outOfStock = products
+      .filter(p => p.stock === 0)
+      .length; // Count for out of stock is more intuitive
 
     return [
-      { status: "In Stock", count: inStock },
-      { status: "Low Stock", count: lowStock },
-      { status: "Out of Stock", count: outOfStock },
+      { status: "In Stock", quantity: inStock },
+      { status: "Low Stock", quantity: lowStock },
+      { status: "Out of Stock", quantity: outOfStock },
     ];
   }, [products]);
 
@@ -47,7 +53,7 @@ export function InventoryStatusChart({ products, filter, setFilter }: InventoryS
           <XAxis dataKey="status" stroke="#888888" fontSize={10} tickLine={false} axisLine={false} interval={0} />
           <YAxis stroke="#888888" fontSize={12} tickLine={false} axisLine={false} />
           <ChartTooltip cursor={false} content={<ChartTooltipContent indicator="dot" />} />
-          <Bar dataKey="count" fill="var(--color-count)" radius={[4, 4, 0, 0]} />
+          <Bar dataKey="quantity" fill="var(--color-quantity)" radius={[4, 4, 0, 0]} />
         </BarChart>
       </ChartContainer>
        <div className="flex justify-end gap-1 mt-2">
