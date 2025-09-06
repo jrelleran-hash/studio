@@ -1,5 +1,4 @@
 
-
 "use client";
 
 import { useState, useEffect, useMemo } from "react";
@@ -49,7 +48,7 @@ import { cn } from "@/lib/utils";
 const productSchema = z.object({
   name: z.string().min(1, "Product name is required."),
   sku: z.string().min(1, "SKU is required."),
-  price: z.coerce.number().positive("Price must be a positive number."),
+  price: z.coerce.number().nonnegative("Price must be a non-negative number."),
   stock: z.coerce.number().int().nonnegative("Stock must be a non-negative integer."),
   reorderLimit: z.coerce.number().int().nonnegative("Reorder limit must be a non-negative integer."),
   location: z.string().optional(),
@@ -74,9 +73,9 @@ export default function InventoryPage() {
 
   useEffect(() => {
     // Initialize formatter on the client side to avoid SSR issues.
-    setFormatter(new Intl.NumberFormat("en-US", {
+    setFormatter(new Intl.NumberFormat("en-PH", {
       style: "currency",
-      currency: "USD",
+      currency: "PHP",
     }));
   }, []);
 
@@ -247,7 +246,10 @@ export default function InventoryPage() {
                   </div>
                    <div className="space-y-2">
                     <Label htmlFor="price">Price</Label>
-                    <Input id="price" type="number" step="0.01" {...addForm.register("price")} />
+                    <div className="relative">
+                      <span className="absolute inset-y-0 left-0 flex items-center pl-3 text-muted-foreground">₱</span>
+                      <Input id="price" type="number" step="0.01" className="pl-8" {...addForm.register("price")} />
+                    </div>
                     {addForm.formState.errors.price && <p className="text-sm text-destructive">{addForm.formState.errors.price.message}</p>}
                   </div>
                 </div>
@@ -334,7 +336,7 @@ export default function InventoryPage() {
                       </TableCell>
                       <TableCell className="font-medium">{product.name}</TableCell>
                       <TableCell>{product.sku}</TableCell>
-                      <TableCell>{formatter ? formatter.format(product.price) : `$${product.price}`}</TableCell>
+                      <TableCell>{formatter ? formatter.format(product.price) : `₱${product.price}`}</TableCell>
                       <TableCell>{product.stock}</TableCell>
                       <TableCell>
                         <Badge variant={status.variant} className={status.className}>{status.text}</Badge>
@@ -385,7 +387,10 @@ export default function InventoryPage() {
                   </div>
                    <div className="space-y-2">
                     <Label htmlFor="edit-price">Price</Label>
-                    <Input id="edit-price" type="number" step="0.01" {...editForm.register("price")} />
+                    <div className="relative">
+                      <span className="absolute inset-y-0 left-0 flex items-center pl-3 text-muted-foreground">₱</span>
+                      <Input id="edit-price" type="number" step="0.01" className="pl-8" {...editForm.register("price")} />
+                    </div>
                     {editForm.formState.errors.price && <p className="text-sm text-destructive">{editForm.formState.errors.price.message}</p>}
                   </div>
                 </div>
@@ -445,3 +450,5 @@ export default function InventoryPage() {
     </>
   );
 }
+
+    
