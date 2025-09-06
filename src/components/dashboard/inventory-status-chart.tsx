@@ -45,7 +45,7 @@ export function InventoryStatusChart({ products, filter, setFilter }: InventoryS
       <ChartContainer config={chartConfig} className="h-[100px] w-full mt-4">
         <BarChart accessibilityLayer data={chartData} margin={{ top: 10, right: 0, left: -20, bottom: 0 }}>
           <XAxis dataKey="status" stroke="#888888" fontSize={10} tickLine={false} axisLine={false} interval={0} />
-          <YAxis stroke="#888888" fontSize={12} tickLine={false} axisLine={false} allowDecimals={false} />
+          <YAxis stroke="#888888" fontSize={12} tickLine={false} axisLine={false} />
           <ChartTooltip cursor={false} content={<ChartTooltipContent indicator="dot" />} />
           <Bar dataKey="count" fill="var(--color-count)" radius={[4, 4, 0, 0]} />
         </BarChart>
