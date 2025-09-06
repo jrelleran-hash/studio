@@ -5,6 +5,9 @@ import { Button } from "@/components/ui/button";
 import {
   Sheet,
   SheetContent,
+  SheetDescription,
+  SheetHeader,
+  SheetTitle,
   SheetTrigger,
 } from "@/components/ui/sheet";
 import { SmartSearch } from "@/components/smart-search";
@@ -24,6 +27,17 @@ export function Header() {
           </Button>
         </SheetTrigger>
         <SheetContent side="left" className="flex flex-col p-0 w-64">
+          <SheetHeader className="p-4 border-b">
+            <SheetTitle>
+              <Link href="/" className="flex items-center gap-2 font-semibold font-headline">
+                <CoreFlowLogo className="h-6 w-6 text-primary" />
+                <span>CoreFlow</span>
+              </Link>
+            </SheetTitle>
+            <SheetDescription>
+              Navigate through your business management platform.
+            </SheetDescription>
+          </SheetHeader>
           <Sidebar className="flex" />
         </SheetContent>
       </Sheet>

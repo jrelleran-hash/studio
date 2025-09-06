@@ -27,7 +27,7 @@ export function Sidebar({ className }: { className?: string }) {
   return (
     <aside className={cn("flex-col border-r bg-card", className)}>
       <div className="flex h-full max-h-screen flex-col gap-2">
-        <div className="flex h-16 items-center border-b px-6">
+        <div className="hidden lg:flex h-16 items-center border-b px-6">
           <Link href="/" className="flex items-center gap-2 font-semibold font-headline">
             <CoreFlowLogo className="h-6 w-6 text-primary" />
             <span>CoreFlow</span>
