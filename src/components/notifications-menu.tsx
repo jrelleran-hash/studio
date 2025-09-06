@@ -1,7 +1,7 @@
 
 "use client";
 
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { Bell, Check } from "lucide-react";
 
 import { cn } from "@/lib/utils";
@@ -50,15 +50,6 @@ type Notification = typeof notifications[number];
 
 export function NotificationsMenu() {
   const [selectedNotification, setSelectedNotification] = useState<Notification | null>(null);
-  const [isClient, setIsClient] = useState(false);
-
-  useEffect(() => {
-    setIsClient(true);
-  }, []);
-
-  if (!isClient) {
-    return null;
-  }
 
   return (
     <>

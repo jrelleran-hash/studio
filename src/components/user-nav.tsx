@@ -12,19 +12,8 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import Link from "next/link";
-import { useEffect, useState } from "react";
 
 export function UserNav() {
-  const [isClient, setIsClient] = useState(false);
-
-  useEffect(() => {
-    setIsClient(true);
-  }, []);
-
-  if (!isClient) {
-    return null;
-  }
-  
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>

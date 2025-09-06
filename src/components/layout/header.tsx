@@ -1,5 +1,8 @@
+"use client";
+
 import Link from "next/link";
 import { Menu } from "lucide-react";
+import { useEffect, useState } from "react";
 
 import { Button } from "@/components/ui/button";
 import {
@@ -17,6 +20,12 @@ import { Sidebar } from "./sidebar";
 import { CoreFlowLogo } from "../icons";
 
 export function Header() {
+  const [isClient, setIsClient] = useState(false);
+
+  useEffect(() => {
+    setIsClient(true);
+  }, []);
+
   return (
     <header className="flex h-16 items-center gap-4 border-b bg-card px-4 md:px-6 sticky top-0 z-40">
       <Sheet>
@@ -47,8 +56,12 @@ export function Header() {
       </div>
 
       <div className="flex items-center gap-4">
-        <NotificationsMenu />
-        <UserNav />
+        {isClient && (
+          <>
+            <NotificationsMenu />
+            <UserNav />
+          </>
+        )}
       </div>
     </header>
   );
