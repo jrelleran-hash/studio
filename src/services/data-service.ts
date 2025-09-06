@@ -162,12 +162,13 @@ async function checkStockAndCreateNotification(product: Omit<Product, 'id'>, pro
     };
 
     try {
-      // Check if a recent, similar notification already exists to avoid spam.
+      // Check if a recent, unread, similar notification already exists to avoid spam.
       const notificationsCol = collection(db, "notifications");
       const fiveMinutesAgo = Timestamp.fromMillis(Date.now() - 5 * 60 * 1000);
       const q = query(
         notificationsCol, 
         where('title', '==', notification.title), 
+        where('read', '==', false),
         where('timestamp', '>', fiveMinutesAgo)
       );
       const existingNotifs = await getDocs(q);
