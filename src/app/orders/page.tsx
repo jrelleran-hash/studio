@@ -2,7 +2,11 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { PlusCircle, MoreHorizontal } from "lucide-react";
+import { useForm, useFieldArray } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
+import * as z from "zod";
+import { PlusCircle, MoreHorizontal, X } from "lucide-react";
+
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
@@ -13,11 +17,29 @@ import {
   DropdownMenuLabel,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useToast } from "@/hooks/use-toast";
-import { getOrders, updateOrderStatus } from "@/services/data-service";
-import type { Order } from "@/types";
+import { getOrders, updateOrderStatus, getCustomers, getProducts, addOrder } from "@/services/data-service";
+import type { Order, Customer, Product } from "@/types";
 
 const statusVariant: { [key: string]: "default" | "secondary" | "destructive" | "outline" } = {
   Fulfilled: "default",
@@ -26,22 +48,59 @@ const statusVariant: { [key: string]: "default" | "secondary" | "destructive" | 
   Cancelled: "destructive"
 };
 
+const orderItemSchema = z.object({
+  productId: z.string().min(1, "Product is required."),
+  quantity: z.coerce.number().min(1, "Quantity must be at least 1."),
+});
+
+const orderSchema = z.object({
+  customerId: z.string().min(1, "Customer is required."),
+  items: z.array(orderItemSchema).min(1, "At least one item is required."),
+  status: z.enum(["Processing", "Shipped", "Fulfilled", "Cancelled"]),
+});
+
+type OrderFormValues = z.infer<typeof orderSchema>;
+
 export default function OrdersPage() {
   const [orders, setOrders] = useState<Order[]>([]);
   const [loading, setLoading] = useState(true);
   const { toast } = useToast();
 
-  async function fetchOrders() {
+  const [isAddOrderOpen, setIsAddOrderOpen] = useState(false);
+  const [customers, setCustomers] = useState<Customer[]>([]);
+  const [products, setProducts] = useState<Product[]>([]);
+
+  const form = useForm<OrderFormValues>({
+    resolver: zodResolver(orderSchema),
+    defaultValues: {
+      customerId: "",
+      items: [{ productId: "", quantity: 1 }],
+      status: "Processing",
+    },
+  });
+
+  const { fields, append, remove } = useFieldArray({
+    control: form.control,
+    name: "items",
+  });
+
+  async function fetchInitialData() {
     setLoading(true);
     try {
-      const fetchedOrders = await getOrders();
+      const [fetchedOrders, fetchedCustomers, fetchedProducts] = await Promise.all([
+        getOrders(),
+        getCustomers(),
+        getProducts()
+      ]);
       setOrders(fetchedOrders);
+      setCustomers(fetchedCustomers);
+      setProducts(fetchedProducts);
     } catch (error) {
       console.error(error);
       toast({
         variant: "destructive",
         title: "Error",
-        description: "Failed to fetch orders.",
+        description: "Failed to fetch page data.",
       });
     } finally {
       setLoading(false);
@@ -49,14 +108,14 @@ export default function OrdersPage() {
   }
 
   useEffect(() => {
-    fetchOrders();
+    fetchInitialData();
   }, []);
 
   const handleStatusChange = async (orderId: string, status: Order["status"]) => {
     try {
       await updateOrderStatus(orderId, status);
       toast({ title: "Success", description: `Order marked as ${status}.` });
-      fetchOrders(); // Refresh the list
+      fetchInitialData(); // Refresh the list
     } catch (error) {
       console.error(error);
       toast({
@@ -66,6 +125,24 @@ export default function OrdersPage() {
       });
     }
   };
+
+  const onOrderSubmit = async (data: OrderFormValues) => {
+    try {
+      await addOrder(data);
+      toast({ title: "Success", description: "New order created." });
+      setIsAddOrderOpen(false);
+      form.reset();
+      fetchInitialData();
+    } catch (error) {
+       console.error(error);
+      toast({
+        variant: "destructive",
+        title: "Error",
+        description: "Failed to create order.",
+      });
+    }
+  };
+
 
   const formatCurrency = (amount: number) => {
     return new Intl.NumberFormat("en-US", {
@@ -89,10 +166,83 @@ export default function OrdersPage() {
           <CardTitle>Orders</CardTitle>
           <CardDescription>Manage all customer orders.</CardDescription>
         </div>
-         <Button size="sm" className="gap-1">
-            <PlusCircle className="h-4 w-4" />
-            Add Order
-          </Button>
+         <Dialog open={isAddOrderOpen} onOpenChange={setIsAddOrderOpen}>
+          <DialogTrigger asChild>
+            <Button size="sm" className="gap-1">
+              <PlusCircle className="h-4 w-4" />
+              Add Order
+            </Button>
+          </DialogTrigger>
+          <DialogContent className="sm:max-w-2xl">
+            <DialogHeader>
+              <DialogTitle>Create New Order</DialogTitle>
+              <DialogDescription>Fill in the details to create a new order.</DialogDescription>
+            </DialogHeader>
+            <form onSubmit={form.handleSubmit(onOrderSubmit)} className="space-y-4">
+              <div className="space-y-2">
+                <Label>Customer</Label>
+                 <Select onValueChange={(value) => form.setValue('customerId', value)} defaultValue={form.getValues('customerId')}>
+                    <SelectTrigger>
+                        <SelectValue placeholder="Select a customer" />
+                    </SelectTrigger>
+                    <SelectContent>
+                        {customers.map(c => <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>)}
+                    </SelectContent>
+                </Select>
+                {form.formState.errors.customerId && <p className="text-sm text-destructive">{form.formState.errors.customerId.message}</p>}
+              </div>
+
+              <div className="space-y-2">
+                <Label>Items</Label>
+                <div className="space-y-2">
+                  {fields.map((field, index) => (
+                    <div key={field.id} className="flex items-center gap-2">
+                      <Select onValueChange={(value) => form.setValue(`items.${index}.productId`, value)}>
+                         <SelectTrigger>
+                            <SelectValue placeholder="Select a product" />
+                        </SelectTrigger>
+                        <SelectContent>
+                            {products.map(p => <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>)}
+                        </SelectContent>
+                      </Select>
+                      <Input 
+                        type="number" 
+                        placeholder="Qty" 
+                        className="w-20"
+                        {...form.register(`items.${index}.quantity`)}
+                      />
+                      <Button variant="ghost" size="icon" onClick={() => remove(index)}>
+                        <X className="h-4 w-4" />
+                      </Button>
+                    </div>
+                  ))}
+                </div>
+                 {form.formState.errors.items && <p className="text-sm text-destructive">{form.formState.errors.items.message}</p>}
+                <Button type="button" variant="outline" size="sm" onClick={() => append({ productId: "", quantity: 1 })}>
+                  <PlusCircle className="h-4 w-4 mr-2" /> Add Item
+                </Button>
+              </div>
+              <div className="space-y-2">
+                <Label>Status</Label>
+                <Select onValueChange={(value) => form.setValue('status', value as Order['status'])} defaultValue={form.getValues('status')}>
+                    <SelectTrigger>
+                        <SelectValue placeholder="Select a status" />
+                    </SelectTrigger>
+                    <SelectContent>
+                        {(["Processing", "Shipped", "Fulfilled", "Cancelled"] as Order['status'][]).map(s => <SelectItem key={s} value={s}>{s}</SelectItem>)}
+                    </SelectContent>
+                </Select>
+              </div>
+
+              <DialogFooter>
+                <Button type="button" variant="outline" onClick={() => setIsAddOrderOpen(false)}>Cancel</Button>
+                <Button type="submit" disabled={form.formState.isSubmitting}>
+                  {form.formState.isSubmitting ? "Creating..." : "Create Order"}
+                </Button>
+              </DialogFooter>
+            </form>
+          </DialogContent>
+        </Dialog>
       </CardHeader>
       <CardContent>
         <Table>
@@ -141,7 +291,10 @@ export default function OrdersPage() {
                       <DropdownMenuContent align="end">
                         <DropdownMenuLabel>Actions</DropdownMenuLabel>
                         <DropdownMenuItem onClick={() => handleStatusChange(order.id, 'Fulfilled')}>
-                          Mark as Received
+                          Mark as Fulfilled
+                        </DropdownMenuItem>
+                         <DropdownMenuItem onClick={() => handleStatusChange(order.id, 'Shipped')}>
+                          Mark as Shipped
                         </DropdownMenuItem>
                         <DropdownMenuItem onClick={() => handleStatusChange(order.id, 'Cancelled')}>
                           Cancel Order

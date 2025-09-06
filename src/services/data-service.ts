@@ -199,3 +199,62 @@ export async function updateOrderStatus(orderId: string, status: Order['status']
     throw new Error("Failed to update order status.");
   }
 }
+
+export async function getCustomers(): Promise<Customer[]> {
+  try {
+    const customersCol = collection(db, "customers");
+    const q = query(customersCol, orderBy("name", "asc"));
+    const customerSnapshot = await getDocs(q);
+    return customerSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Customer));
+  } catch (error) {
+    console.error("Error fetching customers:", error);
+    return [];
+  }
+}
+
+type NewOrderData = {
+  customerId: string;
+  items: { productId: string; quantity: number }[];
+  status: Order['status'];
+};
+
+export async function addOrder(orderData: NewOrderData): Promise<DocumentReference> {
+  try {
+    // 1. Fetch product details to calculate total
+    let total = 0;
+    const resolvedItems = await Promise.all(
+      orderData.items.map(async (item) => {
+        const productRef = doc(db, "products", item.productId);
+        const productDoc = await getDoc(productRef);
+        if (!productDoc.exists()) {
+          throw new Error(`Product with ID ${item.productId} not found.`);
+        }
+        const productData = productDoc.data() as Product;
+        total += productData.price * item.quantity;
+        return {
+          productRef: productRef,
+          quantity: item.quantity,
+          price: productData.price, // Store price at time of order
+        };
+      })
+    );
+
+    // 2. Create the new order object
+    const newOrder = {
+      customerRef: doc(db, "customers", orderData.customerId),
+      date: Timestamp.now(),
+      items: resolvedItems,
+      status: orderData.status,
+      total: total,
+    };
+
+    // 3. Add the order to Firestore
+    const ordersCol = collection(db, "orders");
+    const docRef = await addDoc(ordersCol, newOrder);
+    return docRef;
+
+  } catch (error) {
+    console.error("Error adding order:", error);
+    throw new Error("Failed to add order.");
+  }
+}
