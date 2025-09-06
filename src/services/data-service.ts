@@ -1,6 +1,6 @@
 
 import { db } from "@/lib/firebase";
-import { collection, getDocs, getDoc, doc, orderBy, query, limit, Timestamp, where, DocumentReference } from "firebase/firestore";
+import { collection, getDocs, getDoc, doc, orderBy, query, limit, Timestamp, where, DocumentReference, addDoc } from "firebase/firestore";
 import type { Activity, Notification, Order, Product, Customer } from "@/types";
 
 function timeSince(date: Date) {
@@ -128,4 +128,28 @@ export async function getRecentOrders(count: number): Promise<Order[]> {
         console.error("Error fetching recent orders:", error);
         return [];
     }
+}
+
+
+export async function getProducts(): Promise<Product[]> {
+    try {
+        const productsCol = collection(db, "products");
+        const q = query(productsCol, orderBy("name", "asc"));
+        const productSnapshot = await getDocs(q);
+        return productSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Product));
+    } catch (error) {
+        console.error("Error fetching products:", error);
+        return [];
+    }
+}
+
+export async function addProduct(product: Omit<Product, 'id'>): Promise<DocumentReference> {
+  try {
+    const productsCol = collection(db, "products");
+    const docRef = await addDoc(productsCol, product);
+    return docRef;
+  } catch (error) {
+    console.error("Error adding product:", error);
+    throw new Error("Failed to add product.");
+  }
 }
