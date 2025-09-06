@@ -18,3 +18,22 @@ export function CoreFlowLogo(props: SVGProps<SVGSVGElement>) {
     </svg>
   );
 }
+
+export function PesoSign(props: SVGProps<SVGSVGElement>) {
+  return (
+    <svg
+      xmlns="http://www.w3.org/2000/svg"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      {...props}
+    >
+        <path d="M8 19V5h6a4 4 0 0 1 0 8H8" />
+        <path d="M8 12h6" />
+        <path d="M8 9h6" />
+    </svg>
+  );
+}

@@ -8,13 +8,14 @@ import { LowStockItems } from "@/components/dashboard/low-stock-items";
 import { ActiveOrders } from "@/components/dashboard/active-orders";
 import { RevenueChart, chartData, type FilterType } from "@/components/dashboard/revenue-chart";
 import { InventoryStatusChart, type InventoryFilterType } from "@/components/dashboard/inventory-status-chart";
-import { DollarSign, Package, ShoppingCart, Users } from "lucide-react";
+import { Package, ShoppingCart, Users } from "lucide-react";
 import { useAuth } from "@/hooks/use-auth";
 import { useRouter } from "next/navigation";
 import { useEffect, useState, useMemo } from "react";
 import { getProducts } from "@/services/data-service";
 import type { Product } from "@/types";
 import { formatCurrency } from "@/lib/currency";
+import { PesoSign } from "@/components/icons";
 
 export default function DashboardPage() {
   const { user, loading: authLoading } = useAuth();
@@ -108,7 +109,7 @@ export default function DashboardPage() {
           title={revenueTitle}
           value={totalRevenue}
           change={revenueChangeText}
-          icon={<DollarSign className="size-5 text-primary" />}
+          icon={<PesoSign className="size-5 text-primary" />}
         >
            <RevenueChart filter={revenueFilter} setFilter={setRevenueFilter} />
         </KpiCard>
