@@ -30,6 +30,7 @@ export interface Customer {
 export interface ProductHistory {
     date: string; // YYYY-MM-DD
     stock: number;
+    dateUpdated: Timestamp;
 }
 
 export interface Product {
@@ -41,6 +42,7 @@ export interface Product {
     reorderLimit: number;
     location?: string;
     history?: ProductHistory[];
+    lastUpdated?: Timestamp;
 }
 
 export interface OrderItem {

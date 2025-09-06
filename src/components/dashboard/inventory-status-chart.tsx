@@ -1,5 +1,4 @@
 
-
 "use client";
 
 import { Bar, BarChart, ResponsiveContainer, XAxis, YAxis } from "recharts";
@@ -11,8 +10,8 @@ import {
   ChartTooltipContent,
 } from "@/components/ui/chart";
 import { Button } from "../ui/button";
-import type { Product } from "@/types";
-import { subDays, format, parseISO } from 'date-fns';
+import type { Product, ProductHistory } from "@/types";
+import { subDays, format, parseISO, startOfDay } from 'date-fns';
 
 
 const chartConfig = {
@@ -52,7 +51,7 @@ const getStatusForProduct = (product: Product, stockLevel?: number) => {
 export function InventoryStatusChart({ products, filter, setFilter }: InventoryStatusChartProps) {
   
   const { summaryData, historicalData } = useMemo(() => {
-    const today = new Date();
+    const today = startOfDay(new Date());
     const last7Days = Array.from({ length: 7 }).map((_, i) => format(subDays(today, i), 'yyyy-MM-dd')).reverse();
 
     // Summary data for 'all' view
@@ -69,28 +68,31 @@ export function InventoryStatusChart({ products, filter, setFilter }: InventoryS
     ];
 
     // Historical data for filtered views
-    const historical = last7Days.map(date => {
+    const historical = last7Days.map(dateStr => {
         const dailyTotals = { "in-stock": 0, "low-stock": 0, "out-of-stock": 0 };
         
         products.forEach(p => {
-            const historyEntry = p.history?.find(h => h.date === date);
-            // Only consider products that have a history entry for the specific date
-            if (historyEntry) {
-                const stock = historyEntry.stock;
-                const status = getStatusForProduct(p, stock);
+            // Find the most recent history entry for this product on or before the given date
+            const relevantHistory = p.history
+                ?.map(h => ({...h, dateUpdated: h.dateUpdated.toDate()}))
+                .filter(h => h.dateUpdated <= endOfDay(parseISO(dateStr)))
+                .sort((a, b) => b.dateUpdated.getTime() - a.dateUpdated.getTime());
+            
+            const stockOnDate = relevantHistory && relevantHistory.length > 0 ? relevantHistory[0].stock : p.history?.[0]?.stock ?? p.stock;
 
-                if (status === 'out-of-stock') {
-                    dailyTotals['out-of-stock']++; // Count of items
-                } else if (status === 'low-stock') {
-                    dailyTotals['low-stock'] += stock; // Sum of stock
-                } else if (status === 'in-stock') {
-                    dailyTotals['in-stock'] += stock; // Sum of stock
-                }
+            const status = getStatusForProduct(p, stockOnDate);
+
+            if (status === 'out-of-stock') {
+                dailyTotals['out-of-stock']++; // Count of items
+            } else if (status === 'low-stock') {
+                dailyTotals['low-stock'] += stockOnDate; // Sum of stock
+            } else if (status === 'in-stock') {
+                dailyTotals['in-stock'] += stockOnDate; // Sum of stock
             }
         });
 
         return {
-            date: format(parseISO(date), 'MMM d'),
+            date: format(parseISO(dateStr), 'MMM d'),
             "in-stock": dailyTotals["in-stock"],
             "low-stock": dailyTotals["low-stock"],
             "out-of-stock": dailyTotals["out-of-stock"],
@@ -159,6 +161,13 @@ export function InventoryStatusChart({ products, filter, setFilter }: InventoryS
         />
       </BarChart>
     )
+  }
+
+  // Helper function to get the end of a day
+  const endOfDay = (date: Date) => {
+    const end = new Date(date);
+    end.setHours(23, 59, 59, 999);
+    return end;
   }
 
   return (

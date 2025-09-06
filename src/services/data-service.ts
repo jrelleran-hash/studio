@@ -2,8 +2,9 @@
 
 
 
+
 import { db } from "@/lib/firebase";
-import { collection, getDocs, getDoc, doc, orderBy, query, limit, Timestamp, where, DocumentReference, addDoc, updateDoc, deleteDoc } from "firebase/firestore";
+import { collection, getDocs, getDoc, doc, orderBy, query, limit, Timestamp, where, DocumentReference, addDoc, updateDoc, deleteDoc, arrayUnion } from "firebase/firestore";
 import type { Activity, Notification, Order, Product, Customer } from "@/types";
 import { format, subDays } from 'date-fns';
 
@@ -139,18 +140,6 @@ export async function getRecentOrders(count: number): Promise<Order[]> {
     }
 }
 
-// Helper to generate mock historical data for the last 7 days
-const generateMockHistory = (currentStock: number) => {
-    const history = [];
-    const today = new Date();
-    for (let i = 0; i < 7; i++) {
-        const date = subDays(today, i);
-        // Simulate some stock fluctuation
-        const stock = Math.max(0, currentStock + Math.floor(Math.random() * 10) - 5);
-        history.push({ date: format(date, 'yyyy-MM-dd'), stock });
-    }
-    return history;
-};
 
 export async function getProducts(): Promise<Product[]> {
     try {
@@ -159,10 +148,6 @@ export async function getProducts(): Promise<Product[]> {
         const productSnapshot = await getDocs(q);
         return productSnapshot.docs.map(doc => {
             const data = doc.data() as Product;
-            // Add mock history if it doesn't exist, for demonstration purposes
-            if (!data.history) {
-                data.history = generateMockHistory(data.stock);
-            }
             return { id: doc.id, ...data };
         });
     } catch (error) {
@@ -206,8 +191,21 @@ async function checkStockAndCreateNotification(product: Omit<Product, 'id'>, pro
 
 export async function addProduct(product: Omit<Product, 'id'>): Promise<DocumentReference> {
   try {
+    const now = Timestamp.now();
+    const newHistoryEntry = {
+        date: format(now.toDate(), 'yyyy-MM-dd'),
+        stock: product.stock,
+        dateUpdated: now,
+    };
+
+    const productWithHistory = {
+        ...product,
+        lastUpdated: now,
+        history: [newHistoryEntry]
+    };
+
     const productsCol = collection(db, "inventory");
-    const docRef = await addDoc(productsCol, product);
+    const docRef = await addDoc(productsCol, productWithHistory);
     await checkStockAndCreateNotification(product, docRef.id);
     return docRef;
   } catch (error) {
@@ -219,11 +217,28 @@ export async function addProduct(product: Omit<Product, 'id'>): Promise<Document
 export async function updateProduct(productId: string, productData: Partial<Omit<Product, 'id'>>): Promise<void> {
   try {
     const productRef = doc(db, "inventory", productId);
-    await updateDoc(productRef, productData);
+    const originalDoc = await getDoc(productRef);
+    const originalData = originalDoc.data() as Product | undefined;
+
+    const now = Timestamp.now();
+    const updatePayload: any = { ...productData, lastUpdated: now };
+
+    // If stock is being updated, add a new history entry
+    if (productData.stock !== undefined && productData.stock !== originalData?.stock) {
+        const newHistoryEntry = {
+            date: format(now.toDate(), 'yyyy-MM-dd'),
+            stock: productData.stock,
+            dateUpdated: now
+        };
+        updatePayload.history = arrayUnion(newHistoryEntry);
+    }
+
+
+    await updateDoc(productRef, updatePayload);
 
     const updatedDoc = await getDoc(productRef);
     if(updatedDoc.exists()) {
-        const fullProduct = { ...updatedDoc.data() as Omit<Product, 'id' | 'id'>, id: productId };
+        const fullProduct = updatedDoc.data() as Product;
         await checkStockAndCreateNotification(fullProduct, productId);
     }
     
