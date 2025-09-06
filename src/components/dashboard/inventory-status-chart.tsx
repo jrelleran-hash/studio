@@ -2,7 +2,7 @@
 
 "use client";
 
-import { Bar, BarChart, ResponsiveContainer, XAxis, YAxis, Line, LineChart } from "recharts";
+import { Bar, BarChart, ResponsiveContainer, XAxis, YAxis } from "recharts";
 import { useMemo } from "react";
 import {
   ChartConfig,
@@ -29,7 +29,7 @@ const chartConfig = {
     color: "hsl(var(--chart-2))",
   },
   outOfStock: {
-    label: "Out of Stock",
+    label: "Out of Stock (Items)",
     color: "hsl(var(--destructive))",
   },
 } satisfies ChartConfig;
@@ -64,7 +64,7 @@ export function InventoryStatusChart({ products, filter, setFilter }: InventoryS
     const summaryChartData = [
         { status: "In Stock", quantity: summary['in-stock'] },
         { status: "Low Stock", quantity: summary['low-stock'] },
-        { status: "Out of Stock", quantity: summary['out-of-stock'] },
+        { status: "Out of Stock (Items)", quantity: summary['out-of-stock'] },
     ];
 
 
@@ -74,20 +74,22 @@ export function InventoryStatusChart({ products, filter, setFilter }: InventoryS
         
         products.forEach(p => {
             const historyEntry = p.history?.find(h => h.date === date);
-            const stock = historyEntry ? historyEntry.stock : p.stock; // fallback to current stock if no history for that day
+            const stock = historyEntry ? historyEntry.stock : p.stock;
 
             if (stock === 0) {
-                 dailyTotals['out-of-stock']++;
+                 dailyTotals['out-of-stock']++; // Count of items
             } else if (stock <= p.reorderLimit) {
-                 dailyTotals['low-stock'] += stock;
+                 dailyTotals['low-stock'] += stock; // Sum of stock
             } else {
-                 dailyTotals['in-stock'] += stock;
+                 dailyTotals['in-stock'] += stock; // Sum of stock
             }
         });
 
         return {
             date: format(parseISO(date), 'MMM d'),
-            ...dailyTotals
+            "in-stock": dailyTotals["in-stock"],
+            "low-stock": dailyTotals["low-stock"],
+            "out-of-stock": dailyTotals["out-of-stock"],
         };
     });
 
@@ -98,11 +100,25 @@ export function InventoryStatusChart({ products, filter, setFilter }: InventoryS
   const renderChart = () => {
     if (filter === 'all') {
       return (
-         <BarChart accessibilityLayer data={summaryData} margin={{ top: 10, right: 0, left: -20, bottom: 0 }}>
-          <XAxis dataKey="status" stroke="#888888" fontSize={10} tickLine={false} axisLine={false} interval={0} />
-          <YAxis stroke="#888888" fontSize={12} tickLine={false} axisLine={false} />
+         <BarChart 
+            accessibilityLayer 
+            data={summaryData} 
+            margin={{ top: 10, right: 0, left: -20, bottom: 0 }}
+            layout="vertical"
+          >
+          <YAxis 
+            dataKey="status" 
+            type="category"
+            stroke="#888888" 
+            fontSize={9} 
+            tickLine={false} 
+            axisLine={false} 
+            interval={0} 
+            width={80}
+           />
+          <XAxis type="number" stroke="#888888" fontSize={12} tickLine={false} axisLine={false} />
           <ChartTooltip cursor={false} content={<ChartTooltipContent indicator="dot" />} />
-          <Bar dataKey="quantity" fill="var(--color-quantity)" radius={[4, 4, 0, 0]} />
+          <Bar dataKey="quantity" fill="var(--color-quantity)" radius={[0, 4, 4, 0]} />
         </BarChart>
       )
     }
@@ -110,7 +126,7 @@ export function InventoryStatusChart({ products, filter, setFilter }: InventoryS
     const dataKey = filter.replace('-', '') as keyof typeof chartConfig;
 
     return (
-       <LineChart
+       <BarChart
         accessibilityLayer
         data={historicalData}
         margin={{ top: 10, right: 10, left: -20, bottom: 0 }}
@@ -124,15 +140,20 @@ export function InventoryStatusChart({ products, filter, setFilter }: InventoryS
           interval={1}
         />
         <YAxis stroke="#888888" fontSize={12} tickLine={false} axisLine={false} />
-        <ChartTooltip cursor={false} content={<ChartTooltipContent />} />
-        <Line
-          type="monotone"
-          dataKey={filter}
-          stroke={`var(--color-${dataKey})`}
-          strokeWidth={2}
-          dot={false}
+        <ChartTooltip 
+          cursor={false} 
+          content={<ChartTooltipContent 
+            labelKey="date" 
+            nameKey={filter} 
+            formatter={(value, name) => [`${value}`, chartConfig[name as keyof typeof chartConfig]?.label]}
+          />} 
         />
-      </LineChart>
+        <Bar
+          dataKey={filter}
+          fill={`var(--color-${dataKey})`}
+          radius={[4, 4, 0, 0]}
+        />
+      </BarChart>
     )
   }
 
