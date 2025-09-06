@@ -27,11 +27,21 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useToast } from "@/hooks/use-toast";
-import { getCustomers, addCustomer, updateCustomer } from "@/services/data-service";
+import { getCustomers, addCustomer, updateCustomer, deleteCustomer } from "@/services/data-service";
 import { importCustomersAction } from "@/app/actions";
 import type { Customer } from "@/types";
 
@@ -52,6 +62,8 @@ export default function CustomersPage() {
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
   const [editingCustomer, setEditingCustomer] = useState<Customer | null>(null);
   const [isImporting, setIsImporting] = useState(false);
+  const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
+  const [deletingCustomerId, setDeletingCustomerId] = useState<string | null>(null);
   const { toast } = useToast();
   const [sheetLink, setSheetLink] = useState("");
 
@@ -166,6 +178,31 @@ export default function CustomersPage() {
     setEditingCustomer(customer);
     setIsEditDialogOpen(true);
   };
+  
+  const handleDeleteClick = (customerId: string) => {
+    setDeletingCustomerId(customerId);
+    setIsDeleteDialogOpen(true);
+  };
+
+  const handleDeleteConfirm = async () => {
+    if (!deletingCustomerId) return;
+    try {
+      await deleteCustomer(deletingCustomerId);
+      toast({ title: "Success", description: "Customer deleted successfully." });
+      fetchCustomers();
+    } catch (error) {
+      console.error(error);
+      toast({
+        variant: "destructive",
+        title: "Error",
+        description: "Failed to delete customer. Please try again.",
+      });
+    } finally {
+      setIsDeleteDialogOpen(false);
+      setDeletingCustomerId(null);
+    }
+  };
+
 
   return (
     <>
@@ -299,7 +336,7 @@ export default function CustomersPage() {
                       <DropdownMenuContent align="end">
                         <DropdownMenuLabel>Actions</DropdownMenuLabel>
                         <DropdownMenuItem onClick={() => handleEditClick(customer)}>Edit</DropdownMenuItem>
-                        <DropdownMenuItem>Delete</DropdownMenuItem>
+                        <DropdownMenuItem onClick={() => handleDeleteClick(customer.id)} className="text-destructive">Delete</DropdownMenuItem>
                       </DropdownMenuContent>
                     </DropdownMenu>
                   </TableCell>
@@ -349,6 +386,24 @@ export default function CustomersPage() {
             </DialogContent>
           </Dialog>
     )}
+    
+    <AlertDialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
+      <AlertDialogContent>
+        <AlertDialogHeader>
+          <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
+          <AlertDialogDescription>
+            This action cannot be undone. This will permanently delete this
+            customer from your records.
+          </AlertDialogDescription>
+        </AlertDialogHeader>
+        <AlertDialogFooter>
+          <AlertDialogCancel>Cancel</AlertDialogCancel>
+          <AlertDialogAction onClick={handleDeleteConfirm} className={buttonVariants({ variant: "destructive" })}>
+            Delete
+          </AlertDialogAction>
+        </AlertDialogFooter>
+      </AlertDialogContent>
+    </AlertDialog>
     </>
   );
 }

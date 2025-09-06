@@ -1,7 +1,7 @@
 
 
 import { db } from "@/lib/firebase";
-import { collection, getDocs, getDoc, doc, orderBy, query, limit, Timestamp, where, DocumentReference, addDoc, updateDoc } from "firebase/firestore";
+import { collection, getDocs, getDoc, doc, orderBy, query, limit, Timestamp, where, DocumentReference, addDoc, updateDoc, deleteDoc } from "firebase/firestore";
 import type { Activity, Notification, Order, Product, Customer } from "@/types";
 
 function timeSince(date: Date) {
@@ -231,6 +231,16 @@ export async function updateCustomer(customerId: string, customerData: Partial<O
   } catch (error) {
     console.error("Error updating customer:", error);
     throw new Error("Failed to update customer.");
+  }
+}
+
+export async function deleteCustomer(customerId: string): Promise<void> {
+  try {
+    const customerRef = doc(db, "customers", customerId);
+    await deleteDoc(customerRef);
+  } catch (error) {
+    console.error("Error deleting customer:", error);
+    throw new Error("Failed to delete customer.");
   }
 }
 
