@@ -105,7 +105,7 @@ export default function InventoryPage() {
 
    const getStatus = (product: Product): { text: string; variant: "default" | "secondary" | "destructive", className?: string } => {
     if (product.stock === 0) return { text: "Out of Stock", variant: "destructive", className: "font-semibold" };
-    if (product.stock <= product.reorderLimit) return { text: "Low Stock", variant: "destructive" };
+    if (product.stock <= product.reorderLimit) return { text: "Low Stock", variant: "secondary", className: "bg-destructive/20 text-destructive-foreground border-destructive/30" };
     return { text: "In Stock", variant: "default" };
   };
 
