@@ -94,7 +94,7 @@ export default function SettingsPage() {
 
         <TabsContent value="profile" className="space-y-4">
           <Card>
-            <CardHeader className="flex flex-row items-start justify-between">
+            <CardHeader className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4">
               <div className="flex items-center gap-4">
                  <Avatar className="h-16 w-16">
                     <AvatarImage src={user?.photoURL || "https://picsum.photos/100"} alt={user?.email || '@user'} data-ai-hint="person face" />
@@ -109,7 +109,7 @@ export default function SettingsPage() {
               </div>
                <Dialog open={isProfileDialogOpen} onOpenChange={setIsProfileDialogOpen}>
                 <DialogTrigger asChild>
-                  <Button variant="outline">Edit Profile</Button>
+                  <Button variant="outline" className="w-full sm:w-auto">Edit Profile</Button>
                 </DialogTrigger>
                 <DialogContent>
                   <DialogHeader>
@@ -168,8 +168,8 @@ export default function SettingsPage() {
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-6">
-                <div className="flex items-center justify-between">
-                    <div>
+                <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+                    <div className="space-y-1">
                         <Label htmlFor="theme">Theme</Label>
                         <p className="text-sm text-muted-foreground">Select the theme for the dashboard.</p>
                     </div>
@@ -189,22 +189,22 @@ export default function SettingsPage() {
             </CardHeader>
             <CardContent className="space-y-6">
                <form onSubmit={onNotificationsSubmit} className="space-y-6 max-w-lg">
-                  <div className="flex items-center justify-between p-4 rounded-lg border">
-                      <div>
+                  <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 p-4 rounded-lg border">
+                      <div className="space-y-1">
                           <Label htmlFor="order-emails">New Orders</Label>
                           <p className="text-sm text-muted-foreground">Receive an email for every new order.</p>
                       </div>
                       <Switch id="order-emails" defaultChecked />
                   </div>
-                   <div className="flex items-center justify-between p-4 rounded-lg border">
-                      <div>
+                   <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 p-4 rounded-lg border">
+                      <div className="space-y-1">
                           <Label htmlFor="stock-emails">Low Stock Alerts</Label>
                           <p className="text-sm text-muted-foreground">Get notified when product stock is low.</p>
                       </div>
                       <Switch id="stock-emails" defaultChecked />
                   </div>
-                   <div className="flex items-center justify-between p-4 rounded-lg border">
-                      <div>
+                   <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 p-4 rounded-lg border">
+                      <div className="space-y-1">
                           <Label htmlFor="activity-digest">Weekly Activity Digest</Label>
                           <p className="text-sm text-muted-foreground">Receive a weekly summary of all activity.</p>
                       </div>
