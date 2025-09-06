@@ -1,6 +1,6 @@
 
 import { db } from "@/lib/firebase";
-import { collection, getDocs, getDoc, doc, orderBy, query, limit, Timestamp, where, DocumentReference, addDoc } from "firebase/firestore";
+import { collection, getDocs, getDoc, doc, orderBy, query, limit, Timestamp, where, DocumentReference, addDoc, updateDoc } from "firebase/firestore";
 import type { Activity, Notification, Order, Product, Customer } from "@/types";
 
 function timeSince(date: Date) {
@@ -151,5 +151,51 @@ export async function addProduct(product: Omit<Product, 'id'>): Promise<Document
   } catch (error) {
     console.error("Error adding product:", error);
     throw new Error("Failed to add product.");
+  }
+}
+
+export async function getOrders(): Promise<Order[]> {
+    try {
+        const ordersCol = collection(db, "orders");
+        const q = query(ordersCol, orderBy("date", "desc"));
+        const orderSnapshot = await getDocs(q);
+        
+        const orders: Order[] = await Promise.all(orderSnapshot.docs.map(async (orderDoc) => {
+            const orderData = orderDoc.data();
+            const customer = await resolveDoc<Customer>(orderData.customerRef);
+            
+            const items = await Promise.all(orderData.items.map(async (item: any) => {
+                const product = await resolveDoc<Product>(item.productRef);
+                return {
+                    quantity: item.quantity,
+                    price: item.price,
+                    product: product,
+                };
+            }));
+            
+            return {
+                id: orderDoc.id,
+                date: (orderData.date as Timestamp).toDate(),
+                status: orderData.status,
+                total: orderData.total,
+                customer,
+                items,
+            };
+        }));
+
+        return orders;
+    } catch (error) {
+        console.error("Error fetching orders:", error);
+        return [];
+    }
+}
+
+export async function updateOrderStatus(orderId: string, status: Order['status']): Promise<void> {
+  try {
+    const orderRef = doc(db, "orders", orderId);
+    await updateDoc(orderRef, { status });
+  } catch (error) {
+    console.error("Error updating order status:", error);
+    throw new Error("Failed to update order status.");
   }
 }
