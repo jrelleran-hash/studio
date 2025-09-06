@@ -31,7 +31,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useToast } from "@/hooks/use-toast";
-import { getCustomers, addCustomer } from "@/services/data-service";
+import { getCustomers, addCustomer, updateCustomer } from "@/services/data-service";
 import { importCustomersAction } from "@/app/actions";
 import type { Customer } from "@/types";
 
@@ -49,6 +49,8 @@ export default function CustomersPage() {
   const [loading, setLoading] = useState(true);
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
   const [isImportDialogOpen, setIsImportDialogOpen] = useState(false);
+  const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
+  const [editingCustomer, setEditingCustomer] = useState<Customer | null>(null);
   const [isImporting, setIsImporting] = useState(false);
   const { toast } = useToast();
   const [sheetLink, setSheetLink] = useState("");
@@ -61,6 +63,10 @@ export default function CustomersPage() {
       boqNumber: "",
       address: "",
     },
+  });
+
+  const editForm = useForm<CustomerFormValues>({
+    resolver: zodResolver(customerSchema),
   });
 
   async function fetchCustomers() {
@@ -82,8 +88,15 @@ export default function CustomersPage() {
   useEffect(() => {
     fetchCustomers();
   }, []);
+  
+  useEffect(() => {
+    if (editingCustomer) {
+      editForm.reset(editingCustomer);
+    }
+  }, [editingCustomer, editForm]);
 
-  const onSubmit = async (data: CustomerFormValues) => {
+
+  const onAddSubmit = async (data: CustomerFormValues) => {
     try {
       await addCustomer(data);
       toast({ title: "Success", description: "Customer added successfully." });
@@ -96,6 +109,24 @@ export default function CustomersPage() {
         variant: "destructive",
         title: "Error",
         description: "Failed to add customer. Please try again.",
+      });
+    }
+  };
+
+  const onEditSubmit = async (data: CustomerFormValues) => {
+    if (!editingCustomer) return;
+    try {
+      await updateCustomer(editingCustomer.id, data);
+      toast({ title: "Success", description: "Customer updated successfully." });
+      setIsEditDialogOpen(false);
+      setEditingCustomer(null);
+      fetchCustomers();
+    } catch (error) {
+       console.error(error);
+       toast({
+        variant: "destructive",
+        title: "Error",
+        description: "Failed to update customer. Please try again.",
       });
     }
   };
@@ -130,8 +161,14 @@ export default function CustomersPage() {
       });
     }
   };
+  
+  const handleEditClick = (customer: Customer) => {
+    setEditingCustomer(customer);
+    setIsEditDialogOpen(true);
+  };
 
   return (
+    <>
     <Card>
       <CardHeader className="flex flex-row items-start justify-between">
         <div>
@@ -188,7 +225,7 @@ export default function CustomersPage() {
                 <DialogTitle>Add New Customer</DialogTitle>
                 <DialogDescription>Fill in the details for the new customer.</DialogDescription>
               </DialogHeader>
-              <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+              <form onSubmit={form.handleSubmit(onAddSubmit)} className="space-y-4">
                 <div className="space-y-2">
                   <Label htmlFor="projectName">Project Name</Label>
                   <Input id="projectName" {...form.register("projectName")} />
@@ -261,7 +298,7 @@ export default function CustomersPage() {
                       </DropdownMenuTrigger>
                       <DropdownMenuContent align="end">
                         <DropdownMenuLabel>Actions</DropdownMenuLabel>
-                        <DropdownMenuItem>Edit</DropdownMenuItem>
+                        <DropdownMenuItem onClick={() => handleEditClick(customer)}>Edit</DropdownMenuItem>
                         <DropdownMenuItem>Delete</DropdownMenuItem>
                       </DropdownMenuContent>
                     </DropdownMenu>
@@ -273,5 +310,45 @@ export default function CustomersPage() {
         </Table>
       </CardContent>
     </Card>
+      
+    {editingCustomer && (
+        <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
+            <DialogContent className="sm:max-w-md">
+              <DialogHeader>
+                <DialogTitle>Edit Customer</DialogTitle>
+                <DialogDescription>Update the details for {editingCustomer.clientName}.</DialogDescription>
+              </DialogHeader>
+              <form onSubmit={editForm.handleSubmit(onEditSubmit)} className="space-y-4">
+                <div className="space-y-2">
+                  <Label htmlFor="edit-projectName">Project Name</Label>
+                  <Input id="edit-projectName" {...editForm.register("projectName")} />
+                  {editForm.formState.errors.projectName && <p className="text-sm text-destructive">{editForm.formState.errors.projectName.message}</p>}
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="edit-clientName">Client Name</Label>
+                  <Input id="edit-clientName" {...editForm.register("clientName")} />
+                  {editForm.formState.errors.clientName && <p className="text-sm text-destructive">{editForm.formState.errors.clientName.message}</p>}
+                </div>
+                 <div className="space-y-2">
+                  <Label htmlFor="edit-boqNumber">BOQ Number</Label>
+                  <Input id="edit-boqNumber" {...editForm.register("boqNumber")} />
+                  {editForm.formState.errors.boqNumber && <p className="text-sm text-destructive">{editForm.formState.errors.boqNumber.message}</p>}
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="edit-address">Address</Label>
+                  <Input id="edit-address" {...editForm.register("address")} />
+                  {editForm.formState.errors.address && <p className="text-sm text-destructive">{editForm.formState.errors.address.message}</p>}
+                </div>
+                <DialogFooter>
+                  <Button type="button" variant="outline" onClick={() => setIsEditDialogOpen(false)}>Cancel</Button>
+                  <Button type="submit" disabled={editForm.formState.isSubmitting}>
+                    {editForm.formState.isSubmitting ? "Saving..." : "Save Changes"}
+                  </Button>
+                </DialogFooter>
+              </form>
+            </DialogContent>
+          </Dialog>
+    )}
+    </>
   );
 }

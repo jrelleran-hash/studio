@@ -1,4 +1,5 @@
 
+
 import { db } from "@/lib/firebase";
 import { collection, getDocs, getDoc, doc, orderBy, query, limit, Timestamp, where, DocumentReference, addDoc, updateDoc } from "firebase/firestore";
 import type { Activity, Notification, Order, Product, Customer } from "@/types";
@@ -220,6 +221,16 @@ export async function addCustomer(customer: Omit<Customer, 'id'>): Promise<Docum
   } catch (error) {
     console.error("Error adding customer:", error);
     throw new Error("Failed to add customer.");
+  }
+}
+
+export async function updateCustomer(customerId: string, customerData: Partial<Omit<Customer, 'id'>>): Promise<void> {
+  try {
+    const customerRef = doc(db, "customers", customerId);
+    await updateDoc(customerRef, customerData);
+  } catch (error) {
+    console.error("Error updating customer:", error);
+    throw new Error("Failed to update customer.");
   }
 }
 
