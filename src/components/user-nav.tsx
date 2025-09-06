@@ -15,6 +15,7 @@ import {
 import Link from "next/link";
 import { useAuth } from "@/hooks/use-auth";
 import { useEffect, useState } from "react";
+import { ThemeToggle } from "./theme-toggle";
 
 export function UserNav() {
   const { user, logout } = useAuth();
@@ -61,6 +62,13 @@ export function UserNav() {
         <DropdownMenuSeparator />
         <DropdownMenuItem onClick={logout}>
           Log out
+        </DropdownMenuItem>
+        <DropdownMenuSeparator />
+        <DropdownMenuItem onSelect={(e) => e.preventDefault()}>
+          <div className="flex items-center justify-between w-full">
+            <span>Theme</span>
+            <ThemeToggle />
+          </div>
         </DropdownMenuItem>
       </DropdownMenuContent>
     </DropdownMenu>
