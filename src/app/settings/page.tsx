@@ -1,6 +1,7 @@
 
 "use client";
 
+import { useState } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
@@ -19,17 +20,24 @@ import {
   TabsList,
   TabsTrigger,
 } from "@/components/ui/tabs";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/use-auth";
-import { Separator } from "@/components/ui/separator";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { Switch } from "@/components/ui/switch";
 
 const profileFormSchema = z.object({
   name: z.string().min(1, "Name is required."),
-  email: z.string().email(),
 });
 
 type ProfileFormValues = z.infer<typeof profileFormSchema>;
@@ -37,22 +45,25 @@ type ProfileFormValues = z.infer<typeof profileFormSchema>;
 export default function SettingsPage() {
   const { user } = useAuth();
   const { toast } = useToast();
+  const [isProfileDialogOpen, setIsProfileDialogOpen] = useState(false);
 
+  // We can use the user's current display name for the form default value
   const profileForm = useForm<ProfileFormValues>({
     resolver: zodResolver(profileFormSchema),
-    defaultValues: {
+    values: {
       name: user?.displayName || "",
-      email: user?.email || "",
     },
   });
 
   const onProfileSubmit = (data: ProfileFormValues) => {
     // Here you would typically update the user's profile in your backend
+    // For example: updateProfile(user, { displayName: data.name });
     console.log(data);
     toast({
       title: "Profile Updated",
       description: "Your profile information has been saved.",
     });
+    setIsProfileDialogOpen(false); // Close the dialog on successful submission
   };
   
   const onNotificationsSubmit = (data: any) => {
@@ -78,26 +89,47 @@ export default function SettingsPage() {
 
         <TabsContent value="profile" className="space-y-4">
           <Card>
-            <CardHeader>
-              <CardTitle>Profile Information</CardTitle>
-              <CardDescription>
-                Update your personal details.
-              </CardDescription>
+            <CardHeader className="flex flex-row items-start justify-between">
+              <div>
+                <CardTitle>Profile Information</CardTitle>
+                <CardDescription>
+                  Your personal details.
+                </CardDescription>
+              </div>
+               <Dialog open={isProfileDialogOpen} onOpenChange={setIsProfileDialogOpen}>
+                <DialogTrigger asChild>
+                  <Button variant="outline">Edit Profile</Button>
+                </DialogTrigger>
+                <DialogContent>
+                  <DialogHeader>
+                    <DialogTitle>Edit Profile</DialogTitle>
+                    <DialogDescription>
+                      Update your personal details here.
+                    </DialogDescription>
+                  </DialogHeader>
+                  <form onSubmit={profileForm.handleSubmit(onProfileSubmit)} className="space-y-4">
+                    <div className="space-y-2">
+                      <Label htmlFor="name">Full Name</Label>
+                      <Input id="name" {...profileForm.register("name")} />
+                      {profileForm.formState.errors.name && <p className="text-sm text-destructive">{profileForm.formState.errors.name.message}</p>}
+                    </div>
+                     <DialogFooter>
+                      <Button variant="ghost" onClick={() => setIsProfileDialogOpen(false)}>Cancel</Button>
+                      <Button type="submit">Save Changes</Button>
+                    </DialogFooter>
+                  </form>
+                </DialogContent>
+              </Dialog>
             </CardHeader>
-            <CardContent>
-              <form onSubmit={profileForm.handleSubmit(onProfileSubmit)} className="space-y-4 max-w-lg">
-                <div className="space-y-2">
-                  <Label htmlFor="name">Full Name</Label>
-                  <Input id="name" {...profileForm.register("name")} />
-                  {profileForm.formState.errors.name && <p className="text-sm text-destructive">{profileForm.formState.errors.name.message}</p>}
+            <CardContent className="space-y-4 max-w-lg">
+               <div className="space-y-2">
+                  <Label>Full Name</Label>
+                  <p className="text-muted-foreground">{user?.displayName || "Not set"}</p>
                 </div>
                  <div className="space-y-2">
-                  <Label htmlFor="email">Email</Label>
-                  <Input id="email" {...profileForm.register("email")} disabled />
-                   <p className="text-xs text-muted-foreground">Your email address is used for logging in and cannot be changed.</p>
+                  <Label>Email</Label>
+                  <p className="text-muted-foreground">{user?.email}</p>
                 </div>
-                <Button type="submit">Save Changes</Button>
-              </form>
             </CardContent>
           </Card>
         </TabsContent>
