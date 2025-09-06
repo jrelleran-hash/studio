@@ -6,18 +6,43 @@ import { KpiCard } from "@/components/dashboard/kpi-card";
 import { RecentActivity } from "@/components/dashboard/recent-activity";
 import { LowStockItems } from "@/components/dashboard/low-stock-items";
 import { ActiveOrders } from "@/components/dashboard/active-orders";
-import { RevenueChart, chartData, chartConfig, type FilterType } from "@/components/dashboard/revenue-chart";
+import { RevenueChart, chartData, type FilterType } from "@/components/dashboard/revenue-chart";
+import { InventoryStatusChart, type InventoryFilterType } from "@/components/dashboard/inventory-status-chart";
 import { DollarSign, Package, ShoppingCart, Users } from "lucide-react";
 import { useAuth } from "@/hooks/use-auth";
 import { useRouter } from "next/navigation";
 import { useEffect, useState, useMemo } from "react";
+import { getProducts } from "@/services/data-service";
+import type { Product } from "@/types";
 
 export default function DashboardPage() {
-  const { user, loading } = useAuth();
+  const { user, loading: authLoading } = useAuth();
   const router = useRouter();
+  
   const [revenueFilter, setRevenueFilter] = useState<FilterType>("month");
+  const [inventoryFilter, setInventoryFilter] = useState<InventoryFilterType>("all");
+  const [products, setProducts] = useState<Product[]>([]);
+  const [productsLoading, setProductsLoading] = useState(true);
 
-  const { totalRevenue, changeText, title } = useMemo(() => {
+  useEffect(() => {
+    if (!authLoading && !user) {
+      router.push("/login");
+    }
+  }, [user, authLoading, router]);
+
+  useEffect(() => {
+    async function fetchProducts() {
+      setProductsLoading(true);
+      const fetchedProducts = await getProducts();
+      setProducts(fetchedProducts);
+      setProductsLoading(false);
+    }
+    if (user) {
+      fetchProducts();
+    }
+  }, [user]);
+
+  const { totalRevenue, changeText: revenueChangeText, title: revenueTitle } = useMemo(() => {
     const data = chartData[revenueFilter];
     const total = data.reduce((acc, item) => acc + item.revenue, 0);
     
@@ -42,14 +67,37 @@ export default function DashboardPage() {
     };
   }, [revenueFilter]);
 
+  const { inventoryValue, inventoryChangeText, inventoryTitle } = useMemo(() => {
+    const filteredProducts = products.filter(p => {
+        if (inventoryFilter === 'all') return true;
+        if (inventoryFilter === 'in-stock') return p.stock > 10;
+        if (inventoryFilter === 'low-stock') return p.stock > 0 && p.stock <= 10;
+        if (inventoryFilter === 'out-of-stock') return p.stock === 0;
+        return false;
+    });
 
-  useEffect(() => {
-    if (!loading && !user) {
-      router.push("/login");
+    const totalValue = filteredProducts.reduce((acc, p) => acc + p.price * p.stock, 0);
+
+    const titleMap = {
+        'all': 'Total Inventory',
+        'in-stock': 'In Stock Value',
+        'low-stock': 'Low Stock Value',
+        'out-of-stock': 'Out of Stock Value',
     }
-  }, [user, loading, router]);
 
-  if (loading || !user) {
+    return {
+      inventoryValue: new Intl.NumberFormat("en-US", {
+        style: "currency",
+        currency: "USD",
+      }).format(totalValue),
+      inventoryChangeText: `Across ${filteredProducts.length} products`,
+      inventoryTitle: titleMap[inventoryFilter],
+    };
+
+  }, [products, inventoryFilter]);
+
+
+  if (authLoading || !user) {
     return (
       <div className="flex h-screen items-center justify-center">
         <p>Loading...</p>
@@ -62,19 +110,22 @@ export default function DashboardPage() {
       <WelcomeCard />
       <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-4">
         <KpiCard
-          title={title}
+          title={revenueTitle}
           value={totalRevenue}
-          change={changeText}
+          change={revenueChangeText}
           icon={<DollarSign className="size-5 text-primary" />}
         >
            <RevenueChart filter={revenueFilter} setFilter={setRevenueFilter} />
         </KpiCard>
         <KpiCard
-          title="Inventory Value"
-          value="$1,250,320"
-          change="+12.5% from last month"
+          title={inventoryTitle}
+          value={inventoryValue}
+          change={inventoryChangeText}
           icon={<Package className="size-5 text-primary" />}
-        />
+          loading={productsLoading}
+        >
+           <InventoryStatusChart products={products} filter={inventoryFilter} setFilter={setInventoryFilter} />
+        </KpiCard>
         <KpiCard
           title="Active Orders"
           value="1,203"
