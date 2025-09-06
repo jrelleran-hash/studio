@@ -5,7 +5,7 @@ import { useState, useEffect, useRef } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
-import { PlusCircle, MoreHorizontal, Upload, Loader2 } from "lucide-react";
+import { PlusCircle, MoreHorizontal } from "lucide-react";
 
 import { Button, buttonVariants } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -41,7 +41,7 @@ import { Label } from "@/components/ui/label";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useToast } from "@/hooks/use-toast";
 import { getCustomers, addCustomer, updateCustomer, deleteCustomer } from "@/services/data-service";
-import { importCustomersAction } from "@/app/actions";
+
 import type { Customer } from "@/types";
 
 const customerSchema = z.object({
@@ -57,14 +57,11 @@ export default function CustomersPage() {
   const [customers, setCustomers] = useState<Customer[]>([]);
   const [loading, setLoading] = useState(true);
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
-  const [isImportDialogOpen, setIsImportDialogOpen] = useState(false);
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
   const [editingCustomer, setEditingCustomer] = useState<Customer | null>(null);
-  const [isImporting, setIsImporting] = useState(false);
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
   const [deletingCustomerId, setDeletingCustomerId] = useState<string | null>(null);
   const { toast } = useToast();
-  const [sheetLink, setSheetLink] = useState("");
 
   const form = useForm<CustomerFormValues>({
     resolver: zodResolver(customerSchema),
@@ -142,36 +139,6 @@ export default function CustomersPage() {
     }
   };
 
-  const handleImport = async () => {
-    if (!sheetLink) {
-       toast({
-        variant: "destructive",
-        title: "No link provided",
-        description: "Please provide a link to the spreadsheet.",
-      });
-      return;
-    }
-    
-    setIsImporting(true);
-    const result = await importCustomersAction({ sheetUrl: sheetLink });
-    setIsImporting(false);
-
-    if (result.success) {
-      toast({
-        title: "Import Successful",
-        description: `${result.importedCount} customers were imported.`,
-      });
-      setIsImportDialogOpen(false);
-      setSheetLink("");
-      fetchCustomers(); // Refresh the customer list
-    } else {
-       toast({
-        variant: "destructive",
-        title: "Import Failed",
-        description: result.error || "An unknown error occurred.",
-      });
-    }
-  };
   
   const handleEditClick = (customer: Customer) => {
     setEditingCustomer(customer);
@@ -212,43 +179,6 @@ export default function CustomersPage() {
           <CardDescription>Manage your customer database.</CardDescription>
         </div>
         <div className="flex gap-2">
-          <Dialog open={isImportDialogOpen} onOpenChange={setIsImportDialogOpen}>
-            <DialogTrigger asChild>
-                <Button size="sm" variant="outline" className="gap-1">
-                  <Upload className="h-4 w-4" />
-                  Import from Sheet
-                </Button>
-            </DialogTrigger>
-            <DialogContent className="sm:max-w-md">
-              <DialogHeader>
-                <DialogTitle>Import Customers</DialogTitle>
-                <DialogDescription>
-                  Enter the public link to your spreadsheet to import new customers.
-                </DialogDescription>
-              </DialogHeader>
-              <div className="space-y-4 py-4">
-                 <div className="space-y-2">
-                    <Label htmlFor="customer-sheet-link">Spreadsheet Link</Label>
-                    <Input 
-                      id="customer-sheet-link" 
-                      type="url"
-                      placeholder="https://docs.google.com/spreadsheets/d/..."
-                      value={sheetLink}
-                      onChange={(e) => setSheetLink(e.target.value)}
-                      disabled={isImporting}
-                    />
-                 </div>
-              </div>
-              <DialogFooter>
-                 <Button type="button" variant="outline" onClick={() => setIsImportDialogOpen(false)} disabled={isImporting}>Cancel</Button>
-                 <Button type="button" onClick={handleImport} disabled={isImporting}>
-                  {isImporting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
-                  {isImporting ? 'Importing...' : 'Import'}
-                 </Button>
-              </DialogFooter>
-            </DialogContent>
-          </Dialog>
-
           <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>
             <DialogTrigger asChild>
               <Button size="sm" className="gap-1">
@@ -406,5 +336,3 @@ export default function CustomersPage() {
     </>
   );
 }
-
-    
