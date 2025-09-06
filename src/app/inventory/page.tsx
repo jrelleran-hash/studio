@@ -54,8 +54,6 @@ const productSchema = z.object({
   stock: z.coerce.number().int().nonnegative("Stock must be a non-negative integer."),
   reorderLimit: z.coerce.number().int().nonnegative("Reorder limit must be a non-negative integer."),
   location: z.string().optional(),
-  imageUrl: z.string().url("Must be a valid URL.").optional().or(z.literal('')),
-  aiHint: z.string().optional(),
 });
 
 type ProductFormValues = z.infer<typeof productSchema>;
@@ -81,8 +79,6 @@ export default function InventoryPage() {
       stock: 0,
       reorderLimit: 10,
       location: "",
-      imageUrl: "",
-      aiHint: "",
     },
   });
 
@@ -262,16 +258,6 @@ export default function InventoryPage() {
                   <Label htmlFor="location">Location</Label>
                   <Input id="location" placeholder="e.g. 'Warehouse A'" {...addForm.register("location")} />
                 </div>
-                <div className="space-y-2">
-                  <Label htmlFor="imageUrl">Image URL</Label>
-                  <Input id="imageUrl" placeholder="https://picsum.photos/200/200" {...addForm.register("imageUrl")} />
-                  {addForm.formState.errors.imageUrl && <p className="text-sm text-destructive">{addForm.formState.errors.imageUrl.message}</p>}
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="aiHint">AI Hint</Label>
-                  <Input id="aiHint" placeholder="e.g. 'black shoe'" {...addForm.register("aiHint")} />
-                  <p className="text-xs text-muted-foreground">Optional. A hint for AI to find a better image.</p>
-                </div>
                 <DialogFooter>
                   <Button type="button" variant="outline" onClick={() => setIsAddDialogOpen(false)}>Cancel</Button>
                   <Button type="submit" disabled={addForm.formState.isSubmitting}>
@@ -322,9 +308,8 @@ export default function InventoryPage() {
                           alt={product.name}
                           className="aspect-square rounded-md object-cover"
                           height="48"
-                          src={product.imageUrl || `https://picsum.photos/seed/${product.id}/48/48`}
+                          src={`https://picsum.photos/seed/${product.id}/48/48`}
                           width="48"
-                          data-ai-hint={product.aiHint}
                         />
                       </TableCell>
                       <TableCell className="font-medium">{product.name}</TableCell>
@@ -403,15 +388,6 @@ export default function InventoryPage() {
                   <Label htmlFor="edit-location">Location</Label>
                   <Input id="edit-location" {...editForm.register("location")} />
                 </div>
-              <div className="space-y-2">
-                <Label htmlFor="edit-imageUrl">Image URL</Label>
-                <Input id="edit-imageUrl" {...editForm.register("imageUrl")} />
-                 {editForm.formState.errors.imageUrl && <p className="text-sm text-destructive">{editForm.formState.errors.imageUrl.message}</p>}
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="edit-aiHint">AI Hint</Label>
-                <Input id="edit-aiHint" {...editForm.register("aiHint")} />
-              </div>
               <DialogFooter>
                 <Button type="button" variant="outline" onClick={() => setIsEditDialogOpen(false)}>Cancel</Button>
                 <Button type="submit" disabled={editForm.formState.isSubmitting}>

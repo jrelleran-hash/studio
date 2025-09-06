@@ -61,8 +61,7 @@ export function LowStockItems() {
                   className="rounded-md"
                   height={48}
                   width={48}
-                  src={item.imageUrl || "https://picsum.photos/100/100"}
-                  data-ai-hint={item.aiHint}
+                  src={`https://picsum.photos/seed/${item.id}/100/100`}
                 />
                 <div className="flex-1">
                   <p className="text-sm font-medium">{item.name}</p>
@@ -86,8 +85,7 @@ export function LowStockItems() {
                   className="rounded-lg"
                   height={100}
                   width={100}
-                  src={selectedItem.imageUrl || "https://picsum.photos/100/100"}
-                  data-ai-hint={selectedItem.aiHint}
+                  src={`https://picsum.photos/seed/${selectedItem.id}/100/100`}
                 />
                 <div className="grid grid-cols-2 gap-4 flex-1">
                    <div>

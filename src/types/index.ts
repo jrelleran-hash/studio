@@ -40,8 +40,6 @@ export interface Product {
     price: number;
     reorderLimit: number;
     location?: string;
-    imageUrl?: string;
-    aiHint?: string;
     history?: ProductHistory[];
 }
 
