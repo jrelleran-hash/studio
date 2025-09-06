@@ -26,6 +26,10 @@ const fontCode = Source_Code_Pro({
 export const metadata: Metadata = {
   title: "CoreFlow",
   description: "Unified Business Management Platform",
+  viewport: {
+    width: "device-width",
+    initialScale: 1,
+  },
 };
 
 export default function RootLayout({
