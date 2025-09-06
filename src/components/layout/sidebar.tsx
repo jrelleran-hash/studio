@@ -1,3 +1,4 @@
+
 "use client";
 
 import Link from "next/link";
@@ -12,6 +13,7 @@ import {
 } from "lucide-react";
 import { CoreFlowLogo } from "@/components/icons";
 import { cn } from "@/lib/utils";
+import { SheetClose } from "@/components/ui/sheet";
 
 const navItems = [
   { href: "/", label: "Dashboard", icon: Home },
@@ -36,28 +38,31 @@ export function Sidebar({ className }: { className?: string }) {
         <div className="flex-1 overflow-auto py-2">
           <nav className="grid items-start px-4 text-sm font-medium">
             {navItems.map(({ href, label, icon: Icon }) => (
-              <Link
-                key={href}
-                href={href}
-                className={cn(
-                  "flex items-center gap-3 rounded-lg px-3 py-2 text-muted-foreground transition-all hover:text-primary hover:bg-muted-foreground/10",
-                  pathname === href && "bg-muted-foreground/10 text-primary"
-                )}
-              >
-                <Icon className="h-4 w-4" />
-                {label}
-              </Link>
+              <SheetClose asChild key={href}>
+                <Link
+                  href={href}
+                  className={cn(
+                    "flex items-center gap-3 rounded-lg px-3 py-2 text-muted-foreground transition-all hover:text-primary hover:bg-muted-foreground/10",
+                    pathname === href && "bg-muted-foreground/10 text-primary"
+                  )}
+                >
+                  <Icon className="h-4 w-4" />
+                  {label}
+                </Link>
+              </SheetClose>
             ))}
           </nav>
         </div>
         <div className="mt-auto p-4">
-           <Link
-              href="/settings"
-              className="flex items-center gap-3 rounded-lg px-3 py-2 text-muted-foreground transition-all hover:text-primary hover:bg-muted-foreground/10"
-            >
-              <Settings className="h-4 w-4" />
-              Settings
-            </Link>
+           <SheetClose asChild>
+             <Link
+                href="/settings"
+                className="flex items-center gap-3 rounded-lg px-3 py-2 text-muted-foreground transition-all hover:text-primary hover:bg-muted-foreground/10"
+              >
+                <Settings className="h-4 w-4" />
+                Settings
+              </Link>
+            </SheetClose>
         </div>
       </div>
     </aside>
