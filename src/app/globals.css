@@ -82,7 +82,7 @@
 @layer components {
   .card-gradient {
     @apply bg-card shadow-lg;
-    background-image: radial-gradient(at 100% 0%, hsl(0 0% 12%) 0, transparent 50%),
-                      radial-gradient(at 0% 0%, hsl(0 0% 10%) 0, transparent 50%);
+    background-image: radial-gradient(at 100% 0%, hsl(var(--accent) / 0.1) 0, transparent 50%),
+                      radial-gradient(at 0% 0%, hsl(var(--primary) / 0.1) 0, transparent 50%);
   }
 }
