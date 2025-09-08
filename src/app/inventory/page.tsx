@@ -1,5 +1,4 @@
 
-
 "use client";
 
 import { useState, useEffect, useMemo } from "react";
@@ -44,22 +43,27 @@ import { getProducts, addProduct, updateProduct, deleteProduct } from "@/service
 import type { Product } from "@/types";
 import Image from "next/image";
 import { Badge } from "@/components/ui/badge";
+import { Switch } from "@/components/ui/switch";
 import { cn } from "@/lib/utils";
 import { CURRENCY_CONFIG } from "@/config/currency";
 import { formatCurrency } from "@/lib/currency";
 import { Timestamp } from "firebase/firestore";
 import { format } from "date-fns";
 
-const productSchema = z.object({
+const createProductSchema = (isSkuAuto: boolean) => z.object({
   name: z.string().min(1, "Product name is required."),
-  sku: z.string().min(1, "SKU is required."),
+  sku: z.string().optional(),
   price: z.coerce.number().nonnegative("Price must be a non-negative number."),
   stock: z.coerce.number().int().nonnegative("Stock must be a non-negative integer."),
   reorderLimit: z.coerce.number().int().nonnegative("Reorder limit must be a non-negative integer."),
   location: z.string().optional(),
+}).refine(data => isSkuAuto || (data.sku && data.sku.length > 0), {
+    message: "SKU is required when not auto-generated.",
+    path: ["sku"],
 });
 
-type ProductFormValues = z.infer<typeof productSchema>;
+
+type ProductFormValues = z.infer<ReturnType<typeof createProductSchema>>;
 type StatusFilter = "all" | "in-stock" | "low-stock" | "out-of-stock";
 
 const toTitleCase = (str: string) => {
@@ -79,6 +83,9 @@ export default function InventoryPage() {
   const [deletingProductId, setDeletingProductId] = useState<string | null>(null);
   const { toast } = useToast();
   const [statusFilter, setStatusFilter] = useState<StatusFilter>("all");
+  const [autoGenerateSku, setAutoGenerateSku] = useState(true);
+
+  const productSchema = useMemo(() => createProductSchema(autoGenerateSku), [autoGenerateSku]);
 
   const addForm = useForm<ProductFormValues>({
     resolver: zodResolver(productSchema),
@@ -96,6 +103,13 @@ export default function InventoryPage() {
     resolver: zodResolver(productSchema),
   });
 
+  useEffect(() => {
+    if (isAddDialogOpen) {
+      addForm.reset();
+      setAutoGenerateSku(true);
+    }
+  }, [isAddDialogOpen, addForm]);
+
   async function fetchProducts() {
     setLoading(true);
     const fetchedProducts = await getProducts();
@@ -110,6 +124,7 @@ export default function InventoryPage() {
   useEffect(() => {
     if (editingProduct) {
       editForm.reset(editingProduct);
+      setAutoGenerateSku(false); // When editing, default to showing the existing SKU
     }
   }, [editingProduct, editForm]);
 
@@ -135,7 +150,15 @@ export default function InventoryPage() {
   
   const onAddSubmit = async (data: ProductFormValues) => {
     try {
-      await addProduct(data);
+      const productData = { ...data };
+      if (autoGenerateSku) {
+        // Simple SKU generation logic: first 3 letters of name + random 4 digits
+        const namePart = data.name.substring(0, 3).toUpperCase();
+        const randomPart = Math.floor(1000 + Math.random() * 9000);
+        productData.sku = `${namePart}-${randomPart}`;
+      }
+
+      await addProduct(productData as Product);
       toast({ title: "Success", description: "Product added successfully." });
       setIsAddDialogOpen(false);
       addForm.reset();
@@ -248,8 +271,14 @@ export default function InventoryPage() {
                 </div>
                 <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-2">
-                    <Label htmlFor="sku">SKU</Label>
-                    <Input id="sku" {...addForm.register("sku")} />
+                    <div className="flex items-center justify-between">
+                        <Label htmlFor="sku">SKU</Label>
+                        <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                            <Switch id="auto-generate-sku-add" checked={autoGenerateSku} onCheckedChange={setAutoGenerateSku} />
+                            <Label htmlFor="auto-generate-sku-add">Auto-generate</Label>
+                        </div>
+                    </div>
+                    <Input id="sku" {...addForm.register("sku")} disabled={autoGenerateSku} placeholder={autoGenerateSku ? "Will be generated" : "Manual SKU"} />
                     {addForm.formState.errors.sku && <p className="text-sm text-destructive">{addForm.formState.errors.sku.message}</p>}
                   </div>
                    <div className="space-y-2">
@@ -445,3 +474,5 @@ export default function InventoryPage() {
     </>
   );
 }
+
+    
