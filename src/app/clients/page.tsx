@@ -115,31 +115,33 @@ export default function ClientsPage() {
 
 
   const onAddSubmit = async (data: ClientFormValues) => {
-    try {
-      const isBoqDuplicate = clients.some(c => c.boqNumber === data.boqNumber);
-      if (isBoqDuplicate) {
-        toast({
-          variant: "destructive",
-          title: "Duplicate Entry",
-          description: `A client with BOQ Number "${data.boqNumber}" already exists.`,
-        });
-        return;
-      }
-      
-      const isRecordDuplicate = clients.some(c => 
-          c.projectName.toLowerCase() === data.projectName.toLowerCase() &&
-          c.clientName.toLowerCase() === data.clientName.toLowerCase() &&
-          c.address.toLowerCase() === data.address.toLowerCase()
-      );
-      if (isRecordDuplicate) {
-          toast({
-              variant: "destructive",
-              title: "Duplicate Entry",
-              description: `A client with the same Project Name, Client Name, and Address already exists.`,
-          });
-          return;
-      }
+    let hasError = false;
+    
+    const isBoqDuplicate = clients.some(c => c.boqNumber === data.boqNumber);
+    if (isBoqDuplicate) {
+      form.setError("boqNumber", {
+        type: "manual",
+        message: `BOQ Number "${data.boqNumber}" already exists.`,
+      });
+      hasError = true;
+    }
+    
+    const isRecordDuplicate = clients.some(c => 
+        c.projectName.toLowerCase() === data.projectName.toLowerCase() &&
+        c.clientName.toLowerCase() === data.clientName.toLowerCase() &&
+        c.address.toLowerCase() === data.address.toLowerCase()
+    );
+    if (isRecordDuplicate) {
+        const errorMessage = "This client record appears to be a duplicate.";
+        form.setError("projectName", { type: "manual", message: errorMessage });
+        form.setError("clientName", { type: "manual", message: errorMessage });
+        form.setError("address", { type: "manual", message: errorMessage });
+        hasError = true;
+    }
 
+    if(hasError) return;
+
+    try {
       await addClient(data);
       toast({ title: "Success", description: "Client added successfully." });
       setIsAddDialogOpen(false);
@@ -157,32 +159,34 @@ export default function ClientsPage() {
 
   const onEditSubmit = async (data: ClientFormValues) => {
     if (!editingClient) return;
+    let hasError = false;
+
+    const isBoqDuplicate = clients.some(c => c.id !== editingClient.id && c.boqNumber === data.boqNumber);
+    if (isBoqDuplicate) {
+       editForm.setError("boqNumber", {
+        type: "manual",
+        message: `Another client with BOQ Number "${data.boqNumber}" already exists.`,
+      });
+      hasError = true;
+    }
+    
+     const isRecordDuplicate = clients.some(c => 
+        c.id !== editingClient.id &&
+        c.projectName.toLowerCase() === data.projectName.toLowerCase() &&
+        c.clientName.toLowerCase() === data.clientName.toLowerCase() &&
+        c.address.toLowerCase() === data.address.toLowerCase()
+    );
+    if (isRecordDuplicate) {
+        const errorMessage = "Another client with these details already exists.";
+        editForm.setError("projectName", { type: "manual", message: errorMessage });
+        editForm.setError("clientName", { type: "manual", message: errorMessage });
+        editForm.setError("address", { type: "manual", message: errorMessage });
+        hasError = true;
+    }
+
+    if(hasError) return;
+      
     try {
-      const isBoqDuplicate = clients.some(c => c.id !== editingClient.id && c.boqNumber === data.boqNumber);
-      if (isBoqDuplicate) {
-        toast({
-          variant: "destructive",
-          title: "Duplicate Entry",
-          description: `Another client with BOQ Number "${data.boqNumber}" already exists.`,
-        });
-        return;
-      }
-      
-       const isRecordDuplicate = clients.some(c => 
-          c.id !== editingClient.id &&
-          c.projectName.toLowerCase() === data.projectName.toLowerCase() &&
-          c.clientName.toLowerCase() === data.clientName.toLowerCase() &&
-          c.address.toLowerCase() === data.address.toLowerCase()
-      );
-      if (isRecordDuplicate) {
-          toast({
-              variant: "destructive",
-              title: "Duplicate Entry",
-              description: `Another client with the same Project Name, Client Name, and Address already exists.`,
-          });
-          return;
-      }
-      
       await updateClient(editingClient.id, data);
       toast({ title: "Success", description: "Client updated successfully." });
       setIsEditDialogOpen(false);
@@ -243,7 +247,10 @@ export default function ClientsPage() {
           <CardDescription>Manage your client database.</CardDescription>
         </div>
         <div className="flex gap-2">
-          <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>
+          <Dialog open={isAddDialogOpen} onOpenChange={(isOpen) => {
+            setIsAddDialogOpen(isOpen);
+            if(!isOpen) form.clearErrors();
+          }}>
             <DialogTrigger asChild>
               <Button size="sm" className="gap-1">
                 <PlusCircle className="h-4 w-4" />
@@ -355,7 +362,10 @@ export default function ClientsPage() {
     </Card>
       
     {editingClient && (
-        <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
+        <Dialog open={isEditDialogOpen} onOpenChange={(isOpen) => {
+            setIsEditDialogOpen(isOpen);
+            if(!isOpen) editForm.clearErrors();
+        }}>
             <DialogContent className="sm:max-w-md">
               <DialogHeader>
                 <DialogTitle>Edit Client</DialogTitle>
