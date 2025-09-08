@@ -89,7 +89,7 @@ export default function ClientsPage() {
     mode: 'onChange',
   });
 
-  async function fetchClients() {
+  const fetchClients = useCallback(async () => {
     setLoading(true);
     try {
       const fetchedClients = await getClients();
@@ -103,11 +103,12 @@ export default function ClientsPage() {
     } finally {
       setLoading(false);
     }
-  }
+  }, [toast]);
+
 
   useEffect(() => {
     fetchClients();
-  }, []);
+  }, [fetchClients]);
   
   useEffect(() => {
     if (editingClient) {
@@ -354,7 +355,10 @@ export default function ClientsPage() {
     {editingClient && (
         <Dialog open={isEditDialogOpen} onOpenChange={(isOpen) => {
             setIsEditDialogOpen(isOpen);
-            if(!isOpen) editForm.reset(editingClient);
+            if(!isOpen) {
+               setEditingClient(null);
+               editForm.reset();
+            }
         }}>
             <DialogContent className="sm:max-w-md">
               <DialogHeader>
@@ -443,5 +447,7 @@ export default function ClientsPage() {
     </>
   );
 }
+
+    
 
     
