@@ -52,11 +52,12 @@ const profileFormSchema = z.object({
   lastName: z.string().min(1, "Last name is required."),
   photoFile: z
     .any()
-    .refine((file) => !file || file.size <= MAX_FILE_SIZE, `Max file size is 5MB.`)
+    .optional()
+    .refine((file) => !file || (file && file.size <= MAX_FILE_SIZE), `Max file size is 5MB.`)
     .refine(
-      (file) => !file || ACCEPTED_IMAGE_TYPES.includes(file.type),
+      (file) => !file || (file && ACCEPTED_IMAGE_TYPES.includes(file.type)),
       ".jpg, .jpeg, .png and .webp files are accepted."
-    ).optional(),
+    ),
   phone: z.string().optional(),
 });
 
@@ -73,7 +74,8 @@ const toTitleCase = (str: string) => {
 const getInitialNames = (displayName: string | null | undefined) => {
     const name = displayName || "";
     const nameParts = name.split(" ").filter(Boolean);
-    const lastName = nameParts.length > 1 ? nameParts.pop() || "" : "";
+    if (nameParts.length === 0) return { firstName: "", lastName: ""};
+    const lastName = nameParts.pop() || "";
     const firstName = nameParts.join(" ");
     return { firstName, lastName };
 }
@@ -85,25 +87,18 @@ export default function SettingsPage() {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [previewImage, setPreviewImage] = useState<string | null>(null);
 
-  
-  const { firstName: initialFirstName, lastName: initialLastName } = getInitialNames(user?.displayName);
-
   const profileForm = useForm<ProfileFormValues>({
     resolver: zodResolver(profileFormSchema),
-    defaultValues: {
-      firstName: initialFirstName,
-      lastName: initialLastName,
-      phone: user?.phoneNumber || "",
-    },
   });
   
   useEffect(() => {
-    if (user) {
+    if (isProfileDialogOpen && user) {
         const { firstName, lastName } = getInitialNames(user.displayName);
         profileForm.reset({
             firstName: firstName,
             lastName: lastName,
-            phone: user.phoneNumber || ""
+            phone: user.phoneNumber || "",
+            photoFile: undefined,
         });
         setPreviewImage(user.photoURL);
     }
@@ -122,11 +117,13 @@ export default function SettingsPage() {
     try {
       let photoURL = user.photoURL;
       
+      // If a new file is selected, upload it.
       if (data.photoFile) {
         photoURL = await uploadProfilePicture(data.photoFile, user.uid);
       }
 
       const displayName = `${data.firstName} ${data.lastName}`.trim();
+      
       await updateProfile(user, {
         displayName: displayName,
         photoURL: photoURL,
@@ -136,9 +133,10 @@ export default function SettingsPage() {
         title: "Profile Updated",
         description: "Your profile information has been saved.",
       });
+      
       setIsProfileDialogOpen(false);
-      window.location.reload();
-
+      // The auth context will handle updating the UI, no reload needed.
+      
     } catch (error) {
       console.error("Profile update error:", error);
       toast({
@@ -188,8 +186,8 @@ export default function SettingsPage() {
             <CardHeader className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4">
               <div className="flex items-center gap-4">
                  <Avatar className="h-16 w-16">
-                    <AvatarImage src={user?.photoURL || "https://picsum.photos/100"} alt={user?.email || '@user'} data-ai-hint="person face" />
-                    <AvatarFallback>{user?.email?.[0].toUpperCase() || "U"}</AvatarFallback>
+                    <AvatarImage src={user?.photoURL || undefined} alt={user?.email || '@user'} />
+                    <AvatarFallback>{user?.displayName?.[0].toUpperCase() || user?.email?.[0].toUpperCase() || "U"}</AvatarFallback>
                 </Avatar>
                 <div>
                   <CardTitle>Profile Information</CardTitle>
@@ -212,14 +210,22 @@ export default function SettingsPage() {
                   <form onSubmit={profileForm.handleSubmit(onProfileSubmit)} className="space-y-4">
                     <div className="space-y-2 text-center">
                         <div className="relative w-24 h-24 mx-auto">
-                           <Image
-                                src={previewImage || `https://picsum.photos/seed/${user?.uid}/100`}
-                                alt="Profile preview"
-                                width={96}
-                                height={96}
-                                className="rounded-full object-cover aspect-square"
-                                data-ai-hint="person face"
-                           />
+                            <Avatar className="w-24 h-24 text-4xl">
+                                {previewImage ? (
+                                    <Image
+                                        src={previewImage}
+                                        alt="Profile preview"
+                                        width={96}
+                                        height={96}
+                                        className="rounded-full object-cover aspect-square"
+                                    />
+                                ) : (
+                                    <AvatarImage src={undefined} alt="User preview" />
+                                )}
+                                <AvatarFallback>
+                                    {profileForm.getValues('firstName')?.[0]?.toUpperCase() || user?.email?.[0].toUpperCase() || 'U'}
+                                </AvatarFallback>
+                            </Avatar>
                         </div>
                          <Button type="button" variant="link" onClick={() => fileInputRef.current?.click()}>
                            Change Photo
@@ -227,6 +233,7 @@ export default function SettingsPage() {
                          <Input
                            type="file"
                            className="hidden"
+                           {...profileForm.register("photoFile")}
                            ref={fileInputRef}
                            onChange={handleFileChange}
                            accept="image/png, image/jpeg, image/webp"
@@ -238,8 +245,7 @@ export default function SettingsPage() {
                           <Label htmlFor="firstName">First Name</Label>
                           <Input id="firstName" {...profileForm.register("firstName")} onChange={(e) => {
                             const { value } = e.target;
-                            e.target.value = toTitleCase(value);
-                            profileForm.setValue("firstName", e.target.value);
+                            profileForm.setValue("firstName", toTitleCase(value), { shouldValidate: true });
                           }}/>
                           {profileForm.formState.errors.firstName && <p className="text-sm text-destructive">{profileForm.formState.errors.firstName.message}</p>}
                         </div>
@@ -247,8 +253,7 @@ export default function SettingsPage() {
                           <Label htmlFor="lastName">Last Name</Label>
                           <Input id="lastName" {...profileForm.register("lastName")} onChange={(e) => {
                             const { value } = e.target;
-                            e.target.value = toTitleCase(value);
-                            profileForm.setValue("lastName", e.target.value);
+                            profileForm.setValue("lastName", toTitleCase(value), { shouldValidate: true });
                           }}/>
                           {profileForm.formState.errors.lastName && <p className="text-sm text-destructive">{profileForm.formState.errors.lastName.message}</p>}
                         </div>
