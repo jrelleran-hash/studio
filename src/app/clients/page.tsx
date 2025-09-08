@@ -56,6 +56,7 @@ const clientSchema = z.object({
 type ClientFormValues = z.infer<typeof clientSchema>;
 
 const toTitleCase = (str: string) => {
+  if (!str) return "";
   return str.replace(
     /\w\S*/g,
     (txt) => txt.charAt(0).toUpperCase() + txt.substring(1).toLowerCase()
@@ -115,6 +116,16 @@ export default function ClientsPage() {
 
   const onAddSubmit = async (data: ClientFormValues) => {
     try {
+      const isDuplicate = clients.some(c => c.boqNumber === data.boqNumber);
+      if (isDuplicate) {
+        toast({
+          variant: "destructive",
+          title: "Duplicate Entry",
+          description: `A client with BOQ Number "${data.boqNumber}" already exists.`,
+        });
+        return;
+      }
+
       await addClient(data);
       toast({ title: "Success", description: "Client added successfully." });
       setIsAddDialogOpen(false);
@@ -133,6 +144,16 @@ export default function ClientsPage() {
   const onEditSubmit = async (data: ClientFormValues) => {
     if (!editingClient) return;
     try {
+      const isDuplicate = clients.some(c => c.id !== editingClient.id && c.boqNumber === data.boqNumber);
+      if (isDuplicate) {
+        toast({
+          variant: "destructive",
+          title: "Duplicate Entry",
+          description: `Another client with BOQ Number "${data.boqNumber}" already exists.`,
+        });
+        return;
+      }
+      
       await updateClient(editingClient.id, data);
       toast({ title: "Success", description: "Client updated successfully." });
       setIsEditDialogOpen(false);
@@ -210,8 +231,9 @@ export default function ClientsPage() {
                   <Label htmlFor="projectName">Project Name</Label>
                   <Input id="projectName" {...form.register("projectName")} onChange={(e) => {
                     const { value } = e.target;
-                    e.target.value = toTitleCase(value);
-                    form.setValue("projectName", e.target.value);
+                    const formattedValue = toTitleCase(value);
+                    e.target.value = formattedValue;
+                    form.setValue("projectName", formattedValue);
                   }} />
                   {form.formState.errors.projectName && <p className="text-sm text-destructive">{form.formState.errors.projectName.message}</p>}
                 </div>
@@ -219,8 +241,9 @@ export default function ClientsPage() {
                   <Label htmlFor="clientName">Client Name</Label>
                   <Input id="clientName" {...form.register("clientName")} onChange={(e) => {
                     const { value } = e.target;
-                    e.target.value = toTitleCase(value);
-                    form.setValue("clientName", e.target.value);
+                    const formattedValue = toTitleCase(value);
+                    e.target.value = formattedValue;
+                    form.setValue("clientName", formattedValue);
                   }} />
                   {form.formState.errors.clientName && <p className="text-sm text-destructive">{form.formState.errors.clientName.message}</p>}
                 </div>
@@ -314,8 +337,9 @@ export default function ClientsPage() {
                   <Label htmlFor="edit-projectName">Project Name</Label>
                   <Input id="edit-projectName" {...editForm.register("projectName")} onChange={(e) => {
                       const { value } = e.target;
-                      e.target.value = toTitleCase(value);
-                      editForm.setValue("projectName", e.target.value);
+                      const formattedValue = toTitleCase(value);
+                      e.target.value = formattedValue;
+                      editForm.setValue("projectName", formattedValue);
                   }}/>
                   {editForm.formState.errors.projectName && <p className="text-sm text-destructive">{editForm.formState.errors.projectName.message}</p>}
                 </div>
@@ -323,8 +347,9 @@ export default function ClientsPage() {
                   <Label htmlFor="edit-clientName">Client Name</Label>
                   <Input id="edit-clientName" {...editForm.register("clientName")} onChange={(e) => {
                       const { value } = e.target;
-                      e.target.value = toTitleCase(value);
-                      editForm.setValue("clientName", e.target.value);
+                       const formattedValue = toTitleCase(value);
+                      e.target.value = formattedValue;
+                      editForm.setValue("clientName", formattedValue);
                   }} />
                   {editForm.formState.errors.clientName && <p className="text-sm text-destructive">{editForm.formState.errors.clientName.message}</p>}
                 </div>
