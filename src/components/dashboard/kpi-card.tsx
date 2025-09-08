@@ -1,3 +1,4 @@
+
 import {
   Card,
   CardContent,
@@ -6,6 +7,8 @@ import {
 } from "@/components/ui/card";
 import type { ReactNode } from "react";
 import { Skeleton } from "../ui/skeleton";
+import Link from "next/link";
+import { cn } from "@/lib/utils";
 
 type KpiCardProps = {
   title: string;
@@ -14,11 +17,12 @@ type KpiCardProps = {
   icon: ReactNode;
   children?: ReactNode;
   loading?: boolean;
+  href?: string;
 };
 
-export function KpiCard({ title, value, change, icon, children, loading = false }: KpiCardProps) {
-  return (
-    <Card className="card-gradient">
+export function KpiCard({ title, value, change, icon, children, loading = false, href }: KpiCardProps) {
+  const CardContentWrapper = ({children}: {children: ReactNode}) => (
+    <Card className={cn("card-gradient", href && "hover:border-primary/50 transition-colors")}>
       <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
         <CardTitle className="text-sm font-medium">{title}</CardTitle>
         {icon}
@@ -36,8 +40,14 @@ export function KpiCard({ title, value, change, icon, children, loading = false 
           </>
         )}
         
-        {children && <div className="mt-4">{children}</div>}
+        {children}
       </CardContent>
     </Card>
   );
+  
+  if (href) {
+    return <Link href={href}>{CardContentWrapper({children})}</Link>
+  }
+  
+  return CardContentWrapper({children});
 }

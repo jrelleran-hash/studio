@@ -145,6 +145,7 @@ export default function DashboardPage() {
           change={revenueChangeText}
           icon={<PesoSign className="size-5 text-primary" />}
           loading={dataLoading}
+          href="/analytics"
         >
            <RevenueChart filter={revenueFilter} setFilter={setRevenueFilter} />
         </KpiCard>
@@ -154,6 +155,7 @@ export default function DashboardPage() {
           change={inventoryChangeText}
           icon={<Package className="size-5 text-primary" />}
           loading={dataLoading}
+          href="/inventory"
         >
            <InventoryStatusChart products={products} filter={inventoryFilter} setFilter={setInventoryFilter} />
         </KpiCard>
@@ -162,6 +164,7 @@ export default function DashboardPage() {
           value="1,203"
           change="+5 since last hour"
           icon={<ShoppingCart className="size-5 text-primary" />}
+          href="/orders"
         />
         <KpiCard
           title="New Clients"
@@ -169,6 +172,7 @@ export default function DashboardPage() {
           change={newClientsData.change}
           icon={<Users className="size-5 text-primary" />}
           loading={dataLoading}
+          href="/clients"
         />
       </div>
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
