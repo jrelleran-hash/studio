@@ -1,4 +1,5 @@
-import type { Metadata } from "next";
+
+import type { Metadata, Viewport } from "next";
 import { Inter, Space_Grotesk, Source_Code_Pro } from "next/font/google";
 import "./globals.css";
 import { cn } from "@/lib/utils";
@@ -26,10 +27,11 @@ const fontCode = Source_Code_Pro({
 export const metadata: Metadata = {
   title: "CoreFlow",
   description: "Unified Business Management Platform",
-  viewport: {
-    width: "device-width",
-    initialScale: 1,
-  },
+};
+
+export const viewport: Viewport = {
+  width: "device-width",
+  initialScale: 1,
 };
 
 export default function RootLayout({
