@@ -5,7 +5,7 @@ import { useState, useEffect } from "react";
 import { useForm, useFieldArray } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
-import { PlusCircle, MoreHorizontal, X } from "lucide-react";
+import { PlusCircle, MoreHorizontal, X, Plus } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -42,6 +42,7 @@ import { getOrders, updateOrderStatus, getClients, getProducts, addOrder, addPro
 import type { Order, Client, Product } from "@/types";
 import { formatCurrency } from "@/lib/currency";
 import { CURRENCY_CONFIG } from "@/config/currency";
+import { Separator } from "@/components/ui/separator";
 
 const statusVariant: { [key: string]: "default" | "secondary" | "destructive" | "outline" } = {
   Fulfilled: "default",
@@ -74,6 +75,7 @@ const productSchema = z.object({
 type ProductFormValues = z.infer<typeof productSchema>;
 
 const toTitleCase = (str: string) => {
+  if (!str) return "";
   return str.replace(
     /\w\S*/g,
     (txt) => txt.charAt(0).toUpperCase() + txt.substring(1).toLowerCase()
@@ -141,13 +143,20 @@ export default function OrdersPage() {
     setLoading(true);
     fetchPageData().finally(() => setLoading(false));
   }, []);
+  
+  useEffect(() => {
+    if(!isAddProductOpen) {
+        productForm.reset();
+    }
+  }, [isAddProductOpen, productForm]);
 
   const handleStatusChange = async (orderId: string, status: Order["status"]) => {
     try {
       await updateOrderStatus(orderId, status);
       toast({ title: "Success", description: `Order marked as ${status}.` });
       fetchPageData(); // Refresh the list
-    } catch (error) {
+    } catch (error)
+ {
       console.error(error);
       toast({
         variant: "destructive",
@@ -179,7 +188,6 @@ export default function OrdersPage() {
       await addProduct(data);
       toast({ title: "Success", description: "Product added successfully." });
       setIsAddProductOpen(false);
-      productForm.reset();
       const fetchedProducts = await getProducts();
       setProducts(fetchedProducts);
     } catch (error) {
@@ -238,77 +246,34 @@ export default function OrdersPage() {
               <div className="space-y-2">
                  <div className="flex justify-between items-center">
                     <Label>Items</Label>
-                    <Dialog open={isAddProductOpen} onOpenChange={setIsAddProductOpen}>
-                        <DialogTrigger asChild>
-                            <Button variant="outline" size="sm" className="gap-1">
-                                <PlusCircle className="h-4 w-4" /> Add Product
-                            </Button>
-                        </DialogTrigger>
-                        <DialogContent className="sm:max-w-lg">
-                           <DialogHeader>
-                            <DialogTitle>Add New Product</DialogTitle>
-                            <DialogDescription>Fill in the details for the new product.</DialogDescription>
-                          </DialogHeader>
-                          <form onSubmit={productForm.handleSubmit(onProductSubmit)} className="space-y-4">
-                            <div className="space-y-2">
-                              <Label htmlFor="name">Product Name</Label>
-                              <Input id="name" {...productForm.register("name")} onChange={(e) => {
-                                const { value } = e.target;
-                                e.target.value = toTitleCase(value);
-                                productForm.setValue("name", e.target.value);
-                              }}/>
-                              {productForm.formState.errors.name && <p className="text-sm text-destructive">{productForm.formState.errors.name.message}</p>}
-                            </div>
-                            <div className="grid grid-cols-2 gap-4">
-                              <div className="space-y-2">
-                                <Label htmlFor="sku">SKU</Label>
-                                <Input id="sku" {...productForm.register("sku")} />
-                                {productForm.formState.errors.sku && <p className="text-sm text-destructive">{productForm.formState.errors.sku.message}</p>}
-                              </div>
-                               <div className="space-y-2">
-                                <Label htmlFor="price">Price</Label>
-                                <div className="relative">
-                                  <span className="absolute inset-y-0 left-0 flex items-center pl-3 text-muted-foreground">{CURRENCY_CONFIG.symbol}</span>
-                                  <Input id="price" type="number" step="0.01" className="pl-8" {...productForm.register("price")} />
-                                </div>
-                                {productForm.formState.errors.price && <p className="text-sm text-destructive">{productForm.formState.errors.price.message}</p>}
-                              </div>
-                            </div>
-                            <div className="grid grid-cols-2 gap-4">
-                              <div className="space-y-2">
-                                <Label htmlFor="stock">Stock</Label>
-                                <Input id="stock" type="number" {...productForm.register("stock")} />
-                                {productForm.formState.errors.stock && <p className="text-sm text-destructive">{productForm.formState.errors.stock.message}</p>}
-                              </div>
-                               <div className="space-y-2">
-                                <Label htmlFor="reorderLimit">Reorder Limit</Label>
-                                <Input id="reorderLimit" type="number" {...productForm.register("reorderLimit")} />
-                                {productForm.formState.errors.reorderLimit && <p className="text-sm text-destructive">{productForm.formState.errors.reorderLimit.message}</p>}
-                              </div>
-                            </div>
-                            <div className="space-y-2">
-                              <Label htmlFor="location">Location</Label>
-                              <Input id="location" placeholder="e.g. 'Warehouse A'" {...productForm.register("location")} />
-                            </div>
-                            <DialogFooter>
-                              <Button type="button" variant="outline" onClick={() => setIsAddProductOpen(false)}>Cancel</Button>
-                              <Button type="submit" disabled={productForm.formState.isSubmitting}>
-                                {productForm.formState.isSubmitting ? "Adding..." : "Add Product"}
-                              </Button>
-                            </DialogFooter>
-                          </form>
-                        </DialogContent>
-                    </Dialog>
                 </div>
                 <div className="space-y-2">
                   {fields.map((field, index) => (
                     <div key={field.id} className="flex items-center gap-2">
-                      <Select onValueChange={(value) => orderForm.setValue(`items.${index}.productId`, value)}>
+                      <Select 
+                        onValueChange={(value) => {
+                           if (value === 'add-new-product') {
+                                setIsAddProductOpen(true);
+                            } else {
+                                orderForm.setValue(`items.${index}.productId`, value);
+                            }
+                        }}
+                      >
                          <SelectTrigger>
                             <SelectValue placeholder="Select a product" />
                         </SelectTrigger>
                         <SelectContent>
                             {products.map(p => <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>)}
+                            <Separator />
+                             <div 
+                                className="flex items-center gap-2 p-2 text-sm cursor-pointer hover:bg-accent"
+                                onMouseDown={(e) => {
+                                  e.preventDefault();
+                                  setIsAddProductOpen(true);
+                                }}
+                            >
+                                <Plus className="h-4 w-4"/> Add New Product
+                            </div>
                         </SelectContent>
                       </Select>
                       <Input 
@@ -416,6 +381,63 @@ export default function OrdersPage() {
         </Table>
       </CardContent>
     </Card>
+    
+     <Dialog open={isAddProductOpen} onOpenChange={setIsAddProductOpen}>
+       <DialogContent className="sm:max-w-lg">
+           <DialogHeader>
+            <DialogTitle>Add New Product</DialogTitle>
+            <DialogDescription>Fill in the details for the new product.</DialogDescription>
+          </DialogHeader>
+          <form onSubmit={productForm.handleSubmit(onProductSubmit)} className="space-y-4">
+            <div className="space-y-2">
+              <Label htmlFor="name">Product Name</Label>
+              <Input id="name" {...productForm.register("name")} onChange={(e) => {
+                const { value } = e.target;
+                e.target.value = toTitleCase(value);
+                productForm.setValue("name", e.target.value);
+              }}/>
+              {productForm.formState.errors.name && <p className="text-sm text-destructive">{productForm.formState.errors.name.message}</p>}
+            </div>
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label htmlFor="sku">SKU</Label>
+                <Input id="sku" {...productForm.register("sku")} />
+                {productForm.formState.errors.sku && <p className="text-sm text-destructive">{productForm.formState.errors.sku.message}</p>}
+              </div>
+               <div className="space-y-2">
+                <Label htmlFor="price">Price</Label>
+                <div className="relative">
+                  <span className="absolute inset-y-0 left-0 flex items-center pl-3 text-muted-foreground">{CURRENCY_CONFIG.symbol}</span>
+                  <Input id="price" type="number" step="0.01" className="pl-8" {...productForm.register("price")} />
+                </div>
+                {productForm.formState.errors.price && <p className="text-sm text-destructive">{productForm.formState.errors.price.message}</p>}
+              </div>
+            </div>
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label htmlFor="stock">Stock</Label>
+                <Input id="stock" type="number" {...productForm.register("stock")} />
+                {productForm.formState.errors.stock && <p className="text-sm text-destructive">{productForm.formState.errors.stock.message}</p>}
+              </div>
+               <div className="space-y-2">
+                <Label htmlFor="reorderLimit">Reorder Limit</Label>
+                <Input id="reorderLimit" type="number" {...productForm.register("reorderLimit")} />
+                {productForm.formState.errors.reorderLimit && <p className="text-sm text-destructive">{productForm.formState.errors.reorderLimit.message}</p>}
+              </div>
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="location">Location</Label>
+              <Input id="location" placeholder="e.g. 'Warehouse A'" {...productForm.register("location")} />
+            </div>
+            <DialogFooter>
+              <Button type="button" variant="outline" onClick={() => setIsAddProductOpen(false)}>Cancel</Button>
+              <Button type="submit" disabled={productForm.formState.isSubmitting}>
+                {productForm.formState.isSubmitting ? "Adding..." : "Add Product"}
+              </Button>
+            </DialogFooter>
+          </form>
+        </DialogContent>
+     </Dialog>
     </>
   );
 }
