@@ -10,7 +10,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
-import { getRecentOrders, getClients, getProducts, addOrder } from "@/services/data-service";
+import { getRecentOrders, getClients, getProducts, addOrder, addProduct } from "@/services/data-service";
 import type { Order, Client, Product } from "@/types";
 import { Skeleton } from "../ui/skeleton";
 import { formatCurrency } from "@/lib/currency";
@@ -19,6 +19,7 @@ import { useToast } from "@/hooks/use-toast";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../ui/select";
 import { Input } from "../ui/input";
 import { Label } from "../ui/label";
+import { CURRENCY_CONFIG } from "@/config/currency";
 
 const statusVariant: { [key: string]: "default" | "secondary" | "destructive" | "outline" } = {
   Fulfilled: "default",
@@ -39,6 +40,22 @@ const orderSchema = z.object({
 
 type OrderFormValues = z.infer<typeof orderSchema>;
 
+const productSchema = z.object({
+  name: z.string().min(1, "Product name is required."),
+  sku: z.string().min(1, "SKU is required."),
+  price: z.coerce.number().nonnegative("Price must be a non-negative number."),
+  stock: z.coerce.number().int().nonnegative("Stock must be a non-negative integer."),
+  reorderLimit: z.coerce.number().int().nonnegative("Reorder limit must be a non-negative integer."),
+  location: z.string().optional(),
+});
+type ProductFormValues = z.infer<typeof productSchema>;
+
+const toTitleCase = (str: string) => {
+  return str.replace(
+    /\w\S*/g,
+    (txt) => txt.charAt(0).toUpperCase() + txt.substring(1).toLowerCase()
+  );
+};
 
 export function ActiveOrders() {
   const [orders, setOrders] = useState<Order[]>([]);
@@ -46,11 +63,12 @@ export function ActiveOrders() {
   const [selectedOrder, setSelectedOrder] = useState<Order | null>(null);
 
   const [isAddOrderOpen, setIsAddOrderOpen] = useState(false);
+  const [isAddProductOpen, setIsAddProductOpen] = useState(false);
   const [clients, setClients] = useState<Client[]>([]);
   const [products, setProducts] = useState<Product[]>([]);
   const { toast } = useToast();
 
-  const form = useForm<OrderFormValues>({
+  const orderForm = useForm<OrderFormValues>({
     resolver: zodResolver(orderSchema),
     defaultValues: {
       clientId: "",
@@ -60,12 +78,23 @@ export function ActiveOrders() {
   });
 
    const { fields, append, remove } = useFieldArray({
-    control: form.control,
+    control: orderForm.control,
     name: "items",
   });
 
+   const productForm = useForm<ProductFormValues>({
+    resolver: zodResolver(productSchema),
+    defaultValues: {
+      name: "",
+      sku: "",
+      price: 0,
+      stock: 0,
+      reorderLimit: 10,
+      location: "",
+    },
+  });
+
   async function fetchInitialData() {
-      setLoading(true);
       try {
         const [fetchedOrders, fetchedClients, fetchedProducts] = await Promise.all([
           getRecentOrders(5),
@@ -81,13 +110,12 @@ export function ActiveOrders() {
           title: "Error",
           description: "Failed to fetch necessary data.",
         });
-      } finally {
-        setLoading(false);
       }
     }
 
   useEffect(() => {
-    fetchInitialData();
+    setLoading(true);
+    fetchInitialData().finally(() => setLoading(false));
   }, []);
 
   const formatDate = (date: Date) => {
@@ -103,14 +131,33 @@ export function ActiveOrders() {
       await addOrder(data);
       toast({ title: "Success", description: "New order created." });
       setIsAddOrderOpen(false);
-      form.reset();
-      fetchInitialData(); // Refresh orders list
+      orderForm.reset();
+      setLoading(true);
+      fetchInitialData().finally(() => setLoading(false));
     } catch (error) {
        console.error(error);
       toast({
         variant: "destructive",
         title: "Error",
         description: "Failed to create order.",
+      });
+    }
+  };
+
+  const onProductSubmit = async (data: ProductFormValues) => {
+    try {
+      await addProduct(data);
+      toast({ title: "Success", description: "Product added successfully." });
+      setIsAddProductOpen(false);
+      productForm.reset();
+      const fetchedProducts = await getProducts();
+      setProducts(fetchedProducts);
+    } catch (error) {
+      console.error(error);
+      toast({
+        variant: "destructive",
+        title: "Error",
+        description: "Failed to add product. Please try again.",
       });
     }
   };
@@ -137,10 +184,10 @@ export function ActiveOrders() {
               <DialogTitle>Create New Order</DialogTitle>
               <DialogDescription>Fill in the details to create a new order.</DialogDescription>
             </DialogHeader>
-            <form onSubmit={form.handleSubmit(onOrderSubmit)} className="space-y-4">
+            <form onSubmit={orderForm.handleSubmit(onOrderSubmit)} className="space-y-4">
               <div className="space-y-2">
                 <Label>Client</Label>
-                 <Select onValueChange={(value) => form.setValue('clientId', value)} defaultValue={form.getValues('clientId')}>
+                 <Select onValueChange={(value) => orderForm.setValue('clientId', value)} defaultValue={orderForm.getValues('clientId')}>
                     <SelectTrigger>
                         <SelectValue placeholder="Select a client" />
                     </SelectTrigger>
@@ -148,15 +195,78 @@ export function ActiveOrders() {
                         {clients.map(c => <SelectItem key={c.id} value={c.id}>{c.clientName} - {c.projectName}</SelectItem>)}
                     </SelectContent>
                 </Select>
-                {form.formState.errors.clientId && <p className="text-sm text-destructive">{form.formState.errors.clientId.message}</p>}
+                {orderForm.formState.errors.clientId && <p className="text-sm text-destructive">{orderForm.formState.errors.clientId.message}</p>}
               </div>
 
               <div className="space-y-2">
-                <Label>Items</Label>
+                <div className="flex justify-between items-center">
+                    <Label>Items</Label>
+                     <Dialog open={isAddProductOpen} onOpenChange={setIsAddProductOpen}>
+                        <DialogTrigger asChild>
+                            <Button variant="outline" size="sm" className="gap-1">
+                                <PlusCircle className="h-4 w-4" /> Add Product
+                            </Button>
+                        </DialogTrigger>
+                        <DialogContent className="sm:max-w-lg">
+                           <DialogHeader>
+                            <DialogTitle>Add New Product</DialogTitle>
+                            <DialogDescription>Fill in the details for the new product.</DialogDescription>
+                          </DialogHeader>
+                          <form onSubmit={productForm.handleSubmit(onProductSubmit)} className="space-y-4">
+                            <div className="space-y-2">
+                              <Label htmlFor="name">Product Name</Label>
+                              <Input id="name" {...productForm.register("name")} onChange={(e) => {
+                                const { value } = e.target;
+                                e.target.value = toTitleCase(value);
+                                productForm.setValue("name", e.target.value);
+                              }}/>
+                              {productForm.formState.errors.name && <p className="text-sm text-destructive">{productForm.formState.errors.name.message}</p>}
+                            </div>
+                            <div className="grid grid-cols-2 gap-4">
+                              <div className="space-y-2">
+                                <Label htmlFor="sku">SKU</Label>
+                                <Input id="sku" {...productForm.register("sku")} />
+                                {productForm.formState.errors.sku && <p className="text-sm text-destructive">{productForm.formState.errors.sku.message}</p>}
+                              </div>
+                               <div className="space-y-2">
+                                <Label htmlFor="price">Price</Label>
+                                <div className="relative">
+                                  <span className="absolute inset-y-0 left-0 flex items-center pl-3 text-muted-foreground">{CURRENCY_CONFIG.symbol}</span>
+                                  <Input id="price" type="number" step="0.01" className="pl-8" {...productForm.register("price")} />
+                                </div>
+                                {productForm.formState.errors.price && <p className="text-sm text-destructive">{productForm.formState.errors.price.message}</p>}
+                              </div>
+                            </div>
+                            <div className="grid grid-cols-2 gap-4">
+                              <div className="space-y-2">
+                                <Label htmlFor="stock">Stock</Label>
+                                <Input id="stock" type="number" {...productForm.register("stock")} />
+                                {productForm.formState.errors.stock && <p className="text-sm text-destructive">{productForm.formState.errors.stock.message}</p>}
+                              </div>
+                               <div className="space-y-2">
+                                <Label htmlFor="reorderLimit">Reorder Limit</Label>
+                                <Input id="reorderLimit" type="number" {...productForm.register("reorderLimit")} />
+                                {productForm.formState.errors.reorderLimit && <p className="text-sm text-destructive">{productForm.formState.errors.reorderLimit.message}</p>}
+                              </div>
+                            </div>
+                            <div className="space-y-2">
+                              <Label htmlFor="location">Location</Label>
+                              <Input id="location" placeholder="e.g. 'Warehouse A'" {...productForm.register("location")} />
+                            </div>
+                            <DialogFooter>
+                              <Button type="button" variant="outline" onClick={() => setIsAddProductOpen(false)}>Cancel</Button>
+                              <Button type="submit" disabled={productForm.formState.isSubmitting}>
+                                {productForm.formState.isSubmitting ? "Adding..." : "Add Product"}
+                              </Button>
+                            </DialogFooter>
+                          </form>
+                        </DialogContent>
+                    </Dialog>
+                </div>
                 <div className="space-y-2">
                   {fields.map((field, index) => (
                     <div key={field.id} className="flex items-center gap-2">
-                      <Select onValueChange={(value) => form.setValue(`items.${index}.productId`, value)}>
+                      <Select onValueChange={(value) => orderForm.setValue(`items.${index}.productId`, value)}>
                          <SelectTrigger>
                             <SelectValue placeholder="Select a product" />
                         </SelectTrigger>
@@ -168,7 +278,7 @@ export function ActiveOrders() {
                         type="number" 
                         placeholder="Qty" 
                         className="w-20"
-                        {...form.register(`items.${index}.quantity`)}
+                        {...orderForm.register(`items.${index}.quantity`)}
                       />
                       <Button variant="ghost" size="icon" onClick={() => remove(index)}>
                         <X className="h-4 w-4" />
@@ -176,14 +286,14 @@ export function ActiveOrders() {
                     </div>
                   ))}
                 </div>
-                 {form.formState.errors.items && <p className="text-sm text-destructive">{form.formState.errors.items.message}</p>}
+                 {orderForm.formState.errors.items && <p className="text-sm text-destructive">{orderForm.formState.errors.items.message}</p>}
                 <Button type="button" variant="outline" size="sm" onClick={() => append({ productId: "", quantity: 1 })}>
                   <PlusCircle className="h-4 w-4 mr-2" /> Add Item
                 </Button>
               </div>
               <div className="space-y-2">
                 <Label>Status</Label>
-                <Select onValueChange={(value) => form.setValue('status', value as Order['status'])} defaultValue={form.getValues('status')}>
+                <Select onValueChange={(value) => orderForm.setValue('status', value as Order['status'])} defaultValue={orderForm.getValues('status')}>
                     <SelectTrigger>
                         <SelectValue placeholder="Select a status" />
                     </SelectTrigger>
@@ -195,8 +305,8 @@ export function ActiveOrders() {
 
               <DialogFooter>
                 <Button type="button" variant="outline" onClick={() => setIsAddOrderOpen(false)}>Cancel</Button>
-                <Button type="submit" disabled={form.formState.isSubmitting}>
-                  {form.formState.isSubmitting ? "Creating..." : "Create Order"}
+                <Button type="submit" disabled={orderForm.formState.isSubmitting}>
+                  {orderForm.formState.isSubmitting ? "Creating..." : "Create Order"}
                 </Button>
               </DialogFooter>
             </form>
