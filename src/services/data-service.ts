@@ -5,6 +5,7 @@
 
 
 
+
 import { db } from "@/lib/firebase";
 import { collection, getDocs, getDoc, doc, orderBy, query, limit, Timestamp, where, DocumentReference, addDoc, updateDoc, deleteDoc, arrayUnion } from "firebase/firestore";
 import type { Activity, Notification, Order, Product, Client } from "@/types";
@@ -316,17 +317,28 @@ export async function getClients(): Promise<Client[]> {
     const clientsCol = collection(db, "clients");
     const q = query(clientsCol, orderBy("clientName", "asc"));
     const clientSnapshot = await getDocs(q);
-    return clientSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Client));
+    return clientSnapshot.docs.map(doc => {
+        const data = doc.data();
+        return { 
+            id: doc.id, 
+            ...data,
+            createdAt: data.createdAt // Keep as Timestamp
+        } as Client;
+    });
   } catch (error) {
     console.error("Error fetching clients:", error);
     return [];
   }
 }
 
-export async function addClient(client: Omit<Client, 'id'>): Promise<DocumentReference> {
+export async function addClient(client: Omit<Client, 'id' | 'createdAt'>): Promise<DocumentReference> {
   try {
     const clientsCol = collection(db, "clients");
-    const docRef = await addDoc(clientsCol, client);
+    const clientWithDate = {
+      ...client,
+      createdAt: Timestamp.now(),
+    };
+    const docRef = await addDoc(clientsCol, clientWithDate);
     return docRef;
   } catch (error) {
     console.error("Error adding client:", error);

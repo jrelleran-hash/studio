@@ -6,6 +6,8 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
 import { PlusCircle, MoreHorizontal } from "lucide-react";
+import { Timestamp } from "firebase/firestore";
+import { format } from "date-fns";
 
 import { Button, buttonVariants } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -176,6 +178,11 @@ export default function ClientsPage() {
     }
   };
 
+  const formatDate = (timestamp?: Timestamp) => {
+    if (!timestamp) return 'N/A';
+    return format(timestamp.toDate(), 'PP');
+  }
+
 
   return (
     <>
@@ -246,6 +253,7 @@ export default function ClientsPage() {
               <TableHead>Project Name</TableHead>
               <TableHead>BOQ Number</TableHead>
               <TableHead>Address</TableHead>
+              <TableHead>Date Added</TableHead>
               <TableHead>
                 <span className="sr-only">Actions</span>
               </TableHead>
@@ -259,6 +267,7 @@ export default function ClientsPage() {
                   <TableCell><Skeleton className="h-4 w-32" /></TableCell>
                   <TableCell><Skeleton className="h-4 w-24" /></TableCell>
                   <TableCell><Skeleton className="h-4 w-48" /></TableCell>
+                  <TableCell><Skeleton className="h-4 w-24" /></TableCell>
                   <TableCell><Skeleton className="h-8 w-8" /></TableCell>
                 </TableRow>
               ))
@@ -269,6 +278,7 @@ export default function ClientsPage() {
                   <TableCell>{client.projectName}</TableCell>
                   <TableCell>{client.boqNumber}</TableCell>
                   <TableCell>{client.address}</TableCell>
+                  <TableCell>{formatDate(client.createdAt)}</TableCell>
                   <TableCell>
                     <DropdownMenu>
                       <DropdownMenuTrigger asChild>

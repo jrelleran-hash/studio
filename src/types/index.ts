@@ -25,6 +25,7 @@ export interface Client {
     clientName: string;
     boqNumber: string;
     address: string;
+    createdAt: Timestamp;
 }
 
 export interface ProductHistory {

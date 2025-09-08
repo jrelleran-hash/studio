@@ -16,6 +16,7 @@ import { getProducts, getClients } from "@/services/data-service";
 import type { Product, Client } from "@/types";
 import { formatCurrency } from "@/lib/currency";
 import { PesoSign } from "@/components/icons";
+import { subDays } from "date-fns";
 
 export default function DashboardPage() {
   const { user, loading: authLoading } = useAuth();
@@ -102,6 +103,29 @@ export default function DashboardPage() {
 
   }, [products, inventoryFilter]);
 
+  const newClientsData = useMemo(() => {
+    const now = new Date();
+    const last30DaysStart = subDays(now, 30);
+    const prev30DaysStart = subDays(now, 60);
+
+    const newClientsLast30Days = clients.filter(c => c.createdAt && c.createdAt.toDate() > last30DaysStart).length;
+    const newClientsPrev30Days = clients.filter(c => c.createdAt && c.createdAt.toDate() > prev30DaysStart && c.createdAt.toDate() <= last30DaysStart).length;
+
+    let changePercentage = 0;
+    if (newClientsPrev30Days > 0) {
+      changePercentage = ((newClientsLast30Days - newClientsPrev30Days) / newClientsPrev30Days) * 100;
+    } else if (newClientsLast30Days > 0) {
+      changePercentage = 100; // Or Infinity, depending on how you want to represent it
+    }
+
+    const changeText = `${changePercentage >= 0 ? '+' : ''}${changePercentage.toFixed(1)}% from last month`;
+
+    return {
+      count: newClientsLast30Days,
+      change: changeText,
+    };
+  }, [clients]);
+
 
   if (authLoading || !user) {
     return (
@@ -140,9 +164,9 @@ export default function DashboardPage() {
           icon={<ShoppingCart className="size-5 text-primary" />}
         />
         <KpiCard
-          title="Clients"
-          value={clients.length.toString()}
-          change="Total clients"
+          title="New Clients"
+          value={`+${newClientsData.count}`}
+          change={newClientsData.change}
           icon={<Users className="size-5 text-primary" />}
           loading={dataLoading}
         />
