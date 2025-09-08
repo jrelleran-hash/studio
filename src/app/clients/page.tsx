@@ -180,7 +180,7 @@ export default function ClientsPage() {
 
   const formatDate = (timestamp?: Timestamp) => {
     if (!timestamp) return 'N/A';
-    return format(timestamp.toDate(), 'PP');
+    return format(timestamp.toDate(), 'PPpp');
   }
 
 
