@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useState } from "react";
@@ -13,11 +14,13 @@ import {
   DialogContent,
   DialogHeader,
   DialogTitle,
+  DialogTrigger,
   DialogDescription,
 } from "@/components/ui/dialog";
 import { smartSearchAction } from "@/app/actions";
 import { Form, FormControl, FormField, FormItem } from "./ui/form";
 import { useToast } from "@/hooks/use-toast";
+import { cn } from "@/lib/utils";
 
 const searchSchema = z.object({
   query: z.string().min(3, "Search query must be at least 3 characters long."),
@@ -46,7 +49,6 @@ export function SmartSearch() {
 
     if (response.success) {
       setSearchResult(response.results);
-      setIsOpen(true);
     } else {
       toast({
         variant: "destructive",
@@ -56,52 +58,62 @@ export function SmartSearch() {
     }
   };
 
+  const handleOpenChange = (open: boolean) => {
+    setIsOpen(open);
+    if (!open) {
+      form.reset();
+      setSearchResult(null);
+    }
+  };
+
   return (
-    <>
-      <Form {...form}>
-        <form onSubmit={form.handleSubmit(onSubmit)} className="relative w-full">
-          <FormField
-            control={form.control}
-            name="query"
-            render={({ field }) => (
-              <FormItem>
-                <FormControl>
-                  <div className="relative">
-                     <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                    <Input
-                      {...field}
-                      placeholder="Smart Search..."
-                      className="pl-10"
-                      disabled={isLoading}
-                    />
-                     {isLoading && (
+    <Dialog open={isOpen} onOpenChange={handleOpenChange}>
+      <DialogTrigger asChild>
+        <Button variant="outline" className="w-full justify-start text-muted-foreground gap-2">
+          <Search className="h-4 w-4" />
+          <span>Smart Search...</span>
+        </Button>
+      </DialogTrigger>
+      <DialogContent className="sm:max-w-[625px]">
+        <DialogHeader>
+          <DialogTitle className="font-headline">Smart Search</DialogTitle>
+          <DialogDescription>
+            Ask anything about your data in natural language.
+          </DialogDescription>
+        </DialogHeader>
+        <Form {...form}>
+          <form onSubmit={form.handleSubmit(onSubmit)} className="relative w-full">
+            <FormField
+              control={form.control}
+              name="query"
+              render={({ field }) => (
+                <FormItem>
+                  <FormControl>
+                    <div className="relative">
+                      <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                      <Input
+                        {...field}
+                        placeholder="e.g., 'How many clients did we add last month?'"
+                        className="pl-10"
+                        disabled={isLoading}
+                      />
+                      {isLoading && (
                         <Loader2 className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 animate-spin text-muted-foreground" />
                       )}
-                  </div>
-                </FormControl>
-              </FormItem>
-            )}
-          />
-        </form>
-      </Form>
-
-      <Dialog open={isOpen} onOpenChange={setIsOpen}>
-        <DialogContent className="sm:max-w-[625px]">
-          <DialogHeader>
-            <DialogTitle className="font-headline">Smart Search Results</DialogTitle>
-            <DialogDescription>
-              Showing results for: "{form.getValues("query")}"
-            </DialogDescription>
-          </DialogHeader>
-          <div className="prose prose-invert max-w-none text-sm font-code rounded-md bg-muted/50 p-4">
-            {searchResult ? (
-              <p>{searchResult}</p>
-            ) : (
-              <p>No results found.</p>
-            )}
+                    </div>
+                  </FormControl>
+                </FormItem>
+              )}
+            />
+          </form>
+        </Form>
+        
+        {searchResult && (
+           <div className="prose prose-invert max-w-none text-sm font-code rounded-md bg-muted/50 p-4">
+             <p>{searchResult}</p>
           </div>
-        </DialogContent>
-      </Dialog>
-    </>
+        )}
+      </DialogContent>
+    </Dialog>
   );
 }
