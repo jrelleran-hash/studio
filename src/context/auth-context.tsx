@@ -1,7 +1,7 @@
 
 "use client";
 
-import { createContext, useEffect, useState, ReactNode } from "react";
+import { createContext, useEffect, useState, ReactNode, useCallback } from "react";
 import { onAuthStateChanged, User, signOut, Auth } from "firebase/auth";
 import { auth } from "@/lib/firebase";
 import { useRouter, usePathname } from "next/navigation";
@@ -10,6 +10,7 @@ interface AuthContextType {
   user: User | null;
   loading: boolean;
   logout: () => Promise<void>;
+  reloadUser: () => Promise<void>;
 }
 
 export const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -44,7 +45,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     router.push("/login");
   };
 
-  const value = { user, loading, logout };
+  const reloadUser = useCallback(async () => {
+    const currentUser = auth.currentUser;
+    if (currentUser) {
+      await currentUser.reload();
+      // Create a new user object to force re-render
+      const refreshedUser = { ...currentUser };
+      setUser(refreshedUser as User);
+    }
+  }, []);
+
+  const value = { user, loading, logout, reloadUser };
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 }

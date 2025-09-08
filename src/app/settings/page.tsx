@@ -53,7 +53,7 @@ const profileFormSchema = z.object({
   photoFile: z
     .any()
     .optional()
-    .refine((files) => !files || files?.[0]?.size <= MAX_FILE_SIZE, `Max file size is 5MB.`)
+    .refine((files) => !files?.[0] || files?.[0]?.size <= MAX_FILE_SIZE, `Max file size is 5MB.`)
     .refine(
       (files) => !files || (files?.[0] && ACCEPTED_IMAGE_TYPES.includes(files?.[0]?.type)),
       ".jpg, .jpeg, .png and .webp files are accepted."
@@ -82,7 +82,7 @@ const getInitialNames = (displayName: string | null | undefined) => {
 }
 
 export default function SettingsPage() {
-  const { user } = useAuth();
+  const { user, reloadUser } = useAuth();
   const { toast } = useToast();
   const [isProfileDialogOpen, setIsProfileDialogOpen] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -129,6 +129,8 @@ export default function SettingsPage() {
         displayName: displayName,
         photoURL: photoURL,
       });
+
+      await reloadUser();
 
       toast({
         title: "Profile Updated",
