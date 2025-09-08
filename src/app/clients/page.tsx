@@ -75,12 +75,12 @@ export default function ClientsPage() {
 
   const form = useForm<ClientFormValues>({
     resolver: zodResolver(clientSchema),
-    mode: 'onChange',
+    mode: 'onBlur', // More stable for this kind of validation
   });
 
   const editForm = useForm<ClientFormValues>({
     resolver: zodResolver(clientSchema),
-    mode: 'onChange',
+    mode: 'onBlur',
   });
 
   const fetchClients = useCallback(async () => {
@@ -103,9 +103,46 @@ export default function ClientsPage() {
   useEffect(() => {
     fetchClients();
   }, [fetchClients]);
+
+  // This effect ensures validation rules have the latest client list.
+  useEffect(() => {
+    const validateBoq = (boq: string, currentClientId?: string) => {
+      if (!boq) return true;
+      const isDuplicate = clients.some(c => 
+          c.id !== currentClientId && 
+          c.boqNumber.toLowerCase() === boq.toLowerCase()
+      );
+      return !isDuplicate || `BOQ Number "${boq}" already exists.`;
+    };
+    
+    const validateRecord = (formValues: Partial<ClientFormValues>, currentClientId?: string) => {
+      if (!formValues.projectName || !formValues.clientName || !formValues.address) return true;
+      const isDuplicate = clients.some(c => 
+          c.id !== currentClientId &&
+          c.projectName?.toLowerCase() === formValues.projectName?.toLowerCase() &&
+          c.clientName?.toLowerCase() === formValues.clientName?.toLowerCase() &&
+          c.address?.toLowerCase() === formValues.address?.toLowerCase()
+      );
+      return !isDuplicate || "A client with these details already exists.";
+    };
+
+    // Re-register fields to update validation functions with new `clients` state
+    form.register("boqNumber", { validate: (value) => validateBoq(value) });
+    form.register("projectName", { validate: () => validateRecord(form.getValues()) });
+    form.register("clientName", { validate: () => validateRecord(form.getValues()) });
+    form.register("address", { validate: () => validateRecord(form.getValues()) });
+    
+    if (editingClient) {
+        editForm.register("boqNumber", { validate: (value) => validateBoq(value, editingClient.id) });
+        editForm.register("projectName", { validate: () => validateRecord(editForm.getValues(), editingClient.id) });
+        editForm.register("clientName", { validate: () => validateRecord(editForm.getValues(), editingClient.id) });
+        editForm.register("address", { validate: () => validateRecord(editForm.getValues(), editingClient.id) });
+    }
+
+  }, [clients, form, editForm, editingClient]);
   
   useEffect(() => {
-    if (editingClient) {
+    if (isEditDialogOpen && editingClient) {
       editForm.reset(editingClient);
     } else {
       form.reset({
@@ -115,7 +152,7 @@ export default function ClientsPage() {
         address: "",
       });
     }
-  }, [editingClient, editForm, form]);
+  }, [isEditDialogOpen, editingClient, editForm, form]);
 
 
   const onAddSubmit = async (data: ClientFormValues) => {
@@ -157,7 +194,6 @@ export default function ClientsPage() {
   
   const handleEditClick = (client: Client) => {
     setEditingClient(client);
-    editForm.reset(client);
     setIsEditDialogOpen(true);
   };
   
@@ -190,27 +226,6 @@ export default function ClientsPage() {
     return format(timestamp.toDate(), 'PPpp');
   }
 
-  const validateBoq = (boq: string, currentClientId?: string) => {
-    if (!boq) return true;
-    const isDuplicate = clients.some(c => 
-        c.id !== currentClientId && 
-        c.boqNumber.toLowerCase() === boq.toLowerCase()
-    );
-    return isDuplicate ? `BOQ Number "${boq}" already exists.` : true;
-  };
-  
-  const validateRecord = (formValues: Partial<ClientFormValues>, currentClientId?: string) => {
-    if (!formValues.projectName || !formValues.clientName || !formValues.address) return true;
-    const isDuplicate = clients.some(c => 
-        c.id !== currentClientId &&
-        c.projectName?.toLowerCase() === formValues.projectName?.toLowerCase() &&
-        c.clientName?.toLowerCase() === formValues.clientName?.toLowerCase() &&
-        c.address?.toLowerCase() === formValues.address?.toLowerCase()
-    );
-    return isDuplicate ? "A client with these details already exists." : true;
-  };
-  
-
   return (
     <>
     <Card>
@@ -240,13 +255,11 @@ export default function ClientsPage() {
                   <Label htmlFor="projectName">Project Name</Label>
                   <Input 
                     id="projectName" 
-                    {...form.register("projectName", { 
-                        validate: { record: () => validateRecord(form.getValues()) }
-                    })} 
+                    {...form.register("projectName")} 
+                    onBlur={() => form.trigger(["projectName", "clientName", "address"])}
                     onChange={(e) => {
                       const { value } = e.target;
-                      const formattedValue = toTitleCase(value);
-                      form.setValue("projectName", formattedValue, { shouldValidate: true });
+                      form.setValue("projectName", toTitleCase(value), { shouldValidate: true });
                     }}
                   />
                   {form.formState.errors.projectName && <p className="text-sm text-destructive">{form.formState.errors.projectName.message}</p>}
@@ -255,13 +268,11 @@ export default function ClientsPage() {
                   <Label htmlFor="clientName">Client Name</Label>
                   <Input 
                     id="clientName" 
-                    {...form.register("clientName", { 
-                       validate: { record: () => validateRecord(form.getValues()) }
-                    })} 
+                    {...form.register("clientName")} 
+                    onBlur={() => form.trigger(["projectName", "clientName", "address"])}
                     onChange={(e) => {
                       const { value } = e.target;
-                      const formattedValue = toTitleCase(value);
-                       form.setValue("clientName", formattedValue, { shouldValidate: true });
+                      form.setValue("clientName", toTitleCase(value), { shouldValidate: true });
                     }}
                   />
                   {form.formState.errors.clientName && <p className="text-sm text-destructive">{form.formState.errors.clientName.message}</p>}
@@ -270,9 +281,7 @@ export default function ClientsPage() {
                   <Label htmlFor="boqNumber">BOQ Number</Label>
                   <Input 
                     id="boqNumber" 
-                    {...form.register("boqNumber", {
-                       validate: { boq: (value) => validateBoq(value) }
-                    })} 
+                    {...form.register("boqNumber")}
                   />
                   {form.formState.errors.boqNumber && <p className="text-sm text-destructive">{form.formState.errors.boqNumber.message}</p>}
                 </div>
@@ -280,9 +289,8 @@ export default function ClientsPage() {
                   <Label htmlFor="address">Address</Label>
                   <Input 
                     id="address" 
-                    {...form.register("address", { 
-                         validate: { record: () => validateRecord(form.getValues()) }
-                    })}
+                    {...form.register("address")}
+                    onBlur={() => form.trigger(["projectName", "clientName", "address"])}
                    />
                   {form.formState.errors.address && <p className="text-sm text-destructive">{form.formState.errors.address.message}</p>}
                 </div>
@@ -372,13 +380,11 @@ export default function ClientsPage() {
                   <Label htmlFor="edit-projectName">Project Name</Label>
                   <Input 
                     id="edit-projectName" 
-                    {...editForm.register("projectName", {
-                        validate: { record: () => validateRecord(editForm.getValues(), editingClient.id) }
-                    })} 
+                    {...editForm.register("projectName")} 
+                    onBlur={() => editForm.trigger(["projectName", "clientName", "address"])}
                     onChange={(e) => {
                         const { value } = e.target;
-                        const formattedValue = toTitleCase(value);
-                        editForm.setValue("projectName", formattedValue, { shouldValidate: true });
+                        editForm.setValue("projectName", toTitleCase(value), { shouldValidate: true });
                     }}
                    />
                   {editForm.formState.errors.projectName && <p className="text-sm text-destructive">{editForm.formState.errors.projectName.message}</p>}
@@ -387,13 +393,11 @@ export default function ClientsPage() {
                   <Label htmlFor="edit-clientName">Client Name</Label>
                   <Input 
                     id="edit-clientName" 
-                    {...editForm.register("clientName", {
-                        validate: { record: () => validateRecord(editForm.getValues(), editingClient.id) }
-                    })} 
+                    {...editForm.register("clientName")} 
+                    onBlur={() => editForm.trigger(["projectName", "clientName", "address"])}
                     onChange={(e) => {
                         const { value } = e.target;
-                        const formattedValue = toTitleCase(value);
-                        editForm.setValue("clientName", formattedValue, { shouldValidate: true });
+                        editForm.setValue("clientName", toTitleCase(value), { shouldValidate: true });
                     }} 
                   />
                   {editForm.formState.errors.clientName && <p className="text-sm text-destructive">{editForm.formState.errors.clientName.message}</p>}
@@ -402,9 +406,7 @@ export default function ClientsPage() {
                   <Label htmlFor="edit-boqNumber">BOQ Number</Label>
                   <Input 
                     id="edit-boqNumber" 
-                    {...editForm.register("boqNumber", {
-                       validate: { boq: (value) => validateBoq(value, editingClient.id) }
-                    })}
+                    {...editForm.register("boqNumber")}
                   />
                   {editForm.formState.errors.boqNumber && <p className="text-sm text-destructive">{editForm.formState.errors.boqNumber.message}</p>}
                 </div>
@@ -412,9 +414,8 @@ export default function ClientsPage() {
                   <Label htmlFor="edit-address">Address</Label>
                   <Input 
                     id="edit-address" 
-                    {...editForm.register("address", {
-                        validate: { record: () => validateRecord(editForm.getValues(), editingClient.id) }
-                    })} 
+                    {...editForm.register("address")}
+                    onBlur={() => editForm.trigger(["projectName", "clientName", "address"])}
                   />
                   {editForm.formState.errors.address && <p className="text-sm text-destructive">{editForm.formState.errors.address.message}</p>}
                 </div>
@@ -449,5 +450,7 @@ export default function ClientsPage() {
     </>
   );
 }
+
+    
 
     
