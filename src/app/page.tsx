@@ -12,11 +12,11 @@ import { Package, ShoppingCart, Users } from "lucide-react";
 import { useAuth } from "@/hooks/use-auth";
 import { useRouter } from "next/navigation";
 import { useEffect, useState, useMemo } from "react";
-import { getProducts, getClients } from "@/services/data-service";
-import type { Product, Client } from "@/types";
+import { getProducts, getClients, getOrders } from "@/services/data-service";
+import type { Product, Client, Order } from "@/types";
 import { formatCurrency } from "@/lib/currency";
 import { PesoSign } from "@/components/icons";
-import { subDays } from "date-fns";
+import { subDays, subHours } from "date-fns";
 
 export default function DashboardPage() {
   const { user, loading: authLoading } = useAuth();
@@ -26,6 +26,7 @@ export default function DashboardPage() {
   const [inventoryFilter, setInventoryFilter] = useState<InventoryFilterType>("all");
   const [products, setProducts] = useState<Product[]>([]);
   const [clients, setClients] = useState<Client[]>([]);
+  const [orders, setOrders] = useState<Order[]>([]);
   const [dataLoading, setDataLoading] = useState(true);
 
   useEffect(() => {
@@ -39,12 +40,14 @@ export default function DashboardPage() {
       if (user) {
         setDataLoading(true);
         try {
-          const [fetchedProducts, fetchedClients] = await Promise.all([
+          const [fetchedProducts, fetchedClients, fetchedOrders] = await Promise.all([
             getProducts(),
-            getClients()
+            getClients(),
+            getOrders(),
           ]);
           setProducts(fetchedProducts);
           setClients(fetchedClients);
+          setOrders(fetchedOrders);
         } catch (error) {
             console.error("Failed to fetch dashboard data", error);
         } finally {
@@ -126,6 +129,21 @@ export default function DashboardPage() {
     };
   }, [clients]);
 
+  const activeOrdersData = useMemo(() => {
+    const activeStatuses: Order['status'][] = ["Processing", "Shipped"];
+    const activeOrders = orders.filter(o => activeStatuses.includes(o.status));
+
+    const now = new Date();
+    const oneHourAgo = subHours(now, 1);
+
+    const recentActiveOrders = orders.filter(o => o.date > oneHourAgo).length;
+
+    return {
+      count: activeOrders.length,
+      change: `+${recentActiveOrders} since last hour`,
+    };
+  }, [orders]);
+
 
   if (authLoading || !user) {
     return (
@@ -161,9 +179,10 @@ export default function DashboardPage() {
         </KpiCard>
         <KpiCard
           title="Active Orders"
-          value="1,203"
-          change="+5 since last hour"
+          value={activeOrdersData.count.toLocaleString()}
+          change={activeOrdersData.change}
           icon={<ShoppingCart className="size-5 text-primary" />}
+          loading={dataLoading}
           href="/orders"
         />
         <KpiCard
