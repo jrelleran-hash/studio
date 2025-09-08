@@ -157,6 +157,7 @@ export default function ClientsPage() {
   
   const handleEditClick = (client: Client) => {
     setEditingClient(client);
+    editForm.reset(client);
     setIsEditDialogOpen(true);
   };
   
@@ -189,16 +190,16 @@ export default function ClientsPage() {
     return format(timestamp.toDate(), 'PPpp');
   }
 
-  const validateBoq = useCallback((boq: string, currentClientId?: string) => {
+  const validateBoq = (boq: string, currentClientId?: string) => {
     if (!boq) return true;
     const isDuplicate = clients.some(c => 
         c.id !== currentClientId && 
         c.boqNumber.toLowerCase() === boq.toLowerCase()
     );
     return isDuplicate ? `BOQ Number "${boq}" already exists.` : true;
-  }, [clients]);
+  };
   
-  const validateRecord = useCallback((formValues: Partial<ClientFormValues>, currentClientId?: string) => {
+  const validateRecord = (formValues: Partial<ClientFormValues>, currentClientId?: string) => {
     if (!formValues.projectName || !formValues.clientName || !formValues.address) return true;
     const isDuplicate = clients.some(c => 
         c.id !== currentClientId &&
@@ -207,7 +208,7 @@ export default function ClientsPage() {
         c.address?.toLowerCase() === formValues.address?.toLowerCase()
     );
     return isDuplicate ? "A client with these details already exists." : true;
-  }, [clients]);
+  };
   
 
   return (
@@ -240,7 +241,7 @@ export default function ClientsPage() {
                   <Input 
                     id="projectName" 
                     {...form.register("projectName", { 
-                        validate: () => validateRecord(form.getValues())
+                        validate: { record: () => validateRecord(form.getValues()) }
                     })} 
                     onChange={(e) => {
                       const { value } = e.target;
@@ -255,7 +256,7 @@ export default function ClientsPage() {
                   <Input 
                     id="clientName" 
                     {...form.register("clientName", { 
-                       validate: () => validateRecord(form.getValues())
+                       validate: { record: () => validateRecord(form.getValues()) }
                     })} 
                     onChange={(e) => {
                       const { value } = e.target;
@@ -270,7 +271,7 @@ export default function ClientsPage() {
                   <Input 
                     id="boqNumber" 
                     {...form.register("boqNumber", {
-                       validate: (value) => validateBoq(value)
+                       validate: { boq: (value) => validateBoq(value) }
                     })} 
                   />
                   {form.formState.errors.boqNumber && <p className="text-sm text-destructive">{form.formState.errors.boqNumber.message}</p>}
@@ -280,7 +281,7 @@ export default function ClientsPage() {
                   <Input 
                     id="address" 
                     {...form.register("address", { 
-                         validate: () => validateRecord(form.getValues())
+                         validate: { record: () => validateRecord(form.getValues()) }
                     })}
                    />
                   {form.formState.errors.address && <p className="text-sm text-destructive">{form.formState.errors.address.message}</p>}
@@ -372,7 +373,7 @@ export default function ClientsPage() {
                   <Input 
                     id="edit-projectName" 
                     {...editForm.register("projectName", {
-                        validate: () => validateRecord(editForm.getValues(), editingClient.id)
+                        validate: { record: () => validateRecord(editForm.getValues(), editingClient.id) }
                     })} 
                     onChange={(e) => {
                         const { value } = e.target;
@@ -387,7 +388,7 @@ export default function ClientsPage() {
                   <Input 
                     id="edit-clientName" 
                     {...editForm.register("clientName", {
-                        validate: () => validateRecord(editForm.getValues(), editingClient.id)
+                        validate: { record: () => validateRecord(editForm.getValues(), editingClient.id) }
                     })} 
                     onChange={(e) => {
                         const { value } = e.target;
@@ -402,7 +403,7 @@ export default function ClientsPage() {
                   <Input 
                     id="edit-boqNumber" 
                     {...editForm.register("boqNumber", {
-                       validate: (value) => validateBoq(value, editingClient.id)
+                       validate: { boq: (value) => validateBoq(value, editingClient.id) }
                     })}
                   />
                   {editForm.formState.errors.boqNumber && <p className="text-sm text-destructive">{editForm.formState.errors.boqNumber.message}</p>}
@@ -412,7 +413,7 @@ export default function ClientsPage() {
                   <Input 
                     id="edit-address" 
                     {...editForm.register("address", {
-                        validate: () => validateRecord(editForm.getValues(), editingClient.id)
+                        validate: { record: () => validateRecord(editForm.getValues(), editingClient.id) }
                     })} 
                   />
                   {editForm.formState.errors.address && <p className="text-sm text-destructive">{editForm.formState.errors.address.message}</p>}
@@ -448,3 +449,5 @@ export default function ClientsPage() {
     </>
   );
 }
+
+    
