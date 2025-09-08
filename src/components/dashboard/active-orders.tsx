@@ -100,7 +100,8 @@ export function ActiveOrders() {
     defaultValues: {
       name: "",
       sku: "",
-      stock: 0,
+      price: undefined,
+      stock: undefined,
       reorderLimit: 10,
       location: "",
       supplier: "",
@@ -409,7 +410,7 @@ export function ActiveOrders() {
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
                 <Label htmlFor="stock-dash">Stock</Label>
-                <Input id="stock-dash" type="number" {...productForm.register("stock")} />
+                <Input id="stock-dash" type="number" placeholder="0" {...productForm.register("stock")} />
                 {productForm.formState.errors.stock && <p className="text-sm text-destructive">{productForm.formState.errors.stock.message}</p>}
               </div>
                <div className="space-y-2">

@@ -104,7 +104,8 @@ export default function InventoryPage() {
     defaultValues: {
       name: "",
       sku: "",
-      stock: 0,
+      price: undefined,
+      stock: undefined,
       reorderLimit: 10,
       location: "",
       supplier: "",
@@ -306,7 +307,7 @@ export default function InventoryPage() {
                 <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-2">
                     <Label htmlFor="stock">Stock</Label>
-                    <Input id="stock" type="number" {...addForm.register("stock")} />
+                    <Input id="stock" type="number" placeholder="0" {...addForm.register("stock")} />
                     {addForm.formState.errors.stock && <p className="text-sm text-destructive">{addForm.formState.errors.stock.message}</p>}
                   </div>
                    <div className="space-y-2">
