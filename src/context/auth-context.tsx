@@ -49,9 +49,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const currentUser = auth.currentUser;
     if (currentUser) {
       await currentUser.reload();
-      // Create a new user object to force re-render
-      const refreshedUser = { ...currentUser };
-      setUser(refreshedUser as User);
+      const refreshedUser = auth.currentUser;
+      // Create a new plain object to ensure React detects the change.
+      setUser(refreshedUser ? { ...refreshedUser } as User : null);
     }
   }, []);
 
