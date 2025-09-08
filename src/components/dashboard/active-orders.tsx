@@ -14,13 +14,16 @@ import { getRecentOrders, getClients, getProducts, addOrder, addProduct } from "
 import type { Order, Client, Product } from "@/types";
 import { Skeleton } from "../ui/skeleton";
 import { formatCurrency } from "@/lib/currency";
-import { PlusCircle, X } from "lucide-react";
+import { PlusCircle, X, Plus } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../ui/select";
 import { Input } from "../ui/input";
 import { Label } from "../ui/label";
 import { CURRENCY_CONFIG } from "@/config/currency";
 import { Switch } from "../ui/switch";
+import { Separator } from "../ui/separator";
+import { cn } from "@/lib/utils";
+
 
 const statusVariant: { [key: string]: "default" | "secondary" | "destructive" | "outline" } = {
   Fulfilled: "default",
@@ -57,6 +60,7 @@ const createProductSchema = (isSkuAuto: boolean) => z.object({
 type ProductFormValues = z.infer<ReturnType<typeof createProductSchema>>;
 
 const toTitleCase = (str: string) => {
+  if (!str) return "";
   return str.replace(
     /\w\S*/g,
     (txt) => txt.charAt(0).toUpperCase() + txt.substring(1).toLowerCase()
@@ -133,6 +137,16 @@ export function ActiveOrders() {
       setAutoGenerateSku(true);
     }
   }, [isAddProductOpen, productForm]);
+  
+  useEffect(() => {
+    if(!isAddOrderOpen) {
+      orderForm.reset({
+        clientId: "",
+        items: [{ productId: "", quantity: 1 }],
+        status: "Processing",
+      });
+    }
+  }, [isAddOrderOpen, orderForm]);
 
   const formatDate = (date: Date) => {
     return new Intl.DateTimeFormat("en-US", {
@@ -167,7 +181,7 @@ export function ActiveOrders() {
         // Simple SKU generation logic: first 3 letters of name + random 4 digits
         const namePart = data.name.substring(0, 3).toUpperCase();
         const randomPart = Math.floor(1000 + Math.random() * 9000);
-        productData.sku = `${namePart}-${randomPart}`;
+        productData.sku = `\'\'\'${namePart}-${randomPart}\'\'\'`;
       }
       await addProduct(productData as Product);
       toast({ title: "Success", description: "Product added successfully." });
@@ -224,73 +238,6 @@ export function ActiveOrders() {
               <div className="space-y-2">
                 <div className="flex justify-between items-center">
                     <Label>Items</Label>
-                     <Dialog open={isAddProductOpen} onOpenChange={setIsAddProductOpen}>
-                        <DialogTrigger asChild>
-                            <Button variant="outline" size="sm" className="gap-1">
-                                <PlusCircle className="h-4 w-4" /> Add New Product
-                            </Button>
-                        </DialogTrigger>
-                        <DialogContent className="sm:max-w-lg">
-                           <DialogHeader>
-                            <DialogTitle>Add New Product</DialogTitle>
-                            <DialogDescription>Fill in the details for the new product.</DialogDescription>
-                          </DialogHeader>
-                          <form onSubmit={productForm.handleSubmit(onProductSubmit)} className="space-y-4">
-                            <div className="space-y-2">
-                              <Label htmlFor="name-dash">Product Name</Label>
-                              <Input id="name-dash" {...productForm.register("name")} onChange={(e) => {
-                                const { value } = e.target;
-                                e.target.value = toTitleCase(value);
-                                productForm.setValue("name", e.target.value);
-                              }}/>
-                              {productForm.formState.errors.name && <p className="text-sm text-destructive">{productForm.formState.errors.name.message}</p>}
-                            </div>
-                            <div className="grid grid-cols-2 gap-4">
-                              <div className="space-y-2">
-                                <div className="flex items-center justify-between">
-                                  <Label htmlFor="sku-dash">SKU</Label>
-                                  <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                                      <Switch id="auto-generate-sku-dash" checked={autoGenerateSku} onCheckedChange={setAutoGenerateSku} />
-                                      <Label htmlFor="auto-generate-sku-dash">Auto-generate</Label>
-                                  </div>
-                                </div>
-                                <Input id="sku-dash" {...productForm.register("sku")} disabled={autoGenerateSku} placeholder={autoGenerateSku ? "Will be generated" : "Manual SKU"} />
-                                {productForm.formState.errors.sku && <p className="text-sm text-destructive">{productForm.formState.errors.sku.message}</p>}
-                              </div>
-                               <div className="space-y-2">
-                                <Label htmlFor="price-dash">Price</Label>
-                                <div className="relative">
-                                  <span className="absolute inset-y-0 left-0 flex items-center pl-3 text-muted-foreground">{CURRENCY_CONFIG.symbol}</span>
-                                  <Input id="price-dash" type="number" step="0.01" className="pl-8" {...productForm.register("price")} />
-                                </div>
-                                {productForm.formState.errors.price && <p className="text-sm text-destructive">{productForm.formState.errors.price.message}</p>}
-                              </div>
-                            </div>
-                            <div className="grid grid-cols-2 gap-4">
-                              <div className="space-y-2">
-                                <Label htmlFor="stock-dash">Stock</Label>
-                                <Input id="stock-dash" type="number" {...productForm.register("stock")} />
-                                {productForm.formState.errors.stock && <p className="text-sm text-destructive">{productForm.formState.errors.stock.message}</p>}
-                              </div>
-                               <div className="space-y-2">
-                                <Label htmlFor="reorderLimit-dash">Reorder Limit</Label>
-                                <Input id="reorderLimit-dash" type="number" {...productForm.register("reorderLimit")} />
-                                {productForm.formState.errors.reorderLimit && <p className="text-sm text-destructive">{productForm.formState.errors.reorderLimit.message}</p>}
-                              </div>
-                            </div>
-                            <div className="space-y-2">
-                              <Label htmlFor="location-dash">Location</Label>
-                              <Input id="location-dash" placeholder="e.g. 'Warehouse A'" {...productForm.register("location")} />
-                            </div>
-                            <DialogFooter>
-                              <Button type="button" variant="outline" onClick={() => setIsAddProductOpen(false)}>Cancel</Button>
-                              <Button type="submit" disabled={productForm.formState.isSubmitting}>
-                                {productForm.formState.isSubmitting ? "Adding..." : "Add Product"}
-                              </Button>
-                            </DialogFooter>
-                          </form>
-                        </DialogContent>
-                    </Dialog>
                 </div>
                 <div className="space-y-2">
                   {fields.map((field, index) => (
@@ -301,6 +248,18 @@ export function ActiveOrders() {
                         </SelectTrigger>
                         <SelectContent>
                             {products.map(p => <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>)}
+                             <Separator />
+                            <div
+                              className={cn(
+                                "relative flex w-full cursor-pointer select-none items-center rounded-sm py-1.5 pl-8 pr-2 text-sm outline-none focus:bg-accent focus:text-accent-foreground data-[disabled]:pointer-events-none data-[disabled]:opacity-50"
+                              )}
+                              onMouseDown={(e) => {
+                                e.preventDefault();
+                                setIsAddProductOpen(true);
+                              }}
+                            >
+                                <Plus className="h-4 w-4 mr-2"/> Add New Product
+                            </div>
                         </SelectContent>
                       </Select>
                       <Input 
@@ -315,7 +274,7 @@ export function ActiveOrders() {
                     </div>
                   ))}
                 </div>
-                 {orderForm.formState.errors.items && <p className="text-sm text-destructive">{orderForm.formState.errors.items.message}</p>}
+                 {orderForm.formState.errors.items && <p className="text-sm text-destructive">{typeof orderForm.formState.errors.items === 'object' && 'message' in orderForm.formState.errors.items ? orderForm.formState.errors.items.message : 'Please add at least one item.'}</p>}
                 <Button type="button" variant="outline" size="sm" onClick={() => append({ productId: "", quantity: 1 })}>
                   <PlusCircle className="h-4 w-4 mr-2" /> Add Item
                 </Button>
@@ -415,6 +374,72 @@ export function ActiveOrders() {
         </DialogContent>
       </Dialog>
     )}
+
+    <Dialog open={isAddProductOpen} onOpenChange={setIsAddProductOpen}>
+        <DialogContent className="sm:max-w-lg">
+           <DialogHeader>
+            <DialogTitle>Add New Product</DialogTitle>
+            <DialogDescription>Fill in the details for the new product.</DialogDescription>
+          </DialogHeader>
+          <form onSubmit={productForm.handleSubmit(onProductSubmit)} className="space-y-4">
+            <div className="space-y-2">
+              <Label htmlFor="name-dash">Product Name</Label>
+              <Input id="name-dash" {...productForm.register("name")} onChange={(e) => {
+                const { value } = e.target;
+                e.target.value = toTitleCase(value);
+                productForm.setValue("name", e.target.value);
+              }}/>
+              {productForm.formState.errors.name && <p className="text-sm text-destructive">{productForm.formState.errors.name.message}</p>}
+            </div>
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <div className="flex items-center justify-between">
+                  <Label htmlFor="sku-dash">SKU</Label>
+                  <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                      <Switch id="auto-generate-sku-dash" checked={autoGenerateSku} onCheckedChange={setAutoGenerateSku} />
+                      <Label htmlFor="auto-generate-sku-dash">Auto-generate</Label>
+                  </div>
+                </div>
+                <Input id="sku-dash" {...productForm.register("sku")} disabled={autoGenerateSku} placeholder={autoGenerateSku ? "Will be generated" : "Manual SKU"} />
+                {productForm.formState.errors.sku && <p className="text-sm text-destructive">{productForm.formState.errors.sku.message}</p>}
+              </div>
+               <div className="space-y-2">
+                <Label htmlFor="price-dash">Price</Label>
+                <div className="relative">
+                  <span className="absolute inset-y-0 left-0 flex items-center pl-3 text-muted-foreground">{CURRENCY_CONFIG.symbol}</span>
+                  <Input id="price-dash" type="number" step="0.01" className="pl-8" {...productForm.register("price")} />
+                </div>
+                {productForm.formState.errors.price && <p className="text-sm text-destructive">{productForm.formState.errors.price.message}</p>}
+              </div>
+            </div>
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label htmlFor="stock-dash">Stock</Label>
+                <Input id="stock-dash" type="number" {...productForm.register("stock")} />
+                {productForm.formState.errors.stock && <p className="text-sm text-destructive">{productForm.formState.errors.stock.message}</p>}
+              </div>
+               <div className="space-y-2">
+                <Label htmlFor="reorderLimit-dash">Reorder Limit</Label>
+                <Input id="reorderLimit-dash" type="number" {...productForm.register("reorderLimit")} />
+                {productForm.formState.errors.reorderLimit && <p className="text-sm text-destructive">{productForm.formState.errors.reorderLimit.message}</p>}
+              </div>
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="location-dash">Location</Label>
+              <Input id="location-dash" placeholder="e.g. 'Warehouse A'" {...productForm.register("location")} />
+            </div>
+            <DialogFooter>
+              <Button type="button" variant="outline" onClick={() => setIsAddProductOpen(false)}>Cancel</Button>
+              <Button type="submit" disabled={productForm.formState.isSubmitting}>
+                {productForm.formState.isSubmitting ? "Adding..." : "Add Product"}
+              </Button>
+            </DialogFooter>
+          </form>
+        </DialogContent>
+    </Dialog>
+
     </>
   );
 }
+
+    
