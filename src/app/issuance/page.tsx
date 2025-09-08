@@ -304,7 +304,7 @@ export default function IssuancePage() {
                                     </SelectTrigger>
                                     <SelectContent>
                                         {products.map(p => (
-                                          <SelectItem key={p.id} value={p.id} disabled={p.stock === 0}>
+                                          <SelectItem key={p.id} value={p.id}>
                                             {p.name} (Stock: {p.stock})
                                           </SelectItem>
                                         ))}
@@ -383,7 +383,7 @@ export default function IssuancePage() {
               ))
             ) : (
               issuances.map((issuance) => (
-                <TableRow key={issuance.id} className="cursor-pointer" onClick={() => setSelectedIssuance(issuance)}>
+                <TableRow key={issuance.id}>
                   <TableCell className="font-medium">{issuance.issuanceNumber}</TableCell>
                   <TableCell>{issuance.client.clientName} - {issuance.client.projectName}</TableCell>
                   <TableCell>{formatDate(issuance.date)}</TableCell>
@@ -392,15 +392,15 @@ export default function IssuancePage() {
                    <TableCell className="text-right">
                     <DropdownMenu>
                       <DropdownMenuTrigger asChild>
-                        <Button aria-haspopup="true" size="icon" variant="ghost" onClick={(e) => e.stopPropagation()}>
+                        <Button aria-haspopup="true" size="icon" variant="ghost">
                           <MoreHorizontal className="h-4 w-4" />
                           <span className="sr-only">Toggle menu</span>
                         </Button>
                       </DropdownMenuTrigger>
                       <DropdownMenuContent align="end">
                         <DropdownMenuLabel>Actions</DropdownMenuLabel>
-                        <DropdownMenuItem onClick={(e) => {e.stopPropagation(); setSelectedIssuance(issuance)}}>View Details</DropdownMenuItem>
-                        <DropdownMenuItem onClick={(e) => { e.stopPropagation(); triggerPreview(issuance); }}>
+                        <DropdownMenuItem onClick={() => setSelectedIssuance(issuance)}>View Details</DropdownMenuItem>
+                        <DropdownMenuItem onClick={() => triggerPreview(issuance)}>
                           <Printer className="mr-2 h-4 w-4" />
                           <span>Print</span>
                         </DropdownMenuItem>
@@ -489,3 +489,5 @@ export default function IssuancePage() {
     </>
   );
 }
+
+    
