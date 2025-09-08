@@ -20,7 +20,7 @@ import { type LucideIcon } from "lucide-react";
 
 const navItems = [
   { href: "/", label: "Dashboard", icon: Home },
-  { href: "/orders", label: "Orders & Suppliers", icon: ShoppingCart },
+  { href: "/orders", label: "Procurement", icon: ShoppingCart },
   { href: "/inventory", label: "Inventory", icon: Package },
   { href: "/clients", label: "Clients", icon: Users },
   { href: "/issuance", label: "Issuance", icon: FileText },
