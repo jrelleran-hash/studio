@@ -250,7 +250,17 @@ export default function IssuancePage() {
   };
   
   const handlePrint = () => {
+    const printableContent = printableRef.current;
+    if (!printableContent) return;
+
+    const originalContents = document.body.innerHTML;
+    const printContents = printableContent.innerHTML;
+    
+    document.body.innerHTML = printContents;
     window.print();
+    document.body.innerHTML = originalContents;
+    // We need to re-trigger the state to ensure event listeners are re-attached
+    setIsPreviewOpen(false); 
   };
 
   const triggerPreview = (issuance: Issuance) => {
@@ -510,17 +520,20 @@ export default function IssuancePage() {
     )}
     
     <Dialog open={isPreviewOpen} onOpenChange={setIsPreviewOpen}>
-        <DialogContent className="max-w-4xl print:max-w-none print:border-none print:shadow-none print:p-0">
-            <DialogHeader className="print:hidden">
+        <DialogContent className="max-w-4xl print-preview-dialog">
+            <DialogHeader className="print-hidden">
                 <DialogTitle>Print Preview</DialogTitle>
                 <DialogDescription>
                     Review the issuance form before printing.
                 </DialogDescription>
             </DialogHeader>
-            <div className="max-h-[70vh] overflow-y-auto border rounded-md my-4 print:max-h-none print:overflow-visible print:border-none print:rounded-none print:my-0">
-                {selectedIssuance && <PrintableIssuanceForm issuance={selectedIssuance} ref={printableRef} />}
+            <div className="max-h-[70vh] overflow-y-auto border rounded-md my-4 print:hidden">
+                {selectedIssuance && <PrintableIssuanceForm issuance={selectedIssuance} />}
             </div>
-            <DialogFooter className="print:hidden">
+             <div className="hidden">
+                 {selectedIssuance && <PrintableIssuanceForm issuance={selectedIssuance} ref={printableRef} />}
+            </div>
+            <DialogFooter className="print-hidden">
                 <Button variant="outline" onClick={() => setIsPreviewOpen(false)}>Cancel</Button>
                 <Button onClick={handlePrint}>
                     <Printer className="mr-2 h-4 w-4" />
