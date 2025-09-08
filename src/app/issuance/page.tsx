@@ -42,6 +42,7 @@ import { getIssuances, getClients, getProducts, addIssuance } from "@/services/d
 import type { Issuance, Client, Product } from "@/types";
 import { format } from "date-fns";
 import React from 'react';
+import { useAuth } from "@/hooks/use-auth";
 
 const issuanceItemSchema = z.object({
   productId: z.string().min(1, "Product is required."),
@@ -80,7 +81,10 @@ const PrintableIssuanceForm = React.forwardRef<HTMLDivElement, { issuance: Issua
            <h1 className="text-3xl font-bold">Material Issuance</h1>
            <p className="text-gray-600">Issuance #: {issuance.issuanceNumber}</p>
         </div>
-         <p className="text-sm">Date: {format(issuance.date, 'PPP')}</p>
+        <div className="text-right">
+           <p className="text-sm">Date: {format(issuance.date, 'PPP')}</p>
+           <p className="text-sm">Issued By: {issuance.issuedBy}</p>
+        </div>
       </div>
       <div className="grid grid-cols-2 gap-8 mb-8">
         <div>
@@ -142,6 +146,7 @@ export default function IssuancePage() {
   const [issuances, setIssuances] = useState<Issuance[]>([]);
   const [loading, setLoading] = useState(true);
   const { toast } = useToast();
+  const { user } = useAuth();
 
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
   const [clients, setClients] = useState<Client[]>([]);
@@ -208,8 +213,15 @@ export default function IssuancePage() {
   }, [isAddDialogOpen, form]);
 
   const onAddSubmit = async (data: IssuanceFormValues) => {
+    if (!user) {
+        toast({ variant: "destructive", title: "Authentication Error", description: "You must be logged in to create an issuance." });
+        return;
+    }
     try {
-      await addIssuance(data);
+      await addIssuance({
+          ...data,
+          issuedBy: user.displayName || user.email || 'System'
+      });
       toast({ title: "Success", description: "New issuance created and inventory updated." });
       setIsAddDialogOpen(false);
       fetchPageData(); // Refresh all data
@@ -351,6 +363,7 @@ export default function IssuancePage() {
               <TableHead>Client / Project</TableHead>
               <TableHead>Date</TableHead>
               <TableHead>Items Issued</TableHead>
+              <TableHead>Issued By</TableHead>
               <TableHead>
                 <span className="sr-only">Actions</span>
               </TableHead>
@@ -364,6 +377,7 @@ export default function IssuancePage() {
                   <TableCell><Skeleton className="h-4 w-40" /></TableCell>
                   <TableCell><Skeleton className="h-4 w-32" /></TableCell>
                   <TableCell><Skeleton className="h-4 w-16" /></TableCell>
+                  <TableCell><Skeleton className="h-4 w-24" /></TableCell>
                   <TableCell><Skeleton className="h-8 w-8 ml-auto" /></TableCell>
                 </TableRow>
               ))
@@ -374,6 +388,7 @@ export default function IssuancePage() {
                   <TableCell>{issuance.client.clientName} - {issuance.client.projectName}</TableCell>
                   <TableCell>{formatDate(issuance.date)}</TableCell>
                   <TableCell>{issuance.items.reduce((total, item) => total + item.quantity, 0)}</TableCell>
+                  <TableCell>{issuance.issuedBy}</TableCell>
                    <TableCell className="text-right">
                     <DropdownMenu>
                       <DropdownMenuTrigger asChild>
@@ -413,6 +428,10 @@ export default function IssuancePage() {
             <div>
               <strong>Date Issued:</strong>
               <p className="text-sm text-muted-foreground">{formatDate(selectedIssuance.date)}</p>
+            </div>
+            <div>
+              <strong>Issued By:</strong>
+              <p className="text-sm text-muted-foreground">{selectedIssuance.issuedBy}</p>
             </div>
             {selectedIssuance.remarks && (
               <div>

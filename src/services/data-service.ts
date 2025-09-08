@@ -1,12 +1,4 @@
 
-
-
-
-
-
-
-
-
 import { db } from "@/lib/firebase";
 import { collection, getDocs, getDoc, doc, orderBy, query, limit, Timestamp, where, DocumentReference, addDoc, updateDoc, deleteDoc, arrayUnion, runTransaction } from "firebase/firestore";
 import type { Activity, Notification, Order, Product, Client, Issuance } from "@/types";
@@ -439,6 +431,7 @@ export async function getIssuances(): Promise<Issuance[]> {
                 client,
                 items,
                 remarks: issuanceData.remarks,
+                issuedBy: issuanceData.issuedBy,
             };
         }));
 
@@ -453,6 +446,7 @@ type NewIssuanceData = {
   clientId: string;
   items: { productId: string; quantity: number }[];
   remarks?: string;
+  issuedBy: string;
 };
 
 export async function addIssuance(issuanceData: NewIssuanceData): Promise<DocumentReference> {
@@ -506,6 +500,7 @@ export async function addIssuance(issuanceData: NewIssuanceData): Promise<Docume
         date: issuanceDate,
         items: resolvedItems,
         remarks: issuanceData.remarks || "",
+        issuedBy: issuanceData.issuedBy,
       };
 
       // 4. Add the issuance to Firestore

@@ -73,4 +73,5 @@ export interface Issuance {
     client: Client;
     items: IssuanceItem[];
     remarks?: string;
+    issuedBy: string;
 }
