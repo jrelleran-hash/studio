@@ -59,7 +59,7 @@ const createClientSchema = (clients: Client[], currentClientId?: string) => {
   return baseClientSchema.superRefine((data, ctx) => {
     // Check for duplicate BOQ Number
     const boqExists = clients.some(
-      c => c.id !== currentClientId && c.boqNumber.toLowerCase() === data.boqNumber.toLowerCase()
+      c => c.id !== currentClientId && c.boqNumber.trim().toLowerCase() === data.boqNumber.trim().toLowerCase()
     );
     if (boqExists) {
       ctx.addIssue({
@@ -73,9 +73,9 @@ const createClientSchema = (clients: Client[], currentClientId?: string) => {
     const recordExists = clients.some(
       c =>
         c.id !== currentClientId &&
-        c.projectName.toLowerCase() === data.projectName.toLowerCase() &&
-        c.clientName.toLowerCase() === data.clientName.toLowerCase() &&
-        c.address.toLowerCase() === data.address.toLowerCase()
+        c.projectName.trim().toLowerCase() === data.projectName.trim().toLowerCase() &&
+        c.clientName.trim().toLowerCase() === data.clientName.trim().toLowerCase() &&
+        c.address.trim().toLowerCase() === data.address.trim().toLowerCase()
     );
     if (recordExists) {
        const errorMessage = "A client with this Project Name, Client Name, and Address already exists.";
@@ -146,6 +146,8 @@ export default function ClientsPage() {
   useEffect(() => {
     if (editingClient) {
       editForm.reset(editingClient);
+    } else {
+      editForm.reset();
     }
   }, [editingClient, editForm]);
 
@@ -439,5 +441,3 @@ export default function ClientsPage() {
     </>
   );
 }
-
-    
