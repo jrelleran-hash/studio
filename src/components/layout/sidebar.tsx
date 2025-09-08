@@ -11,6 +11,7 @@ import {
   Users,
   Settings,
   FileText,
+  Truck,
 } from "lucide-react";
 import { CoreFlowLogo } from "@/components/icons";
 import { cn } from "@/lib/utils";
@@ -22,6 +23,7 @@ const navItems = [
   { href: "/orders", label: "Orders", icon: ShoppingCart },
   { href: "/inventory", label: "Inventory", icon: Package },
   { href: "/clients", label: "Clients", icon: Users },
+  { href: "/suppliers", label: "Suppliers", icon: Truck },
   { href: "/issuance", label: "Issuance", icon: FileText },
   { href: "/analytics", label: "Analytics", icon: BarChart },
 ];

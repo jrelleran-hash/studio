@@ -1,7 +1,7 @@
 
 import { db } from "@/lib/firebase";
 import { collection, getDocs, getDoc, doc, orderBy, query, limit, Timestamp, where, DocumentReference, addDoc, updateDoc, deleteDoc, arrayUnion, runTransaction } from "firebase/firestore";
-import type { Activity, Notification, Order, Product, Client, Issuance } from "@/types";
+import type { Activity, Notification, Order, Product, Client, Issuance, Supplier } from "@/types";
 import { format, subDays } from 'date-fns';
 
 function timeSince(date: Date) {
@@ -568,5 +568,59 @@ export async function deleteIssuance(issuanceId: string): Promise<void> {
   } catch (error) {
     console.error("Error deleting issuance:", error);
     throw new Error("Failed to delete issuance. " + (error as Error).message);
+  }
+}
+
+export async function getSuppliers(): Promise<Supplier[]> {
+  try {
+    const suppliersCol = collection(db, "suppliers");
+    const q = query(suppliersCol, orderBy("name", "asc"));
+    const supplierSnapshot = await getDocs(q);
+    return supplierSnapshot.docs.map(doc => {
+        const data = doc.data();
+        return { 
+            id: doc.id, 
+            ...data,
+            createdAt: data.createdAt // Keep as Timestamp
+        } as Supplier;
+    });
+  } catch (error) {
+    console.error("Error fetching suppliers:", error);
+    return [];
+  }
+}
+
+export async function addSupplier(supplier: Omit<Supplier, 'id' | 'createdAt'>): Promise<DocumentReference> {
+  try {
+    const suppliersCol = collection(db, "suppliers");
+    const supplierWithDate = {
+      ...supplier,
+      createdAt: Timestamp.now(),
+    };
+    const docRef = await addDoc(suppliersCol, supplierWithDate);
+    return docRef;
+  } catch (error) {
+    console.error("Error adding supplier:", error);
+    throw new Error("Failed to add supplier.");
+  }
+}
+
+export async function updateSupplier(supplierId: string, supplierData: Partial<Omit<Supplier, 'id'>>): Promise<void> {
+  try {
+    const supplierRef = doc(db, "suppliers", supplierId);
+    await updateDoc(supplierRef, supplierData);
+  } catch (error) {
+    console.error("Error updating supplier:", error);
+    throw new Error("Failed to update supplier.");
+  }
+}
+
+export async function deleteSupplier(supplierId: string): Promise<void> {
+  try {
+    const supplierRef = doc(db, "suppliers", supplierId);
+    await deleteDoc(supplierRef);
+  } catch (error) {
+    console.error("Error deleting supplier:", error);
+    throw new Error("Failed to delete supplier.");
   }
 }

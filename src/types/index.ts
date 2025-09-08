@@ -28,6 +28,16 @@ export interface Client {
     createdAt: Timestamp;
 }
 
+export interface Supplier {
+  id: string;
+  name: string;
+  contactPerson: string;
+  email: string;
+  phone: string;
+  address: string;
+  createdAt: Timestamp;
+}
+
 export interface ProductHistory {
     date: string; // YYYY-MM-DD
     stock: number;
