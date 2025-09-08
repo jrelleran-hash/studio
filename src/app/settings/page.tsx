@@ -70,6 +70,14 @@ const toTitleCase = (str: string) => {
   );
 };
 
+const getInitialNames = (displayName: string | null | undefined) => {
+    const name = displayName || "";
+    const nameParts = name.split(" ").filter(Boolean);
+    const lastName = nameParts.length > 1 ? nameParts.pop() || "" : "";
+    const firstName = nameParts.join(" ");
+    return { firstName, lastName };
+}
+
 export default function SettingsPage() {
   const { user } = useAuth();
   const { toast } = useToast();
@@ -77,13 +85,6 @@ export default function SettingsPage() {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [previewImage, setPreviewImage] = useState<string | null>(null);
 
-  const getInitialNames = (displayName: string | null | undefined) => {
-    const name = displayName || "";
-    const nameParts = name.split(" ").filter(Boolean);
-    const lastName = nameParts.length > 1 ? nameParts.pop() || "" : "";
-    const firstName = nameParts.join(" ");
-    return { firstName, lastName };
-  }
   
   const { firstName: initialFirstName, lastName: initialLastName } = getInitialNames(user?.displayName);
 
