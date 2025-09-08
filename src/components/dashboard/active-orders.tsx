@@ -1,7 +1,7 @@
 
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { useForm, useFieldArray } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
@@ -20,6 +20,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from ".
 import { Input } from "../ui/input";
 import { Label } from "../ui/label";
 import { CURRENCY_CONFIG } from "@/config/currency";
+import { Switch } from "../ui/switch";
 
 const statusVariant: { [key: string]: "default" | "secondary" | "destructive" | "outline" } = {
   Fulfilled: "default",
@@ -40,15 +41,20 @@ const orderSchema = z.object({
 
 type OrderFormValues = z.infer<typeof orderSchema>;
 
-const productSchema = z.object({
+const createProductSchema = (isSkuAuto: boolean) => z.object({
   name: z.string().min(1, "Product name is required."),
-  sku: z.string().min(1, "SKU is required."),
+  sku: z.string().optional(),
   price: z.coerce.number().nonnegative("Price must be a non-negative number."),
   stock: z.coerce.number().int().nonnegative("Stock must be a non-negative integer."),
   reorderLimit: z.coerce.number().int().nonnegative("Reorder limit must be a non-negative integer."),
   location: z.string().optional(),
+}).refine(data => isSkuAuto || (data.sku && data.sku.length > 0), {
+    message: "SKU is required when not auto-generated.",
+    path: ["sku"],
 });
-type ProductFormValues = z.infer<typeof productSchema>;
+
+
+type ProductFormValues = z.infer<ReturnType<typeof createProductSchema>>;
 
 const toTitleCase = (str: string) => {
   return str.replace(
@@ -67,6 +73,9 @@ export function ActiveOrders() {
   const [clients, setClients] = useState<Client[]>([]);
   const [products, setProducts] = useState<Product[]>([]);
   const { toast } = useToast();
+  const [autoGenerateSku, setAutoGenerateSku] = useState(true);
+
+  const productSchema = useMemo(() => createProductSchema(autoGenerateSku), [autoGenerateSku]);
 
   const orderForm = useForm<OrderFormValues>({
     resolver: zodResolver(orderSchema),
@@ -117,6 +126,13 @@ export function ActiveOrders() {
     setLoading(true);
     fetchInitialData().finally(() => setLoading(false));
   }, []);
+  
+  useEffect(() => {
+    if (!isAddProductOpen) {
+      productForm.reset();
+      setAutoGenerateSku(true);
+    }
+  }, [isAddProductOpen, productForm]);
 
   const formatDate = (date: Date) => {
     return new Intl.DateTimeFormat("en-US", {
@@ -146,7 +162,14 @@ export function ActiveOrders() {
 
   const onProductSubmit = async (data: ProductFormValues) => {
     try {
-      await addProduct(data);
+       const productData = { ...data };
+      if (autoGenerateSku) {
+        // Simple SKU generation logic: first 3 letters of name + random 4 digits
+        const namePart = data.name.substring(0, 3).toUpperCase();
+        const randomPart = Math.floor(1000 + Math.random() * 9000);
+        productData.sku = `${namePart}-${randomPart}`;
+      }
+      await addProduct(productData as Product);
       toast({ title: "Success", description: "Product added successfully." });
       setIsAddProductOpen(false);
       productForm.reset();
@@ -214,8 +237,8 @@ export function ActiveOrders() {
                           </DialogHeader>
                           <form onSubmit={productForm.handleSubmit(onProductSubmit)} className="space-y-4">
                             <div className="space-y-2">
-                              <Label htmlFor="name">Product Name</Label>
-                              <Input id="name" {...productForm.register("name")} onChange={(e) => {
+                              <Label htmlFor="name-dash">Product Name</Label>
+                              <Input id="name-dash" {...productForm.register("name")} onChange={(e) => {
                                 const { value } = e.target;
                                 e.target.value = toTitleCase(value);
                                 productForm.setValue("name", e.target.value);
@@ -224,34 +247,40 @@ export function ActiveOrders() {
                             </div>
                             <div className="grid grid-cols-2 gap-4">
                               <div className="space-y-2">
-                                <Label htmlFor="sku">SKU</Label>
-                                <Input id="sku" {...productForm.register("sku")} />
+                                <div className="flex items-center justify-between">
+                                  <Label htmlFor="sku-dash">SKU</Label>
+                                  <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                                      <Switch id="auto-generate-sku-dash" checked={autoGenerateSku} onCheckedChange={setAutoGenerateSku} />
+                                      <Label htmlFor="auto-generate-sku-dash">Auto-generate</Label>
+                                  </div>
+                                </div>
+                                <Input id="sku-dash" {...productForm.register("sku")} disabled={autoGenerateSku} placeholder={autoGenerateSku ? "Will be generated" : "Manual SKU"} />
                                 {productForm.formState.errors.sku && <p className="text-sm text-destructive">{productForm.formState.errors.sku.message}</p>}
                               </div>
                                <div className="space-y-2">
-                                <Label htmlFor="price">Price</Label>
+                                <Label htmlFor="price-dash">Price</Label>
                                 <div className="relative">
                                   <span className="absolute inset-y-0 left-0 flex items-center pl-3 text-muted-foreground">{CURRENCY_CONFIG.symbol}</span>
-                                  <Input id="price" type="number" step="0.01" className="pl-8" {...productForm.register("price")} />
+                                  <Input id="price-dash" type="number" step="0.01" className="pl-8" {...productForm.register("price")} />
                                 </div>
                                 {productForm.formState.errors.price && <p className="text-sm text-destructive">{productForm.formState.errors.price.message}</p>}
                               </div>
                             </div>
                             <div className="grid grid-cols-2 gap-4">
                               <div className="space-y-2">
-                                <Label htmlFor="stock">Stock</Label>
-                                <Input id="stock" type="number" {...productForm.register("stock")} />
+                                <Label htmlFor="stock-dash">Stock</Label>
+                                <Input id="stock-dash" type="number" {...productForm.register("stock")} />
                                 {productForm.formState.errors.stock && <p className="text-sm text-destructive">{productForm.formState.errors.stock.message}</p>}
                               </div>
                                <div className="space-y-2">
-                                <Label htmlFor="reorderLimit">Reorder Limit</Label>
-                                <Input id="reorderLimit" type="number" {...productForm.register("reorderLimit")} />
+                                <Label htmlFor="reorderLimit-dash">Reorder Limit</Label>
+                                <Input id="reorderLimit-dash" type="number" {...productForm.register("reorderLimit")} />
                                 {productForm.formState.errors.reorderLimit && <p className="text-sm text-destructive">{productForm.formState.errors.reorderLimit.message}</p>}
                               </div>
                             </div>
                             <div className="space-y-2">
-                              <Label htmlFor="location">Location</Label>
-                              <Input id="location" placeholder="e.g. 'Warehouse A'" {...productForm.register("location")} />
+                              <Label htmlFor="location-dash">Location</Label>
+                              <Input id="location-dash" placeholder="e.g. 'Warehouse A'" {...productForm.register("location")} />
                             </div>
                             <DialogFooter>
                               <Button type="button" variant="outline" onClick={() => setIsAddProductOpen(false)}>Cancel</Button>
