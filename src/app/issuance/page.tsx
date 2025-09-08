@@ -148,6 +148,7 @@ export default function IssuancePage() {
   const [products, setProducts] = useState<Product[]>([]);
   
   const [selectedIssuance, setSelectedIssuance] = useState<Issuance | null>(null);
+  const [isPreviewOpen, setIsPreviewOpen] = useState(false);
   const printableRef = useRef<HTMLDivElement>(null);
 
 
@@ -224,15 +225,12 @@ export default function IssuancePage() {
   };
   
   const handlePrint = () => {
-    // A small delay ensures the state is set and component is rendered before printing.
-    setTimeout(() => {
-        window.print();
-    }, 100);
+    window.print();
   };
 
-  const triggerPrint = (issuance: Issuance) => {
+  const triggerPreview = (issuance: Issuance) => {
     setSelectedIssuance(issuance);
-    handlePrint();
+    setIsPreviewOpen(true);
   }
 
 
@@ -294,7 +292,7 @@ export default function IssuancePage() {
                                     </SelectTrigger>
                                     <SelectContent>
                                         {products.map(p => (
-                                          <SelectItem key={p.id} value={p.id}>
+                                          <SelectItem key={p.id} value={p.id} disabled={p.stock === 0}>
                                             {p.name} (Stock: {p.stock})
                                           </SelectItem>
                                         ))}
@@ -387,7 +385,7 @@ export default function IssuancePage() {
                       <DropdownMenuContent align="end">
                         <DropdownMenuLabel>Actions</DropdownMenuLabel>
                         <DropdownMenuItem onClick={(e) => {e.stopPropagation(); setSelectedIssuance(issuance)}}>View Details</DropdownMenuItem>
-                        <DropdownMenuItem onClick={(e) => { e.stopPropagation(); triggerPrint(issuance); }}>
+                        <DropdownMenuItem onClick={(e) => { e.stopPropagation(); triggerPreview(issuance); }}>
                           <Printer className="mr-2 h-4 w-4" />
                           <span>Print</span>
                         </DropdownMenuItem>
@@ -436,19 +434,39 @@ export default function IssuancePage() {
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setSelectedIssuance(null)}>Close</Button>
-            <Button onClick={() => triggerPrint(selectedIssuance)}>
+            <Button onClick={() => triggerPreview(selectedIssuance)}>
               <Printer className="mr-2 h-4 w-4" />
-              Print Issuance Form
+              Preview & Print
             </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
     )}
     
-    <div className="printable-area">
-      {selectedIssuance && <PrintableIssuanceForm ref={printableRef} issuance={selectedIssuance} />}
-    </div>
+    <Dialog open={isPreviewOpen} onOpenChange={setIsPreviewOpen}>
+        <DialogContent className="max-w-4xl">
+            <DialogHeader>
+                <DialogTitle>Print Preview</DialogTitle>
+                <DialogDescription>
+                    Review the issuance form before printing.
+                </DialogDescription>
+            </DialogHeader>
+            <div className="max-h-[70vh] overflow-y-auto border rounded-md my-4">
+                {selectedIssuance && <PrintableIssuanceForm issuance={selectedIssuance} ref={printableRef} />}
+            </div>
+            <DialogFooter>
+                <Button variant="outline" onClick={() => setIsPreviewOpen(false)}>Cancel</Button>
+                <Button onClick={handlePrint}>
+                    <Printer className="mr-2 h-4 w-4" />
+                    Print
+                </Button>
+            </DialogFooter>
+        </DialogContent>
+    </Dialog>
 
+    <div className="printable-area">
+      {selectedIssuance && <PrintableIssuanceForm issuance={selectedIssuance} ref={printableRef} />}
+    </div>
     </>
   );
 }
