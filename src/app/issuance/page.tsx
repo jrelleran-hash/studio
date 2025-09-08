@@ -211,7 +211,7 @@ export default function IssuancePage() {
                                     </SelectTrigger>
                                     <SelectContent>
                                         {products.map(p => (
-                                          <SelectItem key={p.id} value={p.id} disabled={p.stock === 0}>
+                                          <SelectItem key={p.id} value={p.id}>
                                             {p.name} (Stock: {p.stock})
                                           </SelectItem>
                                         ))}
@@ -292,7 +292,7 @@ export default function IssuancePage() {
                   <TableCell className="font-medium">{issuance.issuanceNumber}</TableCell>
                   <TableCell>{issuance.client.clientName} - {issuance.client.projectName}</TableCell>
                   <TableCell>{formatDate(issuance.date)}</TableCell>
-                  <TableCell>{issuance.items.length}</TableCell>
+                  <TableCell>{issuance.items.reduce((total, item) => total + item.quantity, 0)}</TableCell>
                    <TableCell className="text-right">
                     <DropdownMenu>
                       <DropdownMenuTrigger asChild>
@@ -359,5 +359,3 @@ export default function IssuancePage() {
     </>
   );
 }
-
-    
