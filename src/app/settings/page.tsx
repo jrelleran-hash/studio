@@ -53,9 +53,9 @@ const profileFormSchema = z.object({
   photoFile: z
     .any()
     .optional()
-    .refine((file) => !file || (file && file.size <= MAX_FILE_SIZE), `Max file size is 5MB.`)
+    .refine((files) => !files || files?.[0]?.size <= MAX_FILE_SIZE, `Max file size is 5MB.`)
     .refine(
-      (file) => !file || (file && ACCEPTED_IMAGE_TYPES.includes(file.type)),
+      (files) => !files || (files?.[0] && ACCEPTED_IMAGE_TYPES.includes(files?.[0]?.type)),
       ".jpg, .jpeg, .png and .webp files are accepted."
     ),
   phone: z.string().optional(),
@@ -75,6 +75,7 @@ const getInitialNames = (displayName: string | null | undefined) => {
     const name = displayName || "";
     const nameParts = name.split(" ").filter(Boolean);
     if (nameParts.length === 0) return { firstName: "", lastName: ""};
+    if (nameParts.length === 1) return { firstName: nameParts[0], lastName: ""};
     const lastName = nameParts.pop() || "";
     const firstName = nameParts.join(" ");
     return { firstName, lastName };
@@ -117,9 +118,9 @@ export default function SettingsPage() {
     try {
       let photoURL = user.photoURL;
       
-      // If a new file is selected, upload it.
-      if (data.photoFile) {
-        photoURL = await uploadProfilePicture(data.photoFile, user.uid);
+      const file = data.photoFile?.[0];
+      if (file) {
+        photoURL = await uploadProfilePicture(file, user.uid);
       }
 
       const displayName = `${data.firstName} ${data.lastName}`.trim();
@@ -134,9 +135,6 @@ export default function SettingsPage() {
         description: "Your profile information has been saved.",
       });
       
-      setIsProfileDialogOpen(false);
-      // The auth context will handle updating the UI, no reload needed.
-      
     } catch (error) {
       console.error("Profile update error:", error);
       toast({
@@ -144,6 +142,8 @@ export default function SettingsPage() {
         title: "Update Failed",
         description: "Could not save your profile changes.",
       });
+    } finally {
+        setIsProfileDialogOpen(false);
     }
   };
   
@@ -158,7 +158,6 @@ export default function SettingsPage() {
   const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     if (file) {
-      profileForm.setValue("photoFile", file, { shouldValidate: true });
       const reader = new FileReader();
       reader.onloadend = () => {
         setPreviewImage(reader.result as string);
@@ -235,7 +234,10 @@ export default function SettingsPage() {
                            className="hidden"
                            {...profileForm.register("photoFile")}
                            ref={fileInputRef}
-                           onChange={handleFileChange}
+                           onChange={(e) => {
+                            handleFileChange(e);
+                            profileForm.trigger("photoFile");
+                           }}
                            accept="image/png, image/jpeg, image/webp"
                          />
                          {profileForm.formState.errors.photoFile && <p className="text-sm text-destructive">{profileForm.formState.errors.photoFile.message as string}</p>}
