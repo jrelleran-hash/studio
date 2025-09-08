@@ -227,6 +227,7 @@ export default function ClientsPage() {
   }
 
   const validateBoq = useCallback((boq: string, currentClientId?: string) => {
+    if (!boq) return true;
     const isDuplicate = clients.some(c => 
         c.id !== currentClientId && 
         c.boqNumber.toLowerCase() === boq.toLowerCase()
@@ -235,6 +236,7 @@ export default function ClientsPage() {
   }, [clients]);
 
   const validateRecord = useCallback((formValues: ClientFormValues, currentClientId?: string) => {
+    if (!formValues.projectName || !formValues.clientName || !formValues.address) return true;
     const isDuplicate = clients.some(c => 
         c.id !== currentClientId &&
         c.projectName.toLowerCase() === formValues.projectName.toLowerCase() &&
@@ -249,15 +251,19 @@ export default function ClientsPage() {
     currentClientId?: string
   ) => {
     const values = formInstance.getValues();
-    const result = validateRecord(values, currentClientId);
-    if (typeof result === 'string') {
-        formInstance.setError("projectName", { type: "manual", message: result });
-        formInstance.setError("clientName", { type: "manual", message: result });
-        formInstance.setError("address", { type: "manual", message: result });
-    } else {
-        if (formInstance.formState.errors.projectName?.message === "A client with these details already exists.") formInstance.clearErrors("projectName");
-        if (formInstance.formState.errors.clientName?.message === "A client with these details already exists.") formInstance.clearErrors("clientName");
-        if (formInstance.formState.errors.address?.message === "A client with these details already exists.") formInstance.clearErrors("address");
+    // Only validate if all fields are filled to avoid premature validation
+    if(values.projectName && values.clientName && values.address) {
+        const result = validateRecord(values, currentClientId);
+        const errorMessage = "A client with these details already exists.";
+        if (result === errorMessage) {
+            formInstance.setError("projectName", { type: "manual", message: result });
+            formInstance.setError("clientName", { type: "manual", message: result });
+            formInstance.setError("address", { type: "manual", message: result });
+        } else {
+            if (formInstance.formState.errors.projectName?.message === errorMessage) formInstance.clearErrors("projectName");
+            if (formInstance.formState.errors.clientName?.message === errorMessage) formInstance.clearErrors("clientName");
+            if (formInstance.formState.errors.address?.message === errorMessage) formInstance.clearErrors("address");
+        }
     }
   }
 
@@ -291,14 +297,15 @@ export default function ClientsPage() {
                   <Label htmlFor="projectName">Project Name</Label>
                   <Input 
                     id="projectName" 
-                    {...form.register("projectName")} 
+                    {...form.register("projectName", { 
+                        onBlur: () => handleRecordBlur(form)
+                    })} 
                     onChange={(e) => {
                       const { value } = e.target;
                       const formattedValue = toTitleCase(value);
                       e.target.value = formattedValue;
-                      form.setValue("projectName", formattedValue, { shouldValidate: true });
+                      form.setValue("projectName", formattedValue);
                     }}
-                    onBlur={() => handleRecordBlur(form)}
                   />
                   {form.formState.errors.projectName && <p className="text-sm text-destructive">{form.formState.errors.projectName.message}</p>}
                 </div>
@@ -306,14 +313,15 @@ export default function ClientsPage() {
                   <Label htmlFor="clientName">Client Name</Label>
                   <Input 
                     id="clientName" 
-                    {...form.register("clientName")} 
+                    {...form.register("clientName", { 
+                        onBlur: () => handleRecordBlur(form)
+                    })} 
                     onChange={(e) => {
                       const { value } = e.target;
                       const formattedValue = toTitleCase(value);
                       e.target.value = formattedValue;
-                      form.setValue("clientName", formattedValue, { shouldValidate: true });
+                      form.setValue("clientName", formattedValue);
                     }}
-                    onBlur={() => handleRecordBlur(form)}
                   />
                   {form.formState.errors.clientName && <p className="text-sm text-destructive">{form.formState.errors.clientName.message}</p>}
                 </div>
@@ -331,8 +339,9 @@ export default function ClientsPage() {
                   <Label htmlFor="address">Address</Label>
                   <Input 
                     id="address" 
-                    {...form.register("address")} 
-                    onBlur={() => handleRecordBlur(form)}
+                    {...form.register("address", { 
+                        onBlur: () => handleRecordBlur(form)
+                    })}
                    />
                   {form.formState.errors.address && <p className="text-sm text-destructive">{form.formState.errors.address.message}</p>}
                 </div>
@@ -419,14 +428,15 @@ export default function ClientsPage() {
                   <Label htmlFor="edit-projectName">Project Name</Label>
                   <Input 
                     id="edit-projectName" 
-                    {...editForm.register("projectName")} 
+                    {...editForm.register("projectName", {
+                        onBlur: () => handleRecordBlur(editForm, editingClient.id)
+                    })} 
                     onChange={(e) => {
                         const { value } = e.target;
                         const formattedValue = toTitleCase(value);
                         e.target.value = formattedValue;
-                        editForm.setValue("projectName", formattedValue, { shouldValidate: true });
+                        editForm.setValue("projectName", formattedValue);
                     }}
-                    onBlur={() => handleRecordBlur(editForm, editingClient.id)}
                    />
                   {editForm.formState.errors.projectName && <p className="text-sm text-destructive">{editForm.formState.errors.projectName.message}</p>}
                 </div>
@@ -434,14 +444,15 @@ export default function ClientsPage() {
                   <Label htmlFor="edit-clientName">Client Name</Label>
                   <Input 
                     id="edit-clientName" 
-                    {...editForm.register("clientName")} 
+                    {...editForm.register("clientName", {
+                        onBlur: () => handleRecordBlur(editForm, editingClient.id)
+                    })} 
                     onChange={(e) => {
                         const { value } = e.target;
                         const formattedValue = toTitleCase(value);
                         e.target.value = formattedValue;
-                        editForm.setValue("clientName", formattedValue, { shouldValidate: true });
+                        editForm.setValue("clientName", formattedValue);
                     }} 
-                    onBlur={() => handleRecordBlur(editForm, editingClient.id)}
                   />
                   {editForm.formState.errors.clientName && <p className="text-sm text-destructive">{editForm.formState.errors.clientName.message}</p>}
                 </div>
@@ -459,8 +470,9 @@ export default function ClientsPage() {
                   <Label htmlFor="edit-address">Address</Label>
                   <Input 
                     id="edit-address" 
-                    {...editForm.register("address")} 
-                    onBlur={() => handleRecordBlur(editForm, editingClient.id)}
+                    {...editForm.register("address", {
+                        onBlur: () => handleRecordBlur(editForm, editingClient.id)
+                    })} 
                   />
                   {editForm.formState.errors.address && <p className="text-sm text-destructive">{editForm.formState.errors.address.message}</p>}
                 </div>
@@ -495,3 +507,5 @@ export default function ClientsPage() {
     </>
   );
 }
+
+    
