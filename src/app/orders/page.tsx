@@ -43,6 +43,7 @@ import type { Order, Client, Product } from "@/types";
 import { formatCurrency } from "@/lib/currency";
 import { CURRENCY_CONFIG } from "@/config/currency";
 import { Separator } from "@/components/ui/separator";
+import { cn } from "@/lib/utils";
 
 const statusVariant: { [key: string]: "default" | "secondary" | "destructive" | "outline" } = {
   Fulfilled: "default",
@@ -144,6 +145,16 @@ export default function OrdersPage() {
     fetchPageData().finally(() => setLoading(false));
   }, []);
   
+  useEffect(() => {
+    if(!isAddOrderOpen) {
+      orderForm.reset({
+        clientId: "",
+        items: [{ productId: "", quantity: 1 }],
+        status: "Processing",
+      });
+    }
+  }, [isAddOrderOpen, orderForm]);
+
   useEffect(() => {
     if(!isAddProductOpen) {
         productForm.reset();
@@ -250,29 +261,25 @@ export default function OrdersPage() {
                 <div className="space-y-2">
                   {fields.map((field, index) => (
                     <div key={field.id} className="flex items-center gap-2">
-                      <Select 
-                        onValueChange={(value) => {
-                           if (value === 'add-new-product') {
-                                setIsAddProductOpen(true);
-                            } else {
-                                orderForm.setValue(`items.${index}.productId`, value);
-                            }
-                        }}
-                      >
+                      <Select onValueChange={(value) => orderForm.setValue(`items.${index}.productId`, value)}>
                          <SelectTrigger>
                             <SelectValue placeholder="Select a product" />
                         </SelectTrigger>
                         <SelectContent>
                             {products.map(p => <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>)}
                             <Separator />
-                             <div 
-                                className="flex items-center gap-2 p-2 text-sm cursor-pointer hover:bg-accent"
-                                onMouseDown={(e) => {
-                                  e.preventDefault();
-                                  setIsAddProductOpen(true);
-                                }}
+                            <div
+                              className={cn(
+                                "relative flex w-full cursor-pointer select-none items-center rounded-sm py-1.5 pl-8 pr-2 text-sm outline-none focus:bg-accent focus:text-accent-foreground data-[disabled]:pointer-events-none data-[disabled]:opacity-50"
+                              )}
+                              onMouseDown={(e) => {
+                                // Prevent the select from closing
+                                e.preventDefault();
+                                // Open the product dialog
+                                setIsAddProductOpen(true);
+                              }}
                             >
-                                <Plus className="h-4 w-4"/> Add New Product
+                                <Plus className="h-4 w-4 mr-2"/> Add New Product
                             </div>
                         </SelectContent>
                       </Select>
@@ -288,7 +295,7 @@ export default function OrdersPage() {
                     </div>
                   ))}
                 </div>
-                 {orderForm.formState.errors.items && <p className="text-sm text-destructive">{orderForm.formState.errors.items.message}</p>}
+                 {orderForm.formState.errors.items && <p className="text-sm text-destructive">{typeof orderForm.formState.errors.items === 'string' ? orderForm.formState.errors.items : 'Please add at least one item.'}</p>}
                 <Button type="button" variant="outline" size="sm" onClick={() => append({ productId: "", quantity: 1 })}>
                   <PlusCircle className="h-4 w-4 mr-2" /> Add Item
                 </Button>
@@ -441,3 +448,4 @@ export default function OrdersPage() {
     </>
   );
 }
+
