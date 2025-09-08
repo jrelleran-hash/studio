@@ -1,6 +1,7 @@
 
-import { db } from "@/lib/firebase";
+import { db, storage } from "@/lib/firebase";
 import { collection, getDocs, getDoc, doc, orderBy, query, limit, Timestamp, where, DocumentReference, addDoc, updateDoc, deleteDoc, arrayUnion, runTransaction } from "firebase/firestore";
+import { ref, uploadBytes, getDownloadURL } from "firebase/storage";
 import type { Activity, Notification, Order, Product, Client, Issuance, Supplier } from "@/types";
 import { format, subDays } from 'date-fns';
 
@@ -623,4 +624,20 @@ export async function deleteSupplier(supplierId: string): Promise<void> {
     console.error("Error deleting supplier:", error);
     throw new Error("Failed to delete supplier.");
   }
+}
+
+export async function uploadProfilePicture(file: File, userId: string): Promise<string> {
+    try {
+        const fileExtension = file.name.split('.').pop();
+        const fileName = `${userId}.${fileExtension}`;
+        const storageRef = ref(storage, `profile-pictures/${fileName}`);
+
+        const snapshot = await uploadBytes(storageRef, file);
+        const downloadURL = await getDownloadURL(snapshot.ref);
+        
+        return downloadURL;
+    } catch (error) {
+        console.error("Error uploading profile picture:", error);
+        throw new Error("Failed to upload profile picture.");
+    }
 }

@@ -2,7 +2,7 @@
 
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
@@ -40,11 +40,23 @@ import { useAuth } from "@/hooks/use-auth";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { Switch } from "@/components/ui/switch";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { uploadProfilePicture } from "@/services/data-service";
+import Image from "next/image";
+
+const MAX_FILE_SIZE = 5 * 1024 * 1024; // 5MB
+const ACCEPTED_IMAGE_TYPES = ["image/jpeg", "image/jpg", "image/png", "image/webp"];
+
 
 const profileFormSchema = z.object({
   firstName: z.string().min(1, "First name is required."),
   lastName: z.string().min(1, "Last name is required."),
-  photoURL: z.string().url("Please enter a valid URL.").optional().or(z.literal('')),
+  photoFile: z
+    .any()
+    .refine((file) => !file || file.size <= MAX_FILE_SIZE, `Max file size is 5MB.`)
+    .refine(
+      (file) => !file || ACCEPTED_IMAGE_TYPES.includes(file.type),
+      ".jpg, .jpeg, .png and .webp files are accepted."
+    ).optional(),
   phone: z.string().optional(),
 });
 
@@ -62,7 +74,9 @@ export default function SettingsPage() {
   const { user } = useAuth();
   const { toast } = useToast();
   const [isProfileDialogOpen, setIsProfileDialogOpen] = useState(false);
-  
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const [previewImage, setPreviewImage] = useState<string | null>(null);
+
   const getInitialNames = (displayName: string | null | undefined) => {
     const name = displayName || "";
     const nameParts = name.split(" ").filter(Boolean);
@@ -78,7 +92,6 @@ export default function SettingsPage() {
     defaultValues: {
       firstName: initialFirstName,
       lastName: initialLastName,
-      photoURL: user?.photoURL || "",
       phone: user?.phoneNumber || "",
     },
   });
@@ -89,11 +102,11 @@ export default function SettingsPage() {
         profileForm.reset({
             firstName: firstName,
             lastName: lastName,
-            photoURL: user.photoURL || "",
             phone: user.phoneNumber || ""
         });
+        setPreviewImage(user.photoURL);
     }
-  }, [user, profileForm]);
+  }, [user, profileForm, isProfileDialogOpen]);
 
 
   const onProfileSubmit = async (data: ProfileFormValues) => {
@@ -106,22 +119,23 @@ export default function SettingsPage() {
       return;
     }
     try {
+      let photoURL = user.photoURL;
+      
+      if (data.photoFile) {
+        photoURL = await uploadProfilePicture(data.photoFile, user.uid);
+      }
+
       const displayName = `${data.firstName} ${data.lastName}`.trim();
       await updateProfile(user, {
         displayName: displayName,
-        photoURL: data.photoURL,
+        photoURL: photoURL,
       });
-
-      // Note: Updating phone number requires more complex verification and is not handled here.
 
       toast({
         title: "Profile Updated",
         description: "Your profile information has been saved.",
       });
       setIsProfileDialogOpen(false);
-      // The user object in useAuth should update automatically via onAuthStateChanged,
-      // but a manual refresh/refetch might be needed in some state management setups.
-      // Forcing a reload is a simple way to ensure the UI updates.
       window.location.reload();
 
     } catch (error) {
@@ -141,6 +155,19 @@ export default function SettingsPage() {
       description: "Your notification settings have been saved.",
     });
   };
+
+  const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (file) {
+      profileForm.setValue("photoFile", file, { shouldValidate: true });
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        setPreviewImage(reader.result as string);
+      };
+      reader.readAsDataURL(file);
+    }
+  };
+
 
   return (
     <div className="space-y-6">
@@ -182,6 +209,29 @@ export default function SettingsPage() {
                     </DialogDescription>
                   </DialogHeader>
                   <form onSubmit={profileForm.handleSubmit(onProfileSubmit)} className="space-y-4">
+                    <div className="space-y-2 text-center">
+                        <div className="relative w-24 h-24 mx-auto">
+                           <Image
+                                src={previewImage || `https://picsum.photos/seed/${user?.uid}/100`}
+                                alt="Profile preview"
+                                width={96}
+                                height={96}
+                                className="rounded-full object-cover aspect-square"
+                                data-ai-hint="person face"
+                           />
+                        </div>
+                         <Button type="button" variant="link" onClick={() => fileInputRef.current?.click()}>
+                           Change Photo
+                         </Button>
+                         <Input
+                           type="file"
+                           className="hidden"
+                           ref={fileInputRef}
+                           onChange={handleFileChange}
+                           accept="image/png, image/jpeg, image/webp"
+                         />
+                         {profileForm.formState.errors.photoFile && <p className="text-sm text-destructive">{profileForm.formState.errors.photoFile.message as string}</p>}
+                    </div>
                      <div className="grid grid-cols-2 gap-4">
                         <div className="space-y-2">
                           <Label htmlFor="firstName">First Name</Label>
@@ -202,11 +252,6 @@ export default function SettingsPage() {
                           {profileForm.formState.errors.lastName && <p className="text-sm text-destructive">{profileForm.formState.errors.lastName.message}</p>}
                         </div>
                      </div>
-                     <div className="space-y-2">
-                      <Label htmlFor="photoURL">Photo URL</Label>
-                      <Input id="photoURL" {...profileForm.register("photoURL")} />
-                      {profileForm.formState.errors.photoURL && <p className="text-sm text-destructive">{profileForm.formState.errors.photoURL.message}</p>}
-                    </div>
                      <div className="space-y-2">
                       <Label htmlFor="phone">Phone Number</Label>
                       <Input id="phone" {...profileForm.register("phone")} placeholder="Verification required" disabled />
