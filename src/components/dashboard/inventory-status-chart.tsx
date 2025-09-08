@@ -158,10 +158,11 @@ export function InventoryStatusChart({ products, filter, setFilter }: InventoryS
         <ChartTooltip 
           cursor={false} 
           content={<ChartTooltipContent 
-            labelKey="date" 
-            formatter={(value, name) => {
+            formatter={(value, name, props) => {
               const config = chartConfig[name as keyof typeof chartConfig];
-              return [value, config?.label || name];
+              const date = props.payload.date;
+              const unit = name === 'outOfStock' ? 'items' : 'units';
+              return [`${date}: ${value} ${unit}`, config?.label || name];
             }}
           />} 
         />
