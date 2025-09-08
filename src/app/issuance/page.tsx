@@ -66,6 +66,8 @@ export default function IssuancePage() {
   
   const [selectedIssuance, setSelectedIssuance] = useState<Issuance | null>(null);
 
+  const inStockProducts = useMemo(() => products.filter(p => p.stock > 0), [products]);
+
 
   const form = useForm<IssuanceFormValues>({
     resolver: zodResolver(issuanceSchema),
@@ -188,7 +190,11 @@ export default function IssuancePage() {
                                 <SelectValue placeholder="Select a product" />
                             </SelectTrigger>
                             <SelectContent>
-                                {products.map(p => <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>)}
+                                {inStockProducts.map(p => (
+                                  <SelectItem key={p.id} value={p.id}>
+                                    {p.name} (Stock: {p.stock})
+                                  </SelectItem>
+                                ))}
                             </SelectContent>
                             </Select>
                         </div>
@@ -325,3 +331,5 @@ export default function IssuancePage() {
     </>
   );
 }
+
+    
