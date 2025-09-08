@@ -129,7 +129,7 @@ export default function DashboardPage() {
           icon={<ShoppingCart className="size-5 text-primary" />}
         />
         <KpiCard
-          title="New Customers"
+          title="New Clients"
           value="89"
           change="+30.2% from last month"
           icon={<Users className="size-5 text-primary" />}

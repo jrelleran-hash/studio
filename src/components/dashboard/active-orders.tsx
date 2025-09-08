@@ -10,8 +10,8 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
-import { getRecentOrders, getCustomers, getProducts, addOrder } from "@/services/data-service";
-import type { Order, Customer, Product } from "@/types";
+import { getRecentOrders, getClients, getProducts, addOrder } from "@/services/data-service";
+import type { Order, Client, Product } from "@/types";
 import { Skeleton } from "../ui/skeleton";
 import { formatCurrency } from "@/lib/currency";
 import { PlusCircle, X } from "lucide-react";
@@ -32,7 +32,7 @@ const orderItemSchema = z.object({
 });
 
 const orderSchema = z.object({
-  customerId: z.string().min(1, "Customer is required."),
+  clientId: z.string().min(1, "Client is required."),
   items: z.array(orderItemSchema).min(1, "At least one item is required."),
   status: z.enum(["Processing", "Shipped", "Fulfilled", "Cancelled"]),
 });
@@ -46,14 +46,14 @@ export function ActiveOrders() {
   const [selectedOrder, setSelectedOrder] = useState<Order | null>(null);
 
   const [isAddOrderOpen, setIsAddOrderOpen] = useState(false);
-  const [customers, setCustomers] = useState<Customer[]>([]);
+  const [clients, setClients] = useState<Client[]>([]);
   const [products, setProducts] = useState<Product[]>([]);
   const { toast } = useToast();
 
   const form = useForm<OrderFormValues>({
     resolver: zodResolver(orderSchema),
     defaultValues: {
-      customerId: "",
+      clientId: "",
       items: [{ productId: "", quantity: 1 }],
       status: "Processing",
     },
@@ -67,13 +67,13 @@ export function ActiveOrders() {
   async function fetchInitialData() {
       setLoading(true);
       try {
-        const [fetchedOrders, fetchedCustomers, fetchedProducts] = await Promise.all([
+        const [fetchedOrders, fetchedClients, fetchedProducts] = await Promise.all([
           getRecentOrders(5),
-          getCustomers(),
+          getClients(),
           getProducts()
         ]);
         setOrders(fetchedOrders);
-        setCustomers(fetchedCustomers);
+        setClients(fetchedClients);
         setProducts(fetchedProducts);
       } catch (error) {
          toast({
@@ -139,16 +139,16 @@ export function ActiveOrders() {
             </DialogHeader>
             <form onSubmit={form.handleSubmit(onOrderSubmit)} className="space-y-4">
               <div className="space-y-2">
-                <Label>Customer</Label>
-                 <Select onValueChange={(value) => form.setValue('customerId', value)} defaultValue={form.getValues('customerId')}>
+                <Label>Client</Label>
+                 <Select onValueChange={(value) => form.setValue('clientId', value)} defaultValue={form.getValues('clientId')}>
                     <SelectTrigger>
-                        <SelectValue placeholder="Select a customer" />
+                        <SelectValue placeholder="Select a client" />
                     </SelectTrigger>
                     <SelectContent>
-                        {customers.map(c => <SelectItem key={c.id} value={c.id}>{c.clientName} - {c.projectName}</SelectItem>)}
+                        {clients.map(c => <SelectItem key={c.id} value={c.id}>{c.clientName} - {c.projectName}</SelectItem>)}
                     </SelectContent>
                 </Select>
-                {form.formState.errors.customerId && <p className="text-sm text-destructive">{form.formState.errors.customerId.message}</p>}
+                {form.formState.errors.clientId && <p className="text-sm text-destructive">{form.formState.errors.clientId.message}</p>}
               </div>
 
               <div className="space-y-2">
@@ -208,7 +208,7 @@ export function ActiveOrders() {
           <TableHeader>
             <TableRow>
               <TableHead>Order</TableHead>
-              <TableHead>Customer</TableHead>
+              <TableHead>Client</TableHead>
               <TableHead>Date</TableHead>
               <TableHead>Status</TableHead>
               <TableHead className="text-right">Total</TableHead>
@@ -229,7 +229,7 @@ export function ActiveOrders() {
               orders.map((order) => (
                 <TableRow key={order.id} className="cursor-pointer" onClick={() => setSelectedOrder(order)}>
                   <TableCell className="font-medium">{order.id.substring(0, 7)}</TableCell>
-                  <TableCell>{order.customer.clientName}</TableCell>
+                  <TableCell>{order.client.clientName}</TableCell>
                   <TableCell>{formatDate(order.date)}</TableCell>
                   <TableCell>
                     <Badge variant={statusVariant[order.status] || "default"}>{order.status}</Badge>
@@ -250,15 +250,15 @@ export function ActiveOrders() {
           <DialogHeader>
             <DialogTitle>Order Details: {selectedOrder.id}</DialogTitle>
             <DialogDescription>
-              Customer: {selectedOrder.customer.clientName} ({selectedOrder.customer.projectName})
+              Client: {selectedOrder.client.clientName} ({selectedOrder.client.projectName})
             </DialogDescription>
           </DialogHeader>
           <div className="py-4 space-y-2">
             <p><strong>Date:</strong> {formatDate(selectedOrder.date)}</p>
             <p><strong>Total:</strong> {formatCurrency(selectedOrder.total)}</p>
             <p><strong>Status:</strong> <Badge variant={statusVariant[selectedOrder.status] || "default"}>{selectedOrder.status}</Badge></p>
-             <p><strong>BOQ Number:</strong> {selectedOrder.customer.boqNumber}</p>
-            <p><strong>Address:</strong> {selectedOrder.customer.address}</p>
+             <p><strong>BOQ Number:</strong> {selectedOrder.client.boqNumber}</p>
+            <p><strong>Address:</strong> {selectedOrder.client.address}</p>
             <div>
               <h4 className="font-semibold mt-2">Items:</h4>
               <ul className="list-disc list-inside text-muted-foreground">

@@ -11,7 +11,7 @@
 
 import {ai} from '@/ai/genkit';
 import {z} from 'genkit';
-import { addCustomer } from '@/services/data-service';
+import { addClient } from '@/services/data-service';
 
 const SmartSearchInputSchema = z.object({
   query: z.string().describe('The user search query in natural language.'),
@@ -51,57 +51,57 @@ const smartSearchFlow = ai.defineFlow(
 );
 
 
-const CustomerSchema = z.object({
+const ClientSchema = z.object({
   projectName: z.string(),
   clientName: z.string(),
   boqNumber: z.string(),
   address: z.string(),
 });
 
-const ImportCustomersInputSchema = z.object({
-  sheetUrl: z.string().url().describe("The public URL of the Google Sheet to import customer data from."),
+const ImportClientsInputSchema = z.object({
+  sheetUrl: z.string().url().describe("The public URL of the Google Sheet to import client data from."),
 });
-export type ImportCustomersInput = z.infer<typeof ImportCustomersInputSchema>;
+export type ImportClientsInput = z.infer<typeof ImportClientsInputSchema>;
 
-const ImportCustomersOutputSchema = z.object({
-  importedCount: z.number().describe("The number of customers successfully imported."),
+const ImportClientsOutputSchema = z.object({
+  importedCount: z.number().describe("The number of clients successfully imported."),
   errors: z.array(z.string()).describe("A list of errors that occurred during the import process."),
 });
-export type ImportCustomersOutput = z.infer<typeof ImportCustomersOutputSchema>;
+export type ImportClientsOutput = z.infer<typeof ImportClientsOutputSchema>;
 
-const importCustomersPrompt = ai.definePrompt({
-    name: 'importCustomersPrompt',
+const importClientsPrompt = ai.definePrompt({
+    name: 'importClientsPrompt',
     input: { schema: z.object({ sheetData: z.string() }) },
-    output: { schema: z.object({ customers: z.array(CustomerSchema) }) },
-    prompt: `You are a data processing assistant. Your task is to parse the provided text, which represents data from a spreadsheet, and convert it into a structured JSON array of customers. The spreadsheet columns are: Project Name, Client Name, BOQ Number, Address.
+    output: { schema: z.object({ clients: z.array(ClientSchema) }) },
+    prompt: `You are a data processing assistant. Your task is to parse the provided text, which represents data from a spreadsheet, and convert it into a structured JSON array of clients. The spreadsheet columns are: Project Name, Client Name, BOQ Number, Address.
 
     Spreadsheet Data:
     {{{sheetData}}}
 
-    Extract the data for each customer and format it according to the schema.
+    Extract the data for each client and format it according to the schema.
     `,
 });
 
-const importCustomerTool = ai.defineTool(
+const importClientTool = ai.defineTool(
     {
-        name: 'saveCustomers',
-        description: 'Saves a list of new customers to the database.',
+        name: 'saveClients',
+        description: 'Saves a list of new clients to the database.',
         inputSchema: z.object({
-            customers: z.array(CustomerSchema),
+            clients: z.array(ClientSchema),
         }),
         outputSchema: z.object({
             success: z.boolean(),
             importedCount: z.number(),
         }),
     },
-    async ({ customers }) => {
+    async ({ clients }) => {
         let importedCount = 0;
-        for (const customer of customers) {
+        for (const client of clients) {
             try {
-                await addCustomer(customer);
+                await addClient(client);
                 importedCount++;
             } catch (e) {
-                console.error(`Failed to import customer: ${customer.clientName}`, e);
+                console.error(`Failed to import client: ${client.clientName}`, e);
             }
         }
         return { success: true, importedCount };
@@ -109,11 +109,11 @@ const importCustomerTool = ai.defineTool(
 );
 
 
-const importCustomersFlow = ai.defineFlow(
+const importClientsFlow = ai.defineFlow(
   {
-    name: 'importCustomersFlow',
-    inputSchema: ImportCustomersInputSchema,
-    outputSchema: ImportCustomersOutputSchema,
+    name: 'importClientsFlow',
+    inputSchema: ImportClientsInputSchema,
+    outputSchema: ImportClientsOutputSchema,
   },
   async (input) => {
     // In a real application, you would fetch the data from the sheetUrl.
@@ -124,12 +124,12 @@ const importCustomersFlow = ai.defineFlow(
       Project Gamma,Sam Wilson,BOQ-003,789 Pine Ln
     `;
 
-    const { output } = await importCustomersPrompt({ sheetData: mockSheetData });
-    if (!output || !output.customers) {
-      return { importedCount: 0, errors: ["Failed to parse customer data."] };
+    const { output } = await importClientsPrompt({ sheetData: mockSheetData });
+    if (!output || !output.clients) {
+      return { importedCount: 0, errors: ["Failed to parse client data."] };
     }
 
-    const result = await importCustomerTool({ customers: output.customers });
+    const result = await importClientTool({ clients: output.clients });
 
     return {
       importedCount: result.importedCount,
@@ -139,6 +139,6 @@ const importCustomersFlow = ai.defineFlow(
 );
 
 
-export async function importCustomersFromSheet(input: ImportCustomersInput): Promise<ImportCustomersOutput> {
-  return importCustomersFlow(input);
+export async function importClientsFromSheet(input: ImportClientsInput): Promise<ImportClientsOutput> {
+  return importClientsFlow(input);
 }

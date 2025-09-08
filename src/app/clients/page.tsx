@@ -40,31 +40,31 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useToast } from "@/hooks/use-toast";
-import { getCustomers, addCustomer, updateCustomer, deleteCustomer } from "@/services/data-service";
+import { getClients, addClient, updateClient, deleteClient } from "@/services/data-service";
 
-import type { Customer } from "@/types";
+import type { Client } from "@/types";
 
-const customerSchema = z.object({
+const clientSchema = z.object({
   projectName: z.string().min(1, "Project name is required."),
   clientName: z.string().min(1, "Client name is required."),
   boqNumber: z.string().min(1, "BOQ number is required."),
   address: z.string().min(1, "Address is required."),
 });
 
-type CustomerFormValues = z.infer<typeof customerSchema>;
+type ClientFormValues = z.infer<typeof clientSchema>;
 
-export default function CustomersPage() {
-  const [customers, setCustomers] = useState<Customer[]>([]);
+export default function ClientsPage() {
+  const [clients, setClients] = useState<Client[]>([]);
   const [loading, setLoading] = useState(true);
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
-  const [editingCustomer, setEditingCustomer] = useState<Customer | null>(null);
+  const [editingClient, setEditingClient] = useState<Client | null>(null);
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
-  const [deletingCustomerId, setDeletingCustomerId] = useState<string | null>(null);
+  const [deletingClientId, setDeletingClientId] = useState<string | null>(null);
   const { toast } = useToast();
 
-  const form = useForm<CustomerFormValues>({
-    resolver: zodResolver(customerSchema),
+  const form = useForm<ClientFormValues>({
+    resolver: zodResolver(clientSchema),
     defaultValues: {
       projectName: "",
       clientName: "",
@@ -73,20 +73,20 @@ export default function CustomersPage() {
     },
   });
 
-  const editForm = useForm<CustomerFormValues>({
-    resolver: zodResolver(customerSchema),
+  const editForm = useForm<ClientFormValues>({
+    resolver: zodResolver(clientSchema),
   });
 
-  async function fetchCustomers() {
+  async function fetchClients() {
     setLoading(true);
     try {
-      const fetchedCustomers = await getCustomers();
-      setCustomers(fetchedCustomers);
+      const fetchedClients = await getClients();
+      setClients(fetchedClients);
     } catch (error) {
        toast({
         variant: "destructive",
         title: "Error",
-        description: "Failed to fetch customers.",
+        description: "Failed to fetch clients.",
       });
     } finally {
       setLoading(false);
@@ -94,78 +94,78 @@ export default function CustomersPage() {
   }
 
   useEffect(() => {
-    fetchCustomers();
+    fetchClients();
   }, []);
   
   useEffect(() => {
-    if (editingCustomer) {
-      editForm.reset(editingCustomer);
+    if (editingClient) {
+      editForm.reset(editingClient);
     }
-  }, [editingCustomer, editForm]);
+  }, [editingClient, editForm]);
 
 
-  const onAddSubmit = async (data: CustomerFormValues) => {
+  const onAddSubmit = async (data: ClientFormValues) => {
     try {
-      await addCustomer(data);
-      toast({ title: "Success", description: "Customer added successfully." });
+      await addClient(data);
+      toast({ title: "Success", description: "Client added successfully." });
       setIsAddDialogOpen(false);
       form.reset();
-      fetchCustomers(); // Refresh the list
+      fetchClients(); // Refresh the list
     } catch (error) {
       console.error(error);
       toast({
         variant: "destructive",
         title: "Error",
-        description: "Failed to add customer. Please try again.",
+        description: "Failed to add client. Please try again.",
       });
     }
   };
 
-  const onEditSubmit = async (data: CustomerFormValues) => {
-    if (!editingCustomer) return;
+  const onEditSubmit = async (data: ClientFormValues) => {
+    if (!editingClient) return;
     try {
-      await updateCustomer(editingCustomer.id, data);
-      toast({ title: "Success", description: "Customer updated successfully." });
+      await updateClient(editingClient.id, data);
+      toast({ title: "Success", description: "Client updated successfully." });
       setIsEditDialogOpen(false);
-      setEditingCustomer(null);
-      fetchCustomers();
+      setEditingClient(null);
+      fetchClients();
     } catch (error) {
        console.error(error);
        toast({
         variant: "destructive",
         title: "Error",
-        description: "Failed to update customer. Please try again.",
+        description: "Failed to update client. Please try again.",
       });
     }
   };
 
   
-  const handleEditClick = (customer: Customer) => {
-    setEditingCustomer(customer);
+  const handleEditClick = (client: Client) => {
+    setEditingClient(client);
     setIsEditDialogOpen(true);
   };
   
-  const handleDeleteClick = (customerId: string) => {
-    setDeletingCustomerId(customerId);
+  const handleDeleteClick = (clientId: string) => {
+    setDeletingClientId(clientId);
     setIsDeleteDialogOpen(true);
   };
 
   const handleDeleteConfirm = async () => {
-    if (!deletingCustomerId) return;
+    if (!deletingClientId) return;
     try {
-      await deleteCustomer(deletingCustomerId);
-      toast({ title: "Success", description: "Customer deleted successfully." });
-      fetchCustomers();
+      await deleteClient(deletingClientId);
+      toast({ title: "Success", description: "Client deleted successfully." });
+      fetchClients();
     } catch (error) {
       console.error(error);
       toast({
         variant: "destructive",
         title: "Error",
-        description: "Failed to delete customer. Please try again.",
+        description: "Failed to delete client. Please try again.",
       });
     } finally {
       setIsDeleteDialogOpen(false);
-      setDeletingCustomerId(null);
+      setDeletingClientId(null);
     }
   };
 
@@ -175,21 +175,21 @@ export default function CustomersPage() {
     <Card>
       <CardHeader className="flex flex-row items-start justify-between">
         <div>
-          <CardTitle>Customers</CardTitle>
-          <CardDescription>Manage your customer database.</CardDescription>
+          <CardTitle>Clients</CardTitle>
+          <CardDescription>Manage your client database.</CardDescription>
         </div>
         <div className="flex gap-2">
           <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>
             <DialogTrigger asChild>
               <Button size="sm" className="gap-1">
                 <PlusCircle className="h-4 w-4" />
-                Add Customer
+                Add Client
               </Button>
             </DialogTrigger>
             <DialogContent className="sm:max-w-md">
               <DialogHeader>
-                <DialogTitle>Add New Customer</DialogTitle>
-                <DialogDescription>Fill in the details for the new customer.</DialogDescription>
+                <DialogTitle>Add New Client</DialogTitle>
+                <DialogDescription>Fill in the details for the new client.</DialogDescription>
               </DialogHeader>
               <form onSubmit={form.handleSubmit(onAddSubmit)} className="space-y-4">
                 <div className="space-y-2">
@@ -215,7 +215,7 @@ export default function CustomersPage() {
                 <DialogFooter>
                   <Button type="button" variant="outline" onClick={() => setIsAddDialogOpen(false)}>Cancel</Button>
                   <Button type="submit" disabled={form.formState.isSubmitting}>
-                    {form.formState.isSubmitting ? "Adding..." : "Add Customer"}
+                    {form.formState.isSubmitting ? "Adding..." : "Add Client"}
                   </Button>
                 </DialogFooter>
               </form>
@@ -248,12 +248,12 @@ export default function CustomersPage() {
                 </TableRow>
               ))
             ) : (
-              customers.map((customer) => (
-                <TableRow key={customer.id}>
-                  <TableCell className="font-medium">{customer.clientName}</TableCell>
-                  <TableCell>{customer.projectName}</TableCell>
-                  <TableCell>{customer.boqNumber}</TableCell>
-                  <TableCell>{customer.address}</TableCell>
+              clients.map((client) => (
+                <TableRow key={client.id}>
+                  <TableCell className="font-medium">{client.clientName}</TableCell>
+                  <TableCell>{client.projectName}</TableCell>
+                  <TableCell>{client.boqNumber}</TableCell>
+                  <TableCell>{client.address}</TableCell>
                   <TableCell>
                     <DropdownMenu>
                       <DropdownMenuTrigger asChild>
@@ -264,8 +264,8 @@ export default function CustomersPage() {
                       </DropdownMenuTrigger>
                       <DropdownMenuContent align="end">
                         <DropdownMenuLabel>Actions</DropdownMenuLabel>
-                        <DropdownMenuItem onClick={() => handleEditClick(customer)}>Edit</DropdownMenuItem>
-                        <DropdownMenuItem onClick={() => handleDeleteClick(customer.id)} className="text-destructive">Delete</DropdownMenuItem>
+                        <DropdownMenuItem onClick={() => handleEditClick(client)}>Edit</DropdownMenuItem>
+                        <DropdownMenuItem onClick={() => handleDeleteClick(client.id)} className="text-destructive">Delete</DropdownMenuItem>
                       </DropdownMenuContent>
                     </DropdownMenu>
                   </TableCell>
@@ -277,12 +277,12 @@ export default function CustomersPage() {
       </CardContent>
     </Card>
       
-    {editingCustomer && (
+    {editingClient && (
         <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
             <DialogContent className="sm:max-w-md">
               <DialogHeader>
-                <DialogTitle>Edit Customer</DialogTitle>
-                <DialogDescription>Update the details for {editingCustomer.clientName}.</DialogDescription>
+                <DialogTitle>Edit Client</DialogTitle>
+                <DialogDescription>Update the details for {editingClient.clientName}.</DialogDescription>
               </DialogHeader>
               <form onSubmit={editForm.handleSubmit(onEditSubmit)} className="space-y-4">
                 <div className="space-y-2">
@@ -322,7 +322,7 @@ export default function CustomersPage() {
           <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
           <AlertDialogDescription>
             This action cannot be undone. This will permanently delete this
-            customer from your records.
+            client from your records.
           </AlertDialogDescription>
         </AlertDialogHeader>
         <AlertDialogFooter>

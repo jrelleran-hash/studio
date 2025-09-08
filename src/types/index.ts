@@ -19,7 +19,7 @@ export interface Notification {
   read: boolean;
 }
 
-export interface Customer {
+export interface Client {
     id: string;
     projectName: string;
     clientName: string;
@@ -56,6 +56,6 @@ export interface Order {
     date: Date;
     status: "Processing" | "Shipped" | "Fulfilled" | "Cancelled";
     total: number;
-    customer: Customer;
+    client: Client;
     items: OrderItem[];
 }

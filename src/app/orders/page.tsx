@@ -38,8 +38,8 @@ import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useToast } from "@/hooks/use-toast";
-import { getOrders, updateOrderStatus, getCustomers, getProducts, addOrder } from "@/services/data-service";
-import type { Order, Customer, Product } from "@/types";
+import { getOrders, updateOrderStatus, getClients, getProducts, addOrder } from "@/services/data-service";
+import type { Order, Client, Product } from "@/types";
 import { formatCurrency } from "@/lib/currency";
 
 const statusVariant: { [key: string]: "default" | "secondary" | "destructive" | "outline" } = {
@@ -55,7 +55,7 @@ const orderItemSchema = z.object({
 });
 
 const orderSchema = z.object({
-  customerId: z.string().min(1, "Customer is required."),
+  clientId: z.string().min(1, "Client is required."),
   items: z.array(orderItemSchema).min(1, "At least one item is required."),
   status: z.enum(["Processing", "Shipped", "Fulfilled", "Cancelled"]),
 });
@@ -68,13 +68,13 @@ export default function OrdersPage() {
   const { toast } = useToast();
 
   const [isAddOrderOpen, setIsAddOrderOpen] = useState(false);
-  const [customers, setCustomers] = useState<Customer[]>([]);
+  const [clients, setClients] = useState<Client[]>([]);
   const [products, setProducts] = useState<Product[]>([]);
 
   const form = useForm<OrderFormValues>({
     resolver: zodResolver(orderSchema),
     defaultValues: {
-      customerId: "",
+      clientId: "",
       items: [{ productId: "", quantity: 1 }],
       status: "Processing",
     },
@@ -88,13 +88,13 @@ export default function OrdersPage() {
   async function fetchInitialData() {
     setLoading(true);
     try {
-      const [fetchedOrders, fetchedCustomers, fetchedProducts] = await Promise.all([
+      const [fetchedOrders, fetchedClients, fetchedProducts] = await Promise.all([
         getOrders(),
-        getCustomers(),
+        getClients(),
         getProducts()
       ]);
       setOrders(fetchedOrders);
-      setCustomers(fetchedCustomers);
+      setClients(fetchedClients);
       setProducts(fetchedProducts);
     } catch (error) {
       console.error(error);
@@ -157,7 +157,7 @@ export default function OrdersPage() {
       <CardHeader className="flex flex-row items-start justify-between">
         <div>
           <CardTitle>Orders</CardTitle>
-          <CardDescription>Manage all customer orders.</CardDescription>
+          <CardDescription>Manage all client orders.</CardDescription>
         </div>
          <Dialog open={isAddOrderOpen} onOpenChange={setIsAddOrderOpen}>
           <DialogTrigger asChild>
@@ -173,16 +173,16 @@ export default function OrdersPage() {
             </DialogHeader>
             <form onSubmit={form.handleSubmit(onOrderSubmit)} className="space-y-4">
               <div className="space-y-2">
-                <Label>Customer</Label>
-                 <Select onValueChange={(value) => form.setValue('customerId', value)} defaultValue={form.getValues('customerId')}>
+                <Label>Client</Label>
+                 <Select onValueChange={(value) => form.setValue('clientId', value)} defaultValue={form.getValues('clientId')}>
                     <SelectTrigger>
-                        <SelectValue placeholder="Select a customer" />
+                        <SelectValue placeholder="Select a client" />
                     </SelectTrigger>
                     <SelectContent>
-                        {customers.map(c => <SelectItem key={c.id} value={c.id}>{c.clientName} - {c.projectName}</SelectItem>)}
+                        {clients.map(c => <SelectItem key={c.id} value={c.id}>{c.clientName} - {c.projectName}</SelectItem>)}
                     </SelectContent>
                 </Select>
-                {form.formState.errors.customerId && <p className="text-sm text-destructive">{form.formState.errors.customerId.message}</p>}
+                {form.formState.errors.clientId && <p className="text-sm text-destructive">{form.formState.errors.clientId.message}</p>}
               </div>
 
               <div className="space-y-2">
@@ -242,7 +242,7 @@ export default function OrdersPage() {
           <TableHeader>
             <TableRow>
               <TableHead>Order</TableHead>
-              <TableHead>Customer</TableHead>
+              <TableHead>Client</TableHead>
               <TableHead>Date</TableHead>
               <TableHead>Status</TableHead>
               <TableHead className="text-right">Total</TableHead>
@@ -267,7 +267,7 @@ export default function OrdersPage() {
               orders.map((order) => (
                 <TableRow key={order.id}>
                   <TableCell className="font-medium">{order.id.substring(0, 7)}</TableCell>
-                  <TableCell>{order.customer.clientName}</TableCell>
+                  <TableCell>{order.client.clientName}</TableCell>
                   <TableCell>{formatDate(order.date)}</TableCell>
                   <TableCell>
                     <Badge variant={statusVariant[order.status] || "default"}>{order.status}</Badge>

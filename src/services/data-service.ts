@@ -4,9 +4,10 @@
 
 
 
+
 import { db } from "@/lib/firebase";
 import { collection, getDocs, getDoc, doc, orderBy, query, limit, Timestamp, where, DocumentReference, addDoc, updateDoc, deleteDoc, arrayUnion } from "firebase/firestore";
-import type { Activity, Notification, Order, Product, Customer } from "@/types";
+import type { Activity, Notification, Order, Product, Client } from "@/types";
 import { format, subDays } from 'date-fns';
 
 function timeSince(date: Date) {
@@ -113,7 +114,7 @@ export async function getRecentOrders(count: number): Promise<Order[]> {
         
         const orders: Order[] = await Promise.all(orderSnapshot.docs.map(async (orderDoc) => {
             const orderData = orderDoc.data();
-            const customer = await resolveDoc<Customer>(orderData.customerRef);
+            const client = await resolveDoc<Client>(orderData.clientRef);
             
             const items = await Promise.all(orderData.items.map(async (item: any) => {
                 const product = await resolveDoc<Product>(item.productRef);
@@ -129,7 +130,7 @@ export async function getRecentOrders(count: number): Promise<Order[]> {
                 date: (orderData.date as Timestamp).toDate(),
                 status: orderData.status,
                 total: orderData.total,
-                customer,
+                client,
                 items,
             };
         }));
@@ -272,7 +273,7 @@ export async function getOrders(): Promise<Order[]> {
         
         const orders: Order[] = await Promise.all(orderSnapshot.docs.map(async (orderDoc) => {
             const orderData = orderDoc.data();
-            const customer = await resolveDoc<Customer>(orderData.customerRef);
+            const client = await resolveDoc<Client>(orderData.clientRef);
             
             const items = await Promise.all(orderData.items.map(async (item: any) => {
                 const product = await resolveDoc<Product>(item.productRef);
@@ -288,7 +289,7 @@ export async function getOrders(): Promise<Order[]> {
                 date: (orderData.date as Timestamp).toDate(),
                 status: orderData.status,
                 total: orderData.total,
-                customer,
+                client,
                 items,
             };
         }));
@@ -310,51 +311,51 @@ export async function updateOrderStatus(orderId: string, status: Order['status']
   }
 }
 
-export async function getCustomers(): Promise<Customer[]> {
+export async function getClients(): Promise<Client[]> {
   try {
-    const customersCol = collection(db, "customers");
-    const q = query(customersCol, orderBy("clientName", "asc"));
-    const customerSnapshot = await getDocs(q);
-    return customerSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Customer));
+    const clientsCol = collection(db, "clients");
+    const q = query(clientsCol, orderBy("clientName", "asc"));
+    const clientSnapshot = await getDocs(q);
+    return clientSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Client));
   } catch (error) {
-    console.error("Error fetching customers:", error);
+    console.error("Error fetching clients:", error);
     return [];
   }
 }
 
-export async function addCustomer(customer: Omit<Customer, 'id'>): Promise<DocumentReference> {
+export async function addClient(client: Omit<Client, 'id'>): Promise<DocumentReference> {
   try {
-    const customersCol = collection(db, "customers");
-    const docRef = await addDoc(customersCol, customer);
+    const clientsCol = collection(db, "clients");
+    const docRef = await addDoc(clientsCol, client);
     return docRef;
   } catch (error) {
-    console.error("Error adding customer:", error);
-    throw new Error("Failed to add customer.");
+    console.error("Error adding client:", error);
+    throw new Error("Failed to add client.");
   }
 }
 
-export async function updateCustomer(customerId: string, customerData: Partial<Omit<Customer, 'id'>>): Promise<void> {
+export async function updateClient(clientId: string, clientData: Partial<Omit<Client, 'id'>>): Promise<void> {
   try {
-    const customerRef = doc(db, "customers", customerId);
-    await updateDoc(customerRef, customerData);
+    const clientRef = doc(db, "clients", clientId);
+    await updateDoc(clientRef, clientData);
   } catch (error) {
-    console.error("Error updating customer:", error);
-    throw new Error("Failed to update customer.");
+    console.error("Error updating client:", error);
+    throw new Error("Failed to update client.");
   }
 }
 
-export async function deleteCustomer(customerId: string): Promise<void> {
+export async function deleteClient(clientId: string): Promise<void> {
   try {
-    const customerRef = doc(db, "customers", customerId);
-    await deleteDoc(customerRef);
+    const clientRef = doc(db, "clients", clientId);
+    await deleteDoc(clientRef);
   } catch (error) {
-    console.error("Error deleting customer:", error);
-    throw new Error("Failed to delete customer.");
+    console.error("Error deleting client:", error);
+    throw new Error("Failed to delete client.");
   }
 }
 
 type NewOrderData = {
-  customerId: string;
+  clientId: string;
   items: { productId: string; quantity: number }[];
   status: Order['status'];
 };
@@ -382,7 +383,7 @@ export async function addOrder(orderData: NewOrderData): Promise<DocumentReferen
 
     // 2. Create the new order object
     const newOrder = {
-      customerRef: doc(db, "customers", orderData.customerId),
+      clientRef: doc(db, "clients", orderData.clientId),
       date: Timestamp.now(),
       items: resolvedItems,
       status: orderData.status,
