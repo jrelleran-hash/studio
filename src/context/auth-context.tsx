@@ -50,10 +50,25 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     if (currentUser) {
       await currentUser.reload();
       const refreshedUser = auth.currentUser;
-      // Create a new plain object to ensure React detects the change.
-      setUser(refreshedUser ? { ...refreshedUser } as User : null);
+      // Create a new plain object from the refreshed user to ensure React detects the change.
+      if (refreshedUser) {
+        const userObject = {
+          uid: refreshedUser.uid,
+          email: refreshedUser.email,
+          displayName: refreshedUser.displayName,
+          photoURL: refreshedUser.photoURL,
+          emailVerified: refreshedUser.emailVerified,
+          isAnonymous: refreshedUser.isAnonymous,
+          phoneNumber: refreshedUser.phoneNumber,
+          providerData: refreshedUser.providerData,
+          // Add any other user properties you need
+        };
+        setUser(userObject as User);
+      } else {
+        setUser(null);
+      }
     }
-  }, []);
+  }, [auth.currentUser]);
 
   const value = { user, loading, logout, reloadUser };
 
