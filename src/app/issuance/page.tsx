@@ -1,11 +1,11 @@
 
 "use client";
 
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, useRef } from "react";
 import { useForm, useFieldArray, Controller } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
-import { PlusCircle, MoreHorizontal, X } from "lucide-react";
+import { PlusCircle, MoreHorizontal, X, Printer } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -41,6 +41,7 @@ import { useToast } from "@/hooks/use-toast";
 import { getIssuances, getClients, getProducts, addIssuance } from "@/services/data-service";
 import type { Issuance, Client, Product } from "@/types";
 import { format } from "date-fns";
+import React from 'react';
 
 const issuanceItemSchema = z.object({
   productId: z.string().min(1, "Product is required."),
@@ -70,6 +71,73 @@ const createIssuanceSchema = (products: Product[]) => z.object({
 
 type IssuanceFormValues = z.infer<ReturnType<typeof createIssuanceSchema>>;
 
+// Printable Component
+const PrintableIssuanceForm = React.forwardRef<HTMLDivElement, { issuance: Issuance }>(({ issuance }, ref) => {
+  return (
+    <div ref={ref} className="p-8 bg-white text-black">
+      <div className="flex justify-between items-center mb-8 border-b pb-4">
+        <div>
+           <h1 className="text-3xl font-bold">Material Issuance</h1>
+           <p className="text-gray-600">Issuance #: {issuance.issuanceNumber}</p>
+        </div>
+         <p className="text-sm">Date: {format(issuance.date, 'PPP')}</p>
+      </div>
+      <div className="grid grid-cols-2 gap-8 mb-8">
+        <div>
+          <h2 className="text-lg font-semibold mb-2">Issued To</h2>
+          <p className="font-bold">{issuance.client.clientName}</p>
+          <p>{issuance.client.projectName}</p>
+          <p>{issuance.client.address}</p>
+        </div>
+        <div>
+          <h2 className="text-lg font-semibold mb-2">BOQ Number</h2>
+          <p>{issuance.client.boqNumber}</p>
+        </div>
+      </div>
+      
+      <h2 className="text-lg font-semibold mb-2">Items Issued</h2>
+      <table className="w-full text-left table-auto border-collapse">
+        <thead>
+          <tr className="bg-gray-100">
+            <th className="p-2 border">#</th>
+            <th className="p-2 border">Product Name</th>
+            <th className="p-2 border">SKU</th>
+            <th className="p-2 border text-center">Quantity</th>
+          </tr>
+        </thead>
+        <tbody>
+          {issuance.items.map((item, index) => (
+            <tr key={item.product.id}>
+              <td className="p-2 border">{index + 1}</td>
+              <td className="p-2 border">{item.product.name}</td>
+              <td className="p-2 border">{item.product.sku}</td>
+              <td className="p-2 border text-center">{item.quantity}</td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+
+      {issuance.remarks && (
+        <div className="mt-8">
+            <h2 className="text-lg font-semibold mb-2">Remarks</h2>
+            <p className="p-2 border bg-gray-50 rounded-md">{issuance.remarks}</p>
+        </div>
+      )}
+
+      <div className="grid grid-cols-2 gap-16 mt-24 pt-8">
+        <div className="border-t pt-2">
+            <p className="text-center">Issued By (Name & Signature)</p>
+        </div>
+        <div className="border-t pt-2">
+            <p className="text-center">Received By (Name & Signature)</p>
+        </div>
+      </div>
+    </div>
+  );
+});
+PrintableIssuanceForm.displayName = "PrintableIssuanceForm";
+
+
 export default function IssuancePage() {
   const [issuances, setIssuances] = useState<Issuance[]>([]);
   const [loading, setLoading] = useState(true);
@@ -80,6 +148,8 @@ export default function IssuancePage() {
   const [products, setProducts] = useState<Product[]>([]);
   
   const [selectedIssuance, setSelectedIssuance] = useState<Issuance | null>(null);
+  const printableRef = useRef<HTMLDivElement>(null);
+
 
   // Memoize the schema so it's only recreated when products change
   const issuanceSchema = useMemo(() => createIssuanceSchema(products), [products]);
@@ -152,6 +222,13 @@ export default function IssuancePage() {
       });
     }
   };
+  
+  const handlePrint = () => {
+    if (selectedIssuance) {
+      window.print();
+    }
+  };
+
 
   const formatDate = (date: Date) => format(date, 'PPpp');
   
@@ -296,7 +373,7 @@ export default function IssuancePage() {
                    <TableCell className="text-right">
                     <DropdownMenu>
                       <DropdownMenuTrigger asChild>
-                        <Button aria-haspopup="true" size="icon" variant="ghost">
+                        <Button aria-haspopup="true" size="icon" variant="ghost" onClick={(e) => e.stopPropagation()}>
                           <MoreHorizontal className="h-4 w-4" />
                           <span className="sr-only">Toggle menu</span>
                         </Button>
@@ -304,7 +381,10 @@ export default function IssuancePage() {
                       <DropdownMenuContent align="end">
                         <DropdownMenuLabel>Actions</DropdownMenuLabel>
                         <DropdownMenuItem onClick={(e) => {e.stopPropagation(); setSelectedIssuance(issuance)}}>View Details</DropdownMenuItem>
-                        <DropdownMenuItem>Print</DropdownMenuItem>
+                        <DropdownMenuItem onClick={(e) => { e.stopPropagation(); setSelectedIssuance(issuance); setTimeout(handlePrint, 50); }}>
+                          <Printer className="mr-2 h-4 w-4" />
+                          <span>Print</span>
+                        </DropdownMenuItem>
                       </DropdownMenuContent>
                     </DropdownMenu>
                   </TableCell>
@@ -350,11 +430,18 @@ export default function IssuancePage() {
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setSelectedIssuance(null)}>Close</Button>
-            <Button>Print Issuance Form</Button>
+            <Button onClick={handlePrint}>
+              <Printer className="mr-2 h-4 w-4" />
+              Print Issuance Form
+            </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
     )}
+    
+    <div className="printable-area">
+      {selectedIssuance && <PrintableIssuanceForm ref={printableRef} issuance={selectedIssuance} />}
+    </div>
 
     </>
   );
