@@ -23,7 +23,12 @@ export function WelcomeCard() {
 
   const getFirstName = () => {
     if (user?.displayName) {
-      return user.displayName.split(" ")[0];
+      const nameParts = user.displayName.split(" ").filter(Boolean);
+      if (nameParts.length > 1) {
+        nameParts.pop(); // Remove the last part (last name)
+        return nameParts.join(" ");
+      }
+      return user.displayName; // Return the full name if it's just one word
     }
     return user?.email || "User";
   };
