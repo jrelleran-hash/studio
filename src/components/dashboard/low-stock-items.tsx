@@ -40,6 +40,14 @@ export function LowStockItems() {
     fetchItems();
   }, []);
 
+  useEffect(() => {
+      if (selectedItemForReorder && selectedItemForReorder.supplier) {
+          setSupplierName(selectedItemForReorder.supplier);
+      } else {
+          setSupplierName("Default Supplier Inc.");
+      }
+  }, [selectedItemForReorder])
+
   const handleReorderClick = (item: Product) => {
     setSelectedItemForReorder(item);
   };
@@ -142,6 +150,10 @@ export function LowStockItems() {
                   </div>
                 </div>
               </div>
+               <div>
+                  <h3 className="font-semibold">Supplier</h3>
+                  <p className="text-sm text-muted-foreground">{selectedItemForDetails.supplier || 'Not specified'}</p>
+                </div>
               <DialogFooter>
                 <Button variant="outline" onClick={() => setSelectedItemForDetails(null)}>Close</Button>
                 <Button onClick={() => {

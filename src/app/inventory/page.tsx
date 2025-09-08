@@ -57,6 +57,7 @@ const createProductSchema = (isSkuAuto: boolean) => z.object({
   stock: z.coerce.number().int().nonnegative("Stock must be a non-negative integer."),
   reorderLimit: z.coerce.number().int().nonnegative("Reorder limit must be a non-negative integer."),
   location: z.string().optional(),
+  supplier: z.string().optional(),
 }).refine(data => isSkuAuto || (data.sku && data.sku.length > 0), {
     message: "SKU is required when not auto-generated.",
     path: ["sku"],
@@ -69,6 +70,7 @@ const editProductSchema = z.object({
   stock: z.coerce.number().int().nonnegative("Stock must be a non-negative integer."),
   reorderLimit: z.coerce.number().int().nonnegative("Reorder limit must be a non-negative integer."),
   location: z.string().optional(),
+  supplier: z.string().optional(),
 });
 
 
@@ -105,6 +107,7 @@ export default function InventoryPage() {
       stock: 0,
       reorderLimit: 10,
       location: "",
+      supplier: "",
     },
   });
 
@@ -312,9 +315,15 @@ export default function InventoryPage() {
                     {addForm.formState.errors.reorderLimit && <p className="text-sm text-destructive">{addForm.formState.errors.reorderLimit.message}</p>}
                   </div>
                 </div>
-                <div className="space-y-2">
-                  <Label htmlFor="location">Location</Label>
-                  <Input id="location" placeholder="e.g. 'Warehouse A'" {...addForm.register("location")} />
+                <div className="grid grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                      <Label htmlFor="location">Location</Label>
+                      <Input id="location" placeholder="e.g. 'Warehouse A'" {...addForm.register("location")} />
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="supplier">Supplier</Label>
+                      <Input id="supplier" placeholder="e.g. 'ACME Inc.'" {...addForm.register("supplier")} />
+                    </div>
                 </div>
                 <DialogFooter>
                   <Button type="button" variant="outline" onClick={() => setIsAddDialogOpen(false)}>Cancel</Button>
@@ -336,7 +345,7 @@ export default function InventoryPage() {
                 <TableHead>Price</TableHead>
                 <TableHead>Stock</TableHead>
                 <TableHead>Status</TableHead>
-                <TableHead>Location</TableHead>
+                <TableHead>Supplier</TableHead>
                 <TableHead>Last Updated</TableHead>
                 <TableHead>
                   <span className="sr-only">Actions</span>
@@ -379,7 +388,7 @@ export default function InventoryPage() {
                       <TableCell>
                         <Badge variant={status.variant} className={status.className}>{status.text}</Badge>
                       </TableCell>
-                      <TableCell>{product.location}</TableCell>
+                      <TableCell>{product.supplier || 'N/A'}</TableCell>
                        <TableCell>{formatDate(product.lastUpdated)}</TableCell>
                       <TableCell>
                         <DropdownMenu>
@@ -449,9 +458,15 @@ export default function InventoryPage() {
                     {editForm.formState.errors.reorderLimit && <p className="text-sm text-destructive">{editForm.formState.errors.reorderLimit.message}</p>}
                   </div>
                 </div>
-                <div className="space-y-2">
-                  <Label htmlFor="edit-location">Location</Label>
-                  <Input id="edit-location" {...editForm.register("location")} />
+                <div className="grid grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                      <Label htmlFor="edit-location">Location</Label>
+                      <Input id="edit-location" {...editForm.register("location")} />
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="edit-supplier">Supplier</Label>
+                      <Input id="edit-supplier" {...editForm.register("supplier")} />
+                    </div>
                 </div>
               <DialogFooter>
                 <Button type="button" variant="outline" onClick={() => setIsEditDialogOpen(false)}>Cancel</Button>

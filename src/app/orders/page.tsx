@@ -72,6 +72,7 @@ const createProductSchema = (isSkuAuto: boolean) => z.object({
   stock: z.coerce.number().int().nonnegative("Stock must be a non-negative integer."),
   reorderLimit: z.coerce.number().int().nonnegative("Reorder limit must be a non-negative integer."),
   location: z.string().optional(),
+  supplier: z.string().optional(),
 }).refine(data => isSkuAuto || (data.sku && data.sku.length > 0), {
     message: "SKU is required when not auto-generated.",
     path: ["sku"],
@@ -124,6 +125,7 @@ export default function OrdersPage() {
       stock: 0,
       reorderLimit: 10,
       location: "",
+      supplier: "",
     },
   });
 
@@ -448,9 +450,15 @@ export default function OrdersPage() {
                 {productForm.formState.errors.reorderLimit && <p className="text-sm text-destructive">{productForm.formState.errors.reorderLimit.message}</p>}
               </div>
             </div>
-            <div className="space-y-2">
-              <Label htmlFor="location-order">Location</Label>
-              <Input id="location-order" placeholder="e.g. 'Warehouse A'" {...productForm.register("location")} />
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                  <Label htmlFor="location-order">Location</Label>
+                  <Input id="location-order" placeholder="e.g. 'Warehouse A'" {...productForm.register("location")} />
+              </div>
+              <div className="space-y-2">
+                  <Label htmlFor="supplier-order">Supplier</Label>
+                  <Input id="supplier-order" placeholder="e.g. 'ACME Inc.'" {...productForm.register("supplier")} />
+              </div>
             </div>
             <DialogFooter>
               <Button type="button" variant="outline" onClick={() => setIsAddProductOpen(false)}>Cancel</Button>
@@ -464,5 +472,3 @@ export default function OrdersPage() {
     </>
   );
 }
-
-    

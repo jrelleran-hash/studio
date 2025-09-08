@@ -42,6 +42,7 @@ export interface Product {
     price: number;
     reorderLimit: number;
     location?: string;
+    supplier?: string;
     history?: ProductHistory[];
     lastUpdated?: Timestamp;
 }
