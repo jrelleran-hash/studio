@@ -224,10 +224,16 @@ export default function IssuancePage() {
   };
   
   const handlePrint = () => {
-    if (selectedIssuance) {
-      window.print();
-    }
+    // A small delay ensures the state is set and component is rendered before printing.
+    setTimeout(() => {
+        window.print();
+    }, 100);
   };
+
+  const triggerPrint = (issuance: Issuance) => {
+    setSelectedIssuance(issuance);
+    handlePrint();
+  }
 
 
   const formatDate = (date: Date) => format(date, 'PPpp');
@@ -381,7 +387,7 @@ export default function IssuancePage() {
                       <DropdownMenuContent align="end">
                         <DropdownMenuLabel>Actions</DropdownMenuLabel>
                         <DropdownMenuItem onClick={(e) => {e.stopPropagation(); setSelectedIssuance(issuance)}}>View Details</DropdownMenuItem>
-                        <DropdownMenuItem onClick={(e) => { e.stopPropagation(); setSelectedIssuance(issuance); setTimeout(handlePrint, 50); }}>
+                        <DropdownMenuItem onClick={(e) => { e.stopPropagation(); triggerPrint(issuance); }}>
                           <Printer className="mr-2 h-4 w-4" />
                           <span>Print</span>
                         </DropdownMenuItem>
@@ -430,7 +436,7 @@ export default function IssuancePage() {
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setSelectedIssuance(null)}>Close</Button>
-            <Button onClick={handlePrint}>
+            <Button onClick={() => triggerPrint(selectedIssuance)}>
               <Printer className="mr-2 h-4 w-4" />
               Print Issuance Form
             </Button>
