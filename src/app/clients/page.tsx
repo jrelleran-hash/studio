@@ -116,14 +116,28 @@ export default function ClientsPage() {
 
   const onAddSubmit = async (data: ClientFormValues) => {
     try {
-      const isDuplicate = clients.some(c => c.boqNumber === data.boqNumber);
-      if (isDuplicate) {
+      const isBoqDuplicate = clients.some(c => c.boqNumber === data.boqNumber);
+      if (isBoqDuplicate) {
         toast({
           variant: "destructive",
           title: "Duplicate Entry",
           description: `A client with BOQ Number "${data.boqNumber}" already exists.`,
         });
         return;
+      }
+      
+      const isRecordDuplicate = clients.some(c => 
+          c.projectName.toLowerCase() === data.projectName.toLowerCase() &&
+          c.clientName.toLowerCase() === data.clientName.toLowerCase() &&
+          c.address.toLowerCase() === data.address.toLowerCase()
+      );
+      if (isRecordDuplicate) {
+          toast({
+              variant: "destructive",
+              title: "Duplicate Entry",
+              description: `A client with the same Project Name, Client Name, and Address already exists.`,
+          });
+          return;
       }
 
       await addClient(data);
@@ -144,14 +158,29 @@ export default function ClientsPage() {
   const onEditSubmit = async (data: ClientFormValues) => {
     if (!editingClient) return;
     try {
-      const isDuplicate = clients.some(c => c.id !== editingClient.id && c.boqNumber === data.boqNumber);
-      if (isDuplicate) {
+      const isBoqDuplicate = clients.some(c => c.id !== editingClient.id && c.boqNumber === data.boqNumber);
+      if (isBoqDuplicate) {
         toast({
           variant: "destructive",
           title: "Duplicate Entry",
           description: `Another client with BOQ Number "${data.boqNumber}" already exists.`,
         });
         return;
+      }
+      
+       const isRecordDuplicate = clients.some(c => 
+          c.id !== editingClient.id &&
+          c.projectName.toLowerCase() === data.projectName.toLowerCase() &&
+          c.clientName.toLowerCase() === data.clientName.toLowerCase() &&
+          c.address.toLowerCase() === data.address.toLowerCase()
+      );
+      if (isRecordDuplicate) {
+          toast({
+              variant: "destructive",
+              title: "Duplicate Entry",
+              description: `Another client with the same Project Name, Client Name, and Address already exists.`,
+          });
+          return;
       }
       
       await updateClient(editingClient.id, data);
