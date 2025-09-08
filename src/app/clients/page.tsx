@@ -53,6 +53,13 @@ const clientSchema = z.object({
 
 type ClientFormValues = z.infer<typeof clientSchema>;
 
+const toTitleCase = (str: string) => {
+  return str.replace(
+    /\w\S*/g,
+    (txt) => txt.charAt(0).toUpperCase() + txt.substring(1).toLowerCase()
+  );
+};
+
 export default function ClientsPage() {
   const [clients, setClients] = useState<Client[]>([]);
   const [loading, setLoading] = useState(true);
@@ -194,12 +201,20 @@ export default function ClientsPage() {
               <form onSubmit={form.handleSubmit(onAddSubmit)} className="space-y-4">
                 <div className="space-y-2">
                   <Label htmlFor="projectName">Project Name</Label>
-                  <Input id="projectName" {...form.register("projectName")} />
+                  <Input id="projectName" {...form.register("projectName")} onChange={(e) => {
+                    const { value } = e.target;
+                    e.target.value = toTitleCase(value);
+                    form.setValue("projectName", e.target.value);
+                  }} />
                   {form.formState.errors.projectName && <p className="text-sm text-destructive">{form.formState.errors.projectName.message}</p>}
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="clientName">Client Name</Label>
-                  <Input id="clientName" {...form.register("clientName")} />
+                  <Input id="clientName" {...form.register("clientName")} onChange={(e) => {
+                    const { value } = e.target;
+                    e.target.value = toTitleCase(value);
+                    form.setValue("clientName", e.target.value);
+                  }} />
                   {form.formState.errors.clientName && <p className="text-sm text-destructive">{form.formState.errors.clientName.message}</p>}
                 </div>
                  <div className="space-y-2">
@@ -287,12 +302,20 @@ export default function ClientsPage() {
               <form onSubmit={editForm.handleSubmit(onEditSubmit)} className="space-y-4">
                 <div className="space-y-2">
                   <Label htmlFor="edit-projectName">Project Name</Label>
-                  <Input id="edit-projectName" {...editForm.register("projectName")} />
+                  <Input id="edit-projectName" {...editForm.register("projectName")} onChange={(e) => {
+                      const { value } = e.target;
+                      e.target.value = toTitleCase(value);
+                      editForm.setValue("projectName", e.target.value);
+                  }}/>
                   {editForm.formState.errors.projectName && <p className="text-sm text-destructive">{editForm.formState.errors.projectName.message}</p>}
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="edit-clientName">Client Name</Label>
-                  <Input id="edit-clientName" {...editForm.register("clientName")} />
+                  <Input id="edit-clientName" {...editForm.register("clientName")} onChange={(e) => {
+                      const { value } = e.target;
+                      e.target.value = toTitleCase(value);
+                      editForm.setValue("clientName", e.target.value);
+                  }} />
                   {editForm.formState.errors.clientName && <p className="text-sm text-destructive">{editForm.formState.errors.clientName.message}</p>}
                 </div>
                  <div className="space-y-2">
