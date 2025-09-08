@@ -372,7 +372,7 @@ export default function InventoryPage() {
                 filteredProducts.map((product) => {
                   const status = getStatus(product);
                   return (
-                    <TableRow key={product.id}>
+                    <TableRow key={product.id} onClick={() => handleEditClick(product)} className="cursor-pointer">
                       <TableCell>
                         <Image
                           alt={product.name}
@@ -394,12 +394,12 @@ export default function InventoryPage() {
                       <TableCell>
                         <DropdownMenu>
                           <DropdownMenuTrigger asChild>
-                            <Button aria-haspopup="true" size="icon" variant="ghost">
+                            <Button aria-haspopup="true" size="icon" variant="ghost" onClick={(e) => e.stopPropagation()}>
                               <MoreHorizontal className="h-4 w-4" />
                               <span className="sr-only">Toggle menu</span>
                             </Button>
                           </DropdownMenuTrigger>
-                          <DropdownMenuContent align="end">
+                          <DropdownMenuContent align="end" onClick={(e) => e.stopPropagation()}>
                             <DropdownMenuLabel>Actions</DropdownMenuLabel>
                             <DropdownMenuItem onClick={() => handleEditClick(product)}>Edit</DropdownMenuItem>
                             <DropdownMenuItem onClick={() => handleDeleteClick(product.id)} className="text-destructive">Delete</DropdownMenuItem>

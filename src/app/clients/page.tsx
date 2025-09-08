@@ -1,4 +1,5 @@
 
+
 "use client";
 
 import { useState, useEffect, useCallback, useMemo } from "react";
@@ -327,7 +328,7 @@ export default function ClientsPage() {
               ))
             ) : (
               clients.map((client) => (
-                <TableRow key={client.id}>
+                <TableRow key={client.id} onClick={() => handleEditClick(client)} className="cursor-pointer">
                   <TableCell className="font-medium">{client.clientName}</TableCell>
                   <TableCell>{client.projectName}</TableCell>
                   <TableCell>{client.boqNumber}</TableCell>
@@ -336,12 +337,12 @@ export default function ClientsPage() {
                   <TableCell>
                     <DropdownMenu>
                       <DropdownMenuTrigger asChild>
-                        <Button aria-haspopup="true" size="icon" variant="ghost">
+                        <Button aria-haspopup="true" size="icon" variant="ghost" onClick={(e) => e.stopPropagation()}>
                           <MoreHorizontal className="h-4 w-4" />
                           <span className="sr-only">Toggle menu</span>
                         </Button>
                       </DropdownMenuTrigger>
-                      <DropdownMenuContent align="end">
+                      <DropdownMenuContent align="end" onClick={(e) => e.stopPropagation()}>
                         <DropdownMenuLabel>Actions</DropdownMenuLabel>
                         <DropdownMenuItem onClick={() => handleEditClick(client)}>Edit</DropdownMenuItem>
                         <DropdownMenuItem onClick={() => handleDeleteClick(client.id)} className="text-destructive">Delete</DropdownMenuItem>
@@ -441,5 +442,3 @@ export default function ClientsPage() {
     </>
   );
 }
-
-    

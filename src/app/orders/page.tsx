@@ -131,6 +131,7 @@ export default function OrdersAndSuppliersPage() {
   const [isAddSupplierOpen, setIsAddSupplierOpen] = useState(false);
   const [isEditSupplierOpen, setIsEditSupplierOpen] = useState(false);
   const [isDeleteSupplierOpen, setIsDeleteSupplierOpen] = useState(false);
+  const [selectedOrder, setSelectedOrder] = useState<Order | null>(null);
 
   // Data states
   const [clients, setClients] = useState<Client[]>([]);
@@ -360,6 +361,14 @@ export default function OrdersAndSuppliersPage() {
     const jsDate = date instanceof Timestamp ? date.toDate() : date;
     return format(jsDate, 'PPpp');
   };
+  
+  const formatOrderDate = (date: Date) => {
+    return new Intl.DateTimeFormat("en-US", {
+      year: "numeric",
+      month: "long",
+      day: "numeric",
+    }).format(date);
+  };
 
   return (
     <>
@@ -547,7 +556,7 @@ export default function OrdersAndSuppliersPage() {
                   ))
                 ) : (
                   orders.map((order) => (
-                    <TableRow key={order.id}>
+                    <TableRow key={order.id} onClick={() => setSelectedOrder(order)} className="cursor-pointer">
                       <TableCell className="font-medium">{order.id.substring(0, 7)}</TableCell>
                       <TableCell>{order.client.clientName}</TableCell>
                       <TableCell>{formatDate(order.date)}</TableCell>
@@ -558,12 +567,12 @@ export default function OrdersAndSuppliersPage() {
                       <TableCell>
                         <DropdownMenu>
                           <DropdownMenuTrigger asChild>
-                            <Button aria-haspopup="true" size="icon" variant="ghost">
+                            <Button aria-haspopup="true" size="icon" variant="ghost" onClick={(e) => e.stopPropagation()}>
                               <MoreHorizontal className="h-4 w-4" />
                               <span className="sr-only">Toggle menu</span>
                             </Button>
                           </DropdownMenuTrigger>
-                          <DropdownMenuContent align="end">
+                          <DropdownMenuContent align="end" onClick={(e) => e.stopPropagation()}>
                             <DropdownMenuLabel>Actions</DropdownMenuLabel>
                             <DropdownMenuItem onClick={() => handleStatusChange(order.id, 'Fulfilled')}>
                               Mark as Fulfilled
@@ -574,7 +583,6 @@ export default function OrdersAndSuppliersPage() {
                             <DropdownMenuItem onClick={() => handleStatusChange(order.id, 'Cancelled')}>
                               Cancel Order
                             </DropdownMenuItem>
-                            <DropdownMenuItem>Edit</DropdownMenuItem>
                           </DropdownMenuContent>
                         </DropdownMenu>
                       </TableCell>
@@ -620,7 +628,7 @@ export default function OrdersAndSuppliersPage() {
                     ))
                     ) : (
                     suppliers.map((supplier) => (
-                        <TableRow key={supplier.id}>
+                        <TableRow key={supplier.id} onClick={() => handleEditSupplierClick(supplier)} className="cursor-pointer">
                         <TableCell className="font-medium">{supplier.name}</TableCell>
                         <TableCell>{supplier.contactPerson}</TableCell>
                         <TableCell>{supplier.email}</TableCell>
@@ -629,12 +637,12 @@ export default function OrdersAndSuppliersPage() {
                         <TableCell>
                             <DropdownMenu>
                             <DropdownMenuTrigger asChild>
-                                <Button aria-haspopup="true" size="icon" variant="ghost">
+                                <Button aria-haspopup="true" size="icon" variant="ghost" onClick={(e) => e.stopPropagation()}>
                                 <MoreHorizontal className="h-4 w-4" />
                                 <span className="sr-only">Toggle menu</span>
                                 </Button>
                             </DropdownMenuTrigger>
-                            <DropdownMenuContent align="end">
+                            <DropdownMenuContent align="end" onClick={(e) => e.stopPropagation()}>
                                 <DropdownMenuLabel>Actions</DropdownMenuLabel>
                                 <DropdownMenuItem onClick={() => handleEditSupplierClick(supplier)}>Edit</DropdownMenuItem>
                                 <DropdownMenuItem onClick={() => handleDeleteSupplierClick(supplier.id)} className="text-destructive">Delete</DropdownMenuItem>
@@ -719,6 +727,37 @@ export default function OrdersAndSuppliersPage() {
           </form>
         </DialogContent>
      </Dialog>
+
+    {selectedOrder && (
+      <Dialog open={!!selectedOrder} onOpenChange={(open) => !open && setSelectedOrder(null)}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Order Details: {selectedOrder.id.substring(0,7)}</DialogTitle>
+            <DialogDescription>
+              Client: {selectedOrder.client.clientName} ({selectedOrder.client.projectName})
+            </DialogDescription>
+          </DialogHeader>
+          <div className="py-4 space-y-2">
+            <p><strong>Date:</strong> {formatOrderDate(selectedOrder.date)}</p>
+            <p><strong>Total:</strong> {formatCurrency(selectedOrder.total)}</p>
+            <p><strong>Status:</strong> <Badge variant={statusVariant[selectedOrder.status] || "default"}>{selectedOrder.status}</Badge></p>
+             <p><strong>BOQ Number:</strong> {selectedOrder.client.boqNumber}</p>
+            <p><strong>Address:</strong> {selectedOrder.client.address}</p>
+            <div>
+              <h4 className="font-semibold mt-2">Items:</h4>
+              <ul className="list-disc list-inside text-muted-foreground">
+                {selectedOrder.items.map(item => (
+                   <li key={item.product.id}>{item.quantity} x {item.product.name}</li>
+                ))}
+              </ul>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setSelectedOrder(null)}>Close</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+    )}
       
     {editingSupplier && (
         <Dialog open={isEditSupplierOpen} onOpenChange={(isOpen) => {

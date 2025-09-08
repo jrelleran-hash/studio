@@ -1,4 +1,5 @@
 
+
 "use client";
 
 import { useState, useEffect, useMemo, useRef } from "react";
@@ -426,7 +427,7 @@ export default function IssuancePage() {
               ))
             ) : (
               issuances.map((issuance) => (
-                <TableRow key={issuance.id}>
+                <TableRow key={issuance.id} onClick={() => setSelectedIssuance(issuance)} className="cursor-pointer">
                   <TableCell className="font-medium">{issuance.issuanceNumber}</TableCell>
                   <TableCell>{issuance.client.clientName} - {issuance.client.projectName}</TableCell>
                   <TableCell>{formatDate(issuance.date)}</TableCell>
@@ -435,12 +436,12 @@ export default function IssuancePage() {
                    <TableCell className="text-right">
                     <DropdownMenu>
                       <DropdownMenuTrigger asChild>
-                        <Button aria-haspopup="true" size="icon" variant="ghost">
+                        <Button aria-haspopup="true" size="icon" variant="ghost" onClick={(e) => e.stopPropagation()}>
                           <MoreHorizontal className="h-4 w-4" />
                           <span className="sr-only">Toggle menu</span>
                         </Button>
                       </DropdownMenuTrigger>
-                      <DropdownMenuContent align="end">
+                      <DropdownMenuContent align="end" onClick={(e) => e.stopPropagation()}>
                         <DropdownMenuLabel>Actions</DropdownMenuLabel>
                         <DropdownMenuItem onClick={() => setSelectedIssuance(issuance)}>View Details</DropdownMenuItem>
                         <DropdownMenuItem onClick={() => triggerPreview(issuance)}>
