@@ -2,7 +2,7 @@
 "use client";
 
 import { useState, useEffect, useMemo } from "react";
-import { useForm, useFieldArray } from "react-hook-form";
+import { useForm, useFieldArray, Controller } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
 import { PlusCircle, MoreHorizontal, X } from "lucide-react";
@@ -47,13 +47,28 @@ const issuanceItemSchema = z.object({
   quantity: z.coerce.number().min(1, "Quantity must be at least 1."),
 });
 
-const issuanceSchema = z.object({
+// We need a way to pass the full product list to the schema for validation
+const createIssuanceSchema = (products: Product[]) => z.object({
   clientId: z.string().min(1, "Client is required."),
-  items: z.array(issuanceItemSchema).min(1, "At least one item is required."),
+  items: z.array(issuanceItemSchema)
+    .min(1, "At least one item is required.")
+    .superRefine((items, ctx) => {
+        items.forEach((item, index) => {
+            const product = products.find(p => p.id === item.productId);
+            if (product && product.stock < item.quantity) {
+                ctx.addIssue({
+                    path: [`${index}.quantity`],
+                    message: `Stock is insufficient. Only ${product.stock} available.`,
+                    code: z.ZodIssueCode.custom
+                });
+            }
+        });
+    }),
   remarks: z.string().optional(),
 });
 
-type IssuanceFormValues = z.infer<typeof issuanceSchema>;
+
+type IssuanceFormValues = z.infer<ReturnType<typeof createIssuanceSchema>>;
 
 export default function IssuancePage() {
   const [issuances, setIssuances] = useState<Issuance[]>([]);
@@ -66,8 +81,8 @@ export default function IssuancePage() {
   
   const [selectedIssuance, setSelectedIssuance] = useState<Issuance | null>(null);
 
-  const inStockProducts = useMemo(() => products.filter(p => p.stock > 0), [products]);
-
+  // Memoize the schema so it's only recreated when products change
+  const issuanceSchema = useMemo(() => createIssuanceSchema(products), [products]);
 
   const form = useForm<IssuanceFormValues>({
     resolver: zodResolver(issuanceSchema),
@@ -76,6 +91,7 @@ export default function IssuancePage() {
       items: [{ productId: "", quantity: 1 }],
       remarks: "",
     },
+    mode: "onChange", // Validate on change to give instant feedback
   });
 
   const { fields, append, remove } = useFieldArray({
@@ -162,7 +178,7 @@ export default function IssuancePage() {
             <form onSubmit={form.handleSubmit(onAddSubmit)} className="space-y-4">
               <div className="space-y-2">
                 <Label>Client / Project</Label>
-                 <Select onValueChange={(value) => form.setValue('clientId', value)} defaultValue={form.getValues('clientId')}>
+                 <Select onValueChange={(value) => form.setValue('clientId', value, { shouldValidate: true })} defaultValue={form.getValues('clientId')}>
                     <SelectTrigger>
                         <SelectValue placeholder="Select a client or project" />
                     </SelectTrigger>
@@ -177,35 +193,47 @@ export default function IssuancePage() {
                  <div className="flex justify-between items-center">
                     <Label>Items to Issue</Label>
                 </div>
-                <div className="space-y-2">
+                <div className="space-y-4">
                   {fields.map((field, index) => {
                     const selectedProductId = form.watch(`items.${index}.productId`);
                     const selectedProduct = products.find(p => p.id === selectedProductId);
 
                     return (
-                      <div key={field.id} className="flex items-start gap-2">
-                        <div className="flex-1">
-                            <Select onValueChange={(value) => form.setValue(`items.${index}.productId`, value)}>
-                            <SelectTrigger>
-                                <SelectValue placeholder="Select a product" />
-                            </SelectTrigger>
-                            <SelectContent>
-                                {inStockProducts.map(p => (
-                                  <SelectItem key={p.id} value={p.id}>
-                                    {p.name} (Stock: {p.stock})
-                                  </SelectItem>
-                                ))}
-                            </SelectContent>
-                            </Select>
+                      <div key={field.id} className="grid grid-cols-[1fr_auto_auto] items-start gap-2">
+                         <div className="flex flex-col gap-1">
+                            <Controller
+                                control={form.control}
+                                name={`items.${index}.productId`}
+                                render={({ field }) => (
+                                    <Select onValueChange={(value) => field.onChange(value)} defaultValue={field.value}>
+                                    <SelectTrigger>
+                                        <SelectValue placeholder="Select a product" />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                        {products.map(p => (
+                                          <SelectItem key={p.id} value={p.id} disabled={p.stock === 0}>
+                                            {p.name} (Stock: {p.stock})
+                                          </SelectItem>
+                                        ))}
+                                    </SelectContent>
+                                    </Select>
+                                )}
+                            />
+                            {form.formState.errors.items?.[index]?.productId && <p className="text-sm text-destructive">{form.formState.errors.items?.[index]?.productId?.message}</p>}
                         </div>
-                        <div className="relative">
+                        <div className="flex flex-col gap-1">
                             <Input 
                                 type="number" 
                                 placeholder="Qty" 
                                 className="w-24"
                                 {...form.register(`items.${index}.quantity`)}
                             />
-                            {selectedProduct && <span className="absolute -bottom-4 right-1 text-xs text-muted-foreground">Stock: {selectedProduct.stock}</span>}
+                            {form.formState.errors.items?.[index]?.quantity ? (
+                                <p className="text-sm text-destructive">{form.formState.errors.items?.[index]?.quantity?.message}</p>
+                             ) : selectedProduct ? (
+                                <span className="text-xs text-muted-foreground pl-1">Available: {selectedProduct.stock}</span>
+                             ) : null
+                           }
                         </div>
                         <Button variant="ghost" size="icon" onClick={() => remove(index)}>
                             <X className="h-4 w-4" />
@@ -214,7 +242,7 @@ export default function IssuancePage() {
                     );
                    })}
                 </div>
-                 {form.formState.errors.items && <p className="text-sm text-destructive">{typeof form.formState.errors.items === 'string' ? form.formState.errors.items : 'Please add at least one item.'}</p>}
+                 {form.formState.errors.items && typeof form.formState.errors.items === 'object' && !Array.isArray(form.formState.errors.items) && <p className="text-sm text-destructive">{form.formState.errors.items.message}</p>}
                 <Button type="button" variant="outline" size="sm" onClick={() => append({ productId: "", quantity: 1 })}>
                   <PlusCircle className="h-4 w-4 mr-2" /> Add Item
                 </Button>
