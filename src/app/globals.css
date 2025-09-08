@@ -89,28 +89,22 @@
 
 
 @media print {
-  body {
-    background-color: white;
+  body * {
+    visibility: hidden;
   }
 
-  .print-preview-dialog,
-  .print-preview-dialog * {
+  .printable-content, .printable-content * {
     visibility: visible;
   }
 
-  .print-preview-dialog {
+  .printable-content {
     position: absolute;
     left: 0;
     top: 0;
     width: 100%;
-    height: 100%;
-    max-width: 100vw;
-    border: none;
-    box-shadow: none;
-    padding: 0;
-    margin: 0;
+    height: auto;
   }
-  
+
   .print-hidden {
     display: none;
   }

@@ -250,17 +250,7 @@ export default function IssuancePage() {
   };
   
   const handlePrint = () => {
-    const printableContent = printableRef.current;
-    if (!printableContent) return;
-
-    const originalContents = document.body.innerHTML;
-    const printContents = printableContent.innerHTML;
-    
-    document.body.innerHTML = printContents;
     window.print();
-    document.body.innerHTML = originalContents;
-    // We need to re-trigger the state to ensure event listeners are re-attached
-    setIsPreviewOpen(false); 
   };
 
   const triggerPreview = (issuance: Issuance) => {
@@ -520,20 +510,17 @@ export default function IssuancePage() {
     )}
     
     <Dialog open={isPreviewOpen} onOpenChange={setIsPreviewOpen}>
-        <DialogContent className="max-w-4xl print-preview-dialog">
-            <DialogHeader className="print-hidden">
+        <DialogContent className="max-w-4xl print-hidden">
+            <DialogHeader>
                 <DialogTitle>Print Preview</DialogTitle>
                 <DialogDescription>
                     Review the issuance form before printing.
                 </DialogDescription>
             </DialogHeader>
-            <div className="max-h-[70vh] overflow-y-auto border rounded-md my-4 print:hidden">
+            <div className="max-h-[70vh] overflow-y-auto border rounded-md my-4">
                 {selectedIssuance && <PrintableIssuanceForm issuance={selectedIssuance} />}
             </div>
-             <div className="hidden">
-                 {selectedIssuance && <PrintableIssuanceForm issuance={selectedIssuance} ref={printableRef} />}
-            </div>
-            <DialogFooter className="print-hidden">
+            <DialogFooter>
                 <Button variant="outline" onClick={() => setIsPreviewOpen(false)}>Cancel</Button>
                 <Button onClick={handlePrint}>
                     <Printer className="mr-2 h-4 w-4" />
@@ -542,6 +529,11 @@ export default function IssuancePage() {
             </DialogFooter>
         </DialogContent>
     </Dialog>
+    
+    {/* This is the hidden, printable version of the form */}
+    <div className="hidden">
+      {selectedIssuance && <PrintableIssuanceForm issuance={selectedIssuance} ref={printableRef} />}
+    </div>
 
     <AlertDialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
       <AlertDialogContent>
