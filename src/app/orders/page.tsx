@@ -61,7 +61,6 @@ const orderItemSchema = z.object({
 const orderSchema = z.object({
   clientId: z.string().min(1, "Client is required."),
   items: z.array(orderItemSchema).min(1, "At least one item is required."),
-  status: z.enum(["Processing", "Shipped", "Fulfilled", "Cancelled"]),
 });
 
 type OrderFormValues = z.infer<typeof orderSchema>;
@@ -108,7 +107,6 @@ export default function OrdersPage() {
     defaultValues: {
       clientId: "",
       items: [{ productId: "", quantity: 1 }],
-      status: "Processing",
     },
   });
 
@@ -159,7 +157,6 @@ export default function OrdersPage() {
       orderForm.reset({
         clientId: "",
         items: [{ productId: "", quantity: 1 }],
-        status: "Processing",
       });
     }
   }, [isAddOrderOpen, orderForm]);
@@ -189,7 +186,7 @@ export default function OrdersPage() {
 
   const onOrderSubmit = async (data: OrderFormValues) => {
     try {
-      await addOrder(data);
+      await addOrder({...data, status: "Processing"});
       toast({ title: "Success", description: "New order created." });
       setIsAddOrderOpen(false);
       orderForm.reset();
@@ -319,16 +316,11 @@ export default function OrdersPage() {
                 </Button>
               </div>
               <div className="space-y-2">
-                <Label>Status</Label>
-                <Select onValueChange={(value) => orderForm.setValue('status', value as Order['status'])} defaultValue={orderForm.getValues('status')}>
-                    <SelectTrigger>
-                        <SelectValue placeholder="Select a status" />
-                    </SelectTrigger>
-                    <SelectContent>
-                        {(["Processing", "Shipped", "Fulfilled", "Cancelled"] as Order['status'][]).map(s => <SelectItem key={s} value={s}>{s}</SelectItem>)}
-                    </SelectContent>
-                </Select>
-              </div>
+                  <Label>Status</Label>
+                  <p className="flex h-10 w-full items-center rounded-md border border-input bg-background px-3 py-2 text-sm text-muted-foreground">
+                    Processing
+                  </p>
+                </div>
 
               <DialogFooter>
                 <Button type="button" variant="outline" onClick={() => setIsAddOrderOpen(false)}>Cancel</Button>
