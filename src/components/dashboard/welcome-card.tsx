@@ -21,11 +21,18 @@ export function WelcomeCard() {
     );
   }, []);
 
+  const getFirstName = () => {
+    if (user?.displayName) {
+      return user.displayName.split(" ")[0];
+    }
+    return user?.email || "User";
+  };
+
   return (
     <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
       <div>
         <h1 className="text-2xl font-bold font-headline tracking-tight">
-          Welcome Back, {user?.displayName || user?.email || "User"}!
+          Welcome Back, {getFirstName()}!
         </h1>
         <p className="text-muted-foreground">{currentDate}</p>
       </div>
