@@ -1,4 +1,5 @@
 
+
 "use client";
 
 import { useState, useEffect, useMemo } from "react";
@@ -298,7 +299,7 @@ export default function InventoryPage() {
                     <Label htmlFor="price">Price</Label>
                     <div className="relative">
                       <span className="absolute inset-y-0 left-0 flex items-center pl-3 text-muted-foreground">{CURRENCY_CONFIG.symbol}</span>
-                      <Input id="price" type="number" step="0.01" className="pl-8" {...addForm.register("price")} />
+                      <Input id="price" type="number" step="0.01" className="pl-8" placeholder="0.00" {...addForm.register("price")} />
                     </div>
                     {addForm.formState.errors.price && <p className="text-sm text-destructive">{addForm.formState.errors.price.message}</p>}
                   </div>
@@ -441,7 +442,7 @@ export default function InventoryPage() {
                     <Label htmlFor="edit-price">Price</Label>
                     <div className="relative">
                       <span className="absolute inset-y-0 left-0 flex items-center pl-3 text-muted-foreground">{CURRENCY_CONFIG.symbol}</span>
-                      <Input id="edit-price" type="number" step="0.01" className="pl-8" {...editForm.register("price")} />
+                      <Input id="edit-price" type="number" step="0.01" className="pl-8" placeholder="0.00" {...editForm.register("price")} />
                     </div>
                     {editForm.formState.errors.price && <p className="text-sm text-destructive">{editForm.formState.errors.price.message}</p>}
                   </div>
