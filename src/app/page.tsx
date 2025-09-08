@@ -12,8 +12,8 @@ import { Package, ShoppingCart, Users } from "lucide-react";
 import { useAuth } from "@/hooks/use-auth";
 import { useRouter } from "next/navigation";
 import { useEffect, useState, useMemo } from "react";
-import { getProducts } from "@/services/data-service";
-import type { Product } from "@/types";
+import { getProducts, getClients } from "@/services/data-service";
+import type { Product, Client } from "@/types";
 import { formatCurrency } from "@/lib/currency";
 import { PesoSign } from "@/components/icons";
 
@@ -24,7 +24,8 @@ export default function DashboardPage() {
   const [revenueFilter, setRevenueFilter] = useState<FilterType>("month");
   const [inventoryFilter, setInventoryFilter] = useState<InventoryFilterType>("all");
   const [products, setProducts] = useState<Product[]>([]);
-  const [productsLoading, setProductsLoading] = useState(true);
+  const [clients, setClients] = useState<Client[]>([]);
+  const [dataLoading, setDataLoading] = useState(true);
 
   useEffect(() => {
     if (!authLoading && !user) {
@@ -33,15 +34,24 @@ export default function DashboardPage() {
   }, [user, authLoading, router]);
 
   useEffect(() => {
-    async function fetchProducts() {
-      setProductsLoading(true);
-      const fetchedProducts = await getProducts();
-      setProducts(fetchedProducts);
-      setProductsLoading(false);
+    async function fetchData() {
+      if (user) {
+        setDataLoading(true);
+        try {
+          const [fetchedProducts, fetchedClients] = await Promise.all([
+            getProducts(),
+            getClients()
+          ]);
+          setProducts(fetchedProducts);
+          setClients(fetchedClients);
+        } catch (error) {
+            console.error("Failed to fetch dashboard data", error);
+        } finally {
+            setDataLoading(false);
+        }
+      }
     }
-    if (user) {
-      fetchProducts();
-    }
+    fetchData();
   }, [user]);
 
   const { totalRevenue, changeText: revenueChangeText, title: revenueTitle } = useMemo(() => {
@@ -110,6 +120,7 @@ export default function DashboardPage() {
           value={totalRevenue}
           change={revenueChangeText}
           icon={<PesoSign className="size-5 text-primary" />}
+          loading={dataLoading}
         >
            <RevenueChart filter={revenueFilter} setFilter={setRevenueFilter} />
         </KpiCard>
@@ -118,7 +129,7 @@ export default function DashboardPage() {
           value={inventoryValue}
           change={inventoryChangeText}
           icon={<Package className="size-5 text-primary" />}
-          loading={productsLoading}
+          loading={dataLoading}
         >
            <InventoryStatusChart products={products} filter={inventoryFilter} setFilter={setInventoryFilter} />
         </KpiCard>
@@ -129,10 +140,11 @@ export default function DashboardPage() {
           icon={<ShoppingCart className="size-5 text-primary" />}
         />
         <KpiCard
-          title="New Clients"
-          value="89"
-          change="+30.2% from last month"
+          title="Clients"
+          value={clients.length.toString()}
+          change="Total clients"
           icon={<Users className="size-5 text-primary" />}
+          loading={dataLoading}
         />
       </div>
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
