@@ -10,6 +10,7 @@ import { Label } from "@/components/ui/label";
 import { getLowStockProducts } from "@/services/data-service";
 import type { Product } from "@/types";
 import { Skeleton } from "../ui/skeleton";
+import { useToast } from "@/hooks/use-toast";
 
 
 export function LowStockItems() {
@@ -17,6 +18,8 @@ export function LowStockItems() {
   const [loading, setLoading] = useState(true);
   const [selectedItemForDetails, setSelectedItemForDetails] = useState<Product | null>(null);
   const [selectedItemForReorder, setSelectedItemForReorder] = useState<Product | null>(null);
+  const [isReorderAllDialogOpen, setIsReorderAllDialogOpen] = useState(false);
+  const { toast } = useToast();
 
   useEffect(() => {
     async function fetchItems() {
@@ -36,13 +39,31 @@ export function LowStockItems() {
     setSelectedItemForDetails(item);
   };
 
+  const handleReorderAllConfirm = () => {
+    setIsReorderAllDialogOpen(false);
+    toast({
+      title: "Success",
+      description: `Purchase orders for ${lowStockItems.length} items have been submitted.`
+    })
+  }
+
   return (
     <Card className="card-gradient h-full">
-      <CardHeader>
-        <CardTitle>Low Stock Items</CardTitle>
-        <CardDescription>
-          Items that need to be reordered soon.
-        </CardDescription>
+      <CardHeader className="flex flex-row items-start justify-between">
+        <div>
+          <CardTitle>Low Stock Items</CardTitle>
+          <CardDescription>
+            Items that need to be reordered soon.
+          </CardDescription>
+        </div>
+        <Button 
+          variant="secondary" 
+          size="sm"
+          onClick={() => setIsReorderAllDialogOpen(true)}
+          disabled={loading || lowStockItems.length === 0}
+        >
+          Reorder All
+        </Button>
       </CardHeader>
       <CardContent>
         <div className="space-y-4">
@@ -148,6 +169,28 @@ export function LowStockItems() {
           </Dialog>
         )}
 
+        <Dialog open={isReorderAllDialogOpen} onOpenChange={setIsReorderAllDialogOpen}>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>Reorder All Low-Stock Items?</DialogTitle>
+              <DialogDescription>
+                This will create a purchase order for the following {lowStockItems.length} items. Are you sure?
+              </DialogDescription>
+            </DialogHeader>
+            <div className="max-h-60 overflow-y-auto my-4 space-y-2">
+              {lowStockItems.map(item => (
+                <div key={item.id} className="text-sm text-muted-foreground flex justify-between items-center bg-muted/50 p-2 rounded-md">
+                   <span>{item.name}</span>
+                   <span className="font-mono text-xs">Current Stock: {item.stock}</span>
+                </div>
+              ))}
+            </div>
+            <DialogFooter>
+              <Button variant="ghost" onClick={() => setIsReorderAllDialogOpen(false)}>Cancel</Button>
+              <Button onClick={handleReorderAllConfirm}>Yes, Reorder All</Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
       </CardContent>
     </Card>
   );
