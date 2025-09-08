@@ -85,8 +85,8 @@ type OrderFormValues = z.infer<typeof orderSchema>;
 const createProductSchema = (isSkuAuto: boolean) => z.object({
   name: z.string().min(1, "Product name is required."),
   sku: z.string().optional(),
-  price: z.coerce.number().nonnegative("Price must be a non-negative number."),
-  stock: z.coerce.number().int().nonnegative("Stock must be a non-negative integer."),
+  price: z.coerce.number().nonnegative("Price must be a non-negative number.").optional(),
+  stock: z.coerce.number().int().nonnegative("Stock must be a non-negative integer.").optional(),
   reorderLimit: z.coerce.number().int().nonnegative("Reorder limit must be a non-negative integer."),
   location: z.string().optional(),
   supplier: z.string().optional(),
@@ -119,6 +119,7 @@ const toTitleCase = (str: string) => {
 
 
 export default function OrdersAndSuppliersPage() {
+  const [activeTab, setActiveTab] = useState("orders");
   const [orders, setOrders] = useState<Order[]>([]);
   const [suppliers, setSuppliers] = useState<Supplier[]>([]);
   const [loading, setLoading] = useState(true);
@@ -270,7 +271,7 @@ export default function OrdersAndSuppliersPage() {
   // Product handler
   const onProductSubmit = async (data: ProductFormValues) => {
     try {
-      const productData = { ...data };
+      const productData = { ...data, price: data.price || 0, stock: data.stock || 0 };
       if (autoGenerateSku) {
         const namePart = data.name.substring(0, 3).toUpperCase();
         const randomPart = Math.floor(1000 + Math.random() * 9000);
@@ -362,100 +363,155 @@ export default function OrdersAndSuppliersPage() {
 
   return (
     <>
-    <Tabs defaultValue="orders" className="space-y-4">
+    <Tabs defaultValue={activeTab} onValueChange={setActiveTab} className="space-y-4">
       <div className="flex items-center justify-between">
         <TabsList>
             <TabsTrigger value="orders">Orders</TabsTrigger>
             <TabsTrigger value="suppliers">Suppliers</TabsTrigger>
         </TabsList>
-         <Dialog open={isAddOrderOpen} onOpenChange={setIsAddOrderOpen}>
-          <DialogTrigger asChild>
-            <Button size="sm" className="gap-1">
-              <PlusCircle className="h-4 w-4" />
-              Add Order
-            </Button>
-          </DialogTrigger>
-          <DialogContent className="sm:max-w-2xl">
-            <DialogHeader>
-              <DialogTitle>Create New Order</DialogTitle>
-              <DialogDescription>Fill in the details to create a new order.</DialogDescription>
-            </DialogHeader>
-            <form onSubmit={orderForm.handleSubmit(onOrderSubmit)} className="space-y-4">
-              <div className="space-y-2">
-                <Label>Client</Label>
-                 <Select onValueChange={(value) => orderForm.setValue('clientId', value)} defaultValue={orderForm.getValues('clientId')}>
-                    <SelectTrigger>
-                        <SelectValue placeholder="Select a client" />
-                    </SelectTrigger>
-                    <SelectContent>
-                        {clients.map(c => <SelectItem key={c.id} value={c.id}>{c.clientName} - {c.projectName}</SelectItem>)}
-                    </SelectContent>
-                </Select>
-                {orderForm.formState.errors.clientId && <p className="text-sm text-destructive">{orderForm.formState.errors.clientId.message}</p>}
-              </div>
+        {activeTab === 'orders' ? (
+             <Dialog open={isAddOrderOpen} onOpenChange={setIsAddOrderOpen}>
+                <DialogTrigger asChild>
+                    <Button size="sm" className="gap-1">
+                    <PlusCircle className="h-4 w-4" />
+                    Add Order
+                    </Button>
+                </DialogTrigger>
+                <DialogContent className="sm:max-w-2xl">
+                    <DialogHeader>
+                    <DialogTitle>Create New Order</DialogTitle>
+                    <DialogDescription>Fill in the details to create a new order.</DialogDescription>
+                    </DialogHeader>
+                    <form onSubmit={orderForm.handleSubmit(onOrderSubmit)} className="space-y-4">
+                    <div className="space-y-2">
+                        <Label>Client</Label>
+                        <Select onValueChange={(value) => orderForm.setValue('clientId', value)} defaultValue={orderForm.getValues('clientId')}>
+                            <SelectTrigger>
+                                <SelectValue placeholder="Select a client" />
+                            </SelectTrigger>
+                            <SelectContent>
+                                {clients.map(c => <SelectItem key={c.id} value={c.id}>{c.clientName} - {c.projectName}</SelectItem>)}
+                            </SelectContent>
+                        </Select>
+                        {orderForm.formState.errors.clientId && <p className="text-sm text-destructive">{orderForm.formState.errors.clientId.message}</p>}
+                    </div>
 
-              <div className="space-y-2">
-                 <div className="flex justify-between items-center">
-                    <Label>Items</Label>
+                    <div className="space-y-2">
+                        <div className="flex justify-between items-center">
+                            <Label>Items</Label>
+                        </div>
+                        <div className="space-y-2">
+                        {fields.map((field, index) => (
+                            <div key={field.id} className="flex items-center gap-2">
+                            <Select onValueChange={(value) => orderForm.setValue(`items.${index}.productId`, value)}>
+                                <SelectTrigger>
+                                    <SelectValue placeholder="Select a product" />
+                                </SelectTrigger>
+                                <SelectContent>
+                                    {products.map(p => <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>)}
+                                    <Separator />
+                                    <div
+                                    className={cn(
+                                        "relative flex w-full cursor-pointer select-none items-center rounded-sm py-1.5 pl-8 pr-2 text-sm outline-none focus:bg-accent focus:text-accent-foreground data-[disabled]:pointer-events-none data-[disabled]:opacity-50"
+                                    )}
+                                    onMouseDown={(e) => {
+                                        // Prevent the select from closing
+                                        e.preventDefault();
+                                        // Open the product dialog
+                                        setIsAddProductOpen(true);
+                                    }}
+                                    >
+                                        <Plus className="h-4 w-4 mr-2"/> Add New Product
+                                    </div>
+                                </SelectContent>
+                            </Select>
+                            <Input 
+                                type="number" 
+                                placeholder="Qty" 
+                                className="w-20"
+                                {...orderForm.register(`items.${index}.quantity`)}
+                            />
+                            <Button variant="ghost" size="icon" onClick={() => remove(index)}>
+                                <X className="h-4 w-4" />
+                            </Button>
+                            </div>
+                        ))}
+                        </div>
+                        {orderForm.formState.errors.items && <p className="text-sm text-destructive">{typeof orderForm.formState.errors.items === 'object' && 'message' in orderForm.formState.errors.items ? orderForm.formState.errors.items.message : 'Please add at least one item.'}</p>}
+                        <Button type="button" variant="outline" size="sm" onClick={() => append({ productId: "", quantity: 1 })}>
+                        <PlusCircle className="h-4 w-4 mr-2" /> Add Item
+                        </Button>
+                    </div>
+                     <div className="space-y-2">
+                        <Label>Status</Label>
+                        <p className="flex h-10 w-full items-center rounded-md border border-input bg-background px-3 py-2 text-sm text-muted-foreground">
+                            Processing
+                        </p>
+                        </div>
+                    <DialogFooter>
+                        <Button type="button" variant="outline" onClick={() => setIsAddOrderOpen(false)}>Cancel</Button>
+                        <Button type="submit" disabled={orderForm.formState.isSubmitting}>
+                        {orderForm.formState.isSubmitting ? "Creating..." : "Create Order"}
+                        </Button>
+                    </DialogFooter>
+                    </form>
+                </DialogContent>
+            </Dialog>
+        ) : (
+            <Dialog open={isAddSupplierOpen} onOpenChange={setIsAddSupplierOpen}>
+              <DialogTrigger asChild>
+                <Button size="sm" className="gap-1">
+                  <PlusCircle className="h-4 w-4" />
+                  Add Supplier
+                </Button>
+              </DialogTrigger>
+              <DialogContent className="sm:max-w-md">
+                <DialogHeader>
+                  <DialogTitle>Add New Supplier</DialogTitle>
+                  <DialogDescription>Fill in the details for the new supplier.</DialogDescription>
+                </DialogHeader>
+                <form onSubmit={supplierForm.handleSubmit(onAddSupplierSubmit)} className="space-y-4">
+                <div className="space-y-2">
+                    <Label htmlFor="name">Supplier Name</Label>
+                    <Input id="name" {...supplierForm.register("name")} onChange={(e) => {
+                        const { value } = e.target;
+                        supplierForm.setValue("name", toTitleCase(value), { shouldValidate: true });
+                    }} />
+                    {supplierForm.formState.errors.name && <p className="text-sm text-destructive">{supplierForm.formState.errors.name.message}</p>}
                 </div>
                 <div className="space-y-2">
-                  {fields.map((field, index) => (
-                    <div key={field.id} className="flex items-center gap-2">
-                      <Select onValueChange={(value) => orderForm.setValue(`items.${index}.productId`, value)}>
-                         <SelectTrigger>
-                            <SelectValue placeholder="Select a product" />
-                        </SelectTrigger>
-                        <SelectContent>
-                            {products.map(p => <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>)}
-                            <Separator />
-                            <div
-                              className={cn(
-                                "relative flex w-full cursor-pointer select-none items-center rounded-sm py-1.5 pl-8 pr-2 text-sm outline-none focus:bg-accent focus:text-accent-foreground data-[disabled]:pointer-events-none data-[disabled]:opacity-50"
-                              )}
-                              onMouseDown={(e) => {
-                                // Prevent the select from closing
-                                e.preventDefault();
-                                // Open the product dialog
-                                setIsAddProductOpen(true);
-                              }}
-                            >
-                                <Plus className="h-4 w-4 mr-2"/> Add New Product
-                            </div>
-                        </SelectContent>
-                      </Select>
-                      <Input 
-                        type="number" 
-                        placeholder="Qty" 
-                        className="w-20"
-                        {...orderForm.register(`items.${index}.quantity`)}
-                      />
-                      <Button variant="ghost" size="icon" onClick={() => remove(index)}>
-                        <X className="h-4 w-4" />
-                      </Button>
-                    </div>
-                  ))}
+                    <Label htmlFor="contactPerson">Contact Person</Label>
+                    <Input id="contactPerson" {...supplierForm.register("contactPerson")} onChange={(e) => {
+                        const { value } = e.target;
+                        supplierForm.setValue("contactPerson", toTitleCase(value), { shouldValidate: true });
+                    }} />
+                    {supplierForm.formState.errors.contactPerson && <p className="text-sm text-destructive">{supplierForm.formState.errors.contactPerson.message}</p>}
                 </div>
-                 {orderForm.formState.errors.items && <p className="text-sm text-destructive">{typeof orderForm.formState.errors.items === 'object' && 'message' in orderForm.formState.errors.items ? orderForm.formState.errors.items.message : 'Please add at least one item.'}</p>}
-                <Button type="button" variant="outline" size="sm" onClick={() => append({ productId: "", quantity: 1 })}>
-                  <PlusCircle className="h-4 w-4 mr-2" /> Add Item
-                </Button>
-              </div>
-              <div className="space-y-2">
-                  <Label>Status</Label>
-                  <p className="flex h-10 w-full items-center rounded-md border border-input bg-background px-3 py-2 text-sm text-muted-foreground">
-                    Processing
-                  </p>
+                <div className="space-y-2">
+                    <Label htmlFor="email">Email</Label>
+                    <Input id="email" type="email" {...supplierForm.register("email")} />
+                    {supplierForm.formState.errors.email && <p className="text-sm text-destructive">{supplierForm.formState.errors.email.message}</p>}
                 </div>
-
-              <DialogFooter>
-                <Button type="button" variant="outline" onClick={() => setIsAddOrderOpen(false)}>Cancel</Button>
-                <Button type="submit" disabled={orderForm.formState.isSubmitting}>
-                  {orderForm.formState.isSubmitting ? "Creating..." : "Create Order"}
-                </Button>
-              </DialogFooter>
-            </form>
-          </DialogContent>
-        </Dialog>
+                <div className="space-y-2">
+                    <Label htmlFor="phone">Phone</Label>
+                    <Input id="phone" type="tel" {...supplierForm.register("phone")} />
+                    {supplierForm.formState.errors.phone && <p className="text-sm text-destructive">{supplierForm.formState.errors.phone.message}</p>}
+                </div>
+                <div className="space-y-2">
+                    <Label htmlFor="address">Address</Label>
+                    <Input id="address" {...supplierForm.register("address")} />
+                    {supplierForm.formState.errors.address && <p className="text-sm text-destructive">{supplierForm.formState.errors.address.message}</p>}
+                </div>
+                <DialogFooter>
+                    <Button type="button" variant="outline" onClick={() => setIsAddSupplierOpen(false)}>Cancel</Button>
+                    <Button type="submit" disabled={supplierForm.formState.isSubmitting}>
+                    {supplierForm.formState.isSubmitting ? "Adding..." : "Add Supplier"}
+                    </Button>
+                </DialogFooter>
+                </form>
+            </DialogContent>
+            </Dialog>
+        )}
       </div>
       <TabsContent value="orders">
         <Card>
@@ -663,60 +719,6 @@ export default function OrdersAndSuppliersPage() {
           </form>
         </DialogContent>
      </Dialog>
-
-    <Dialog open={isAddSupplierOpen} onOpenChange={(isOpen) => {
-        setIsAddSupplierOpen(isOpen);
-        if(!isOpen) supplierForm.reset();
-    }}>
-        <DialogTrigger asChild>
-        {/* This button is hidden, we trigger it from the tab bar logic if we want a dedicated button */}
-        </DialogTrigger>
-        <DialogContent className="sm:max-w-md">
-            <DialogHeader>
-            <DialogTitle>Add New Supplier</DialogTitle>
-            <DialogDescription>Fill in the details for the new supplier.</DialogDescription>
-            </DialogHeader>
-            <form onSubmit={supplierForm.handleSubmit(onAddSupplierSubmit)} className="space-y-4">
-            <div className="space-y-2">
-                <Label htmlFor="name">Supplier Name</Label>
-                <Input id="name" {...supplierForm.register("name")} onChange={(e) => {
-                    const { value } = e.target;
-                    supplierForm.setValue("name", toTitleCase(value), { shouldValidate: true });
-                }} />
-                {supplierForm.formState.errors.name && <p className="text-sm text-destructive">{supplierForm.formState.errors.name.message}</p>}
-            </div>
-            <div className="space-y-2">
-                <Label htmlFor="contactPerson">Contact Person</Label>
-                <Input id="contactPerson" {...supplierForm.register("contactPerson")} onChange={(e) => {
-                    const { value } = e.target;
-                    supplierForm.setValue("contactPerson", toTitleCase(value), { shouldValidate: true });
-                }} />
-                {supplierForm.formState.errors.contactPerson && <p className="text-sm text-destructive">{supplierForm.formState.errors.contactPerson.message}</p>}
-            </div>
-            <div className="space-y-2">
-                <Label htmlFor="email">Email</Label>
-                <Input id="email" type="email" {...supplierForm.register("email")} />
-                {supplierForm.formState.errors.email && <p className="text-sm text-destructive">{supplierForm.formState.errors.email.message}</p>}
-            </div>
-            <div className="space-y-2">
-                <Label htmlFor="phone">Phone</Label>
-                <Input id="phone" type="tel" {...supplierForm.register("phone")} />
-                {supplierForm.formState.errors.phone && <p className="text-sm text-destructive">{supplierForm.formState.errors.phone.message}</p>}
-            </div>
-            <div className="space-y-2">
-                <Label htmlFor="address">Address</Label>
-                <Input id="address" {...supplierForm.register("address")} />
-                {supplierForm.formState.errors.address && <p className="text-sm text-destructive">{supplierForm.formState.errors.address.message}</p>}
-            </div>
-            <DialogFooter>
-                <Button type="button" variant="outline" onClick={() => setIsAddSupplierOpen(false)}>Cancel</Button>
-                <Button type="submit" disabled={supplierForm.formState.isSubmitting}>
-                {supplierForm.formState.isSubmitting ? "Adding..." : "Add Supplier"}
-                </Button>
-            </DialogFooter>
-            </form>
-        </DialogContent>
-    </Dialog>
       
     {editingSupplier && (
         <Dialog open={isEditSupplierOpen} onOpenChange={(isOpen) => {
@@ -794,4 +796,3 @@ export default function OrdersAndSuppliersPage() {
     </>
   );
 }
-
