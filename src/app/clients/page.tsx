@@ -1,7 +1,7 @@
 
 "use client";
 
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
@@ -75,6 +75,7 @@ export default function ClientsPage() {
 
   const form = useForm<ClientFormValues>({
     resolver: zodResolver(clientSchema),
+    mode: 'onBlur',
     defaultValues: {
       projectName: "",
       clientName: "",
@@ -85,6 +86,7 @@ export default function ClientsPage() {
 
   const editForm = useForm<ClientFormValues>({
     resolver: zodResolver(clientSchema),
+    mode: 'onBlur',
   });
 
   async function fetchClients() {
@@ -115,31 +117,24 @@ export default function ClientsPage() {
 
 
   const onAddSubmit = async (data: ClientFormValues) => {
-    let hasError = false;
-    
+    // Re-validate on submit just in case
     const isBoqDuplicate = clients.some(c => c.boqNumber === data.boqNumber);
     if (isBoqDuplicate) {
-      form.setError("boqNumber", {
-        type: "manual",
-        message: `BOQ Number "${data.boqNumber}" already exists.`,
-      });
-      hasError = true;
+      form.setError("boqNumber", { type: "manual", message: `BOQ Number "${data.boqNumber}" already exists.` });
+      return;
     }
-    
     const isRecordDuplicate = clients.some(c => 
         c.projectName.toLowerCase() === data.projectName.toLowerCase() &&
         c.clientName.toLowerCase() === data.clientName.toLowerCase() &&
         c.address.toLowerCase() === data.address.toLowerCase()
     );
-    if (isRecordDuplicate) {
+     if (isRecordDuplicate) {
         const errorMessage = "This client record appears to be a duplicate.";
         form.setError("projectName", { type: "manual", message: errorMessage });
         form.setError("clientName", { type: "manual", message: errorMessage });
         form.setError("address", { type: "manual", message: errorMessage });
-        hasError = true;
+        return;
     }
-
-    if(hasError) return;
 
     try {
       await addClient(data);
@@ -159,18 +154,14 @@ export default function ClientsPage() {
 
   const onEditSubmit = async (data: ClientFormValues) => {
     if (!editingClient) return;
-    let hasError = false;
-
+    
+    // Re-validate on submit
     const isBoqDuplicate = clients.some(c => c.id !== editingClient.id && c.boqNumber === data.boqNumber);
     if (isBoqDuplicate) {
-       editForm.setError("boqNumber", {
-        type: "manual",
-        message: `Another client with BOQ Number "${data.boqNumber}" already exists.`,
-      });
-      hasError = true;
+       editForm.setError("boqNumber", { type: "manual", message: `Another client with BOQ Number "${data.boqNumber}" already exists.` });
+       return;
     }
-    
-     const isRecordDuplicate = clients.some(c => 
+    const isRecordDuplicate = clients.some(c => 
         c.id !== editingClient.id &&
         c.projectName.toLowerCase() === data.projectName.toLowerCase() &&
         c.clientName.toLowerCase() === data.clientName.toLowerCase() &&
@@ -181,10 +172,8 @@ export default function ClientsPage() {
         editForm.setError("projectName", { type: "manual", message: errorMessage });
         editForm.setError("clientName", { type: "manual", message: errorMessage });
         editForm.setError("address", { type: "manual", message: errorMessage });
-        hasError = true;
+        return;
     }
-
-    if(hasError) return;
       
     try {
       await updateClient(editingClient.id, data);
@@ -237,6 +226,41 @@ export default function ClientsPage() {
     return format(timestamp.toDate(), 'PPpp');
   }
 
+  const validateBoq = useCallback((boq: string, currentClientId?: string) => {
+    const isDuplicate = clients.some(c => 
+        c.id !== currentClientId && 
+        c.boqNumber.toLowerCase() === boq.toLowerCase()
+    );
+    return isDuplicate ? `BOQ Number "${boq}" already exists.` : true;
+  }, [clients]);
+
+  const validateRecord = useCallback((formValues: ClientFormValues, currentClientId?: string) => {
+    const isDuplicate = clients.some(c => 
+        c.id !== currentClientId &&
+        c.projectName.toLowerCase() === formValues.projectName.toLowerCase() &&
+        c.clientName.toLowerCase() === formValues.clientName.toLowerCase() &&
+        c.address.toLowerCase() === formValues.address.toLowerCase()
+    );
+    return isDuplicate ? "A client with these details already exists." : true;
+  }, [clients]);
+
+  const handleRecordBlur = (
+    formInstance: typeof form | typeof editForm,
+    currentClientId?: string
+  ) => {
+    const values = formInstance.getValues();
+    const result = validateRecord(values, currentClientId);
+    if (typeof result === 'string') {
+        formInstance.setError("projectName", { type: "manual", message: result });
+        formInstance.setError("clientName", { type: "manual", message: result });
+        formInstance.setError("address", { type: "manual", message: result });
+    } else {
+        if (formInstance.formState.errors.projectName?.message === "A client with these details already exists.") formInstance.clearErrors("projectName");
+        if (formInstance.formState.errors.clientName?.message === "A client with these details already exists.") formInstance.clearErrors("clientName");
+        if (formInstance.formState.errors.address?.message === "A client with these details already exists.") formInstance.clearErrors("address");
+    }
+  }
+
 
   return (
     <>
@@ -249,7 +273,7 @@ export default function ClientsPage() {
         <div className="flex gap-2">
           <Dialog open={isAddDialogOpen} onOpenChange={(isOpen) => {
             setIsAddDialogOpen(isOpen);
-            if(!isOpen) form.clearErrors();
+            if(!isOpen) form.reset();
           }}>
             <DialogTrigger asChild>
               <Button size="sm" className="gap-1">
@@ -265,32 +289,51 @@ export default function ClientsPage() {
               <form onSubmit={form.handleSubmit(onAddSubmit)} className="space-y-4">
                 <div className="space-y-2">
                   <Label htmlFor="projectName">Project Name</Label>
-                  <Input id="projectName" {...form.register("projectName")} onChange={(e) => {
-                    const { value } = e.target;
-                    const formattedValue = toTitleCase(value);
-                    e.target.value = formattedValue;
-                    form.setValue("projectName", formattedValue);
-                  }} />
+                  <Input 
+                    id="projectName" 
+                    {...form.register("projectName")} 
+                    onChange={(e) => {
+                      const { value } = e.target;
+                      const formattedValue = toTitleCase(value);
+                      e.target.value = formattedValue;
+                      form.setValue("projectName", formattedValue, { shouldValidate: true });
+                    }}
+                    onBlur={() => handleRecordBlur(form)}
+                  />
                   {form.formState.errors.projectName && <p className="text-sm text-destructive">{form.formState.errors.projectName.message}</p>}
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="clientName">Client Name</Label>
-                  <Input id="clientName" {...form.register("clientName")} onChange={(e) => {
-                    const { value } = e.target;
-                    const formattedValue = toTitleCase(value);
-                    e.target.value = formattedValue;
-                    form.setValue("clientName", formattedValue);
-                  }} />
+                  <Input 
+                    id="clientName" 
+                    {...form.register("clientName")} 
+                    onChange={(e) => {
+                      const { value } = e.target;
+                      const formattedValue = toTitleCase(value);
+                      e.target.value = formattedValue;
+                      form.setValue("clientName", formattedValue, { shouldValidate: true });
+                    }}
+                    onBlur={() => handleRecordBlur(form)}
+                  />
                   {form.formState.errors.clientName && <p className="text-sm text-destructive">{form.formState.errors.clientName.message}</p>}
                 </div>
                  <div className="space-y-2">
                   <Label htmlFor="boqNumber">BOQ Number</Label>
-                  <Input id="boqNumber" {...form.register("boqNumber")} />
+                  <Input 
+                    id="boqNumber" 
+                    {...form.register("boqNumber", {
+                       validate: (value) => validateBoq(value)
+                    })} 
+                  />
                   {form.formState.errors.boqNumber && <p className="text-sm text-destructive">{form.formState.errors.boqNumber.message}</p>}
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="address">Address</Label>
-                  <Input id="address" {...form.register("address")} />
+                  <Input 
+                    id="address" 
+                    {...form.register("address")} 
+                    onBlur={() => handleRecordBlur(form)}
+                   />
                   {form.formState.errors.address && <p className="text-sm text-destructive">{form.formState.errors.address.message}</p>}
                 </div>
                 <DialogFooter>
@@ -364,7 +407,7 @@ export default function ClientsPage() {
     {editingClient && (
         <Dialog open={isEditDialogOpen} onOpenChange={(isOpen) => {
             setIsEditDialogOpen(isOpen);
-            if(!isOpen) editForm.clearErrors();
+            if(!isOpen) editForm.reset(editingClient);
         }}>
             <DialogContent className="sm:max-w-md">
               <DialogHeader>
@@ -374,32 +417,51 @@ export default function ClientsPage() {
               <form onSubmit={editForm.handleSubmit(onEditSubmit)} className="space-y-4">
                 <div className="space-y-2">
                   <Label htmlFor="edit-projectName">Project Name</Label>
-                  <Input id="edit-projectName" {...editForm.register("projectName")} onChange={(e) => {
-                      const { value } = e.target;
-                      const formattedValue = toTitleCase(value);
-                      e.target.value = formattedValue;
-                      editForm.setValue("projectName", formattedValue);
-                  }}/>
+                  <Input 
+                    id="edit-projectName" 
+                    {...editForm.register("projectName")} 
+                    onChange={(e) => {
+                        const { value } = e.target;
+                        const formattedValue = toTitleCase(value);
+                        e.target.value = formattedValue;
+                        editForm.setValue("projectName", formattedValue, { shouldValidate: true });
+                    }}
+                    onBlur={() => handleRecordBlur(editForm, editingClient.id)}
+                   />
                   {editForm.formState.errors.projectName && <p className="text-sm text-destructive">{editForm.formState.errors.projectName.message}</p>}
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="edit-clientName">Client Name</Label>
-                  <Input id="edit-clientName" {...editForm.register("clientName")} onChange={(e) => {
-                      const { value } = e.target;
-                       const formattedValue = toTitleCase(value);
-                      e.target.value = formattedValue;
-                      editForm.setValue("clientName", formattedValue);
-                  }} />
+                  <Input 
+                    id="edit-clientName" 
+                    {...editForm.register("clientName")} 
+                    onChange={(e) => {
+                        const { value } = e.target;
+                        const formattedValue = toTitleCase(value);
+                        e.target.value = formattedValue;
+                        editForm.setValue("clientName", formattedValue, { shouldValidate: true });
+                    }} 
+                    onBlur={() => handleRecordBlur(editForm, editingClient.id)}
+                  />
                   {editForm.formState.errors.clientName && <p className="text-sm text-destructive">{editForm.formState.errors.clientName.message}</p>}
                 </div>
                  <div className="space-y-2">
                   <Label htmlFor="edit-boqNumber">BOQ Number</Label>
-                  <Input id="edit-boqNumber" {...editForm.register("boqNumber")} />
+                  <Input 
+                    id="edit-boqNumber" 
+                    {...editForm.register("boqNumber", {
+                       validate: (value) => validateBoq(value, editingClient.id)
+                    })}
+                  />
                   {editForm.formState.errors.boqNumber && <p className="text-sm text-destructive">{editForm.formState.errors.boqNumber.message}</p>}
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="edit-address">Address</Label>
-                  <Input id="edit-address" {...editForm.register("address")} />
+                  <Input 
+                    id="edit-address" 
+                    {...editForm.register("address")} 
+                    onBlur={() => handleRecordBlur(editForm, editingClient.id)}
+                  />
                   {editForm.formState.errors.address && <p className="text-sm text-destructive">{editForm.formState.errors.address.message}</p>}
                 </div>
                 <DialogFooter>
