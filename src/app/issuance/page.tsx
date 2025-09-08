@@ -86,7 +86,7 @@ type IssuanceFormValues = z.infer<ReturnType<typeof createIssuanceSchema>>;
 // Printable Component
 const PrintableIssuanceForm = React.forwardRef<HTMLDivElement, { issuance: Issuance }>(({ issuance }, ref) => {
   return (
-    <div ref={ref} className="p-8 bg-white text-black">
+    <div ref={ref} className="printable-content p-8 bg-white text-black">
       <div className="flex justify-between items-center mb-8 border-b pb-4">
         <div>
            <h1 className="text-3xl font-bold">Material Issuance</h1>
@@ -510,17 +510,17 @@ export default function IssuancePage() {
     )}
     
     <Dialog open={isPreviewOpen} onOpenChange={setIsPreviewOpen}>
-        <DialogContent className="max-w-4xl">
-            <DialogHeader>
+        <DialogContent className="max-w-4xl print:max-w-none print:border-none print:shadow-none print:p-0">
+            <DialogHeader className="print:hidden">
                 <DialogTitle>Print Preview</DialogTitle>
                 <DialogDescription>
                     Review the issuance form before printing.
                 </DialogDescription>
             </DialogHeader>
-            <div className="max-h-[70vh] overflow-y-auto border rounded-md my-4">
+            <div className="max-h-[70vh] overflow-y-auto border rounded-md my-4 print:max-h-none print:overflow-visible print:border-none print:rounded-none print:my-0">
                 {selectedIssuance && <PrintableIssuanceForm issuance={selectedIssuance} ref={printableRef} />}
             </div>
-            <DialogFooter>
+            <DialogFooter className="print:hidden">
                 <Button variant="outline" onClick={() => setIsPreviewOpen(false)}>Cancel</Button>
                 <Button onClick={handlePrint}>
                     <Printer className="mr-2 h-4 w-4" />
@@ -547,10 +547,6 @@ export default function IssuancePage() {
         </AlertDialogFooter>
       </AlertDialogContent>
     </AlertDialog>
-
-    <div className="printable-area">
-      {selectedIssuance && <PrintableIssuanceForm issuance={selectedIssuance} ref={printableRef} />}
-    </div>
     </>
   );
 }
