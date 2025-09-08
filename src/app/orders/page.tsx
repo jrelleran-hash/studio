@@ -122,7 +122,6 @@ export default function OrdersPage() {
     defaultValues: {
       name: "",
       sku: "",
-      price: 0,
       stock: 0,
       reorderLimit: 10,
       location: "",

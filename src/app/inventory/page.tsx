@@ -104,7 +104,6 @@ export default function InventoryPage() {
     defaultValues: {
       name: "",
       sku: "",
-      price: 0,
       stock: 0,
       reorderLimit: 10,
       location: "",
