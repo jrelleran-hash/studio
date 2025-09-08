@@ -68,9 +68,9 @@ export function InventoryStatusChart({ products, filter, setFilter }: InventoryS
     };
     
     const summaryChartData = [
-        { status: "In Stock", quantity: summary['in-stock'] },
-        { status: "Low Stock", quantity: summary['low-stock'] },
-        { status: "Out of Stock (Items)", quantity: summary['out-of-stock'] },
+        { status: "In Stock", quantity: summary['in-stock'], fill: "var(--color-inStock)" },
+        { status: "Low Stock", quantity: summary['low-stock'], fill: "var(--color-lowStock)" },
+        { status: "Out of Stock", quantity: summary['out-of-stock'], fill: "var(--color-outOfStock)" },
     ];
 
     // Historical data for filtered views
@@ -84,14 +84,13 @@ export function InventoryStatusChart({ products, filter, setFilter }: InventoryS
                 .filter(h => h.dateUpdated <= endOfDay(parseISO(dateStr)))
                 .sort((a, b) => b.dateUpdated.getTime() - a.dateUpdated.getTime());
             
-            const stockOnDate = relevantHistory && relevantHistory.length > 0 ? relevantHistory[0].stock : 0; // Default to 0 if no history
+            // If no relevant history, assume 0 stock for that day
+            const stockOnDate = relevantHistory && relevantHistory.length > 0 ? relevantHistory[0].stock : 0; 
             
             const status = getStatusForProduct(p, stockOnDate);
 
-            if (stockOnDate > 0) { // Only process if there was stock
-              if (status === 'out-of-stock') {
-                  dailyTotals['out-of-stock']++;
-              } else if (status === 'low-stock') {
+            if (stockOnDate > 0) {
+              if (status === 'low-stock') {
                   dailyTotals['low-stock'] += stockOnDate;
               } else if (status === 'in-stock') {
                   dailyTotals['in-stock'] += stockOnDate;
@@ -134,12 +133,12 @@ export function InventoryStatusChart({ products, filter, setFilter }: InventoryS
            />
           <XAxis type="number" stroke="#888888" fontSize={12} tickLine={false} axisLine={false} />
           <ChartTooltip cursor={false} content={<ChartTooltipContent indicator="dot" />} />
-          <Bar dataKey="quantity" fill="var(--color-quantity)" radius={[0, 4, 4, 0]} />
+          <Bar dataKey="quantity" radius={[0, 4, 4, 0]} />
         </BarChart>
       )
     }
 
-    const dataKey = filter as keyof typeof chartConfig;
+    const dataKey = filter as Exclude<InventoryFilterType, 'all'>;
 
     return (
        <BarChart
@@ -160,12 +159,14 @@ export function InventoryStatusChart({ products, filter, setFilter }: InventoryS
           cursor={false} 
           content={<ChartTooltipContent 
             labelKey="date" 
-            nameKey={filter} 
-            formatter={(value, name) => [`${value}`, chartConfig[name as keyof typeof chartConfig]?.label]}
+            formatter={(value, name) => {
+              const config = chartConfig[name as keyof typeof chartConfig];
+              return [value, config?.label || name];
+            }}
           />} 
         />
         <Bar
-          dataKey={filter}
+          dataKey={dataKey}
           fill={`var(--color-${dataKey})`}
           radius={[4, 4, 0, 0]}
         />
