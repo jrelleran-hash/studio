@@ -7,7 +7,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
 import { PlusCircle, MoreHorizontal, X, Printer } from "lucide-react";
 
-import { Button } from "@/components/ui/button";
+import { Button, buttonVariants } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import {
@@ -16,6 +16,7 @@ import {
   DropdownMenuItem,
   DropdownMenuLabel,
   DropdownMenuTrigger,
+  DropdownMenuSeparator,
 } from "@/components/ui/dropdown-menu";
 import {
   Dialog,
@@ -26,6 +27,16 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import {
   Select,
   SelectContent,
@@ -38,7 +49,7 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useToast } from "@/hooks/use-toast";
-import { getIssuances, getClients, getProducts, addIssuance } from "@/services/data-service";
+import { getIssuances, getClients, getProducts, addIssuance, deleteIssuance } from "@/services/data-service";
 import type { Issuance, Client, Product } from "@/types";
 import { format } from "date-fns";
 import React from 'react';
@@ -155,6 +166,8 @@ export default function IssuancePage() {
   const [selectedIssuance, setSelectedIssuance] = useState<Issuance | null>(null);
   const [isPreviewOpen, setIsPreviewOpen] = useState(false);
   const printableRef = useRef<HTMLDivElement>(null);
+  const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
+  const [deletingIssuanceId, setDeletingIssuanceId] = useState<string | null>(null);
 
 
   // Memoize the schema so it's only recreated when products change
@@ -245,6 +258,30 @@ export default function IssuancePage() {
     setIsPreviewOpen(true);
   }
 
+  const handleDeleteClick = (issuanceId: string) => {
+    setDeletingIssuanceId(issuanceId);
+    setIsDeleteDialogOpen(true);
+  };
+
+  const handleDeleteConfirm = async () => {
+    if (!deletingIssuanceId) return;
+    try {
+      await deleteIssuance(deletingIssuanceId);
+      toast({ title: "Success", description: "Issuance deleted and stock restored." });
+      fetchPageData();
+    } catch (error) {
+      console.error(error);
+      toast({
+        variant: "destructive",
+        title: "Error",
+        description: "Failed to delete issuance.",
+      });
+    } finally {
+      setIsDeleteDialogOpen(false);
+      setDeletingIssuanceId(null);
+    }
+  };
+
 
   const formatDate = (date: Date) => format(date, 'PPpp');
   
@@ -271,14 +308,20 @@ export default function IssuancePage() {
             <form onSubmit={form.handleSubmit(onAddSubmit)} className="space-y-4">
               <div className="space-y-2">
                 <Label>Client / Project</Label>
-                 <Select onValueChange={(value) => form.setValue('clientId', value, { shouldValidate: true })} defaultValue={form.getValues('clientId')}>
-                    <SelectTrigger>
-                        <SelectValue placeholder="Select a client or project" />
-                    </SelectTrigger>
-                    <SelectContent>
-                        {clients.map(c => <SelectItem key={c.id} value={c.id}>{c.clientName} - {c.projectName}</SelectItem>)}
-                    </SelectContent>
-                </Select>
+                 <Controller
+                    control={form.control}
+                    name="clientId"
+                    render={({ field }) => (
+                        <Select onValueChange={field.onChange} defaultValue={field.value}>
+                            <SelectTrigger>
+                                <SelectValue placeholder="Select a client or project" />
+                            </SelectTrigger>
+                            <SelectContent>
+                                {clients.map(c => <SelectItem key={c.id} value={c.id}>{c.clientName} - {c.projectName}</SelectItem>)}
+                            </SelectContent>
+                        </Select>
+                    )}
+                 />
                 {form.formState.errors.clientId && <p className="text-sm text-destructive">{form.formState.errors.clientId.message}</p>}
               </div>
 
@@ -404,6 +447,10 @@ export default function IssuancePage() {
                           <Printer className="mr-2 h-4 w-4" />
                           <span>Print</span>
                         </DropdownMenuItem>
+                        <DropdownMenuSeparator />
+                        <DropdownMenuItem onClick={() => handleDeleteClick(issuance.id)} className="text-destructive">
+                          Delete
+                        </DropdownMenuItem>
                       </DropdownMenuContent>
                     </DropdownMenu>
                   </TableCell>
@@ -483,11 +530,27 @@ export default function IssuancePage() {
         </DialogContent>
     </Dialog>
 
+    <AlertDialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
+      <AlertDialogContent>
+        <AlertDialogHeader>
+          <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
+          <AlertDialogDescription>
+            This action cannot be undone. This will permanently delete the
+            issuance record and restore the issued items back to inventory.
+          </AlertDialogDescription>
+        </AlertDialogHeader>
+        <AlertDialogFooter>
+          <AlertDialogCancel>Cancel</AlertDialogCancel>
+          <AlertDialogAction onClick={handleDeleteConfirm} className={buttonVariants({ variant: "destructive" })}>
+            Delete Issuance
+          </AlertDialogAction>
+        </AlertDialogFooter>
+      </AlertDialogContent>
+    </AlertDialog>
+
     <div className="printable-area">
       {selectedIssuance && <PrintableIssuanceForm issuance={selectedIssuance} ref={printableRef} />}
     </div>
     </>
   );
 }
-
-    

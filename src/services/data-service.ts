@@ -38,6 +38,14 @@ async function resolveDoc<T>(docRef: DocumentReference): Promise<T> {
     return { id: docSnap.id, ...docSnap.data() } as T;
 }
 
+async function resolveDocFromTransaction<T>(transaction: any, docRef: DocumentReference): Promise<T> {
+    const docSnap = await transaction.get(docRef);
+    if (!docSnap.exists()) {
+        throw new Error(`Document with ref ${docRef.path} does not exist.`);
+    }
+    return { id: docSnap.id, ...docSnap.data() } as T;
+}
+
 
 export async function getRecentActivities(count: number = 4): Promise<(Activity & { time: string })[]> {
   try {
@@ -90,7 +98,7 @@ export async function getLowStockProducts(): Promise<Product[]> {
         const allProducts = productSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Product));
         
         // Firestore cannot compare two fields directly, so we filter in code.
-        const lowStockProducts = allProducts.filter(p => p.stock <= p.reorderLimit);
+        const lowStockProducts = allProducts.filter(p => p.stock > 0 && p.stock <= p.reorderLimit);
         
         // Sort by how far under the limit they are
         return lowStockProducts.sort((a, b) => (a.stock - a.reorderLimit) - (b.stock - b.reorderLimit));
@@ -157,9 +165,9 @@ export async function getProducts(): Promise<Product[]> {
     }
 }
 
-async function checkStockAndCreateNotification(product: Omit<Product, 'id'>, productId: string) {
-  if (product.stock <= product.reorderLimit) {
-    const status = product.stock === 0 ? "Out of Stock" : "Low Stock";
+async function checkStockAndCreateNotification(product: Omit<Product, 'id' | 'history'>, productId: string) {
+  if (product.stock > 0 && product.stock <= product.reorderLimit) {
+    const status = "Low Stock";
     const notification: Omit<Notification, 'id'> = {
       title: `${status} Alert: ${product.name}`,
       description: `${product.name} is ${status.toLowerCase()}.`,
@@ -190,7 +198,7 @@ async function checkStockAndCreateNotification(product: Omit<Product, 'id'>, pro
   }
 }
 
-export async function addProduct(product: Omit<Product, 'id'>): Promise<DocumentReference> {
+export async function addProduct(product: Omit<Product, 'id' | 'lastUpdated' | 'history'>): Promise<DocumentReference> {
   try {
     const now = Timestamp.now();
     const newHistoryEntry = {
@@ -215,11 +223,12 @@ export async function addProduct(product: Omit<Product, 'id'>): Promise<Document
   }
 }
 
-export async function updateProduct(productId: string, productData: Partial<Omit<Product, 'id'>>): Promise<void> {
+export async function updateProduct(productId: string, productData: Partial<Omit<Product, 'id' | 'sku'>>): Promise<void> {
   try {
     const productRef = doc(db, "inventory", productId);
     const originalDoc = await getDoc(productRef);
-    const originalData = originalDoc.data() as Product | undefined;
+    if (!originalDoc.exists()) throw new Error("Product not found");
+    const originalData = originalDoc.data() as Product;
 
     const now = Timestamp.now();
     const updatePayload: any = { ...productData, lastUpdated: now };
@@ -237,9 +246,10 @@ export async function updateProduct(productId: string, productData: Partial<Omit
 
     await updateDoc(productRef, updatePayload);
 
+    // Re-fetch the full product to pass to notification check
     const updatedDoc = await getDoc(productRef);
     if(updatedDoc.exists()) {
-        const fullProduct = {id: updatedDoc.id, ...updatedDoc.data()} as Product;
+        const fullProduct = updatedDoc.data() as Product;
         await checkStockAndCreateNotification(fullProduct, productId);
     }
     
@@ -513,5 +523,51 @@ export async function addIssuance(issuanceData: NewIssuanceData): Promise<Docume
   } catch (error) {
     console.error("Error adding issuance and updating stock:", error);
     throw new Error("Failed to create issuance. " + (error as Error).message);
+  }
+}
+
+export async function deleteIssuance(issuanceId: string): Promise<void> {
+  const issuanceRef = doc(db, "issuances", issuanceId);
+  const now = Timestamp.now();
+
+  try {
+    await runTransaction(db, async (transaction) => {
+      // 1. Get the issuance document
+      const issuanceDoc = await transaction.get(issuanceRef);
+      if (!issuanceDoc.exists()) {
+        throw new Error("Issuance not found.");
+      }
+      const issuanceData = issuanceDoc.data();
+
+      // 2. Iterate over items, get each product, and restore stock
+      for (const item of issuanceData.items) {
+        const productRef = item.productRef as DocumentReference;
+        const productDoc = await transaction.get(productRef);
+        if (productDoc.exists()) {
+          const productData = productDoc.data();
+          const newStock = productData.stock + item.quantity;
+          const newHistoryEntry = {
+            date: format(now.toDate(), 'yyyy-MM-dd'),
+            stock: newStock,
+            changeReason: `Deletion of issuance #${issuanceData.issuanceNumber}`,
+            dateUpdated: now,
+          };
+          transaction.update(productRef, {
+            stock: newStock,
+            lastUpdated: now,
+            history: arrayUnion(newHistoryEntry),
+          });
+        } else {
+          // If the product was deleted, we can't restore stock, but we can log it.
+          console.warn(`Product with ID ${productRef.id} not found while deleting issuance. Stock not restored for this item.`);
+        }
+      }
+
+      // 3. Delete the issuance document
+      transaction.delete(issuanceRef);
+    });
+  } catch (error) {
+    console.error("Error deleting issuance:", error);
+    throw new Error("Failed to delete issuance. " + (error as Error).message);
   }
 }
