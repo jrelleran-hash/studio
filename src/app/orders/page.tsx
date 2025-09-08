@@ -313,7 +313,7 @@ export default function OrdersPage() {
                     </div>
                   ))}
                 </div>
-                 {orderForm.formState.errors.items && <p className="text-sm text-destructive">{typeof orderForm.formState.errors.items === 'string' ? orderForm.formState.errors.items : 'Please add at least one item.'}</p>}
+                 {orderForm.formState.errors.items && <p className="text-sm text-destructive">{typeof orderForm.formState.errors.items === 'object' && 'message' in orderForm.formState.errors.items ? orderForm.formState.errors.items.message : 'Please add at least one item.'}</p>}
                 <Button type="button" variant="outline" size="sm" onClick={() => append({ productId: "", quantity: 1 })}>
                   <PlusCircle className="h-4 w-4 mr-2" /> Add Item
                 </Button>
@@ -473,3 +473,4 @@ export default function OrdersPage() {
   );
 }
 
+    
