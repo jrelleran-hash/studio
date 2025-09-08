@@ -2,7 +2,7 @@
 
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
@@ -42,7 +42,8 @@ import { Switch } from "@/components/ui/switch";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 
 const profileFormSchema = z.object({
-  name: z.string().min(1, "Name is required."),
+  firstName: z.string().min(1, "First name is required."),
+  lastName: z.string().min(1, "Last name is required."),
   photoURL: z.string().url("Please enter a valid URL.").optional().or(z.literal('')),
   phone: z.string().optional(),
 });
@@ -50,6 +51,7 @@ const profileFormSchema = z.object({
 type ProfileFormValues = z.infer<typeof profileFormSchema>;
 
 const toTitleCase = (str: string) => {
+  if (!str) return "";
   return str.replace(
     /\w\S*/g,
     (txt) => txt.charAt(0).toUpperCase() + txt.substring(1).toLowerCase()
@@ -60,16 +62,29 @@ export default function SettingsPage() {
   const { user } = useAuth();
   const { toast } = useToast();
   const [isProfileDialogOpen, setIsProfileDialogOpen] = useState(false);
+  
+  const [initialFirstName, initialLastName] = (user?.displayName || "").split(" ");
 
-  // We can use the user's current display name for the form default value
   const profileForm = useForm<ProfileFormValues>({
     resolver: zodResolver(profileFormSchema),
-    values: {
-      name: user?.displayName || "",
+    defaultValues: {
+      firstName: initialFirstName || "",
+      lastName: initialLastName || "",
       photoURL: user?.photoURL || "",
       phone: user?.phoneNumber || "",
     },
   });
+  
+  useEffect(() => {
+      const [firstName, lastName] = (user?.displayName || "").split(" ");
+      profileForm.reset({
+          firstName: firstName || "",
+          lastName: lastName || "",
+          photoURL: user?.photoURL || "",
+          phone: user?.phoneNumber || ""
+      });
+  }, [user, profileForm]);
+
 
   const onProfileSubmit = async (data: ProfileFormValues) => {
     if (!user) {
@@ -81,8 +96,9 @@ export default function SettingsPage() {
       return;
     }
     try {
+      const displayName = `${data.firstName} ${data.lastName}`.trim();
       await updateProfile(user, {
-        displayName: data.name,
+        displayName: displayName,
         photoURL: data.photoURL,
       });
 
@@ -156,15 +172,26 @@ export default function SettingsPage() {
                     </DialogDescription>
                   </DialogHeader>
                   <form onSubmit={profileForm.handleSubmit(onProfileSubmit)} className="space-y-4">
-                    <div className="space-y-2">
-                      <Label htmlFor="name">Full Name</Label>
-                      <Input id="name" {...profileForm.register("name")} onChange={(e) => {
-                        const { value } = e.target;
-                        e.target.value = toTitleCase(value);
-                        profileForm.setValue("name", e.target.value);
-                      }}/>
-                      {profileForm.formState.errors.name && <p className="text-sm text-destructive">{profileForm.formState.errors.name.message}</p>}
-                    </div>
+                     <div className="grid grid-cols-2 gap-4">
+                        <div className="space-y-2">
+                          <Label htmlFor="firstName">First Name</Label>
+                          <Input id="firstName" {...profileForm.register("firstName")} onChange={(e) => {
+                            const { value } = e.target;
+                            e.target.value = toTitleCase(value);
+                            profileForm.setValue("firstName", e.target.value);
+                          }}/>
+                          {profileForm.formState.errors.firstName && <p className="text-sm text-destructive">{profileForm.formState.errors.firstName.message}</p>}
+                        </div>
+                        <div className="space-y-2">
+                          <Label htmlFor="lastName">Last Name</Label>
+                          <Input id="lastName" {...profileForm.register("lastName")} onChange={(e) => {
+                            const { value } = e.target;
+                            e.target.value = toTitleCase(value);
+                            profileForm.setValue("lastName", e.target.value);
+                          }}/>
+                          {profileForm.formState.errors.lastName && <p className="text-sm text-destructive">{profileForm.formState.errors.lastName.message}</p>}
+                        </div>
+                     </div>
                      <div className="space-y-2">
                       <Label htmlFor="photoURL">Photo URL</Label>
                       <Input id="photoURL" {...profileForm.register("photoURL")} />
