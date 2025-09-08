@@ -184,7 +184,6 @@ async function checkStockAndCreateNotification(product: Omit<Product, 'id' | 'hi
       const q = query(
         notificationsCol, 
         where('title', '==', notification.title), 
-        where('read', '==', false),
         where('timestamp', '>', fiveMinutesAgo)
       );
       const existingNotifs = await getDocs(q);
