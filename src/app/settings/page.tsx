@@ -63,26 +63,36 @@ export default function SettingsPage() {
   const { toast } = useToast();
   const [isProfileDialogOpen, setIsProfileDialogOpen] = useState(false);
   
-  const [initialFirstName, initialLastName] = (user?.displayName || "").split(" ");
+  const getInitialNames = (displayName: string | null | undefined) => {
+    const name = displayName || "";
+    const nameParts = name.split(" ").filter(Boolean);
+    const lastName = nameParts.length > 1 ? nameParts.pop() || "" : "";
+    const firstName = nameParts.join(" ");
+    return { firstName, lastName };
+  }
+  
+  const { firstName: initialFirstName, lastName: initialLastName } = getInitialNames(user?.displayName);
 
   const profileForm = useForm<ProfileFormValues>({
     resolver: zodResolver(profileFormSchema),
     defaultValues: {
-      firstName: initialFirstName || "",
-      lastName: initialLastName || "",
+      firstName: initialFirstName,
+      lastName: initialLastName,
       photoURL: user?.photoURL || "",
       phone: user?.phoneNumber || "",
     },
   });
   
   useEffect(() => {
-      const [firstName, lastName] = (user?.displayName || "").split(" ");
-      profileForm.reset({
-          firstName: firstName || "",
-          lastName: lastName || "",
-          photoURL: user?.photoURL || "",
-          phone: user?.phoneNumber || ""
-      });
+    if (user) {
+        const { firstName, lastName } = getInitialNames(user.displayName);
+        profileForm.reset({
+            firstName: firstName,
+            lastName: lastName,
+            photoURL: user.photoURL || "",
+            phone: user.phoneNumber || ""
+        });
+    }
   }, [user, profileForm]);
 
 
