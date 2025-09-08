@@ -62,6 +62,15 @@ const createProductSchema = (isSkuAuto: boolean) => z.object({
     path: ["sku"],
 });
 
+const editProductSchema = z.object({
+  name: z.string().min(1, "Product name is required."),
+  sku: z.string().optional(),
+  price: z.coerce.number().nonnegative("Price must be a non-negative number."),
+  stock: z.coerce.number().int().nonnegative("Stock must be a non-negative integer."),
+  reorderLimit: z.coerce.number().int().nonnegative("Reorder limit must be a non-negative integer."),
+  location: z.string().optional(),
+});
+
 
 type ProductFormValues = z.infer<ReturnType<typeof createProductSchema>>;
 type StatusFilter = "all" | "in-stock" | "low-stock" | "out-of-stock";
@@ -100,7 +109,7 @@ export default function InventoryPage() {
   });
 
   const editForm = useForm<ProductFormValues>({
-    resolver: zodResolver(productSchema),
+    resolver: zodResolver(editProductSchema),
   });
 
   useEffect(() => {
@@ -124,7 +133,6 @@ export default function InventoryPage() {
   useEffect(() => {
     if (editingProduct) {
       editForm.reset(editingProduct);
-      setAutoGenerateSku(false); // When editing, default to showing the existing SKU
     }
   }, [editingProduct, editForm]);
 
@@ -176,7 +184,9 @@ export default function InventoryPage() {
   const onEditSubmit = async (data: ProductFormValues) => {
     if (!editingProduct) return;
     try {
-      await updateProduct(editingProduct.id, data);
+      // Exclude SKU from the update data
+      const { sku, ...updateData } = data;
+      await updateProduct(editingProduct.id, updateData);
       toast({ title: "Success", description: "Product updated successfully." });
       setIsEditDialogOpen(false);
       setEditingProduct(null);
@@ -415,7 +425,7 @@ export default function InventoryPage() {
                 <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-2">
                     <Label htmlFor="edit-sku">SKU</Label>
-                    <Input id="edit-sku" {...editForm.register("sku")} />
+                    <Input id="edit-sku" {...editForm.register("sku")} disabled />
                     {editForm.formState.errors.sku && <p className="text-sm text-destructive">{editForm.formState.errors.sku.message}</p>}
                   </div>
                    <div className="space-y-2">
@@ -474,5 +484,3 @@ export default function InventoryPage() {
     </>
   );
 }
-
-    
