@@ -1,4 +1,5 @@
 
+
 "use client";
 import { useState, useEffect } from "react";
 import Image from "next/image";
@@ -13,6 +14,13 @@ import { Skeleton } from "../ui/skeleton";
 import { useToast } from "@/hooks/use-toast";
 
 
+const toTitleCase = (str: string) => {
+  return str.replace(
+    /\w\S*/g,
+    (txt) => txt.charAt(0).toUpperCase() + txt.substring(1).toLowerCase()
+  );
+};
+
 export function LowStockItems() {
   const [lowStockItems, setLowStockItems] = useState<Product[]>([]);
   const [loading, setLoading] = useState(true);
@@ -20,6 +28,7 @@ export function LowStockItems() {
   const [selectedItemForReorder, setSelectedItemForReorder] = useState<Product | null>(null);
   const [isReorderAllDialogOpen, setIsReorderAllDialogOpen] = useState(false);
   const { toast } = useToast();
+  const [supplierName, setSupplierName] = useState("Default Supplier Inc.");
 
   useEffect(() => {
     async function fetchItems() {
@@ -158,7 +167,7 @@ export function LowStockItems() {
                 </div>
                 <div className="grid grid-cols-4 items-center gap-4">
                   <Label htmlFor="supplier" className="text-right">Supplier</Label>
-                  <Input id="supplier" defaultValue="Default Supplier Inc." className="col-span-3" />
+                  <Input id="supplier" value={supplierName} onChange={(e) => setSupplierName(toTitleCase(e.target.value))} className="col-span-3" />
                 </div>
               </div>
               <DialogFooter>

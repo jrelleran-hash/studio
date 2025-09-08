@@ -1,4 +1,5 @@
 
+
 "use client";
 
 import { useState } from "react";
@@ -47,6 +48,13 @@ const profileFormSchema = z.object({
 });
 
 type ProfileFormValues = z.infer<typeof profileFormSchema>;
+
+const toTitleCase = (str: string) => {
+  return str.replace(
+    /\w\S*/g,
+    (txt) => txt.charAt(0).toUpperCase() + txt.substring(1).toLowerCase()
+  );
+};
 
 export default function SettingsPage() {
   const { user } = useAuth();
@@ -150,7 +158,11 @@ export default function SettingsPage() {
                   <form onSubmit={profileForm.handleSubmit(onProfileSubmit)} className="space-y-4">
                     <div className="space-y-2">
                       <Label htmlFor="name">Full Name</Label>
-                      <Input id="name" {...profileForm.register("name")} />
+                      <Input id="name" {...profileForm.register("name")} onChange={(e) => {
+                        const { value } = e.target;
+                        e.target.value = toTitleCase(value);
+                        profileForm.setValue("name", e.target.value);
+                      }}/>
                       {profileForm.formState.errors.name && <p className="text-sm text-destructive">{profileForm.formState.errors.name.message}</p>}
                     </div>
                      <div className="space-y-2">

@@ -62,6 +62,13 @@ const productSchema = z.object({
 type ProductFormValues = z.infer<typeof productSchema>;
 type StatusFilter = "all" | "in-stock" | "low-stock" | "out-of-stock";
 
+const toTitleCase = (str: string) => {
+  return str.replace(
+    /\w\S*/g,
+    (txt) => txt.charAt(0).toUpperCase() + txt.substring(1).toLowerCase()
+  );
+};
+
 export default function InventoryPage() {
   const [products, setProducts] = useState<Product[]>([]);
   const [loading, setLoading] = useState(true);
@@ -232,7 +239,11 @@ export default function InventoryPage() {
               <form onSubmit={addForm.handleSubmit(onAddSubmit)} className="space-y-4">
                 <div className="space-y-2">
                   <Label htmlFor="name">Product Name</Label>
-                  <Input id="name" {...addForm.register("name")} />
+                  <Input id="name" {...addForm.register("name")} onChange={(e) => {
+                    const { value } = e.target;
+                    e.target.value = toTitleCase(value);
+                    addForm.setValue("name", e.target.value);
+                  }}/>
                   {addForm.formState.errors.name && <p className="text-sm text-destructive">{addForm.formState.errors.name.message}</p>}
                 </div>
                 <div className="grid grid-cols-2 gap-4">
@@ -365,7 +376,11 @@ export default function InventoryPage() {
             <form onSubmit={editForm.handleSubmit(onEditSubmit)} className="space-y-4">
                <div className="space-y-2">
                   <Label htmlFor="edit-name">Product Name</Label>
-                  <Input id="edit-name" {...editForm.register("name")} />
+                  <Input id="edit-name" {...editForm.register("name")} onChange={(e) => {
+                    const { value } = e.target;
+                    e.target.value = toTitleCase(value);
+                    editForm.setValue("name", e.target.value);
+                  }}/>
                   {editForm.formState.errors.name && <p className="text-sm text-destructive">{editForm.formState.errors.name.message}</p>}
                 </div>
                 <div className="grid grid-cols-2 gap-4">
