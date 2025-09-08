@@ -75,7 +75,7 @@ export default function ClientsPage() {
 
   const form = useForm<ClientFormValues>({
     resolver: zodResolver(clientSchema),
-    mode: 'onBlur',
+    mode: 'onChange',
     defaultValues: {
       projectName: "",
       clientName: "",
@@ -86,7 +86,7 @@ export default function ClientsPage() {
 
   const editForm = useForm<ClientFormValues>({
     resolver: zodResolver(clientSchema),
-    mode: 'onBlur',
+    mode: 'onChange',
   });
 
   async function fetchClients() {
@@ -117,25 +117,6 @@ export default function ClientsPage() {
 
 
   const onAddSubmit = async (data: ClientFormValues) => {
-    // Re-validate on submit just in case
-    const isBoqDuplicate = clients.some(c => c.boqNumber === data.boqNumber);
-    if (isBoqDuplicate) {
-      form.setError("boqNumber", { type: "manual", message: `BOQ Number "${data.boqNumber}" already exists.` });
-      return;
-    }
-    const isRecordDuplicate = clients.some(c => 
-        c.projectName.toLowerCase() === data.projectName.toLowerCase() &&
-        c.clientName.toLowerCase() === data.clientName.toLowerCase() &&
-        c.address.toLowerCase() === data.address.toLowerCase()
-    );
-     if (isRecordDuplicate) {
-        const errorMessage = "This client record appears to be a duplicate.";
-        form.setError("projectName", { type: "manual", message: errorMessage });
-        form.setError("clientName", { type: "manual", message: errorMessage });
-        form.setError("address", { type: "manual", message: errorMessage });
-        return;
-    }
-
     try {
       await addClient(data);
       toast({ title: "Success", description: "Client added successfully." });
@@ -155,26 +136,6 @@ export default function ClientsPage() {
   const onEditSubmit = async (data: ClientFormValues) => {
     if (!editingClient) return;
     
-    // Re-validate on submit
-    const isBoqDuplicate = clients.some(c => c.id !== editingClient.id && c.boqNumber === data.boqNumber);
-    if (isBoqDuplicate) {
-       editForm.setError("boqNumber", { type: "manual", message: `Another client with BOQ Number "${data.boqNumber}" already exists.` });
-       return;
-    }
-    const isRecordDuplicate = clients.some(c => 
-        c.id !== editingClient.id &&
-        c.projectName.toLowerCase() === data.projectName.toLowerCase() &&
-        c.clientName.toLowerCase() === data.clientName.toLowerCase() &&
-        c.address.toLowerCase() === data.address.toLowerCase()
-    );
-    if (isRecordDuplicate) {
-        const errorMessage = "Another client with these details already exists.";
-        editForm.setError("projectName", { type: "manual", message: errorMessage });
-        editForm.setError("clientName", { type: "manual", message: errorMessage });
-        editForm.setError("address", { type: "manual", message: errorMessage });
-        return;
-    }
-      
     try {
       await updateClient(editingClient.id, data);
       toast({ title: "Success", description: "Client updated successfully." });
@@ -234,39 +195,18 @@ export default function ClientsPage() {
     );
     return isDuplicate ? `BOQ Number "${boq}" already exists.` : true;
   }, [clients]);
-
-  const validateRecord = useCallback((formValues: ClientFormValues, currentClientId?: string) => {
+  
+  const validateRecord = useCallback((formValues: Partial<ClientFormValues>, currentClientId?: string) => {
     if (!formValues.projectName || !formValues.clientName || !formValues.address) return true;
     const isDuplicate = clients.some(c => 
         c.id !== currentClientId &&
-        c.projectName.toLowerCase() === formValues.projectName.toLowerCase() &&
-        c.clientName.toLowerCase() === formValues.clientName.toLowerCase() &&
-        c.address.toLowerCase() === formValues.address.toLowerCase()
+        c.projectName?.toLowerCase() === formValues.projectName?.toLowerCase() &&
+        c.clientName?.toLowerCase() === formValues.clientName?.toLowerCase() &&
+        c.address?.toLowerCase() === formValues.address?.toLowerCase()
     );
     return isDuplicate ? "A client with these details already exists." : true;
   }, [clients]);
-
-  const handleRecordBlur = (
-    formInstance: typeof form | typeof editForm,
-    currentClientId?: string
-  ) => {
-    const values = formInstance.getValues();
-    // Only validate if all fields are filled to avoid premature validation
-    if(values.projectName && values.clientName && values.address) {
-        const result = validateRecord(values, currentClientId);
-        const errorMessage = "A client with these details already exists.";
-        if (result === errorMessage) {
-            formInstance.setError("projectName", { type: "manual", message: result });
-            formInstance.setError("clientName", { type: "manual", message: result });
-            formInstance.setError("address", { type: "manual", message: result });
-        } else {
-            if (formInstance.formState.errors.projectName?.message === errorMessage) formInstance.clearErrors("projectName");
-            if (formInstance.formState.errors.clientName?.message === errorMessage) formInstance.clearErrors("clientName");
-            if (formInstance.formState.errors.address?.message === errorMessage) formInstance.clearErrors("address");
-        }
-    }
-  }
-
+  
 
   return (
     <>
@@ -298,13 +238,12 @@ export default function ClientsPage() {
                   <Input 
                     id="projectName" 
                     {...form.register("projectName", { 
-                        onBlur: () => handleRecordBlur(form)
+                        validate: () => validateRecord(form.getValues())
                     })} 
                     onChange={(e) => {
                       const { value } = e.target;
                       const formattedValue = toTitleCase(value);
-                      e.target.value = formattedValue;
-                      form.setValue("projectName", formattedValue);
+                      form.setValue("projectName", formattedValue, { shouldValidate: true });
                     }}
                   />
                   {form.formState.errors.projectName && <p className="text-sm text-destructive">{form.formState.errors.projectName.message}</p>}
@@ -314,13 +253,12 @@ export default function ClientsPage() {
                   <Input 
                     id="clientName" 
                     {...form.register("clientName", { 
-                        onBlur: () => handleRecordBlur(form)
+                       validate: () => validateRecord(form.getValues())
                     })} 
                     onChange={(e) => {
                       const { value } = e.target;
                       const formattedValue = toTitleCase(value);
-                      e.target.value = formattedValue;
-                      form.setValue("clientName", formattedValue);
+                       form.setValue("clientName", formattedValue, { shouldValidate: true });
                     }}
                   />
                   {form.formState.errors.clientName && <p className="text-sm text-destructive">{form.formState.errors.clientName.message}</p>}
@@ -340,14 +278,14 @@ export default function ClientsPage() {
                   <Input 
                     id="address" 
                     {...form.register("address", { 
-                        onBlur: () => handleRecordBlur(form)
+                         validate: () => validateRecord(form.getValues())
                     })}
                    />
                   {form.formState.errors.address && <p className="text-sm text-destructive">{form.formState.errors.address.message}</p>}
                 </div>
                 <DialogFooter>
                   <Button type="button" variant="outline" onClick={() => setIsAddDialogOpen(false)}>Cancel</Button>
-                  <Button type="submit" disabled={form.formState.isSubmitting}>
+                  <Button type="submit" disabled={!form.formState.isValid || form.formState.isSubmitting}>
                     {form.formState.isSubmitting ? "Adding..." : "Add Client"}
                   </Button>
                 </DialogFooter>
@@ -429,13 +367,12 @@ export default function ClientsPage() {
                   <Input 
                     id="edit-projectName" 
                     {...editForm.register("projectName", {
-                        onBlur: () => handleRecordBlur(editForm, editingClient.id)
+                        validate: () => validateRecord(editForm.getValues(), editingClient.id)
                     })} 
                     onChange={(e) => {
                         const { value } = e.target;
                         const formattedValue = toTitleCase(value);
-                        e.target.value = formattedValue;
-                        editForm.setValue("projectName", formattedValue);
+                        editForm.setValue("projectName", formattedValue, { shouldValidate: true });
                     }}
                    />
                   {editForm.formState.errors.projectName && <p className="text-sm text-destructive">{editForm.formState.errors.projectName.message}</p>}
@@ -445,13 +382,12 @@ export default function ClientsPage() {
                   <Input 
                     id="edit-clientName" 
                     {...editForm.register("clientName", {
-                        onBlur: () => handleRecordBlur(editForm, editingClient.id)
+                        validate: () => validateRecord(editForm.getValues(), editingClient.id)
                     })} 
                     onChange={(e) => {
                         const { value } = e.target;
                         const formattedValue = toTitleCase(value);
-                        e.target.value = formattedValue;
-                        editForm.setValue("clientName", formattedValue);
+                        editForm.setValue("clientName", formattedValue, { shouldValidate: true });
                     }} 
                   />
                   {editForm.formState.errors.clientName && <p className="text-sm text-destructive">{editForm.formState.errors.clientName.message}</p>}
@@ -471,14 +407,14 @@ export default function ClientsPage() {
                   <Input 
                     id="edit-address" 
                     {...editForm.register("address", {
-                        onBlur: () => handleRecordBlur(editForm, editingClient.id)
+                        validate: () => validateRecord(editForm.getValues(), editingClient.id)
                     })} 
                   />
                   {editForm.formState.errors.address && <p className="text-sm text-destructive">{editForm.formState.errors.address.message}</p>}
                 </div>
                 <DialogFooter>
                   <Button type="button" variant="outline" onClick={() => setIsEditDialogOpen(false)}>Cancel</Button>
-                  <Button type="submit" disabled={editForm.formState.isSubmitting}>
+                  <Button type="submit" disabled={!editForm.formState.isValid || editForm.formState.isSubmitting}>
                     {editForm.formState.isSubmitting ? "Saving..." : "Save Changes"}
                   </Button>
                 </DialogFooter>
@@ -507,5 +443,3 @@ export default function ClientsPage() {
     </>
   );
 }
-
-    
