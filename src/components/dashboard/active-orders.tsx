@@ -204,7 +204,7 @@ export function ActiveOrders() {
                      <Dialog open={isAddProductOpen} onOpenChange={setIsAddProductOpen}>
                         <DialogTrigger asChild>
                             <Button variant="outline" size="sm" className="gap-1">
-                                <PlusCircle className="h-4 w-4" /> Add Product
+                                <PlusCircle className="h-4 w-4" /> Add New Product
                             </Button>
                         </DialogTrigger>
                         <DialogContent className="sm:max-w-lg">
