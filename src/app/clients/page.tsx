@@ -76,12 +76,6 @@ export default function ClientsPage() {
   const form = useForm<ClientFormValues>({
     resolver: zodResolver(clientSchema),
     mode: 'onChange',
-    defaultValues: {
-      projectName: "",
-      clientName: "",
-      boqNumber: "",
-      address: "",
-    },
   });
 
   const editForm = useForm<ClientFormValues>({
@@ -113,8 +107,15 @@ export default function ClientsPage() {
   useEffect(() => {
     if (editingClient) {
       editForm.reset(editingClient);
+    } else {
+      form.reset({
+        projectName: "",
+        clientName: "",
+        boqNumber: "",
+        address: "",
+      });
     }
-  }, [editingClient, editForm]);
+  }, [editingClient, editForm, form]);
 
 
   const onAddSubmit = async (data: ClientFormValues) => {
@@ -447,7 +448,3 @@ export default function ClientsPage() {
     </>
   );
 }
-
-    
-
-    
