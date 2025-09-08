@@ -60,3 +60,17 @@ export interface Order {
     client: Client;
     items: OrderItem[];
 }
+
+export interface IssuanceItem {
+    quantity: number;
+    product: Product;
+}
+
+export interface Issuance {
+    id: string;
+    issuanceNumber: string;
+    date: Date;
+    client: Client;
+    items: IssuanceItem[];
+    remarks?: string;
+}

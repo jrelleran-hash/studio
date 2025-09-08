@@ -6,9 +6,10 @@
 
 
 
+
 import { db } from "@/lib/firebase";
-import { collection, getDocs, getDoc, doc, orderBy, query, limit, Timestamp, where, DocumentReference, addDoc, updateDoc, deleteDoc, arrayUnion } from "firebase/firestore";
-import type { Activity, Notification, Order, Product, Client } from "@/types";
+import { collection, getDocs, getDoc, doc, orderBy, query, limit, Timestamp, where, DocumentReference, addDoc, updateDoc, deleteDoc, arrayUnion, runTransaction } from "firebase/firestore";
+import type { Activity, Notification, Order, Product, Client, Issuance } from "@/types";
 import { format, subDays } from 'date-fns';
 
 function timeSince(date: Date) {
@@ -410,5 +411,112 @@ export async function addOrder(orderData: NewOrderData): Promise<DocumentReferen
   } catch (error) {
     console.error("Error adding order:", error);
     throw new Error("Failed to add order.");
+  }
+}
+
+export async function getIssuances(): Promise<Issuance[]> {
+    try {
+        const issuancesCol = collection(db, "issuances");
+        const q = query(issuancesCol, orderBy("date", "desc"));
+        const issuanceSnapshot = await getDocs(q);
+        
+        const issuances: Issuance[] = await Promise.all(issuanceSnapshot.docs.map(async (issuanceDoc) => {
+            const issuanceData = issuanceDoc.data();
+            const client = await resolveDoc<Client>(issuanceData.clientRef);
+            
+            const items = await Promise.all(issuanceData.items.map(async (item: any) => {
+                const product = await resolveDoc<Product>(item.productRef);
+                return {
+                    quantity: item.quantity,
+                    product: product,
+                };
+            }));
+            
+            return {
+                id: issuanceDoc.id,
+                issuanceNumber: issuanceData.issuanceNumber,
+                date: (issuanceData.date as Timestamp).toDate(),
+                client,
+                items,
+                remarks: issuanceData.remarks,
+            };
+        }));
+
+        return issuances;
+    } catch (error) {
+        console.error("Error fetching issuances:", error);
+        return [];
+    }
+}
+
+type NewIssuanceData = {
+  clientId: string;
+  items: { productId: string; quantity: number }[];
+  remarks?: string;
+};
+
+export async function addIssuance(issuanceData: NewIssuanceData): Promise<DocumentReference> {
+  const issuanceNumber = `IS-${Date.now()}`;
+  const issuanceDate = Timestamp.now();
+
+  try {
+    return await runTransaction(db, async (transaction) => {
+      // 1. Resolve product references and prepare item data
+      const resolvedItems = await Promise.all(
+        issuanceData.items.map(async (item) => {
+          const productRef = doc(db, "inventory", item.productId);
+          const productDoc = await transaction.get(productRef);
+          if (!productDoc.exists()) {
+            throw new Error(`Product with ID ${item.productId} not found.`);
+          }
+          const productData = productDoc.data() as Product;
+
+          // Check for sufficient stock
+          if (productData.stock < item.quantity) {
+            throw new Error(`Insufficient stock for ${productData.name}. Available: ${productData.stock}, Requested: ${item.quantity}`);
+          }
+
+          // 2. Update stock in inventory
+          const newStock = productData.stock - item.quantity;
+          const newHistoryEntry = {
+              date: format(issuanceDate.toDate(), 'yyyy-MM-dd'),
+              stock: newStock,
+              dateUpdated: issuanceDate
+          };
+          transaction.update(productRef, { 
+              stock: newStock,
+              lastUpdated: issuanceDate,
+              history: arrayUnion(newHistoryEntry)
+          });
+          
+          // Check for notification after transaction
+          checkStockAndCreateNotification({ ...productData, stock: newStock }, productDoc.id);
+
+          return {
+            productRef: productRef,
+            quantity: item.quantity,
+          };
+        })
+      );
+
+      // 3. Create the new issuance object
+      const newIssuance = {
+        issuanceNumber: issuanceNumber,
+        clientRef: doc(db, "clients", issuanceData.clientId),
+        date: issuanceDate,
+        items: resolvedItems,
+        remarks: issuanceData.remarks || "",
+      };
+
+      // 4. Add the issuance to Firestore
+      const issuancesCol = collection(db, "issuances");
+      const docRef = doc(issuancesCol); // Create a new doc ref with an auto-generated ID
+      transaction.set(docRef, newIssuance);
+      
+      return docRef;
+    });
+  } catch (error) {
+    console.error("Error adding issuance and updating stock:", error);
+    throw new Error("Failed to create issuance. " + (error as Error).message);
   }
 }
