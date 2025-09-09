@@ -1307,7 +1307,13 @@ export default function OrdersAndSuppliersPage() {
           <DialogFooter className="!justify-between">
              <div>
                 {selectedOrder.status !== 'Cancelled' && (
-                    <Button variant="destructive" onClick={() => handleCancelOrder(selectedOrder.id)}>Cancel Order</Button>
+                    <Button 
+                      variant="destructive" 
+                      onClick={() => handleCancelOrder(selectedOrder.id)}
+                      disabled={selectedOrder.status === 'Fulfilled' || selectedOrder.status === 'Shipped'}
+                    >
+                      Cancel Order
+                    </Button>
                 )}
             </div>
             <div className="flex gap-2">
