@@ -79,6 +79,8 @@ export function ActiveOrders() {
   const [isAddProductOpen, setIsAddProductOpen] = useState(false);
   const { toast } = useToast();
   const [autoGenerateSku, setAutoGenerateSku] = useState(true);
+  const [isReordered, setIsReordered] = useState(false);
+
 
   const productSchema = useMemo(() => createProductSchema(autoGenerateSku), [autoGenerateSku]);
 
@@ -144,6 +146,15 @@ export function ActiveOrders() {
     }
   }, [isAddOrderOpen, orderForm]);
 
+  useEffect(() => {
+    if (selectedOrder && selectedOrder.status === 'Cancelled') {
+      const alreadyReordered = orders.some(o => o.reorderedFrom === selectedOrder.id);
+      setIsReordered(alreadyReordered);
+    } else {
+      setIsReordered(false);
+    }
+  }, [selectedOrder, orders]);
+
   const formatDate = (date: Date) => {
     return new Intl.DateTimeFormat("en-US", {
       year: "numeric",
@@ -176,7 +187,6 @@ export function ActiveOrders() {
     try {
        const productData = { ...data };
       if (autoGenerateSku) {
-        // Simple SKU generation logic: first 3 letters of name + random 4 digits
         const namePart = data.name.substring(0, 3).toUpperCase();
         const randomPart = Math.floor(1000 + Math.random() * 9000);
         productData.sku = `\'\'\'${namePart}-${randomPart}\'\'\'`;
@@ -221,7 +231,8 @@ export function ActiveOrders() {
                 productId: item.product.id,
                 quantity: item.quantity
             })),
-            status: 'Processing' as const
+            status: 'Processing' as const,
+            reorderedFrom: order.id,
         };
         await addOrder(reorderData);
         toast({ title: "Success", description: "Order has been re-created." });
@@ -403,7 +414,9 @@ export function ActiveOrders() {
           </div>
           <DialogFooter>
              {selectedOrder.status === 'Cancelled' ? (
-                <Button onClick={() => handleReorder(selectedOrder)}>Reorder</Button>
+                <Button onClick={() => handleReorder(selectedOrder)} disabled={isReordered}>
+                  {isReordered ? 'Already Reordered' : 'Reorder'}
+                </Button>
              ) : (
                 <Button variant="destructive" onClick={() => handleCancelOrder(selectedOrder.id)}>Cancel Order</Button>
              )}

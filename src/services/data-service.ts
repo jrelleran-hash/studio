@@ -130,12 +130,11 @@ export async function getRecentOrders(count: number): Promise<Order[]> {
             
             return {
                 id: orderDoc.id,
+                ...orderData,
                 date: (orderData.date as Timestamp).toDate(),
-                status: orderData.status,
-                total: orderData.total,
                 client,
                 items,
-            };
+            } as Order;
         }));
 
         return orders;
@@ -290,12 +289,11 @@ export async function getOrders(): Promise<Order[]> {
             
             return {
                 id: orderDoc.id,
+                ...orderData,
                 date: (orderData.date as Timestamp).toDate(),
-                status: orderData.status,
-                total: orderData.total,
                 client,
                 items,
-            };
+            } as Order;
         }));
 
         return orders;
@@ -373,6 +371,7 @@ type NewOrderData = {
   clientId: string;
   items: { productId: string; quantity: number }[];
   status: Order['status'];
+  reorderedFrom?: string;
 };
 
 export async function addOrder(orderData: NewOrderData): Promise<DocumentReference> {
@@ -397,13 +396,18 @@ export async function addOrder(orderData: NewOrderData): Promise<DocumentReferen
     );
 
     // 2. Create the new order object
-    const newOrder = {
+    const newOrder: any = {
       clientRef: doc(db, "clients", orderData.clientId),
       date: Timestamp.now(),
       items: resolvedItems,
       status: orderData.status,
       total: total,
     };
+    
+    if (orderData.reorderedFrom) {
+        newOrder.reorderedFrom = orderData.reorderedFrom;
+    }
+
 
     // 3. Add the order to Firestore
     const ordersCol = collection(db, "orders");

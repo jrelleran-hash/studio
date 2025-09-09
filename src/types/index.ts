@@ -70,6 +70,7 @@ export interface Order {
     total: number;
     client: Client;
     items: OrderItem[];
+    reorderedFrom?: string;
 }
 
 export interface IssuanceItem {
