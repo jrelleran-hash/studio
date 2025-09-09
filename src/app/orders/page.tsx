@@ -73,6 +73,7 @@ const statusVariant: { [key: string]: "default" | "secondary" | "destructive" | 
   Cancelled: "destructive",
   Processing: "secondary",
   Received: "default",
+  Pending: "secondary",
 };
 
 // Order Schemas
@@ -1158,17 +1159,18 @@ export default function OrdersAndSuppliersPage() {
                               <DropdownMenuContent align="end" onClick={(e) => e.stopPropagation()}>
                                 <DropdownMenuLabel>Actions</DropdownMenuLabel>
                                  <DropdownMenuItem onClick={() => setSelectedPO(po)}>View Details</DropdownMenuItem>
-                                {po.status !== 'Received' && (
-                                  <>
+                                <DropdownMenuSeparator />
+                                {po.status === 'Pending' && (
                                     <DropdownMenuItem onClick={() => handlePOStatusChange(po.id, 'Shipped')}>
-                                      Mark as Shipped
+                                    Mark as Shipped
                                     </DropdownMenuItem>
-                                    <DropdownMenuItem onClick={() => handlePOStatusChange(po.id, 'Received')}>
-                                      Mark as Received
-                                    </DropdownMenuItem>
-                                  </>
                                 )}
-                                 {po.status === 'Received' && <DropdownMenuItem disabled>Order Received</DropdownMenuItem>}
+                                {po.status === 'Shipped' && (
+                                    <DropdownMenuItem onClick={() => handlePOStatusChange(po.id, 'Received')}>
+                                    Mark as Received
+                                    </DropdownMenuItem>
+                                )}
+                                {po.status === 'Received' && <DropdownMenuItem disabled>Order Received</DropdownMenuItem>}
                                 <DropdownMenuSeparator />
                                 <DropdownMenuItem onClick={() => handleDeletePOClick(po.id)} className="text-destructive">
                                     Delete

@@ -435,11 +435,11 @@ export default function LogisticsPage() {
                                                                     <DropdownMenuLabel>Actions</DropdownMenuLabel>
                                                                     <DropdownMenuItem onClick={() => setSelectedPO(po)}>View Details</DropdownMenuItem>
                                                                     <DropdownMenuSeparator />
-                                                                    {po.status !== 'Received' && (
-                                                                        <>
+                                                                    {po.status === 'Pending' && (
                                                                         <DropdownMenuItem onClick={() => handlePOStatusChange(po.id, 'Shipped')}>Mark as Shipped</DropdownMenuItem>
+                                                                    )}
+                                                                    {po.status === 'Shipped' && (
                                                                         <DropdownMenuItem onClick={() => handlePOStatusChange(po.id, 'Received')}>Mark as Received</DropdownMenuItem>
-                                                                        </>
                                                                     )}
                                                                     {po.status === 'Received' && <DropdownMenuItem disabled>Order Received</DropdownMenuItem>}
                                                                 </DropdownMenuContent>
