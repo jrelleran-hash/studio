@@ -789,82 +789,6 @@ export default function OrdersAndSuppliersPage() {
       </div>
       <TabsContent value="orders" className="space-y-4">
         <Card>
-            <CardHeader>
-                <div className="flex items-center justify-between">
-                    <div>
-                        <CardTitle>Purchase Queue</CardTitle>
-                        <CardDescription>Items from orders that require purchasing from a supplier.</CardDescription>
-                    </div>
-                    {selectedQueueItems.length > 0 && (
-                        <Button size="sm" className="gap-1" onClick={handleCreatePOFromQueue}>
-                            <PlusCircle className="h-4 w-4" />
-                            Create Purchase Order ({selectedQueueItems.length})
-                        </Button>
-                    )}
-                </div>
-            </CardHeader>
-            <CardContent>
-                <Table>
-                <TableHeader>
-                    <TableRow>
-                    <TableHead className="w-12">
-                        <Checkbox
-                            checked={isAllQueueSelected}
-                            onCheckedChange={(checked) => handleQueueSelectAll(!!checked)}
-                            aria-label="Select all"
-                        />
-                    </TableHead>
-                    <TableHead>Product</TableHead>
-                    <TableHead>SKU</TableHead>
-                    <TableHead className="text-center">Needed</TableHead>
-                    <TableHead>From Orders</TableHead>
-                    </TableRow>
-                </TableHeader>
-                <TableBody>
-                    {loading ? (
-                    Array.from({ length: 3 }).map((_, i) => (
-                        <TableRow key={i}>
-                        <TableCell><Skeleton className="h-4 w-4" /></TableCell>
-                        <TableCell><Skeleton className="h-4 w-48" /></TableCell>
-                        <TableCell><Skeleton className="h-4 w-24" /></TableCell>
-                        <TableCell><Skeleton className="h-4 w-16 mx-auto" /></TableCell>
-                        <TableCell><Skeleton className="h-4 w-32" /></TableCell>
-                        </TableRow>
-                    ))
-                    ) : purchaseQueue.length > 0 ? (
-                    purchaseQueue.map((item) => (
-                        <TableRow key={item.productId}>
-                        <TableCell>
-                            <Checkbox
-                                checked={purchaseQueueSelection[item.productId] || false}
-                                onCheckedChange={(checked) => handleQueueSelectionChange(item.productId, !!checked)}
-                                aria-label={`Select ${item.name}`}
-                            />
-                        </TableCell>
-                        <TableCell className="font-medium">{item.name}</TableCell>
-                        <TableCell>{item.sku}</TableCell>
-                        <TableCell className="text-center">{item.totalQuantity}</TableCell>
-                        <TableCell>
-                            <div className="flex gap-1 flex-wrap">
-                                {item.fromOrders.map(orderId => (
-                                    <Badge key={orderId} variant="secondary" className="font-mono">{orderId}</Badge>
-                                ))}
-                            </div>
-                        </TableCell>
-                        </TableRow>
-                    ))
-                    ) : (
-                    <TableRow>
-                            <TableCell colSpan={5} className="h-24 text-center">
-                                No items are currently awaiting purchase.
-                            </TableCell>
-                        </TableRow>
-                    )}
-                </TableBody>
-                </Table>
-            </CardContent>
-        </Card>
-        <Card>
           <CardHeader>
             <CardTitle>Orders</CardTitle>
             <CardDescription>Manage all internal requisitions.</CardDescription>
@@ -950,7 +874,83 @@ export default function OrdersAndSuppliersPage() {
           </CardContent>
         </Card>
       </TabsContent>
-       <TabsContent value="purchase-orders">
+       <TabsContent value="purchase-orders" className="space-y-4">
+        <Card>
+            <CardHeader>
+                <div className="flex items-center justify-between">
+                    <div>
+                        <CardTitle>Purchase Queue</CardTitle>
+                        <CardDescription>Items from orders that require purchasing from a supplier.</CardDescription>
+                    </div>
+                    {selectedQueueItems.length > 0 && (
+                        <Button size="sm" className="gap-1" onClick={handleCreatePOFromQueue}>
+                            <PlusCircle className="h-4 w-4" />
+                            Create Purchase Order ({selectedQueueItems.length})
+                        </Button>
+                    )}
+                </div>
+            </CardHeader>
+            <CardContent>
+                <Table>
+                <TableHeader>
+                    <TableRow>
+                    <TableHead className="w-12">
+                        <Checkbox
+                            checked={isAllQueueSelected}
+                            onCheckedChange={(checked) => handleQueueSelectAll(!!checked)}
+                            aria-label="Select all"
+                        />
+                    </TableHead>
+                    <TableHead>Product</TableHead>
+                    <TableHead>SKU</TableHead>
+                    <TableHead className="text-center">Needed</TableHead>
+                    <TableHead>From Orders</TableHead>
+                    </TableRow>
+                </TableHeader>
+                <TableBody>
+                    {loading ? (
+                    Array.from({ length: 3 }).map((_, i) => (
+                        <TableRow key={i}>
+                        <TableCell><Skeleton className="h-4 w-4" /></TableCell>
+                        <TableCell><Skeleton className="h-4 w-48" /></TableCell>
+                        <TableCell><Skeleton className="h-4 w-24" /></TableCell>
+                        <TableCell><Skeleton className="h-4 w-16 mx-auto" /></TableCell>
+                        <TableCell><Skeleton className="h-4 w-32" /></TableCell>
+                        </TableRow>
+                    ))
+                    ) : purchaseQueue.length > 0 ? (
+                    purchaseQueue.map((item) => (
+                        <TableRow key={item.productId}>
+                        <TableCell>
+                            <Checkbox
+                                checked={purchaseQueueSelection[item.productId] || false}
+                                onCheckedChange={(checked) => handleQueueSelectionChange(item.productId, !!checked)}
+                                aria-label={`Select ${item.name}`}
+                            />
+                        </TableCell>
+                        <TableCell className="font-medium">{item.name}</TableCell>
+                        <TableCell>{item.sku}</TableCell>
+                        <TableCell className="text-center">{item.totalQuantity}</TableCell>
+                        <TableCell>
+                            <div className="flex gap-1 flex-wrap">
+                                {item.fromOrders.map(orderId => (
+                                    <Badge key={orderId} variant="secondary" className="font-mono">{orderId}</Badge>
+                                ))}
+                            </div>
+                        </TableCell>
+                        </TableRow>
+                    ))
+                    ) : (
+                    <TableRow>
+                            <TableCell colSpan={5} className="h-24 text-center">
+                                No items are currently awaiting purchase.
+                            </TableCell>
+                        </TableRow>
+                    )}
+                </TableBody>
+                </Table>
+            </CardContent>
+        </Card>
         <Card>
           <CardHeader>
             <CardTitle>Purchase Orders</CardTitle>
@@ -1294,4 +1294,3 @@ export default function OrdersAndSuppliersPage() {
     </>
   );
 }
-
