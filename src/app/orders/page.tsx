@@ -3,7 +3,7 @@
 "use client";
 
 import { useState, useEffect, useMemo, useCallback } from "react";
-import { useForm, useFieldArray } from "react-hook-form";
+import { useForm, useFieldArray, Controller } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
 import { PlusCircle, MoreHorizontal, X, Plus } from "lucide-react";
@@ -53,7 +53,7 @@ import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useToast } from "@/hooks/use-toast";
 import { updateOrderStatus, addOrder, addProduct, updateSupplier, deleteSupplier, addSupplier, deleteOrder, addPurchaseOrder, updatePurchaseOrderStatus } from "@/services/data-service";
-import type { Order, Supplier, PurchaseOrder } from "@/types";
+import type { Order, Supplier, PurchaseOrder, Product } from "@/types";
 import { formatCurrency } from "@/lib/currency";
 import { CURRENCY_CONFIG } from "@/config/currency";
 import { Separator } from "@/components/ui/separator";
@@ -61,6 +61,7 @@ import { cn } from "@/lib/utils";
 import { Switch } from "@/components/ui/switch";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useData } from "@/context/data-context";
+import { Checkbox } from "@/components/ui/checkbox";
 
 
 const statusVariant: { [key: string]: "default" | "secondary" | "destructive" | "outline" } = {
@@ -127,6 +128,14 @@ const supplierSchema = z.object({
 
 type SupplierFormValues = z.infer<typeof supplierSchema>;
 
+interface PurchaseQueueItem {
+  productId: string;
+  name: string;
+  sku: string;
+  totalQuantity: number;
+  fromOrders: string[];
+}
+
 
 const toTitleCase = (str: string) => {
   if (!str) return "";
@@ -152,6 +161,7 @@ export default function OrdersAndSuppliersPage() {
   const [isDeleteOrderOpen, setIsDeleteOrderOpen] = useState(false);
   const [selectedOrder, setSelectedOrder] = useState<Order | null>(null);
   const [isReordered, setIsReordered] = useState(false);
+  const [purchaseQueueSelection, setPurchaseQueueSelection] = useState<{[key: string]: boolean}>({});
 
 
   // Data states
@@ -211,6 +221,35 @@ export default function OrdersAndSuppliersPage() {
     control: poForm.control,
     name: "items",
   });
+
+  const purchaseQueue = useMemo((): PurchaseQueueItem[] => {
+    const queue: { [key: string]: PurchaseQueueItem } = {};
+
+    orders
+      .filter(order => order.status === 'Awaiting Purchase')
+      .forEach(order => {
+        order.items.forEach(item => {
+          const product = item.product;
+          if (!queue[product.id]) {
+            queue[product.id] = {
+              productId: product.id,
+              name: product.name,
+              sku: product.sku,
+              totalQuantity: 0,
+              fromOrders: [],
+            };
+          }
+          queue[product.id].totalQuantity += item.quantity;
+          queue[product.id].fromOrders.push(order.id.substring(0, 7));
+        });
+      });
+    
+    return Object.values(queue);
+  }, [orders]);
+
+  const selectedQueueItems = useMemo(() => {
+    return purchaseQueue.filter(item => purchaseQueueSelection[item.productId]);
+  }, [purchaseQueue, purchaseQueueSelection]);
   
   // Reset dialogs
   useEffect(() => {
@@ -228,6 +267,8 @@ export default function OrdersAndSuppliersPage() {
         supplierId: "",
         items: [{ productId: "", quantity: 1 }],
       });
+      // Clear selection after closing PO dialog
+      setPurchaseQueueSelection({});
     }
   }, [isAddPOOpen, poForm]);
 
@@ -348,11 +389,11 @@ export default function OrdersAndSuppliersPage() {
       setIsAddOrderOpen(false);
       await refetchData();
     } catch (error) {
-       console.error(error);
+      const errorMessage = error instanceof Error ? error.message : "Failed to create order.";
       toast({
         variant: "destructive",
         title: "Error",
-        description: "Failed to create order.",
+        description: errorMessage,
       });
     }
   };
@@ -475,6 +516,32 @@ export default function OrdersAndSuppliersPage() {
     }
   };
 
+  const handleCreatePOFromQueue = () => {
+    const itemsForPO = selectedQueueItems.map(item => ({
+      productId: item.productId,
+      quantity: item.totalQuantity,
+    }));
+    poForm.reset({
+      supplierId: "",
+      items: itemsForPO,
+    });
+    setIsAddPOOpen(true);
+  };
+
+  const handleQueueSelectionChange = (productId: string, checked: boolean) => {
+    setPurchaseQueueSelection(prev => ({...prev, [productId]: checked}));
+  }
+
+  const handleQueueSelectAll = (checked: boolean) => {
+    const newSelection: {[key: string]: boolean} = {};
+    if (checked) {
+      purchaseQueue.forEach(item => newSelection[item.productId] = true);
+    }
+    setPurchaseQueueSelection(newSelection);
+  }
+
+  const isAllQueueSelected = purchaseQueue.length > 0 && selectedQueueItems.length === purchaseQueue.length;
+
   const formatDate = (date: Date | Timestamp) => {
     const jsDate = date instanceof Timestamp ? date.toDate() : date;
     return format(jsDate, 'PPpp');
@@ -490,6 +557,12 @@ export default function OrdersAndSuppliersPage() {
       <div className="flex items-center justify-between">
         <TabsList>
             <TabsTrigger value="orders">Orders</TabsTrigger>
+            <TabsTrigger value="purchase-queue">
+              Purchase Queue
+              {purchaseQueue.length > 0 && (
+                <Badge variant="secondary" className="ml-2">{purchaseQueue.length}</Badge>
+              )}
+            </TabsTrigger>
             <TabsTrigger value="purchase-orders">Purchase Orders</TabsTrigger>
             <TabsTrigger value="suppliers">Suppliers</TabsTrigger>
         </TabsList>
@@ -592,14 +665,20 @@ export default function OrdersAndSuppliersPage() {
                     <form onSubmit={poForm.handleSubmit(onPOSubmit)} className="space-y-4">
                     <div className="space-y-2">
                         <Label>Supplier</Label>
-                        <Select onValueChange={(value) => poForm.setValue('supplierId', value)} defaultValue={poForm.getValues('supplierId')}>
-                            <SelectTrigger>
-                                <SelectValue placeholder="Select a supplier" />
-                            </SelectTrigger>
-                            <SelectContent>
-                                {suppliers.map(s => <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>)}
-                            </SelectContent>
-                        </Select>
+                        <Controller
+                            control={poForm.control}
+                            name="supplierId"
+                            render={({ field }) => (
+                                <Select onValueChange={field.onChange} defaultValue={field.value}>
+                                    <SelectTrigger>
+                                        <SelectValue placeholder="Select a supplier" />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                        {suppliers.map(s => <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>)}
+                                    </SelectContent>
+                                </Select>
+                            )}
+                        />
                         {poForm.formState.errors.supplierId && <p className="text-sm text-destructive">{poForm.formState.errors.supplierId.message}</p>}
                     </div>
 
@@ -610,26 +689,20 @@ export default function OrdersAndSuppliersPage() {
                         <div className="space-y-2">
                         {poFields.map((field, index) => (
                             <div key={field.id} className="flex items-center gap-2">
-                            <Select onValueChange={(value) => poForm.setValue(`items.${index}.productId`, value)}>
-                                <SelectTrigger>
-                                    <SelectValue placeholder="Select a product" />
-                                </SelectTrigger>
-                                <SelectContent>
-                                    {products.map(p => <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>)}
-                                    <Separator />
-                                    <div
-                                    className={cn(
-                                        "relative flex w-full cursor-pointer select-none items-center rounded-sm py-1.5 pl-8 pr-2 text-sm outline-none focus:bg-accent focus:text-accent-foreground data-[disabled]:pointer-events-none data-[disabled]:opacity-50"
+                             <Controller
+                                    control={poForm.control}
+                                    name={`items.${index}.productId`}
+                                    render={({ field: controllerField }) => (
+                                        <Select onValueChange={controllerField.onChange} defaultValue={controllerField.value} value={controllerField.value}>
+                                        <SelectTrigger>
+                                            <SelectValue placeholder="Select a product" />
+                                        </SelectTrigger>
+                                        <SelectContent>
+                                            {products.map(p => <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>)}
+                                        </SelectContent>
+                                        </Select>
                                     )}
-                                    onMouseDown={(e) => {
-                                        e.preventDefault();
-                                        setIsAddProductOpen(true);
-                                    }}
-                                    >
-                                        <Plus className="h-4 w-4 mr-2"/> Add New Product
-                                    </div>
-                                </SelectContent>
-                            </Select>
+                                />
                             <Input 
                                 type="number" 
                                 placeholder="Qty" 
@@ -718,6 +791,12 @@ export default function OrdersAndSuppliersPage() {
             </DialogContent>
             </Dialog>
         )}
+         {activeTab === 'purchase-queue' && selectedQueueItems.length > 0 && (
+             <Button size="sm" className="gap-1" onClick={handleCreatePOFromQueue}>
+                <PlusCircle className="h-4 w-4" />
+                Create Purchase Order ({selectedQueueItems.length})
+            </Button>
+         )}
         </div>
       </div>
       <TabsContent value="orders">
@@ -749,7 +828,7 @@ export default function OrdersAndSuppliersPage() {
                       <TableCell><Skeleton className="h-4 w-24" /></TableCell>
                       <TableCell><Skeleton className="h-6 w-20 rounded-full" /></TableCell>
                       <TableCell className="text-right"><Skeleton className="h-4 w-16 ml-auto" /></TableCell>
-                      <TableCell><Skeleton className="h-8 w-8" /></TableCell>
+                      <TableCell><Skeleton className="h-8 w-8 ml-auto" /></TableCell>
                     </TableRow>
                   ))
                 ) : (
@@ -762,7 +841,7 @@ export default function OrdersAndSuppliersPage() {
                         <Badge variant={statusVariant[order.status] || "default"}>{order.status}</Badge>
                       </TableCell>
                       <TableCell className="text-right">{formatCurrency(order.total)}</TableCell>
-                      <TableCell>
+                      <TableCell className="text-right">
                         <DropdownMenu>
                           <DropdownMenuTrigger asChild>
                             <Button aria-haspopup="true" size="icon" variant="ghost" onClick={(e) => e.stopPropagation()}>
@@ -775,14 +854,28 @@ export default function OrdersAndSuppliersPage() {
                             <DropdownMenuItem onClick={() => setSelectedOrder(order)}>
                                 View Details
                             </DropdownMenuItem>
-                            {order.status === 'Cancelled' ? (
+                            <DropdownMenuSeparator />
+                             {order.status === 'Cancelled' ? (
                                 <DropdownMenuItem 
                                   onClick={() => handleReorder(order)} 
-                                  disabled={orders.some(o => o.reorderedFrom === order.id)}
+                                  disabled={isReordered}
                                 >
-                                  {orders.some(o => o.reorderedFrom === order.id) ? 'Already Reordered' : 'Reorder'}
+                                  {isReordered ? 'Already Reordered' : 'Reorder'}
                                 </DropdownMenuItem>
-                            ) : null}
+                            ) : (
+                                <>
+                                    {order.status !== 'Awaiting Purchase' && order.status !== 'Ready for Issuance' && (
+                                        <DropdownMenuItem onClick={() => handleStatusChange(order.id, 'Fulfilled')}>
+                                            Mark as Fulfilled
+                                        </DropdownMenuItem>
+                                    )}
+                                    {order.status !== 'Fulfilled' && (
+                                        <DropdownMenuItem onClick={() => handleStatusChange(order.id, 'Shipped')} disabled>
+                                            Mark as Shipped
+                                        </DropdownMenuItem>
+                                    )}
+                                </>
+                            )}
                              <DropdownMenuSeparator />
                              <DropdownMenuItem onClick={() => handleDeleteOrderClick(order.id)} className="text-destructive">
                                 Delete
@@ -798,6 +891,74 @@ export default function OrdersAndSuppliersPage() {
           </CardContent>
         </Card>
       </TabsContent>
+       <TabsContent value="purchase-queue">
+        <Card>
+          <CardHeader>
+            <CardTitle>Purchase Queue</CardTitle>
+            <CardDescription>Items from orders that require purchasing from a supplier.</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <Table>
+              <TableHeader>
+                <TableRow>
+                   <TableHead className="w-12">
+                     <Checkbox
+                        checked={isAllQueueSelected}
+                        onCheckedChange={(checked) => handleQueueSelectAll(!!checked)}
+                        aria-label="Select all"
+                      />
+                   </TableHead>
+                  <TableHead>Product</TableHead>
+                  <TableHead>SKU</TableHead>
+                  <TableHead className="text-center">Needed</TableHead>
+                  <TableHead>From Orders</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {loading ? (
+                  Array.from({ length: 3 }).map((_, i) => (
+                    <TableRow key={i}>
+                      <TableCell><Skeleton className="h-4 w-4" /></TableCell>
+                      <TableCell><Skeleton className="h-4 w-48" /></TableCell>
+                      <TableCell><Skeleton className="h-4 w-24" /></TableCell>
+                      <TableCell><Skeleton className="h-4 w-16 mx-auto" /></TableCell>
+                      <TableCell><Skeleton className="h-4 w-32" /></TableCell>
+                    </TableRow>
+                  ))
+                ) : purchaseQueue.length > 0 ? (
+                  purchaseQueue.map((item) => (
+                    <TableRow key={item.productId}>
+                      <TableCell>
+                         <Checkbox
+                            checked={purchaseQueueSelection[item.productId] || false}
+                            onCheckedChange={(checked) => handleQueueSelectionChange(item.productId, !!checked)}
+                            aria-label={`Select ${item.name}`}
+                          />
+                      </TableCell>
+                      <TableCell className="font-medium">{item.name}</TableCell>
+                      <TableCell>{item.sku}</TableCell>
+                      <TableCell className="text-center">{item.totalQuantity}</TableCell>
+                      <TableCell>
+                          <div className="flex gap-1 flex-wrap">
+                            {item.fromOrders.map(orderId => (
+                                <Badge key={orderId} variant="secondary" className="font-mono">{orderId}</Badge>
+                            ))}
+                          </div>
+                      </TableCell>
+                    </TableRow>
+                  ))
+                ) : (
+                   <TableRow>
+                        <TableCell colSpan={5} className="h-24 text-center">
+                            No items are currently awaiting purchase.
+                        </TableCell>
+                    </TableRow>
+                )}
+              </TableBody>
+            </Table>
+          </CardContent>
+        </Card>
+       </TabsContent>
        <TabsContent value="purchase-orders">
         <Card>
           <CardHeader>
@@ -812,7 +973,7 @@ export default function OrdersAndSuppliersPage() {
                   <TableHead>Supplier</TableHead>
                   <TableHead>Order Date</TableHead>
                   <TableHead>Status</TableHead>
-                  <TableHead>
+                  <TableHead className="text-right">
                     <span className="sr-only">Actions</span>
                   </TableHead>
                 </TableRow>
@@ -825,7 +986,7 @@ export default function OrdersAndSuppliersPage() {
                       <TableCell><Skeleton className="h-4 w-32" /></TableCell>
                       <TableCell><Skeleton className="h-4 w-24" /></TableCell>
                       <TableCell><Skeleton className="h-6 w-20 rounded-full" /></TableCell>
-                      <TableCell><Skeleton className="h-8 w-8" /></TableCell>
+                      <TableCell><Skeleton className="h-8 w-8 ml-auto" /></TableCell>
                     </TableRow>
                   ))
                 ) : (
@@ -837,7 +998,7 @@ export default function OrdersAndSuppliersPage() {
                       <TableCell>
                         <Badge variant={statusVariant[po.status] || "default"}>{po.status}</Badge>
                       </TableCell>
-                      <TableCell>
+                      <TableCell className="text-right">
                          <DropdownMenu>
                           <DropdownMenuTrigger asChild>
                             <Button aria-haspopup="true" size="icon" variant="ghost">
@@ -884,7 +1045,7 @@ export default function OrdersAndSuppliersPage() {
                     <TableHead>Email</TableHead>
                     <TableHead>Phone</TableHead>
                     <TableHead>Date Added</TableHead>
-                    <TableHead>
+                    <TableHead className="text-right">
                         <span className="sr-only">Actions</span>
                     </TableHead>
                     </TableRow>
@@ -898,7 +1059,7 @@ export default function OrdersAndSuppliersPage() {
                         <TableCell><Skeleton className="h-4 w-48" /></TableCell>
                         <TableCell><Skeleton className="h-4 w-24" /></TableCell>
                         <TableCell><Skeleton className="h-4 w-24" /></TableCell>
-                        <TableCell><Skeleton className="h-8 w-8" /></TableCell>
+                        <TableCell><Skeleton className="h-8 w-8 ml-auto" /></TableCell>
                         </TableRow>
                     ))
                     ) : (
@@ -909,7 +1070,7 @@ export default function OrdersAndSuppliersPage() {
                         <TableCell>{supplier.email}</TableCell>
                         <TableCell>{supplier.phone}</TableCell>
                         <TableCell>{formatDate(supplier.createdAt)}</TableCell>
-                        <TableCell>
+                        <TableCell className="text-right">
                             <DropdownMenu>
                             <DropdownMenuTrigger asChild>
                                 <Button aria-haspopup="true" size="icon" variant="ghost" onClick={(e) => e.stopPropagation()}>
@@ -1030,7 +1191,7 @@ export default function OrdersAndSuppliersPage() {
           <DialogFooter className="!justify-between">
              <div>
                 {selectedOrder.status !== 'Cancelled' && (
-                    <Button variant="outline">Edit Order</Button>
+                    <Button variant="destructive" onClick={() => handleCancelOrder(selectedOrder.id)}>Cancel Order</Button>
                 )}
             </div>
             <div className="flex gap-2">
@@ -1039,7 +1200,7 @@ export default function OrdersAndSuppliersPage() {
                     {isReordered ? 'Already Reordered' : 'Reorder'}
                     </Button>
                 ) : (
-                    <Button variant="destructive" onClick={() => handleCancelOrder(selectedOrder.id)}>Cancel Order</Button>
+                    <Button variant="outline" disabled>Edit Order</Button>
                 )}
                 <Button variant="outline" onClick={() => setSelectedOrder(null)}>Close</Button>
             </div>
