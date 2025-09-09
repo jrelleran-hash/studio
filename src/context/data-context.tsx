@@ -1,12 +1,11 @@
 
-
 "use client";
 
 import { createContext, useContext, useEffect, useState, ReactNode, useCallback, useMemo } from "react";
 import { onAuthStateChanged } from "firebase/auth";
 import { auth } from "@/lib/firebase";
-import { getProducts, getClients, getOrders, getIssuances, getSuppliers, getPurchaseOrders } from "@/services/data-service";
-import type { Product, Client, Order, Issuance, Supplier, PurchaseOrder } from "@/types";
+import { getProducts, getClients, getOrders, getIssuances, getSuppliers, getPurchaseOrders, getShipments, getUnshippedIssuances } from "@/services/data-service";
+import type { Product, Client, Order, Issuance, Supplier, PurchaseOrder, Shipment } from "@/types";
 
 interface DataContextType {
   products: Product[];
@@ -15,6 +14,8 @@ interface DataContextType {
   issuances: Issuance[];
   suppliers: Supplier[];
   purchaseOrders: PurchaseOrder[];
+  shipments: Shipment[];
+  unshippedIssuances: Issuance[];
   loading: boolean;
   refetchData: () => Promise<void>;
 }
@@ -28,6 +29,8 @@ export function DataProvider({ children }: { children: ReactNode }) {
   const [issuances, setIssuances] = useState<Issuance[]>([]);
   const [suppliers, setSuppliers] = useState<Supplier[]>([]);
   const [purchaseOrders, setPurchaseOrders] = useState<PurchaseOrder[]>([]);
+  const [shipments, setShipments] = useState<Shipment[]>([]);
+  const [unshippedIssuances, setUnshippedIssuances] = useState<Issuance[]>([]);
   const [loading, setLoading] = useState(true);
   const [isAuthenticated, setIsAuthenticated] = useState(false);
 
@@ -48,6 +51,8 @@ export function DataProvider({ children }: { children: ReactNode }) {
       setIssuances([]);
       setSuppliers([]);
       setPurchaseOrders([]);
+      setShipments([]);
+      setUnshippedIssuances([]);
       setLoading(false);
       return;
     };
@@ -61,6 +66,8 @@ export function DataProvider({ children }: { children: ReactNode }) {
         fetchedIssuances,
         fetchedSuppliers,
         fetchedPurchaseOrders,
+        fetchedShipments,
+        fetchedUnshippedIssuances,
       ] = await Promise.all([
         getProducts(),
         getClients(),
@@ -68,6 +75,8 @@ export function DataProvider({ children }: { children: ReactNode }) {
         getIssuances(),
         getSuppliers(),
         getPurchaseOrders(),
+        getShipments(),
+        getUnshippedIssuances(),
       ]);
       setProducts(fetchedProducts);
       setClients(fetchedClients);
@@ -75,6 +84,8 @@ export function DataProvider({ children }: { children: ReactNode }) {
       setIssuances(fetchedIssuances);
       setSuppliers(fetchedSuppliers);
       setPurchaseOrders(fetchedPurchaseOrders);
+      setShipments(fetchedShipments);
+      setUnshippedIssuances(fetchedUnshippedIssuances);
     } catch (error) {
       console.error("Failed to fetch global data", error);
       // Optionally, set an error state here
@@ -94,9 +105,11 @@ export function DataProvider({ children }: { children: ReactNode }) {
     issuances,
     suppliers,
     purchaseOrders,
+    shipments,
+    unshippedIssuances,
     loading,
     refetchData: fetchData,
-  }), [products, clients, orders, issuances, suppliers, purchaseOrders, loading, fetchData]);
+  }), [products, clients, orders, issuances, suppliers, purchaseOrders, shipments, unshippedIssuances, loading, fetchData]);
 
   return <DataContext.Provider value={value}>{children}</DataContext.Provider>;
 }
@@ -108,3 +121,5 @@ export const useData = () => {
   }
   return context;
 };
+
+    

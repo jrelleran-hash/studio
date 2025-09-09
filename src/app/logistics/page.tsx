@@ -12,10 +12,10 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useToast } from "@/hooks/use-toast";
-import { getShipments, updateShipmentStatus, getUnshippedIssuances, addShipment } from "@/services/data-service";
+import { updateShipmentStatus, addShipment, updatePurchaseOrderStatus } from "@/services/data-service";
 import { useData } from "@/context/data-context";
-import type { Shipment, Issuance } from "@/types";
-import { MoreHorizontal, Package, Truck, CheckCircle, Hourglass, CalendarDays, List, PlusCircle } from "lucide-react";
+import type { Shipment, Issuance, PurchaseOrder } from "@/types";
+import { MoreHorizontal, Package, Truck, CheckCircle, Hourglass, CalendarDays, List, PlusCircle, ArrowDown, ArrowUp } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuTrigger, DropdownMenuSeparator } from "@/components/ui/dropdown-menu";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogFooter, DialogTrigger } from "@/components/ui/dialog";
@@ -27,14 +27,21 @@ import { Label } from "@/components/ui/label";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Calendar } from "@/components/ui/calendar";
 import { cn } from "@/lib/utils";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
 
-const statusVariant: { [key: string]: "default" | "secondary" | "destructive" | "outline" } = {
+const outboudStatusVariant: { [key: string]: "default" | "secondary" | "destructive" | "outline" } = {
   Delivered: "default",
   "In Transit": "secondary",
   Pending: "outline",
   Delayed: "destructive",
   Cancelled: "destructive",
+};
+
+const inboundStatusVariant: { [key: string]: "default" | "secondary" | "destructive" | "outline" } = {
+  Pending: "secondary",
+  Received: "default",
+  Shipped: "outline",
 };
 
 const createShipmentSchema = z.object({
@@ -53,14 +60,13 @@ type StatusFilter = "all" | Shipment['status'];
 type ViewMode = "list" | "calendar";
 
 export default function LogisticsPage() {
-    const { refetchData } = useData();
-    const [shipments, setShipments] = useState<Shipment[]>([]);
-    const [unshippedIssuances, setUnshippedIssuances] = useState<Issuance[]>([]);
-    const [loading, setLoading] = useState(true);
+    const { shipments, purchaseOrders, unshippedIssuances, loading, refetchData } = useData();
     const [selectedShipment, setSelectedShipment] = useState<Shipment | null>(null);
+    const [selectedPO, setSelectedPO] = useState<PurchaseOrder | null>(null);
     const [statusFilter, setStatusFilter] = useState<StatusFilter>("all");
     const [viewMode, setViewMode] = useState<ViewMode>("list");
     const [isCreateShipmentOpen, setIsCreateShipmentOpen] = useState(false);
+    const [activeTab, setActiveTab] = useState("outbound");
     const { toast } = useToast();
 
      const shipmentForm = useForm<ShipmentFormValues>({
@@ -73,30 +79,6 @@ export default function LogisticsPage() {
         },
     });
 
-    const fetchPageData = async () => {
-        setLoading(true);
-        try {
-            const [fetchedShipments, fetchedIssuances] = await Promise.all([
-                getShipments(),
-                getUnshippedIssuances(),
-            ]);
-            setShipments(fetchedShipments);
-            setUnshippedIssuances(fetchedIssuances);
-        } catch (error) {
-            toast({
-                variant: "destructive",
-                title: "Error",
-                description: "Failed to fetch logistics data."
-            });
-        } finally {
-            setLoading(false);
-        }
-    };
-
-    useEffect(() => {
-        fetchPageData();
-    }, [toast]);
-    
     useEffect(() => {
         if (!isCreateShipmentOpen) {
             shipmentForm.reset();
@@ -107,8 +89,7 @@ export default function LogisticsPage() {
         try {
             await updateShipmentStatus(shipmentId, status);
             toast({ title: "Success", description: `Shipment marked as ${status}.` });
-            await fetchPageData(); // Refetch to update list and KPIs
-            await refetchData(); // Refetch global data context if needed
+            await refetchData();
         } catch (error) {
             toast({
                 variant: "destructive",
@@ -118,12 +99,26 @@ export default function LogisticsPage() {
         }
     };
     
+    const handlePOStatusChange = async (poId: string, status: PurchaseOrder['status']) => {
+        try {
+          await updatePurchaseOrderStatus(poId, status);
+          toast({ title: "Success", description: `Purchase Order marked as ${status}.` });
+          await refetchData();
+        } catch (error) {
+          console.error(error);
+          toast({
+            variant: "destructive",
+            title: "Error",
+            description: "Failed to update purchase order status.",
+          });
+        }
+    };
+
     const onShipmentSubmit = async (data: ShipmentFormValues) => {
         try {
           await addShipment(data);
           toast({ title: "Success", description: "New shipment created successfully." });
           setIsCreateShipmentOpen(false);
-          await fetchPageData();
           await refetchData();
         } catch (error) {
             console.error(error);
@@ -141,10 +136,12 @@ export default function LogisticsPage() {
     );
     
     const kpiData = {
-        total: shipments.length,
-        pending: shipments.filter(s => s.status === 'Pending').length,
+        totalOutbound: shipments.length,
+        pendingOutbound: shipments.filter(s => s.status === 'Pending').length,
         inTransit: shipments.filter(s => s.status === 'In Transit').length,
         delivered: shipments.filter(s => s.status === 'Delivered').length,
+        totalInbound: purchaseOrders.length,
+        pendingInbound: purchaseOrders.filter(po => po.status === 'Pending').length,
     }
 
     const formatDate = (date?: Date) => {
@@ -159,46 +156,61 @@ export default function LogisticsPage() {
                     Logistics & Shipments
                 </h1>
                 <p className="text-muted-foreground">
-                    Track and manage all outgoing shipments.
+                    Track and manage all inbound and outbound shipments.
                 </p>
             </div>
             
              <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-4">
                 <KpiCard
-                title="Total Shipments"
-                value={kpiData.total.toString()}
-                icon={<Package className="size-5 text-muted-foreground" />}
-                loading={loading}
+                    title="Outbound Shipments"
+                    value={kpiData.totalOutbound.toString()}
+                    icon={<ArrowUp className="size-5 text-muted-foreground" />}
+                    loading={loading}
+                />
+                 <KpiCard
+                    title="Inbound Shipments (POs)"
+                    value={kpiData.totalInbound.toString()}
+                    icon={<ArrowDown className="size-5 text-muted-foreground" />}
+                    loading={loading}
                 />
                 <KpiCard
-                title="Pending"
-                value={kpiData.pending.toString()}
-                icon={<Hourglass className="size-5 text-muted-foreground" />}
-                loading={loading}
+                    title="In Transit"
+                    value={kpiData.inTransit.toString()}
+                    icon={<Truck className="size-5 text-muted-foreground" />}
+                    loading={loading}
                 />
                 <KpiCard
-                title="In Transit"
-                value={kpiData.inTransit.toString()}
-                icon={<Truck className="size-5 text-muted-foreground" />}
-                loading={loading}
-                />
-                <KpiCard
-                title="Delivered"
-                value={kpiData.delivered.toString()}
-                icon={<CheckCircle className="size-5 text-muted-foreground" />}
-                loading={loading}
+                    title="Delivered"
+                    value={kpiData.delivered.toString()}
+                    icon={<CheckCircle className="size-5 text-muted-foreground" />}
+                    loading={loading}
                 />
             </div>
+            
+             <div className="flex items-center justify-between">
+                <Tabs defaultValue={activeTab} onValueChange={setActiveTab}>
+                  <TabsList>
+                      <TabsTrigger value="outbound">Outbound</TabsTrigger>
+                      <TabsTrigger value="inbound">Inbound</TabsTrigger>
+                  </TabsList>
+                </Tabs>
+                <div className="flex items-center gap-2">
+                    <Button variant={viewMode === 'list' ? 'secondary' : 'outline'} size="sm" onClick={() => setViewMode('list')}><List className="mr-2 h-4 w-4" />List</Button>
+                    <Button variant={viewMode === 'calendar' ? 'secondary' : 'outline'} size="sm" onClick={() => setViewMode('calendar')}><CalendarDays className="mr-2 h-4 w-4" />Calendar</Button>
+                </div>
+            </div>
 
-            <Card>
-                <CardHeader>
-                    <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-                         <div>
-                            <CardTitle>Shipment History</CardTitle>
-                            <CardDescription>A log of all shipments.</CardDescription>
-                         </div>
-                         <div className="flex items-center gap-2">
-                            <Dialog open={isCreateShipmentOpen} onOpenChange={setIsCreateShipmentOpen}>
+            {viewMode === 'list' ? (
+             <Tabs defaultValue={activeTab} value={activeTab} onValueChange={setActiveTab}>
+                <TabsContent value="outbound">
+                    <Card>
+                        <CardHeader>
+                            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+                                <div>
+                                    <CardTitle>Outbound Shipments</CardTitle>
+                                    <CardDescription>A log of all shipments to clients.</CardDescription>
+                                </div>
+                                <Dialog open={isCreateShipmentOpen} onOpenChange={setIsCreateShipmentOpen}>
                                 <DialogTrigger asChild>
                                     <Button size="sm" variant="outline" className="gap-1">
                                         <PlusCircle className="h-4 w-4" />
@@ -284,98 +296,167 @@ export default function LogisticsPage() {
                                     </form>
                                 </DialogContent>
                             </Dialog>
-                            <Button variant={viewMode === 'list' ? 'default' : 'outline'} size="sm" onClick={() => setViewMode('list')}><List className="mr-2 h-4 w-4" />List</Button>
-                            <Button variant={viewMode === 'calendar' ? 'default' : 'outline'} size="sm" onClick={() => setViewMode('calendar')}><CalendarDays className="mr-2 h-4 w-4" />Calendar</Button>
-                         </div>
-                    </div>
-                </CardHeader>
-                <CardContent>
-                    {viewMode === 'list' ? (
-                    <>
-                        <div className="flex items-center gap-2 mb-4">
-                            {(["all", "Pending", "In Transit", "Delivered", "Delayed", "Cancelled"] as StatusFilter[]).map((filter) => (
-                                <Button
-                                key={filter}
-                                variant={statusFilter === filter ? "secondary" : "outline"}
-                                size="sm"
-                                onClick={() => setStatusFilter(filter)}
-                                className="capitalize"
-                                >
-                                {filter}
-                                </Button>
-                            ))}
-                        </div>
-                        <Table>
-                            <TableHeader>
-                                <TableRow>
-                                    <TableHead>Shipment #</TableHead>
-                                    <TableHead>Client</TableHead>
-                                    <TableHead>Issuance #</TableHead>
-                                    <TableHead>Date Created</TableHead>
-                                    <TableHead>Status</TableHead>
-                                    <TableHead>Carrier</TableHead>
-                                    <TableHead>Est. Delivery</TableHead>
-                                    <TableHead className="text-right">Actions</TableHead>
-                                </TableRow>
-                            </TableHeader>
-                            <TableBody>
-                                {loading ? (
-                                    Array.from({ length: 8 }).map((_, i) => (
-                                        <TableRow key={i}>
+                            </div>
+                        </CardHeader>
+                         <CardContent>
+                                <div className="flex items-center gap-2 mb-4">
+                                    {(["all", "Pending", "In Transit", "Delivered", "Delayed", "Cancelled"] as StatusFilter[]).map((filter) => (
+                                        <Button
+                                        key={filter}
+                                        variant={statusFilter === filter ? "secondary" : "outline"}
+                                        size="sm"
+                                        onClick={() => setStatusFilter(filter)}
+                                        className="capitalize"
+                                        >
+                                        {filter}
+                                        </Button>
+                                    ))}
+                                </div>
+                                <Table>
+                                    <TableHeader>
+                                        <TableRow>
+                                            <TableHead>Shipment #</TableHead>
+                                            <TableHead>Client</TableHead>
+                                            <TableHead>Issuance #</TableHead>
+                                            <TableHead>Date Created</TableHead>
+                                            <TableHead>Status</TableHead>
+                                            <TableHead>Carrier</TableHead>
+                                            <TableHead>Est. Delivery</TableHead>
+                                            <TableHead className="text-right">Actions</TableHead>
+                                        </TableRow>
+                                    </TableHeader>
+                                    <TableBody>
+                                        {loading ? (
+                                            Array.from({ length: 8 }).map((_, i) => (
+                                                <TableRow key={i}>
+                                                    <TableCell><Skeleton className="h-4 w-24" /></TableCell>
+                                                    <TableCell><Skeleton className="h-4 w-32" /></TableCell>
+                                                    <TableCell><Skeleton className="h-4 w-24" /></TableCell>
+                                                    <TableCell><Skeleton className="h-4 w-24" /></TableCell>
+                                                    <TableCell><Skeleton className="h-6 w-20 rounded-full" /></TableCell>
+                                                    <TableCell><Skeleton className="h-4 w-24" /></TableCell>
+                                                    <TableCell><Skeleton className="h-4 w-24" /></TableCell>
+                                                    <TableCell><Skeleton className="h-8 w-8 ml-auto" /></TableCell>
+                                                </TableRow>
+                                            ))
+                                        ) : filteredShipments.length > 0 ? (
+                                            filteredShipments.map((shipment) => (
+                                                <TableRow key={shipment.id} onClick={() => setSelectedShipment(shipment)} className="cursor-pointer">
+                                                    <TableCell className="font-medium">{shipment.shipmentNumber}</TableCell>
+                                                    <TableCell>{shipment.issuance.client.clientName}</TableCell>
+                                                    <TableCell>{shipment.issuance.issuanceNumber}</TableCell>
+                                                    <TableCell>{formatDate(shipment.createdAt)}</TableCell>
+                                                    <TableCell><Badge variant={outboudStatusVariant[shipment.status]}>{shipment.status}</Badge></TableCell>
+                                                    <TableCell>{shipment.shippingProvider}</TableCell>
+                                                    <TableCell>{formatDate(shipment.estimatedDeliveryDate)}</TableCell>
+                                                    <TableCell className="text-right">
+                                                        <DropdownMenu>
+                                                            <DropdownMenuTrigger asChild>
+                                                                <Button aria-haspopup="true" size="icon" variant="ghost" onClick={(e) => e.stopPropagation()}>
+                                                                    <MoreHorizontal className="h-4 w-4" />
+                                                                    <span className="sr-only">Toggle menu</span>
+                                                                </Button>
+                                                            </DropdownMenuTrigger>
+                                                            <DropdownMenuContent align="end" onClick={(e) => e.stopPropagation()}>
+                                                                <DropdownMenuLabel>Actions</DropdownMenuLabel>
+                                                                <DropdownMenuItem onClick={() => setSelectedShipment(shipment)}>View Details</DropdownMenuItem>
+                                                                <DropdownMenuSeparator />
+                                                                <DropdownMenuItem onClick={() => handleStatusChange(shipment.id, 'In Transit')}>Mark In Transit</DropdownMenuItem>
+                                                                <DropdownMenuItem onClick={() => handleStatusChange(shipment.id, 'Delivered')}>Mark Delivered</DropdownMenuItem>
+                                                                <DropdownMenuItem onClick={() => handleStatusChange(shipment.id, 'Delayed')}>Mark Delayed</DropdownMenuItem>
+                                                                <DropdownMenuItem onClick={() => handleStatusChange(shipment.id, 'Cancelled')} className="text-destructive">Cancel Shipment</DropdownMenuItem>
+                                                            </DropdownMenuContent>
+                                                        </DropdownMenu>
+                                                    </TableCell>
+                                                </TableRow>
+                                            ))
+                                        ) : (
+                                            <TableRow>
+                                                <TableCell colSpan={8} className="h-24 text-center">No shipments found for this filter.</TableCell>
+                                            </TableRow>
+                                        )}
+                                    </TableBody>
+                                </Table>
+                        </CardContent>
+                    </Card>
+                </TabsContent>
+                <TabsContent value="inbound">
+                    <Card>
+                         <CardHeader>
+                            <CardTitle>Inbound Shipments</CardTitle>
+                            <CardDescription>A log of all purchase orders from suppliers.</CardDescription>
+                         </CardHeader>
+                          <CardContent>
+                            <Table>
+                                <TableHeader>
+                                    <TableRow>
+                                        <TableHead>PO Number</TableHead>
+                                        <TableHead>Supplier</TableHead>
+                                        <TableHead>Order Date</TableHead>
+                                        <TableHead>Expected Date</TableHead>
+                                        <TableHead>Status</TableHead>
+                                        <TableHead className="text-right">Actions</TableHead>
+                                    </TableRow>
+                                </TableHeader>
+                                 <TableBody>
+                                    {loading ? (
+                                        Array.from({ length: 8 }).map((_, i) => (
+                                            <TableRow key={i}>
                                             <TableCell><Skeleton className="h-4 w-24" /></TableCell>
                                             <TableCell><Skeleton className="h-4 w-32" /></TableCell>
                                             <TableCell><Skeleton className="h-4 w-24" /></TableCell>
                                             <TableCell><Skeleton className="h-4 w-24" /></TableCell>
                                             <TableCell><Skeleton className="h-6 w-20 rounded-full" /></TableCell>
-                                            <TableCell><Skeleton className="h-4 w-24" /></TableCell>
-                                            <TableCell><Skeleton className="h-4 w-24" /></TableCell>
                                             <TableCell><Skeleton className="h-8 w-8 ml-auto" /></TableCell>
-                                        </TableRow>
-                                    ))
-                                ) : filteredShipments.length > 0 ? (
-                                    filteredShipments.map((shipment) => (
-                                        <TableRow key={shipment.id} onClick={() => setSelectedShipment(shipment)} className="cursor-pointer">
-                                            <TableCell className="font-medium">{shipment.shipmentNumber}</TableCell>
-                                            <TableCell>{shipment.issuance.client.clientName}</TableCell>
-                                            <TableCell>{shipment.issuance.issuanceNumber}</TableCell>
-                                            <TableCell>{formatDate(shipment.createdAt)}</TableCell>
-                                            <TableCell><Badge variant={statusVariant[shipment.status]}>{shipment.status}</Badge></TableCell>
-                                            <TableCell>{shipment.shippingProvider}</TableCell>
-                                            <TableCell>{formatDate(shipment.estimatedDeliveryDate)}</TableCell>
-                                            <TableCell className="text-right">
-                                                <DropdownMenu>
-                                                    <DropdownMenuTrigger asChild>
-                                                        <Button aria-haspopup="true" size="icon" variant="ghost" onClick={(e) => e.stopPropagation()}>
+                                            </TableRow>
+                                        ))
+                                    ) : purchaseOrders.length > 0 ? (
+                                        purchaseOrders.map((po) => (
+                                            <TableRow key={po.id} onClick={() => setSelectedPO(po)} className="cursor-pointer">
+                                                <TableCell className="font-medium">{po.poNumber}</TableCell>
+                                                <TableCell>{po.supplier.name}</TableCell>
+                                                <TableCell>{formatDate(po.orderDate)}</TableCell>
+                                                <TableCell>{formatDate(po.expectedDate)}</TableCell>
+                                                <TableCell><Badge variant={inboundStatusVariant[po.status]}>{po.status}</Badge></TableCell>
+                                                <TableCell className="text-right">
+                                                    <DropdownMenu>
+                                                        <DropdownMenuTrigger asChild>
+                                                            <Button aria-haspopup="true" size="icon" variant="ghost" onClick={(e) => e.stopPropagation()}>
                                                             <MoreHorizontal className="h-4 w-4" />
                                                             <span className="sr-only">Toggle menu</span>
-                                                        </Button>
-                                                    </DropdownMenuTrigger>
-                                                    <DropdownMenuContent align="end" onClick={(e) => e.stopPropagation()}>
-                                                        <DropdownMenuLabel>Actions</DropdownMenuLabel>
-                                                        <DropdownMenuItem onClick={() => setSelectedShipment(shipment)}>View Details</DropdownMenuItem>
-                                                        <DropdownMenuSeparator />
-                                                        <DropdownMenuItem onClick={() => handleStatusChange(shipment.id, 'In Transit')}>Mark In Transit</DropdownMenuItem>
-                                                        <DropdownMenuItem onClick={() => handleStatusChange(shipment.id, 'Delivered')}>Mark Delivered</DropdownMenuItem>
-                                                        <DropdownMenuItem onClick={() => handleStatusChange(shipment.id, 'Delayed')}>Mark Delayed</DropdownMenuItem>
-                                                        <DropdownMenuItem onClick={() => handleStatusChange(shipment.id, 'Cancelled')} className="text-destructive">Cancel Shipment</DropdownMenuItem>
-                                                    </DropdownMenuContent>
-                                                </DropdownMenu>
-                                            </TableCell>
+                                                            </Button>
+                                                        </DropdownMenuTrigger>
+                                                        <DropdownMenuContent align="end" onClick={(e) => e.stopPropagation()}>
+                                                            <DropdownMenuLabel>Actions</DropdownMenuLabel>
+                                                            <DropdownMenuItem onClick={() => setSelectedPO(po)}>View Details</DropdownMenuItem>
+                                                            <DropdownMenuSeparator />
+                                                            {po.status !== 'Received' && (
+                                                                <>
+                                                                <DropdownMenuItem onClick={() => handlePOStatusChange(po.id, 'Shipped')}>Mark as Shipped</DropdownMenuItem>
+                                                                <DropdownMenuItem onClick={() => handlePOStatusChange(po.id, 'Received')}>Mark as Received</DropdownMenuItem>
+                                                                </>
+                                                            )}
+                                                            {po.status === 'Received' && <DropdownMenuItem disabled>Order Received</DropdownMenuItem>}
+                                                        </DropdownMenuContent>
+                                                    </DropdownMenu>
+                                                </TableCell>
+                                            </TableRow>
+                                        ))
+                                    ) : (
+                                        <TableRow>
+                                            <TableCell colSpan={6} className="h-24 text-center">No purchase orders found.</TableCell>
                                         </TableRow>
-                                    ))
-                                ) : (
-                                    <TableRow>
-                                        <TableCell colSpan={8} className="h-24 text-center">No shipments found for this filter.</TableCell>
-                                    </TableRow>
-                                )}
-                            </TableBody>
-                        </Table>
-                    </>
-                    ) : (
-                        <ShipmentCalendar shipments={shipments} onShipmentSelect={setSelectedShipment} />
-                    )}
-                </CardContent>
-            </Card>
+                                    )}
+                                </TableBody>
+                            </Table>
+                         </CardContent>
+                    </Card>
+                </TabsContent>
+            </Tabs>
+            ) : (
+                <ShipmentCalendar shipments={shipments} purchaseOrders={purchaseOrders} onShipmentSelect={setSelectedShipment} onPurchaseOrderSelect={setSelectedPO} />
+            )}
+           
             {selectedShipment && (
                 <Dialog open={!!selectedShipment} onOpenChange={(open) => !open && setSelectedShipment(null)}>
                     <DialogContent>
@@ -389,7 +470,7 @@ export default function LogisticsPage() {
                             <div className="grid grid-cols-2 gap-4">
                                 <div><p><strong>Client:</strong></p><p className="text-sm text-muted-foreground">{selectedShipment.issuance.client.clientName}</p></div>
                                 <div><p><strong>Address:</strong></p><p className="text-sm text-muted-foreground">{selectedShipment.issuance.client.address}</p></div>
-                                <div><p><strong>Status:</strong></p><p><Badge variant={statusVariant[selectedShipment.status]}>{selectedShipment.status}</Badge></p></div>
+                                <div><p><strong>Status:</strong></p><p><Badge variant={outboudStatusVariant[selectedShipment.status]}>{selectedShipment.status}</Badge></p></div>
                                 <div><p><strong>Carrier:</strong></p><p className="text-sm text-muted-foreground">{selectedShipment.shippingProvider}</p></div>
                                 <div><p><strong>Est. Delivery:</strong></p><p className="text-sm text-muted-foreground">{formatDate(selectedShipment.estimatedDeliveryDate)}</p></div>
                                 <div><p><strong>Delivered On:</strong></p><p className="text-sm text-muted-foreground">{formatDate(selectedShipment.actualDeliveryDate)}</p></div>
@@ -409,6 +490,39 @@ export default function LogisticsPage() {
                     </DialogContent>
                 </Dialog>
             )}
+             {selectedPO && (
+                <Dialog open={!!selectedPO} onOpenChange={(open) => !open && setSelectedPO(null)}>
+                    <DialogContent>
+                        <DialogHeader>
+                            <DialogTitle>Purchase Order: {selectedPO.poNumber}</DialogTitle>
+                            <DialogDescription>
+                                Supplier: {selectedPO.supplier.name}
+                            </DialogDescription>
+                        </DialogHeader>
+                        <div className="py-4 space-y-4">
+                            <p><strong>Order Date:</strong> {format(selectedPO.orderDate, 'PPP')}</p>
+                            <p><strong>Expected Date:</strong> {selectedPO.expectedDate ? format(selectedPO.expectedDate, 'PPP') : 'N/A'}</p>
+                            <p><strong>Status:</strong> <Badge variant={inboundStatusVariant[selectedPO.status]}>{selectedPO.status}</Badge></p>
+                            {selectedPO.receivedDate && <p><strong>Date Received:</strong> {format(selectedPO.receivedDate, 'PPP')}</p>}
+                            <div>
+                                <h4 className="font-semibold mt-2">Items:</h4>
+                                <ul className="list-disc list-inside text-muted-foreground space-y-1 mt-1">
+                                    {selectedPO.items.map(item => (
+                                        <li key={item.product.id}>
+                                            {item.quantity} x {item.product.name} ({item.product.sku})
+                                        </li>
+                                    ))}
+                                </ul>
+                            </div>
+                        </div>
+                        <DialogFooter>
+                            <Button variant="outline" onClick={() => setSelectedPO(null)}>Close</Button>
+                        </DialogFooter>
+                    </DialogContent>
+                </Dialog>
+            )}
         </div>
     );
 }
+
+    
