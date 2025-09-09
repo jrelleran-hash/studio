@@ -71,9 +71,8 @@ const statusVariant: { [key: string]: "default" | "secondary" | "destructive" | 
   "Awaiting Purchase": "secondary",
   Shipped: "outline",
   Cancelled: "destructive",
-  Pending: "secondary",
-  Received: "default",
   Processing: "secondary",
+  Received: "default",
 };
 
 // Order Schemas
@@ -809,6 +808,18 @@ export default function OrdersAndSuppliersPage() {
                                         </SelectTrigger>
                                         <SelectContent>
                                             {products.map(p => <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>)}
+                                            <Separator />
+                                            <div
+                                            className={cn(
+                                                "relative flex w-full cursor-pointer select-none items-center rounded-sm py-1.5 pl-8 pr-2 text-sm outline-none focus:bg-accent focus:text-accent-foreground data-[disabled]:pointer-events-none data-[disabled]:opacity-50"
+                                            )}
+                                            onMouseDown={(e) => {
+                                                e.preventDefault();
+                                                setIsAddProductOpen(true);
+                                            }}
+                                            >
+                                                <Plus className="h-4 w-4 mr-2"/> Add New Product
+                                            </div>
                                         </SelectContent>
                                         </Select>
                                     )}

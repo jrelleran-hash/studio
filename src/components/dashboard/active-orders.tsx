@@ -195,7 +195,7 @@ export function ActiveOrders() {
       if (autoGenerateSku) {
         const namePart = data.name.substring(0, 3).toUpperCase();
         const randomPart = Math.floor(1000 + Math.random() * 9000);
-        productData.sku = `\'\'\'${namePart}-${randomPart}\'\'\'`;
+        productData.sku = `${namePart}-${randomPart}`;
       }
       await addProduct(productData as Product);
       toast({ title: "Success", description: "Product added successfully." });
