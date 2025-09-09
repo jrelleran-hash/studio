@@ -12,11 +12,12 @@ import { useToast } from "@/hooks/use-toast";
 import { getShipments, updateShipmentStatus } from "@/services/data-service";
 import { useData } from "@/context/data-context";
 import type { Shipment } from "@/types";
-import { MoreHorizontal, Package, Truck, CheckCircle, Hourglass } from "lucide-react";
+import { MoreHorizontal, Package, Truck, CheckCircle, Hourglass, CalendarDays, List } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuTrigger, DropdownMenuSeparator } from "@/components/ui/dropdown-menu";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { KpiCard } from "@/components/analytics/kpi-card";
+import { ShipmentCalendar } from "@/components/logistics/shipment-calendar";
 
 
 const statusVariant: { [key: string]: "default" | "secondary" | "destructive" | "outline" } = {
@@ -28,6 +29,7 @@ const statusVariant: { [key: string]: "default" | "secondary" | "destructive" | 
 };
 
 type StatusFilter = "all" | Shipment['status'];
+type ViewMode = "list" | "calendar";
 
 export default function LogisticsPage() {
     const { refetchData } = useData();
@@ -35,6 +37,7 @@ export default function LogisticsPage() {
     const [loading, setLoading] = useState(true);
     const [selectedShipment, setSelectedShipment] = useState<Shipment | null>(null);
     const [statusFilter, setStatusFilter] = useState<StatusFilter>("all");
+    const [viewMode, setViewMode] = useState<ViewMode>("list");
     const { toast } = useToast();
 
     const fetchShipments = async () => {
@@ -134,10 +137,19 @@ export default function LogisticsPage() {
                             <CardDescription>A log of all shipments.</CardDescription>
                          </div>
                          <div className="flex items-center gap-2">
+                             <Button variant={viewMode === 'list' ? 'default' : 'outline'} size="sm" onClick={() => setViewMode('list')}><List className="mr-2 h-4 w-4" />List</Button>
+                            <Button variant={viewMode === 'calendar' ? 'default' : 'outline'} size="sm" onClick={() => setViewMode('calendar')}><CalendarDays className="mr-2 h-4 w-4" />Calendar</Button>
+                         </div>
+                    </div>
+                </CardHeader>
+                <CardContent>
+                    {viewMode === 'list' ? (
+                    <>
+                        <div className="flex items-center gap-2 mb-4">
                             {(["all", "Pending", "In Transit", "Delivered", "Delayed", "Cancelled"] as StatusFilter[]).map((filter) => (
                                 <Button
                                 key={filter}
-                                variant={statusFilter === filter ? "default" : "outline"}
+                                variant={statusFilter === filter ? "secondary" : "outline"}
                                 size="sm"
                                 onClick={() => setStatusFilter(filter)}
                                 className="capitalize"
@@ -146,74 +158,75 @@ export default function LogisticsPage() {
                                 </Button>
                             ))}
                         </div>
-                    </div>
-                </CardHeader>
-                <CardContent>
-                    <Table>
-                        <TableHeader>
-                            <TableRow>
-                                <TableHead>Shipment #</TableHead>
-                                <TableHead>Client</TableHead>
-                                <TableHead>Issuance #</TableHead>
-                                <TableHead>Date Created</TableHead>
-                                <TableHead>Status</TableHead>
-                                <TableHead>Carrier</TableHead>
-                                <TableHead>Est. Delivery</TableHead>
-                                <TableHead className="text-right">Actions</TableHead>
-                            </TableRow>
-                        </TableHeader>
-                        <TableBody>
-                            {loading ? (
-                                Array.from({ length: 8 }).map((_, i) => (
-                                    <TableRow key={i}>
-                                        <TableCell><Skeleton className="h-4 w-24" /></TableCell>
-                                        <TableCell><Skeleton className="h-4 w-32" /></TableCell>
-                                        <TableCell><Skeleton className="h-4 w-24" /></TableCell>
-                                        <TableCell><Skeleton className="h-4 w-24" /></TableCell>
-                                        <TableCell><Skeleton className="h-6 w-20 rounded-full" /></TableCell>
-                                        <TableCell><Skeleton className="h-4 w-24" /></TableCell>
-                                        <TableCell><Skeleton className="h-4 w-24" /></TableCell>
-                                        <TableCell><Skeleton className="h-8 w-8 ml-auto" /></TableCell>
-                                    </TableRow>
-                                ))
-                            ) : filteredShipments.length > 0 ? (
-                                filteredShipments.map((shipment) => (
-                                    <TableRow key={shipment.id} onClick={() => setSelectedShipment(shipment)} className="cursor-pointer">
-                                        <TableCell className="font-medium">{shipment.shipmentNumber}</TableCell>
-                                        <TableCell>{shipment.issuance.client.clientName}</TableCell>
-                                        <TableCell>{shipment.issuance.issuanceNumber}</TableCell>
-                                        <TableCell>{formatDate(shipment.createdAt)}</TableCell>
-                                        <TableCell><Badge variant={statusVariant[shipment.status]}>{shipment.status}</Badge></TableCell>
-                                        <TableCell>{shipment.shippingProvider}</TableCell>
-                                        <TableCell>{formatDate(shipment.estimatedDeliveryDate)}</TableCell>
-                                        <TableCell className="text-right">
-                                            <DropdownMenu>
-                                                <DropdownMenuTrigger asChild>
-                                                    <Button aria-haspopup="true" size="icon" variant="ghost" onClick={(e) => e.stopPropagation()}>
-                                                        <MoreHorizontal className="h-4 w-4" />
-                                                        <span className="sr-only">Toggle menu</span>
-                                                    </Button>
-                                                </DropdownMenuTrigger>
-                                                <DropdownMenuContent align="end" onClick={(e) => e.stopPropagation()}>
-                                                    <DropdownMenuLabel>Actions</DropdownMenuLabel>
-                                                    <DropdownMenuItem onClick={() => setSelectedShipment(shipment)}>View Details</DropdownMenuItem>
-                                                    <DropdownMenuSeparator />
-                                                    <DropdownMenuItem onClick={() => handleStatusChange(shipment.id, 'In Transit')}>Mark In Transit</DropdownMenuItem>
-                                                    <DropdownMenuItem onClick={() => handleStatusChange(shipment.id, 'Delivered')}>Mark Delivered</DropdownMenuItem>
-                                                    <DropdownMenuItem onClick={() => handleStatusChange(shipment.id, 'Delayed')}>Mark Delayed</DropdownMenuItem>
-                                                    <DropdownMenuItem onClick={() => handleStatusChange(shipment.id, 'Cancelled')} className="text-destructive">Cancel Shipment</DropdownMenuItem>
-                                                </DropdownMenuContent>
-                                            </DropdownMenu>
-                                        </TableCell>
-                                    </TableRow>
-                                ))
-                            ) : (
+                        <Table>
+                            <TableHeader>
                                 <TableRow>
-                                    <TableCell colSpan={8} className="h-24 text-center">No shipments found for this filter.</TableCell>
+                                    <TableHead>Shipment #</TableHead>
+                                    <TableHead>Client</TableHead>
+                                    <TableHead>Issuance #</TableHead>
+                                    <TableHead>Date Created</TableHead>
+                                    <TableHead>Status</TableHead>
+                                    <TableHead>Carrier</TableHead>
+                                    <TableHead>Est. Delivery</TableHead>
+                                    <TableHead className="text-right">Actions</TableHead>
                                 </TableRow>
-                            )}
-                        </TableBody>
-                    </Table>
+                            </TableHeader>
+                            <TableBody>
+                                {loading ? (
+                                    Array.from({ length: 8 }).map((_, i) => (
+                                        <TableRow key={i}>
+                                            <TableCell><Skeleton className="h-4 w-24" /></TableCell>
+                                            <TableCell><Skeleton className="h-4 w-32" /></TableCell>
+                                            <TableCell><Skeleton className="h-4 w-24" /></TableCell>
+                                            <TableCell><Skeleton className="h-4 w-24" /></TableCell>
+                                            <TableCell><Skeleton className="h-6 w-20 rounded-full" /></TableCell>
+                                            <TableCell><Skeleton className="h-4 w-24" /></TableCell>
+                                            <TableCell><Skeleton className="h-4 w-24" /></TableCell>
+                                            <TableCell><Skeleton className="h-8 w-8 ml-auto" /></TableCell>
+                                        </TableRow>
+                                    ))
+                                ) : filteredShipments.length > 0 ? (
+                                    filteredShipments.map((shipment) => (
+                                        <TableRow key={shipment.id} onClick={() => setSelectedShipment(shipment)} className="cursor-pointer">
+                                            <TableCell className="font-medium">{shipment.shipmentNumber}</TableCell>
+                                            <TableCell>{shipment.issuance.client.clientName}</TableCell>
+                                            <TableCell>{shipment.issuance.issuanceNumber}</TableCell>
+                                            <TableCell>{formatDate(shipment.createdAt)}</TableCell>
+                                            <TableCell><Badge variant={statusVariant[shipment.status]}>{shipment.status}</Badge></TableCell>
+                                            <TableCell>{shipment.shippingProvider}</TableCell>
+                                            <TableCell>{formatDate(shipment.estimatedDeliveryDate)}</TableCell>
+                                            <TableCell className="text-right">
+                                                <DropdownMenu>
+                                                    <DropdownMenuTrigger asChild>
+                                                        <Button aria-haspopup="true" size="icon" variant="ghost" onClick={(e) => e.stopPropagation()}>
+                                                            <MoreHorizontal className="h-4 w-4" />
+                                                            <span className="sr-only">Toggle menu</span>
+                                                        </Button>
+                                                    </DropdownMenuTrigger>
+                                                    <DropdownMenuContent align="end" onClick={(e) => e.stopPropagation()}>
+                                                        <DropdownMenuLabel>Actions</DropdownMenuLabel>
+                                                        <DropdownMenuItem onClick={() => setSelectedShipment(shipment)}>View Details</DropdownMenuItem>
+                                                        <DropdownMenuSeparator />
+                                                        <DropdownMenuItem onClick={() => handleStatusChange(shipment.id, 'In Transit')}>Mark In Transit</DropdownMenuItem>
+                                                        <DropdownMenuItem onClick={() => handleStatusChange(shipment.id, 'Delivered')}>Mark Delivered</DropdownMenuItem>
+                                                        <DropdownMenuItem onClick={() => handleStatusChange(shipment.id, 'Delayed')}>Mark Delayed</DropdownMenuItem>
+                                                        <DropdownMenuItem onClick={() => handleStatusChange(shipment.id, 'Cancelled')} className="text-destructive">Cancel Shipment</DropdownMenuItem>
+                                                    </DropdownMenuContent>
+                                                </DropdownMenu>
+                                            </TableCell>
+                                        </TableRow>
+                                    ))
+                                ) : (
+                                    <TableRow>
+                                        <TableCell colSpan={8} className="h-24 text-center">No shipments found for this filter.</TableCell>
+                                    </TableRow>
+                                )}
+                            </TableBody>
+                        </Table>
+                    </>
+                    ) : (
+                        <ShipmentCalendar shipments={shipments} onShipmentSelect={setSelectedShipment} />
+                    )}
                 </CardContent>
             </Card>
             {selectedShipment && (
