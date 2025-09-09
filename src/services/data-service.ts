@@ -1,6 +1,7 @@
 
 
 
+
 import { db, storage } from "@/lib/firebase";
 import { collection, getDocs, getDoc, doc, orderBy, query, limit, Timestamp, where, DocumentReference, addDoc, updateDoc, deleteDoc, arrayUnion, runTransaction, writeBatch } from "firebase/firestore";
 import { ref, uploadBytes, getDownloadURL } from "firebase/storage";
@@ -183,15 +184,21 @@ async function checkStockAndCreateNotification(product: Omit<Product, 'id' | 'hi
     try {
       // Check if a recent, unread, similar notification already exists to avoid spam.
       const notificationsCol = collection(db, "notifications");
-      const fiveMinutesAgo = Timestamp.fromMillis(Date.now() - 5 * 60 * 1000);
+      const fiveMinutesAgo = Date.now() - 5 * 60 * 1000;
+      
       const q = query(
         notificationsCol, 
-        where('title', '==', notification.title), 
-        where('timestamp', '>', fiveMinutesAgo)
+        where('title', '==', notification.title),
+        where('read', '==', false)
       );
-      const existingNotifs = await getDocs(q);
+      const existingNotifsSnapshot = await getDocs(q);
+      
+      const hasRecent = existingNotifsSnapshot.docs.some(doc => {
+          const timestamp = doc.data().timestamp.toMillis();
+          return timestamp > fiveMinutesAgo;
+      });
 
-      if (existingNotifs.empty) {
+      if (!hasRecent) {
         await addDoc(notificationsCol, notification);
       }
     } catch (error) {
@@ -200,7 +207,7 @@ async function checkStockAndCreateNotification(product: Omit<Product, 'id' | 'hi
   }
 }
 
-export async function addProduct(product: Partial<Omit<Product, 'id' | 'lastUpdated' | 'history'>>): Promise<DocumentReference> {
+export async function addProduct(product: Partial<Omit<Product, 'id' | 'lastUpdated' | 'history' | 'maxStockLevel'>> & { maxStockLevel?: number }): Promise<DocumentReference> {
   try {
     const now = Timestamp.now();
     const productWithDefaults = {
