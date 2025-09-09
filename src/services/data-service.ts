@@ -585,6 +585,9 @@ export async function deleteIssuance(issuanceId: string): Promise<void> {
       // 3. Delete the issuance document
       transaction.delete(issuanceRef);
     });
+
+    // After the transaction completes successfully, check awaiting orders.
+    await checkAndUpdateAwaitingOrders();
   } catch (error) {
     console.error("Error deleting issuance:", error);
     throw new Error("Failed to delete issuance. " + (error as Error).message);
@@ -795,39 +798,32 @@ export async function updatePurchaseOrderStatus(poId: string, status: PurchaseOr
       }
       
       // --- Handle 'Received' status ---
-      const productDocsMap = new Map<string, any>();
-      for (const item of poData.items) {
-        const productRef = item.productRef as DocumentReference;
-        const productDoc = await transaction.get(productRef);
-        productDocsMap.set(productRef.id, productDoc);
-      }
-
       const receivedTimestamp = Timestamp.now();
       transaction.update(poRef, { status: 'Received', receivedDate: receivedTimestamp });
 
-      poData.items.forEach((item: any) => {
-        const productRef = item.productRef as DocumentReference;
-        const productDoc = productDocsMap.get(productRef.id);
-        
-        if (productDoc && productDoc.exists()) {
-          const productData = productDoc.data();
-          const newStock = productData.stock + item.quantity;
-          const newHistoryEntry = {
-            date: format(receivedTimestamp.toDate(), 'yyyy-MM-dd'),
-            stock: newStock,
-            changeReason: `Received PO #${poData.poNumber}`,
-            dateUpdated: receivedTimestamp,
-          };
+      for (const item of poData.items) {
+          const productRef = item.productRef as DocumentReference;
+          const productDoc = await transaction.get(productRef);
           
-          transaction.update(productDoc.ref, {
-            stock: newStock,
-            lastUpdated: receivedTimestamp,
-            history: arrayUnion(newHistoryEntry)
-          });
-        } else {
-          console.warn(`Product with ID ${productRef.id} not found while receiving PO. Stock not updated.`);
-        }
-      });
+          if (productDoc.exists()) {
+              const productData = productDoc.data();
+              const newStock = productData.stock + item.quantity;
+              const newHistoryEntry = {
+                  date: format(receivedTimestamp.toDate(), 'yyyy-MM-dd'),
+                  stock: newStock,
+                  changeReason: `Received PO #${poData.poNumber}`,
+                  dateUpdated: receivedTimestamp,
+              };
+              
+              transaction.update(productDoc.ref, {
+                  stock: newStock,
+                  lastUpdated: receivedTimestamp,
+                  history: arrayUnion(newHistoryEntry)
+              });
+          } else {
+              console.warn(`Product with ID ${productRef.id} not found while receiving PO. Stock not updated.`);
+          }
+      }
     });
 
     // After the transaction completes successfully, check awaiting orders.
