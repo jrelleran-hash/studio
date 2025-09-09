@@ -4,7 +4,7 @@
 import {
   importClientsFromSheet,
   type ImportClientsInput,
-} from "@/ai/flows/smart-search-mvp";
+} from "@/ai/flows/import-clients-flow";
 import { getGoogleAuthUrl } from "@/services/google-auth-service";
 import { z } from "zod";
 
