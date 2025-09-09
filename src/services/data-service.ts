@@ -1,8 +1,9 @@
 
+
 import { db, storage } from "@/lib/firebase";
 import { collection, getDocs, getDoc, doc, orderBy, query, limit, Timestamp, where, DocumentReference, addDoc, updateDoc, deleteDoc, arrayUnion, runTransaction } from "firebase/firestore";
 import { ref, uploadBytes, getDownloadURL } from "firebase/storage";
-import type { Activity, Notification, Order, Product, Client, Issuance, Supplier } from "@/types";
+import type { Activity, Notification, Order, Product, Client, Issuance, Supplier, PurchaseOrder } from "@/types";
 import { format, subDays } from 'date-fns';
 
 function timeSince(date: Date) {
@@ -654,4 +655,133 @@ export async function uploadProfilePicture(file: File, userId: string): Promise<
         console.error("Error uploading profile picture:", error);
         throw new Error("Failed to upload profile picture.");
     }
+}
+
+export async function getPurchaseOrders(): Promise<PurchaseOrder[]> {
+    try {
+        const poCol = collection(db, "purchaseOrders");
+        const q = query(poCol, orderBy("orderDate", "desc"));
+        const poSnapshot = await getDocs(q);
+        
+        const purchaseOrders: PurchaseOrder[] = await Promise.all(poSnapshot.docs.map(async (poDoc) => {
+            const poData = poDoc.data();
+            const supplier = await resolveDoc<Supplier>(poData.supplierRef);
+            
+            const items = await Promise.all(poData.items.map(async (item: any) => {
+                const product = await resolveDoc<Product>(item.productRef);
+                return {
+                    quantity: item.quantity,
+                    product: product,
+                };
+            }));
+            
+            return {
+                id: poDoc.id,
+                ...poData,
+                orderDate: (poData.orderDate as Timestamp).toDate(),
+                expectedDate: poData.expectedDate ? (poData.expectedDate as Timestamp).toDate() : undefined,
+                receivedDate: poData.receivedDate ? (poData.receivedDate as Timestamp).toDate() : undefined,
+                supplier,
+                items,
+            } as PurchaseOrder;
+        }));
+
+        return purchaseOrders;
+    } catch (error) {
+        console.error("Error fetching purchase orders:", error);
+        return [];
+    }
+}
+
+type NewPurchaseOrderData = {
+  supplierId: string;
+  items: { productId: string; quantity: number }[];
+};
+
+export async function addPurchaseOrder(poData: NewPurchaseOrderData): Promise<DocumentReference> {
+  try {
+    const resolvedItems = await Promise.all(
+      poData.items.map(async (item) => {
+        const productRef = doc(db, "inventory", item.productId);
+        // We don't need the full product data here, just the reference
+        return {
+          productRef: productRef,
+          quantity: item.quantity,
+        };
+      })
+    );
+
+    const newPurchaseOrder = {
+      supplierRef: doc(db, "suppliers", poData.supplierId),
+      orderDate: Timestamp.now(),
+      status: "Pending",
+      items: resolvedItems,
+      poNumber: `PO-${Date.now()}`,
+    };
+
+    const poCol = collection(db, "purchaseOrders");
+    const docRef = await addDoc(poCol, newPurchaseOrder);
+    return docRef;
+
+  } catch (error) {
+    console.error("Error adding purchase order:", error);
+    throw new Error("Failed to add purchase order.");
+  }
+}
+
+export async function updatePurchaseOrderStatus(poId: string, status: PurchaseOrder['status']): Promise<void> {
+  const poRef = doc(db, "purchaseOrders", poId);
+
+  try {
+    await runTransaction(db, async (transaction) => {
+      const poDoc = await transaction.get(poRef);
+      if (!poDoc.exists()) {
+        throw new Error("Purchase Order not found.");
+      }
+      
+      const poData = poDoc.data();
+      
+      // If status is already 'Received', do nothing.
+      if (poData.status === 'Received') {
+          console.warn(`Purchase Order ${poId} is already marked as Received.`);
+          return;
+      }
+
+      const updatePayload: any = { status };
+      
+      if (status === 'Received') {
+        updatePayload.receivedDate = Timestamp.now();
+
+        // Update stock for each item in the purchase order
+        for (const item of poData.items) {
+          const productRef = item.productRef as DocumentReference;
+          const productDoc = await transaction.get(productRef);
+
+          if (productDoc.exists()) {
+            const productData = productDoc.data();
+            const newStock = productData.stock + item.quantity;
+            const newHistoryEntry = {
+                date: format(updatePayload.receivedDate.toDate(), 'yyyy-MM-dd'),
+                stock: newStock,
+                changeReason: `Received PO #${poData.poNumber}`,
+                dateUpdated: updatePayload.receivedDate,
+            };
+
+            transaction.update(productRef, {
+              stock: newStock,
+              lastUpdated: updatePayload.receivedDate,
+              history: arrayUnion(newHistoryEntry)
+            });
+          } else {
+             console.warn(`Product with ID ${productRef.id} not found while receiving PO. Stock not updated for this item.`);
+          }
+        }
+      }
+      
+      transaction.update(poRef, updatePayload);
+    });
+  } catch (error) {
+    console.error("Error updating purchase order status:", error);
+    throw new Error(`Failed to update purchase order status. ${(error as Error).message}`);
+  }
 }

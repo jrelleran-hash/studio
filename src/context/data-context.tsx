@@ -1,11 +1,12 @@
 
+
 "use client";
 
 import { createContext, useContext, useEffect, useState, ReactNode, useCallback, useMemo } from "react";
 import { onAuthStateChanged } from "firebase/auth";
 import { auth } from "@/lib/firebase";
-import { getProducts, getClients, getOrders, getIssuances, getSuppliers } from "@/services/data-service";
-import type { Product, Client, Order, Issuance, Supplier } from "@/types";
+import { getProducts, getClients, getOrders, getIssuances, getSuppliers, getPurchaseOrders } from "@/services/data-service";
+import type { Product, Client, Order, Issuance, Supplier, PurchaseOrder } from "@/types";
 
 interface DataContextType {
   products: Product[];
@@ -13,6 +14,7 @@ interface DataContextType {
   orders: Order[];
   issuances: Issuance[];
   suppliers: Supplier[];
+  purchaseOrders: PurchaseOrder[];
   loading: boolean;
   refetchData: () => Promise<void>;
 }
@@ -25,6 +27,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
   const [orders, setOrders] = useState<Order[]>([]);
   const [issuances, setIssuances] = useState<Issuance[]>([]);
   const [suppliers, setSuppliers] = useState<Supplier[]>([]);
+  const [purchaseOrders, setPurchaseOrders] = useState<PurchaseOrder[]>([]);
   const [loading, setLoading] = useState(true);
   const [isAuthenticated, setIsAuthenticated] = useState(false);
 
@@ -44,6 +47,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
       setOrders([]);
       setIssuances([]);
       setSuppliers([]);
+      setPurchaseOrders([]);
       setLoading(false);
       return;
     };
@@ -55,19 +59,22 @@ export function DataProvider({ children }: { children: ReactNode }) {
         fetchedClients,
         fetchedOrders,
         fetchedIssuances,
-        fetchedSuppliers
+        fetchedSuppliers,
+        fetchedPurchaseOrders,
       ] = await Promise.all([
         getProducts(),
         getClients(),
         getOrders(),
         getIssuances(),
-        getSuppliers()
+        getSuppliers(),
+        getPurchaseOrders(),
       ]);
       setProducts(fetchedProducts);
       setClients(fetchedClients);
       setOrders(fetchedOrders);
       setIssuances(fetchedIssuances);
       setSuppliers(fetchedSuppliers);
+      setPurchaseOrders(fetchedPurchaseOrders);
     } catch (error) {
       console.error("Failed to fetch global data", error);
       // Optionally, set an error state here
@@ -86,9 +93,10 @@ export function DataProvider({ children }: { children: ReactNode }) {
     orders,
     issuances,
     suppliers,
+    purchaseOrders,
     loading,
     refetchData: fetchData,
-  }), [products, clients, orders, issuances, suppliers, loading, fetchData]);
+  }), [products, clients, orders, issuances, suppliers, purchaseOrders, loading, fetchData]);
 
   return <DataContext.Provider value={value}>{children}</DataContext.Provider>;
 }

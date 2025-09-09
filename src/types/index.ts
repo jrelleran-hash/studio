@@ -1,4 +1,5 @@
 
+
 import { Timestamp, DocumentReference } from "firebase/firestore";
 
 export interface Activity {
@@ -71,6 +72,22 @@ export interface Order {
     client: Client;
     items: OrderItem[];
     reorderedFrom?: string;
+}
+
+export interface PurchaseOrderItem {
+    quantity: number;
+    product: Product;
+}
+
+export interface PurchaseOrder {
+    id: string;
+    supplier: Supplier;
+    items: PurchaseOrderItem[];
+    status: "Pending" | "Shipped" | "Received";
+    orderDate: Date;
+    expectedDate?: Date;
+    receivedDate?: Date;
+    poNumber: string;
 }
 
 export interface IssuanceItem {

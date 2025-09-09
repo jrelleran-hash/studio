@@ -52,8 +52,8 @@ import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useToast } from "@/hooks/use-toast";
-import { updateOrderStatus, addOrder, addProduct, updateSupplier, deleteSupplier, addSupplier, deleteOrder } from "@/services/data-service";
-import type { Order, Supplier } from "@/types";
+import { updateOrderStatus, addOrder, addProduct, updateSupplier, deleteSupplier, addSupplier, deleteOrder, addPurchaseOrder, updatePurchaseOrderStatus } from "@/services/data-service";
+import type { Order, Supplier, PurchaseOrder } from "@/types";
 import { formatCurrency } from "@/lib/currency";
 import { CURRENCY_CONFIG } from "@/config/currency";
 import { Separator } from "@/components/ui/separator";
@@ -67,7 +67,9 @@ const statusVariant: { [key: string]: "default" | "secondary" | "destructive" | 
   Fulfilled: "default",
   Processing: "secondary",
   Shipped: "outline",
-  Cancelled: "destructive"
+  Cancelled: "destructive",
+  Pending: "secondary",
+  Received: "default",
 };
 
 // Order Schemas
@@ -82,6 +84,20 @@ const orderSchema = z.object({
 });
 
 type OrderFormValues = z.infer<typeof orderSchema>;
+
+// Purchase Order Schema
+const poItemSchema = z.object({
+  productId: z.string().min(1, "Product is required."),
+  quantity: z.coerce.number().min(1, "Quantity must be at least 1."),
+});
+
+const poSchema = z.object({
+  supplierId: z.string().min(1, "Supplier is required."),
+  items: z.array(poItemSchema).min(1, "At least one item is required."),
+});
+
+type POFormValues = z.infer<typeof poSchema>;
+
 
 // Product Schema
 const createProductSchema = (isSkuAuto: boolean) => z.object({
@@ -121,12 +137,13 @@ const toTitleCase = (str: string) => {
 
 
 export default function OrdersAndSuppliersPage() {
-  const { orders, clients, products, suppliers, loading, refetchData } = useData();
+  const { orders, clients, products, suppliers, purchaseOrders, loading, refetchData } = useData();
   const [activeTab, setActiveTab] = useState("orders");
   const { toast } = useToast();
 
   // Dialog states
   const [isAddOrderOpen, setIsAddOrderOpen] = useState(false);
+  const [isAddPOOpen, setIsAddPOOpen] = useState(false);
   const [isAddProductOpen, setIsAddProductOpen] = useState(false);
   const [isAddSupplierOpen, setIsAddSupplierOpen] = useState(false);
   const [isEditSupplierOpen, setIsEditSupplierOpen] = useState(false);
@@ -151,6 +168,14 @@ export default function OrdersAndSuppliersPage() {
       clientId: "",
       items: [{ productId: "", quantity: 1 }],
     },
+  });
+  
+  const poForm = useForm<POFormValues>({
+    resolver: zodResolver(poSchema),
+    defaultValues: {
+      supplierId: "",
+      items: [{ productId: "", quantity: 1 }],
+    }
   });
 
   const productForm = useForm<ProductFormValues>({
@@ -181,6 +206,11 @@ export default function OrdersAndSuppliersPage() {
     name: "items",
   });
   
+  const { fields: poFields, append: poAppend, remove: poRemove } = useFieldArray({
+    control: poForm.control,
+    name: "items",
+  });
+  
   // Reset dialogs
   useEffect(() => {
     if(!isAddOrderOpen) {
@@ -190,6 +220,15 @@ export default function OrdersAndSuppliersPage() {
       });
     }
   }, [isAddOrderOpen, orderForm]);
+  
+  useEffect(() => {
+    if (!isAddPOOpen) {
+      poForm.reset({
+        supplierId: "",
+        items: [{ productId: "", quantity: 1 }],
+      });
+    }
+  }, [isAddPOOpen, poForm]);
 
   useEffect(() => {
     if(!isAddProductOpen) {
@@ -404,18 +443,45 @@ export default function OrdersAndSuppliersPage() {
       setDeletingSupplierId(null);
     }
   };
+  
+  const onPOSubmit = async (data: POFormValues) => {
+    try {
+      await addPurchaseOrder(data);
+      toast({ title: "Success", description: "New purchase order created." });
+      setIsAddPOOpen(false);
+      await refetchData();
+    } catch (error) {
+      console.error(error);
+      toast({
+        variant: "destructive",
+        title: "Error",
+        description: "Failed to create purchase order.",
+      });
+    }
+  };
+  
+  const handlePOStatusChange = async (poId: string, status: PurchaseOrder["status"]) => {
+    try {
+      await updatePurchaseOrderStatus(poId, status);
+      toast({ title: "Success", description: `Purchase Order marked as ${status}.` });
+      await refetchData();
+    } catch (error) {
+      console.error(error);
+      toast({
+        variant: "destructive",
+        title: "Error",
+        description: "Failed to update purchase order status.",
+      });
+    }
+  };
 
   const formatDate = (date: Date | Timestamp) => {
     const jsDate = date instanceof Timestamp ? date.toDate() : date;
     return format(jsDate, 'PPpp');
   };
   
-  const formatOrderDate = (date: Date) => {
-    return new Intl.DateTimeFormat("en-US", {
-      year: "numeric",
-      month: "long",
-      day: "numeric",
-    }).format(date);
+  const formatDateSimple = (date: Date) => {
+    return format(date, 'PPP');
   };
 
   return (
@@ -423,21 +489,23 @@ export default function OrdersAndSuppliersPage() {
     <Tabs defaultValue={activeTab} onValueChange={setActiveTab} className="space-y-4">
       <div className="flex items-center justify-between">
         <TabsList>
-            <TabsTrigger value="orders">Orders</TabsTrigger>
+            <TabsTrigger value="orders">Sales Orders</TabsTrigger>
+            <TabsTrigger value="purchase-orders">Purchase Orders</TabsTrigger>
             <TabsTrigger value="suppliers">Suppliers</TabsTrigger>
         </TabsList>
-        {activeTab === 'orders' ? (
+        <div>
+        {activeTab === 'orders' && (
              <Dialog open={isAddOrderOpen} onOpenChange={setIsAddOrderOpen}>
                 <DialogTrigger asChild>
                     <Button size="sm" className="gap-1">
                     <PlusCircle className="h-4 w-4" />
-                    Add Order
+                    Add Sales Order
                     </Button>
                 </DialogTrigger>
                 <DialogContent className="sm:max-w-2xl">
                     <DialogHeader>
-                    <DialogTitle>Create New Order</DialogTitle>
-                    <DialogDescription>Fill in the details to create a new order.</DialogDescription>
+                    <DialogTitle>Create New Sales Order</DialogTitle>
+                    <DialogDescription>Fill in the details to create a new order for a client.</DialogDescription>
                     </DialogHeader>
                     <form onSubmit={orderForm.handleSubmit(onOrderSubmit)} className="space-y-4">
                     <div className="space-y-2">
@@ -472,9 +540,7 @@ export default function OrdersAndSuppliersPage() {
                                         "relative flex w-full cursor-pointer select-none items-center rounded-sm py-1.5 pl-8 pr-2 text-sm outline-none focus:bg-accent focus:text-accent-foreground data-[disabled]:pointer-events-none data-[disabled]:opacity-50"
                                     )}
                                     onMouseDown={(e) => {
-                                        // Prevent the select from closing
                                         e.preventDefault();
-                                        // Open the product dialog
                                         setIsAddProductOpen(true);
                                     }}
                                     >
@@ -514,7 +580,95 @@ export default function OrdersAndSuppliersPage() {
                     </form>
                 </DialogContent>
             </Dialog>
-        ) : (
+        )}
+        {activeTab === 'purchase-orders' && (
+             <Dialog open={isAddPOOpen} onOpenChange={setIsAddPOOpen}>
+                <DialogTrigger asChild>
+                    <Button size="sm" className="gap-1">
+                    <PlusCircle className="h-4 w-4" />
+                    Add Purchase Order
+                    </Button>
+                </DialogTrigger>
+                <DialogContent className="sm:max-w-2xl">
+                    <DialogHeader>
+                    <DialogTitle>Create New Purchase Order</DialogTitle>
+                    <DialogDescription>Fill in the details to create a new PO for a supplier.</DialogDescription>
+                    </DialogHeader>
+                    <form onSubmit={poForm.handleSubmit(onPOSubmit)} className="space-y-4">
+                    <div className="space-y-2">
+                        <Label>Supplier</Label>
+                        <Select onValueChange={(value) => poForm.setValue('supplierId', value)} defaultValue={poForm.getValues('supplierId')}>
+                            <SelectTrigger>
+                                <SelectValue placeholder="Select a supplier" />
+                            </SelectTrigger>
+                            <SelectContent>
+                                {suppliers.map(s => <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>)}
+                            </SelectContent>
+                        </Select>
+                        {poForm.formState.errors.supplierId && <p className="text-sm text-destructive">{poForm.formState.errors.supplierId.message}</p>}
+                    </div>
+
+                    <div className="space-y-2">
+                        <div className="flex justify-between items-center">
+                            <Label>Items</Label>
+                        </div>
+                        <div className="space-y-2">
+                        {poFields.map((field, index) => (
+                            <div key={field.id} className="flex items-center gap-2">
+                            <Select onValueChange={(value) => poForm.setValue(`items.${index}.productId`, value)}>
+                                <SelectTrigger>
+                                    <SelectValue placeholder="Select a product" />
+                                </SelectTrigger>
+                                <SelectContent>
+                                    {products.map(p => <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>)}
+                                    <Separator />
+                                    <div
+                                    className={cn(
+                                        "relative flex w-full cursor-pointer select-none items-center rounded-sm py-1.5 pl-8 pr-2 text-sm outline-none focus:bg-accent focus:text-accent-foreground data-[disabled]:pointer-events-none data-[disabled]:opacity-50"
+                                    )}
+                                    onMouseDown={(e) => {
+                                        e.preventDefault();
+                                        setIsAddProductOpen(true);
+                                    }}
+                                    >
+                                        <Plus className="h-4 w-4 mr-2"/> Add New Product
+                                    </div>
+                                </SelectContent>
+                            </Select>
+                            <Input 
+                                type="number" 
+                                placeholder="Qty" 
+                                className="w-20"
+                                {...poForm.register(`items.${index}.quantity`)}
+                            />
+                            <Button variant="ghost" size="icon" onClick={() => poRemove(index)}>
+                                <X className="h-4 w-4" />
+                            </Button>
+                            </div>
+                        ))}
+                        </div>
+                        {poForm.formState.errors.items && <p className="text-sm text-destructive">{typeof poForm.formState.errors.items === 'object' && 'message' in poForm.formState.errors.items ? poForm.formState.errors.items.message : 'Please add at least one item.'}</p>}
+                        <Button type="button" variant="outline" size="sm" onClick={() => poAppend({ productId: "", quantity: 1 })}>
+                        <PlusCircle className="h-4 w-4 mr-2" /> Add Item
+                        </Button>
+                    </div>
+                     <div className="space-y-2">
+                        <Label>Status</Label>
+                        <p className="flex h-10 w-full items-center rounded-md border border-input bg-background px-3 py-2 text-sm text-muted-foreground">
+                            Pending
+                        </p>
+                        </div>
+                    <DialogFooter>
+                        <Button type="button" variant="outline" onClick={() => setIsAddPOOpen(false)}>Cancel</Button>
+                        <Button type="submit" disabled={poForm.formState.isSubmitting}>
+                        {poForm.formState.isSubmitting ? "Creating..." : "Create Purchase Order"}
+                        </Button>
+                    </DialogFooter>
+                    </form>
+                </DialogContent>
+            </Dialog>
+        )}
+        {activeTab === 'suppliers' && (
             <Dialog open={isAddSupplierOpen} onOpenChange={setIsAddSupplierOpen}>
               <DialogTrigger asChild>
                 <Button size="sm" className="gap-1">
@@ -569,11 +723,12 @@ export default function OrdersAndSuppliersPage() {
             </DialogContent>
             </Dialog>
         )}
+        </div>
       </div>
       <TabsContent value="orders">
         <Card>
           <CardHeader>
-            <CardTitle>Orders</CardTitle>
+            <CardTitle>Sales Orders</CardTitle>
             <CardDescription>Manage all client sales orders.</CardDescription>
           </CardHeader>
           <CardContent>
@@ -607,7 +762,7 @@ export default function OrdersAndSuppliersPage() {
                     <TableRow key={order.id} onClick={() => setSelectedOrder(order)} className="cursor-pointer">
                       <TableCell className="font-medium">{order.id.substring(0, 7)}</TableCell>
                       <TableCell>{order.client.clientName}</TableCell>
-                      <TableCell>{formatOrderDate(order.date)}</TableCell>
+                      <TableCell>{formatDateSimple(order.date)}</TableCell>
                       <TableCell>
                         <Badge variant={statusVariant[order.status] || "default"}>{order.status}</Badge>
                       </TableCell>
@@ -646,6 +801,77 @@ export default function OrdersAndSuppliersPage() {
                              <DropdownMenuItem onClick={() => handleDeleteOrderClick(order.id)} className="text-destructive">
                                 Delete
                             </DropdownMenuItem>
+                          </DropdownMenuContent>
+                        </DropdownMenu>
+                      </TableCell>
+                    </TableRow>
+                  ))
+                )}
+              </TableBody>
+            </Table>
+          </CardContent>
+        </Card>
+      </TabsContent>
+       <TabsContent value="purchase-orders">
+        <Card>
+          <CardHeader>
+            <CardTitle>Purchase Orders</CardTitle>
+            <CardDescription>Manage all purchase orders from suppliers.</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>PO Number</TableHead>
+                  <TableHead>Supplier</TableHead>
+                  <TableHead>Order Date</TableHead>
+                  <TableHead>Status</TableHead>
+                  <TableHead>
+                    <span className="sr-only">Actions</span>
+                  </TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {loading ? (
+                  Array.from({ length: 8 }).map((_, i) => (
+                    <TableRow key={i}>
+                      <TableCell><Skeleton className="h-4 w-24" /></TableCell>
+                      <TableCell><Skeleton className="h-4 w-32" /></TableCell>
+                      <TableCell><Skeleton className="h-4 w-24" /></TableCell>
+                      <TableCell><Skeleton className="h-6 w-20 rounded-full" /></TableCell>
+                      <TableCell><Skeleton className="h-8 w-8" /></TableCell>
+                    </TableRow>
+                  ))
+                ) : (
+                  purchaseOrders.map((po) => (
+                    <TableRow key={po.id}>
+                      <TableCell className="font-medium">{po.poNumber}</TableCell>
+                      <TableCell>{po.supplier.name}</TableCell>
+                      <TableCell>{formatDateSimple(po.orderDate)}</TableCell>
+                      <TableCell>
+                        <Badge variant={statusVariant[po.status] || "default"}>{po.status}</Badge>
+                      </TableCell>
+                      <TableCell>
+                         <DropdownMenu>
+                          <DropdownMenuTrigger asChild>
+                            <Button aria-haspopup="true" size="icon" variant="ghost">
+                              <MoreHorizontal className="h-4 w-4" />
+                              <span className="sr-only">Toggle menu</span>
+                            </Button>
+                          </DropdownMenuTrigger>
+                          <DropdownMenuContent align="end">
+                            <DropdownMenuLabel>Actions</DropdownMenuLabel>
+                            {po.status !== 'Received' && (
+                              <>
+                                <DropdownMenuItem onClick={() => handlePOStatusChange(po.id, 'Shipped')}>
+                                  Mark as Shipped
+                                </DropdownMenuItem>
+                                <DropdownMenuItem onClick={() => handlePOStatusChange(po.id, 'Received')}>
+                                  Mark as Received
+                                </DropdownMenuItem>
+                              </>
+                            )}
+                             {po.status === 'Received' && <DropdownMenuItem disabled>Order Received</DropdownMenuItem>}
                           </DropdownMenuContent>
                         </DropdownMenu>
                       </TableCell>
@@ -801,7 +1027,7 @@ export default function OrdersAndSuppliersPage() {
             </DialogDescription>
           </DialogHeader>
           <div className="py-4 space-y-2">
-            <p><strong>Date:</strong> {formatOrderDate(selectedOrder.date)}</p>
+            <p><strong>Date:</strong> {formatDateSimple(selectedOrder.date)}</p>
             <p><strong>Total:</strong> {formatCurrency(selectedOrder.total)}</p>
             <p><strong>Status:</strong> <Badge variant={statusVariant[selectedOrder.status] || "default"}>{selectedOrder.status}</Badge></p>
              <p><strong>BOQ Number:</strong> {selectedOrder.client.boqNumber}</p>
@@ -930,7 +1156,3 @@ export default function OrdersAndSuppliersPage() {
     </>
   );
 }
-
-    
-
-    
