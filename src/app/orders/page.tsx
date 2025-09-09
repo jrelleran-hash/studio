@@ -1,6 +1,5 @@
 
 
-
 "use client";
 
 import { useState, useEffect, useMemo, useCallback } from "react";
@@ -1222,7 +1221,7 @@ export default function OrdersAndSuppliersPage() {
                             <TableCell>
                                 <div className="flex gap-1 flex-wrap">
                                     {item.fromOrders.map(orderId => (
-                                        <Badge key={orderId} variant={orderId === "Reorder" ? "outline" : "secondary"} className="font-mono">{orderId}</Badge>
+                                        <Badge key={orderId} variant={orderId === "Reorder" ? "outline" : "secondary"} className={cn("font-mono", orderId === "Reorder" && "pointer-events-none")}>{orderId}</Badge>
                                     ))}
                                 </div>
                             </TableCell>
