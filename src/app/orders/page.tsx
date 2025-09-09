@@ -450,7 +450,7 @@ export default function OrdersAndSuppliersPage() {
       toast({ title: "Success", description: "New purchase order created." });
       setIsAddPOOpen(false);
       await refetchData();
-    } catch (error)
+    } catch (error) {
       console.error(error);
       toast({
         variant: "destructive",
@@ -1156,4 +1156,3 @@ export default function OrdersAndSuppliersPage() {
     </>
   );
 }
-
