@@ -35,6 +35,7 @@ export interface Supplier {
   contactPerson: string;
   email: string;
   phone: string;
+  cellphoneNumber?: string;
   address: string;
   createdAt: Timestamp;
 }

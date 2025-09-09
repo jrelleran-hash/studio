@@ -123,6 +123,7 @@ const supplierSchema = z.object({
   contactPerson: z.string().min(1, "Contact person is required."),
   email: z.string().email("Invalid email address."),
   phone: z.string().min(1, "Phone number is required."),
+  cellphoneNumber: z.string().optional(),
   address: z.string().min(1, "Address is required."),
 });
 
@@ -767,10 +768,17 @@ export default function OrdersAndSuppliersPage() {
                     <Input id="email" type="email" {...supplierForm.register("email")} />
                     {supplierForm.formState.errors.email && <p className="text-sm text-destructive">{supplierForm.formState.errors.email.message}</p>}
                 </div>
-                <div className="space-y-2">
-                    <Label htmlFor="phone">Phone</Label>
-                    <Input id="phone" type="tel" {...supplierForm.register("phone")} />
-                    {supplierForm.formState.errors.phone && <p className="text-sm text-destructive">{supplierForm.formState.errors.phone.message}</p>}
+                <div className="grid grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                        <Label htmlFor="phone">Phone</Label>
+                        <Input id="phone" type="tel" {...supplierForm.register("phone")} />
+                        {supplierForm.formState.errors.phone && <p className="text-sm text-destructive">{supplierForm.formState.errors.phone.message}</p>}
+                    </div>
+                    <div className="space-y-2">
+                        <Label htmlFor="cellphoneNumber">Cellphone #</Label>
+                        <Input id="cellphoneNumber" type="tel" {...supplierForm.register("cellphoneNumber")} />
+                        {supplierForm.formState.errors.cellphoneNumber && <p className="text-sm text-destructive">{supplierForm.formState.errors.cellphoneNumber.message}</p>}
+                    </div>
                 </div>
                 <div className="space-y-2">
                     <Label htmlFor="address">Address</Label>
@@ -1057,6 +1065,7 @@ export default function OrdersAndSuppliersPage() {
                     <TableHead>Contact Person</TableHead>
                     <TableHead>Email</TableHead>
                     <TableHead>Phone</TableHead>
+                    <TableHead>Cellphone #</TableHead>
                     <TableHead>Date Added</TableHead>
                     <TableHead className="text-right">
                         <span className="sr-only">Actions</span>
@@ -1072,6 +1081,7 @@ export default function OrdersAndSuppliersPage() {
                         <TableCell><Skeleton className="h-4 w-48" /></TableCell>
                         <TableCell><Skeleton className="h-4 w-24" /></TableCell>
                         <TableCell><Skeleton className="h-4 w-24" /></TableCell>
+                        <TableCell><Skeleton className="h-4 w-24" /></TableCell>
                         <TableCell><Skeleton className="h-8 w-8 ml-auto" /></TableCell>
                         </TableRow>
                     ))
@@ -1082,6 +1092,7 @@ export default function OrdersAndSuppliersPage() {
                         <TableCell>{supplier.contactPerson}</TableCell>
                         <TableCell>{supplier.email}</TableCell>
                         <TableCell>{supplier.phone}</TableCell>
+                        <TableCell>{supplier.cellphoneNumber || 'N/A'}</TableCell>
                         <TableCell>{formatDate(supplier.createdAt)}</TableCell>
                         <TableCell className="text-right">
                             <DropdownMenu>
@@ -1257,10 +1268,17 @@ export default function OrdersAndSuppliersPage() {
                   <Input id="edit-email" type="email" {...editSupplierForm.register("email")} />
                   {editSupplierForm.formState.errors.email && <p className="text-sm text-destructive">{editSupplierForm.formState.errors.email.message}</p>}
                 </div>
-                <div className="space-y-2">
-                  <Label htmlFor="edit-phone">Phone</Label>
-                  <Input id="edit-phone" type="tel" {...editSupplierForm.register("phone")} />
-                  {editSupplierForm.formState.errors.phone && <p className="text-sm text-destructive">{editSupplierForm.formState.errors.phone.message}</p>}
+                 <div className="grid grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                        <Label htmlFor="edit-phone">Phone</Label>
+                        <Input id="edit-phone" type="tel" {...editSupplierForm.register("phone")} />
+                        {editSupplierForm.formState.errors.phone && <p className="text-sm text-destructive">{editSupplierForm.formState.errors.phone.message}</p>}
+                    </div>
+                    <div className="space-y-2">
+                        <Label htmlFor="edit-cellphoneNumber">Cellphone #</Label>
+                        <Input id="edit-cellphoneNumber" type="tel" {...editSupplierForm.register("cellphoneNumber")} />
+                        {editSupplierForm.formState.errors.cellphoneNumber && <p className="text-sm text-destructive">{editSupplierForm.formState.errors.cellphoneNumber.message}</p>}
+                    </div>
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="edit-address">Address</Label>
