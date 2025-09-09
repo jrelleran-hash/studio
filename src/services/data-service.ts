@@ -2,6 +2,7 @@
 
 
 
+
 import { db, storage } from "@/lib/firebase";
 import { collection, getDocs, getDoc, doc, orderBy, query, limit, Timestamp, where, DocumentReference, addDoc, updateDoc, deleteDoc, arrayUnion, runTransaction, writeBatch } from "firebase/firestore";
 import { ref, uploadBytes, getDownloadURL } from "firebase/storage";
@@ -184,17 +185,16 @@ async function checkStockAndCreateNotification(product: Omit<Product, 'id' | 'hi
     try {
       // Check if a recent, unread, similar notification already exists to avoid spam.
       const notificationsCol = collection(db, "notifications");
-      const fiveMinutesAgo = Date.now() - 5 * 60 * 1000;
       
       const q = query(
         notificationsCol, 
-        where('title', '==', notification.title),
-        where('read', '==', false)
+        where('title', '==', notification.title)
       );
       const existingNotifsSnapshot = await getDocs(q);
       
       const hasRecent = existingNotifsSnapshot.docs.some(doc => {
           const timestamp = doc.data().timestamp.toMillis();
+          const fiveMinutesAgo = Date.now() - 5 * 60 * 1000;
           return timestamp > fiveMinutesAgo;
       });
 
@@ -207,9 +207,35 @@ async function checkStockAndCreateNotification(product: Omit<Product, 'id' | 'hi
   }
 }
 
-export async function addProduct(product: Partial<Omit<Product, 'id' | 'lastUpdated' | 'history' | 'maxStockLevel'>> & { maxStockLevel?: number }): Promise<DocumentReference> {
+export async function uploadProductPicture(file: File, productId: string): Promise<string> {
+    try {
+        const fileExtension = file.name.split('.').pop();
+        const fileName = `${productId}.${fileExtension}`;
+        const storageRef = ref(storage, `product-pictures/${fileName}`);
+
+        const snapshot = await uploadBytes(storageRef, file);
+        const downloadURL = await getDownloadURL(snapshot.ref);
+        
+        return downloadURL;
+    } catch (error) {
+        console.error("Error uploading product picture:", error);
+        throw new Error("Failed to upload product picture.");
+    }
+}
+
+export async function addProduct(product: Partial<Omit<Product, 'id' | 'lastUpdated' | 'history' | 'maxStockLevel'>> & { maxStockLevel?: number, photoFile?: File }): Promise<DocumentReference> {
   try {
     const now = Timestamp.now();
+    let photoURL = "";
+    
+    const productsCol = collection(db, "inventory");
+    // Create doc ref first to get an ID for the image path
+    const docRef = doc(productsCol); 
+    
+    if (product.photoFile) {
+        photoURL = await uploadProductPicture(product.photoFile, docRef.id);
+    }
+    
     const productWithDefaults = {
       name: product.name || "Unnamed Product",
       sku: product.sku || "",
@@ -219,12 +245,12 @@ export async function addProduct(product: Partial<Omit<Product, 'id' | 'lastUpda
       maxStockLevel: product.maxStockLevel || 100,
       location: product.location || "",
       supplier: product.supplier || "",
+      photoURL: photoURL,
       lastUpdated: now,
       history: [],
     };
     
-    const productsCol = collection(db, "inventory");
-    const docRef = await addDoc(productsCol, productWithDefaults);
+    await setDoc(docRef, productWithDefaults);
     
     return docRef;
   } catch (error) {
@@ -234,7 +260,7 @@ export async function addProduct(product: Partial<Omit<Product, 'id' | 'lastUpda
 }
 
 
-export async function updateProduct(productId: string, productData: Partial<Omit<Product, 'id' | 'sku'>>): Promise<void> {
+export async function updateProduct(productId: string, productData: Partial<Omit<Product, 'id' | 'sku'>> & { photoFile?: File }): Promise<void> {
   try {
     const productRef = doc(db, "inventory", productId);
     const originalDoc = await getDoc(productRef);
@@ -242,7 +268,12 @@ export async function updateProduct(productId: string, productData: Partial<Omit
     const originalData = originalDoc.data() as Product;
 
     const now = Timestamp.now();
-    const updatePayload: any = { ...productData, lastUpdated: now };
+    const { photoFile, ...restOfData } = productData;
+    const updatePayload: any = { ...restOfData, lastUpdated: now };
+
+    if (photoFile) {
+        updatePayload.photoURL = await uploadProductPicture(photoFile, productId);
+    }
 
     // If stock is being updated, add a new history entry
     if (productData.stock !== undefined && productData.stock !== originalData?.stock) {

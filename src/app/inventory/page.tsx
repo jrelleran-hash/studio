@@ -2,7 +2,7 @@
 
 "use client";
 
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, useRef } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
@@ -51,6 +51,10 @@ import { formatCurrency } from "@/lib/currency";
 import { Timestamp } from "firebase/firestore";
 import { format } from "date-fns";
 import { useData } from "@/context/data-context";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+
+const MAX_FILE_SIZE = 5 * 1024 * 1024; // 5MB
+const ACCEPTED_IMAGE_TYPES = ["image/jpeg", "image/jpg", "image/png", "image/webp"];
 
 const createProductSchema = (isSkuAuto: boolean) => z.object({
   name: z.string().min(1, "Product name is required."),
@@ -61,6 +65,7 @@ const createProductSchema = (isSkuAuto: boolean) => z.object({
   maxStockLevel: z.coerce.number().int().nonnegative("Max stock must be a non-negative integer."),
   location: z.string().optional(),
   supplier: z.string().optional(),
+  photoFile: z.any().optional(),
 }).refine(data => isSkuAuto || (data.sku && data.sku.length > 0), {
     message: "SKU is required when not auto-generated.",
     path: ["sku"],
@@ -75,6 +80,7 @@ const editProductSchema = z.object({
   maxStockLevel: z.coerce.number().int().nonnegative("Max stock must be a non-negative integer."),
   location: z.string().optional(),
   supplier: z.string().optional(),
+  photoFile: z.any().optional(),
 });
 
 
@@ -98,6 +104,9 @@ export default function InventoryPage() {
   const { toast } = useToast();
   const [statusFilter, setStatusFilter] = useState<StatusFilter>("all");
   const [autoGenerateSku, setAutoGenerateSku] = useState(true);
+  const [previewImage, setPreviewImage] = useState<string | null>(null);
+  const addFileInputRef = useRef<HTMLInputElement>(null);
+  const editFileInputRef = useRef<HTMLInputElement>(null);
 
   const productSchema = useMemo(() => createProductSchema(autoGenerateSku), [autoGenerateSku]);
 
@@ -123,12 +132,16 @@ export default function InventoryPage() {
     if (isAddDialogOpen) {
       addForm.reset();
       setAutoGenerateSku(true);
+      setPreviewImage(null);
     }
   }, [isAddDialogOpen, addForm]);
 
   useEffect(() => {
     if (editingProduct) {
       editForm.reset(editingProduct);
+      setPreviewImage(editingProduct.photoURL || null);
+    } else {
+      setPreviewImage(null);
     }
   }, [editingProduct, editForm]);
 
@@ -154,15 +167,18 @@ export default function InventoryPage() {
   
   const onAddSubmit = async (data: ProductFormValues) => {
     try {
-      const productData = { ...data };
+      const productData: any = { ...data };
       if (autoGenerateSku) {
         // Simple SKU generation logic: first 3 letters of name + random 4 digits
         const namePart = data.name.substring(0, 3).toUpperCase();
         const randomPart = Math.floor(1000 + Math.random() * 9000);
         productData.sku = `${namePart}-${randomPart}`;
       }
+      if (data.photoFile?.[0]) {
+        productData.photoFile = data.photoFile[0];
+      }
 
-      await addProduct(productData as Product);
+      await addProduct(productData);
       toast({ title: "Success", description: "Product added successfully." });
       setIsAddDialogOpen(false);
       addForm.reset();
@@ -182,7 +198,13 @@ export default function InventoryPage() {
     try {
       // Exclude SKU from the update data
       const { sku, ...updateData } = data;
-      await updateProduct(editingProduct.id, updateData);
+      const payload: any = updateData;
+
+      if (data.photoFile?.[0]) {
+        payload.photoFile = data.photoFile[0];
+      }
+      
+      await updateProduct(editingProduct.id, payload);
       toast({ title: "Success", description: "Product updated successfully." });
       setIsEditDialogOpen(false);
       setEditingProduct(null);
@@ -231,6 +253,22 @@ export default function InventoryPage() {
     return format(timestamp.toDate(), 'PPpp');
   }
 
+  const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>, formType: 'add' | 'edit') => {
+    const file = event.target.files?.[0];
+    if (file) {
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        setPreviewImage(reader.result as string);
+      };
+      reader.readAsDataURL(file);
+      if (formType === 'add') {
+        addForm.setValue('photoFile', event.target.files);
+      } else {
+        editForm.setValue('photoFile', event.target.files);
+      }
+    }
+  };
+
 
   return (
     <>
@@ -266,6 +304,38 @@ export default function InventoryPage() {
                 <DialogDescription>Fill in the details for the new product.</DialogDescription>
               </DialogHeader>
               <form onSubmit={addForm.handleSubmit(onAddSubmit)} className="space-y-4">
+                <div className="space-y-2 text-center">
+                    <div className="relative w-24 h-24 mx-auto">
+                        <Avatar className="w-24 h-24 text-4xl rounded-md">
+                            {previewImage ? (
+                                <Image
+                                    src={previewImage}
+                                    alt="Product preview"
+                                    width={96}
+                                    height={96}
+                                    className="rounded-md object-cover aspect-square"
+                                />
+                            ) : (
+                                <AvatarImage src={undefined} alt="Product preview" />
+                            )}
+                            <AvatarFallback className="rounded-md">
+                                {addForm.getValues('name')?.[0]?.toUpperCase() || <Package className="h-8 w-8 text-muted-foreground" />}
+                            </AvatarFallback>
+                        </Avatar>
+                    </div>
+                      <Button type="button" variant="link" onClick={() => addFileInputRef.current?.click()}>
+                        Upload Photo
+                      </Button>
+                      <Input
+                        type="file"
+                        className="hidden"
+                        {...addForm.register("photoFile")}
+                        ref={addFileInputRef}
+                        onChange={(e) => handleFileChange(e, 'add')}
+                        accept="image/png, image/jpeg, image/webp"
+                      />
+                      {addForm.formState.errors.photoFile && <p className="text-sm text-destructive">{addForm.formState.errors.photoFile.message as string}</p>}
+                </div>
                 <div className="space-y-2">
                   <Label htmlFor="name">Product Name</Label>
                   <Input id="name" {...addForm.register("name")} onChange={(e) => {
@@ -377,7 +447,7 @@ export default function InventoryPage() {
                           alt={product.name}
                           className="aspect-square rounded-md object-cover"
                           height="48"
-                          src={`https://picsum.photos/seed/${product.id}/48/48`}
+                          src={product.photoURL || `https://picsum.photos/seed/${product.id}/48/48`}
                           width="48"
                         />
                       </TableCell>
@@ -422,6 +492,38 @@ export default function InventoryPage() {
               <DialogDescription>Update the details for {editingProduct.name}.</DialogDescription>
             </DialogHeader>
             <form onSubmit={editForm.handleSubmit(onEditSubmit)} className="space-y-4">
+              <div className="space-y-2 text-center">
+                  <div className="relative w-24 h-24 mx-auto">
+                      <Avatar className="w-24 h-24 text-4xl rounded-md">
+                          {previewImage ? (
+                              <Image
+                                  src={previewImage}
+                                  alt="Product preview"
+                                  width={96}
+                                  height={96}
+                                  className="rounded-md object-cover aspect-square"
+                              />
+                          ) : (
+                              <AvatarImage src={undefined} alt="Product preview" />
+                          )}
+                          <AvatarFallback className="rounded-md">
+                              {editForm.getValues('name')?.[0]?.toUpperCase() || <Package className="h-8 w-8 text-muted-foreground" />}
+                          </AvatarFallback>
+                      </Avatar>
+                  </div>
+                    <Button type="button" variant="link" onClick={() => editFileInputRef.current?.click()}>
+                      Change Photo
+                    </Button>
+                    <Input
+                      type="file"
+                      className="hidden"
+                      {...editForm.register("photoFile")}
+                      ref={editFileInputRef}
+                      onChange={(e) => handleFileChange(e, 'edit')}
+                      accept="image/png, image/jpeg, image/webp"
+                    />
+                    {editForm.formState.errors.photoFile && <p className="text-sm text-destructive">{editForm.formState.errors.photoFile.message as string}</p>}
+              </div>
                <div className="space-y-2">
                   <Label htmlFor="edit-name">Product Name</Label>
                   <Input id="edit-name" {...editForm.register("name")} onChange={(e) => {
