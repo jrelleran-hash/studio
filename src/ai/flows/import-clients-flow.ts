@@ -10,7 +10,7 @@
 
 import { ai } from '@/ai/genkit';
 import { addClient } from '@/services/data-service';
-import { getGoogleOauth2Client } from '@/services/google-auth-service';
+import { oauth2Client } from '@/services/google-auth-service';
 import { google } from 'googleapis';
 import { z } from 'genkit';
 
@@ -93,7 +93,6 @@ const importClientsFlow = ai.defineFlow(
         return { importedCount: 0, errors: ['Invalid Google Sheet URL.'] };
       }
 
-      const oauth2Client = getGoogleOauth2Client();
       const sheets = google.sheets({ version: 'v4', auth: oauth2Client });
 
       const response = await sheets.spreadsheets.values.get({
