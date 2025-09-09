@@ -1,4 +1,5 @@
 
+
 "use client";
 
 import { useState, useEffect, useMemo } from "react";
@@ -54,8 +55,8 @@ import { useData } from "@/context/data-context";
 const createProductSchema = (isSkuAuto: boolean) => z.object({
   name: z.string().min(1, "Product name is required."),
   sku: z.string().optional(),
-  price: z.coerce.number().nonnegative("Price must be a non-negative number."),
-  stock: z.coerce.number().int().nonnegative("Stock must be a non-negative integer."),
+  price: z.coerce.number().nonnegative("Price must be a non-negative number.").optional(),
+  stock: z.coerce.number().int().nonnegative("Stock must be a non-negative integer.").optional(),
   reorderLimit: z.coerce.number().int().nonnegative("Reorder limit must be a non-negative integer."),
   location: z.string().optional(),
   supplier: z.string().optional(),
@@ -284,7 +285,7 @@ export default function InventoryPage() {
                     {addForm.formState.errors.sku && <p className="text-sm text-destructive">{addForm.formState.errors.sku.message}</p>}
                   </div>
                    <div className="space-y-2">
-                    <Label htmlFor="price">Price</Label>
+                    <Label htmlFor="price">Price (Optional)</Label>
                     <div className="relative">
                       <span className="absolute inset-y-0 left-0 flex items-center pl-3 text-muted-foreground">{CURRENCY_CONFIG.symbol}</span>
                       <Input id="price" type="number" step="0.01" className="pl-8" placeholder="0.00" {...addForm.register("price")} />
@@ -294,7 +295,7 @@ export default function InventoryPage() {
                 </div>
                 <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-2">
-                    <Label htmlFor="stock">Stock</Label>
+                    <Label htmlFor="stock">Initial Stock (Optional)</Label>
                     <Input id="stock" type="number" placeholder="0" {...addForm.register("stock")} />
                     {addForm.formState.errors.stock && <p className="text-sm text-destructive">{addForm.formState.errors.stock.message}</p>}
                   </div>

@@ -202,27 +202,39 @@ async function checkStockAndCreateNotification(product: Omit<Product, 'id' | 'hi
 export async function addProduct(product: Omit<Product, 'id' | 'lastUpdated' | 'history'>): Promise<DocumentReference> {
   try {
     const now = Timestamp.now();
-    const newHistoryEntry = {
+    const productWithDefaults = {
+      ...product,
+      stock: product.stock || 0,
+      price: product.price || 0,
+      lastUpdated: now,
+      history: [],
+    };
+    
+    // Only add a history entry if initial stock is provided and greater than 0
+    if (product.stock && product.stock > 0) {
+      const newHistoryEntry = {
         date: format(now.toDate(), 'yyyy-MM-dd'),
         stock: product.stock,
         dateUpdated: now,
-    };
-
-    const productWithHistory = {
-        ...product,
-        lastUpdated: now,
-        history: [newHistoryEntry]
-    };
-
+      };
+      productWithDefaults.history = [newHistoryEntry];
+    }
+    
     const productsCol = collection(db, "inventory");
-    const docRef = await addDoc(productsCol, productWithHistory);
-    await checkStockAndCreateNotification(product, docRef.id);
+    const docRef = await addDoc(productsCol, productWithDefaults);
+    
+    // Check for notification only if there's an initial stock
+    if (product.stock && product.stock > 0) {
+      await checkStockAndCreateNotification(product, docRef.id);
+    }
+
     return docRef;
   } catch (error) {
     console.error("Error adding product:", error);
     throw new Error("Failed to add product.");
   }
 }
+
 
 export async function updateProduct(productId: string, productData: Partial<Omit<Product, 'id' | 'sku'>>): Promise<void> {
   try {

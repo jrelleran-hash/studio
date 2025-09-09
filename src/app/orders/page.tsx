@@ -453,7 +453,7 @@ export default function OrdersAndSuppliersPage() {
   // Product handler
   const onProductSubmit = async (data: ProductFormValues) => {
     try {
-      const productData = { ...data, price: data.price || 0, stock: data.stock || 0 };
+      const productData = { ...data };
       if (autoGenerateSku) {
         const namePart = data.name.substring(0, 3).toUpperCase();
         const randomPart = Math.floor(1000 + Math.random() * 9000);
@@ -1257,7 +1257,7 @@ export default function OrdersAndSuppliersPage() {
        <DialogContent className="sm:max-w-lg">
            <DialogHeader>
             <DialogTitle>Add New Product</DialogTitle>
-            <DialogDescription>Fill in the details for the new product.</DialogDescription>
+            <DialogDescription>Fill in the details for the new product. It will be added to inventory once the PO is received.</DialogDescription>
           </DialogHeader>
           <form onSubmit={productForm.handleSubmit(onProductSubmit)} className="space-y-4">
             <div className="space-y-2">
@@ -1282,7 +1282,7 @@ export default function OrdersAndSuppliersPage() {
                 {productForm.formState.errors.sku && <p className="text-sm text-destructive">{productForm.formState.errors.sku.message}</p>}
               </div>
                <div className="space-y-2">
-                <Label htmlFor="price-order">Price</Label>
+                <Label htmlFor="price-order">Price (Optional)</Label>
                 <div className="relative">
                   <span className="absolute inset-y-0 left-0 flex items-center pl-3 text-muted-foreground">{CURRENCY_CONFIG.symbol}</span>
                   <Input id="price-order" type="number" step="0.01" className="pl-8" placeholder="0.00" {...productForm.register("price")} />
@@ -1290,28 +1290,21 @@ export default function OrdersAndSuppliersPage() {
                 {productForm.formState.errors.price && <p className="text-sm text-destructive">{productForm.formState.errors.price.message}</p>}
               </div>
             </div>
-            <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <Label htmlFor="stock-order">Stock</Label>
-                <Input id="stock-order" type="number" placeholder="0" {...productForm.register("stock")} />
-                {productForm.formState.errors.stock && <p className="text-sm text-destructive">{productForm.formState.errors.stock.message}</p>}
-              </div>
+             <div className="grid grid-cols-2 gap-4">
                <div className="space-y-2">
                 <Label htmlFor="reorderLimit-order">Reorder Limit</Label>
                 <Input id="reorderLimit-order" type="number" placeholder="10" {...productForm.register("reorderLimit")} />
                 {productForm.formState.errors.reorderLimit && <p className="text-sm text-destructive">{productForm.formState.errors.reorderLimit.message}</p>}
               </div>
-            </div>
-            <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-2">
+               <div className="space-y-2">
                   <Label htmlFor="location-order">Location</Label>
                   <Input id="location-order" placeholder="e.g. 'Warehouse A'" {...productForm.register("location")} />
               </div>
-              <div className="space-y-2">
+            </div>
+             <div className="space-y-2">
                   <Label htmlFor="supplier-order">Supplier</Label>
                   <Input id="supplier-order" placeholder="e.g. 'ACME Inc.'" {...productForm.register("supplier")} />
               </div>
-            </div>
             <DialogFooter>
               <Button type="button" variant="outline" onClick={() => setIsAddProductOpen(false)}>Cancel</Button>
               <Button type="submit" disabled={productForm.formState.isSubmitting}>
@@ -1512,6 +1505,7 @@ export default function OrdersAndSuppliersPage() {
                 </DialogHeader>
                 <div className="py-4 space-y-4">
                     <p><strong>Order Date:</strong> {formatDateSimple(selectedPO.orderDate)}</p>
+                    <p><strong>Expected Date:</strong> {selectedPO.expectedDate ? formatDateSimple(selectedPO.expectedDate) : 'N/A'}</p>
                     <p><strong>Status:</strong> <Badge variant={statusVariant[selectedPO.status] || "default"}>{selectedPO.status}</Badge></p>
                     {selectedPO.receivedDate && <p><strong>Date Received:</strong> {formatDateSimple(selectedPO.receivedDate)}</p>}
                     <div>
