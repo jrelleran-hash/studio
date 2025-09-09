@@ -1,7 +1,7 @@
 
 "use client";
 
-import { createContext, useEffect, useState, ReactNode, useCallback } from "react";
+import { createContext, useEffect, useState, ReactNode, useCallback, useMemo } from "react";
 import { onAuthStateChanged, User, signOut, Auth } from "firebase/auth";
 import { auth } from "@/lib/firebase";
 import { useRouter, usePathname } from "next/navigation";
@@ -40,18 +40,18 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, [user, loading, pathname, router]);
 
 
-  const logout = async () => {
+  const logout = useCallback(async () => {
     await signOut(auth);
     router.push("/login");
-  };
+  }, [router]);
 
-  const reloadUser = async () => {
+  const reloadUser = useCallback(async () => {
     const currentUser = auth.currentUser;
     if (currentUser) {
       await currentUser.reload();
       const refreshedUser = auth.currentUser;
-      // Create a new plain object from the refreshed user to ensure React detects the change.
       if (refreshedUser) {
+        // Create a new plain object from the refreshed user to ensure React detects the change.
         const userObject = {
           uid: refreshedUser.uid,
           email: refreshedUser.email,
@@ -62,15 +62,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           phoneNumber: refreshedUser.phoneNumber,
           providerData: refreshedUser.providerData,
           // Add any other user properties you need
-        };
-        setUser(userObject as User);
+        } as User;
+        setUser(userObject);
       } else {
         setUser(null);
       }
     }
-  };
+  }, []);
 
-  const value = { user, loading, logout, reloadUser };
+  const value = useMemo(() => ({
+     user, loading, logout, reloadUser
+  }), [user, loading, logout, reloadUser]);
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 }
