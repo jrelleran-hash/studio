@@ -1,9 +1,11 @@
+
 // src/ai/flows/smart-search-mvp.ts
 'use server';
 
 /**
  * @fileOverview Smart search MVP flow that leverages an LLM to interpret search queries and return relevant results.
  *
+ * - smartSearch - A function that handles the smart search process.
  * - smartSearch - A function that handles the smart search process.
  * - SmartSearchInput - The input type for the smartSearch function.
  * - SmartSearchOutput - The return type for the smartSearch function.
@@ -12,6 +14,8 @@
 import {ai} from '@/ai/genkit';
 import {z} from 'genkit';
 import { addClient } from '@/services/data-service';
+import { google } from 'googleapis';
+import { getAuthenticatedClient } from '@/services/google-auth-service';
 
 const SmartSearchInputSchema = z.object({
   query: z.string().describe('The user search query in natural language.'),
@@ -116,27 +120,57 @@ const importClientsFlow = ai.defineFlow(
     outputSchema: ImportClientsOutputSchema,
   },
   async (input) => {
-    // In a real application, you would fetch the data from the sheetUrl.
-    // For this example, we'll use mock data that matches the expected format.
-    const mockSheetData = `
-      Project Alpha,John Doe,BOQ-001,123 Main St
-      Project Beta,Jane Smith,BOQ-002,456 Oak Ave
-      Project Gamma,Sam Wilson,BOQ-003,789 Pine Ln
-    `;
+    try {
+        const sheetId = extractSheetIdFromUrl(input.sheetUrl);
+        if (!sheetId) {
+            return { importedCount: 0, errors: ["Invalid Google Sheet URL."] };
+        }
 
-    const { output } = await importClientsPrompt({ sheetData: mockSheetData });
-    if (!output || !output.clients) {
-      return { importedCount: 0, errors: ["Failed to parse client data."] };
+        const oauth2Client = getAuthenticatedClient();
+        const sheets = google.sheets({ version: 'v4', auth: oauth2Client });
+
+        const response = await sheets.spreadsheets.values.get({
+            spreadsheetId: sheetId,
+            range: 'A1:D', // Assuming data is in the first 4 columns
+        });
+
+        const rows = response.data.values;
+        if (!rows || rows.length === 0) {
+            return { importedCount: 0, errors: ["No data found in the sheet."] };
+        }
+
+        const sheetData = rows.map(row => row.join(',')).join('\n');
+        
+        const { output } = await importClientsPrompt({ sheetData });
+
+        if (!output || !output.clients) {
+          return { importedCount: 0, errors: ["Failed to parse client data."] };
+        }
+
+        const result = await importClientTool({ clients: output.clients });
+
+        return {
+          importedCount: result.importedCount,
+          errors: [],
+        };
+    } catch (e: any) {
+        console.error("Error during import:", e);
+        // Check for specific Google API errors
+        if (e.code === 403) {
+            return { importedCount: 0, errors: ["Permission denied. Make sure the bot has access to the Google Sheet."] };
+        }
+        if (e.code === 404) {
+            return { importedCount: 0, errors: ["Google Sheet not found. Please check the URL."] };
+        }
+        return { importedCount: 0, errors: ["An error occurred while fetching data from Google Sheets."] };
     }
-
-    const result = await importClientTool({ clients: output.clients });
-
-    return {
-      importedCount: result.importedCount,
-      errors: [],
-    };
   }
 );
+
+function extractSheetIdFromUrl(url: string): string | null {
+    const match = /\/spreadsheets\/d\/([a-zA-Z0-9-_]+)/.exec(url);
+    return match ? match[1] : null;
+}
 
 
 export async function importClientsFromSheet(input: ImportClientsInput): Promise<ImportClientsOutput> {
