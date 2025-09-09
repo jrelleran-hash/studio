@@ -130,6 +130,8 @@ export default function OrdersAndSuppliersPage() {
   const [isEditSupplierOpen, setIsEditSupplierOpen] = useState(false);
   const [isDeleteSupplierOpen, setIsDeleteSupplierOpen] = useState(false);
   const [selectedOrder, setSelectedOrder] = useState<Order | null>(null);
+  const [isReordered, setIsReordered] = useState(false);
+
 
   // Data states
   const [autoGenerateSku, setAutoGenerateSku] = useState(true);
@@ -203,6 +205,16 @@ export default function OrdersAndSuppliersPage() {
       editSupplierForm.reset();
     }
   }, [editingSupplier, editSupplierForm]);
+  
+  useEffect(() => {
+    if (selectedOrder && selectedOrder.status === 'Cancelled') {
+      const alreadyReordered = orders.some(o => o.reorderedFrom === selectedOrder.id);
+      setIsReordered(alreadyReordered);
+    } else {
+      setIsReordered(false);
+    }
+  }, [selectedOrder, orders]);
+
 
   // Order handlers
   const handleStatusChange = async (orderId: string, status: Order["status"]) => {
@@ -219,6 +231,48 @@ export default function OrdersAndSuppliersPage() {
       });
     }
   };
+  
+  const handleCancelOrder = async (orderId: string) => {
+    try {
+      await updateOrderStatus(orderId, 'Cancelled');
+      toast({ title: "Success", description: "Order has been cancelled." });
+      await refetchData();
+      setSelectedOrder(null);
+    } catch (error) {
+        console.error(error);
+        toast({
+            variant: "destructive",
+            title: "Error",
+            description: "Failed to cancel order.",
+        });
+    }
+  };
+
+  const handleReorder = async (order: Order) => {
+    try {
+        const reorderData = {
+            clientId: order.client.id,
+            items: order.items.map(item => ({
+                productId: item.product.id,
+                quantity: item.quantity
+            })),
+            status: 'Processing' as const,
+            reorderedFrom: order.id,
+        };
+        await addOrder(reorderData);
+        toast({ title: "Success", description: "Order has been re-created." });
+        await refetchData();
+        setSelectedOrder(null);
+    } catch (error) {
+        console.error(error);
+        toast({
+            variant: "destructive",
+            title: "Error",
+            description: "Failed to reorder.",
+        });
+    }
+  };
+
 
   const onOrderSubmit = async (data: OrderFormValues) => {
     try {
@@ -546,9 +600,6 @@ export default function OrdersAndSuppliersPage() {
                             <DropdownMenuItem onClick={() => handleStatusChange(order.id, 'Shipped')}>
                               Mark as Shipped
                             </DropdownMenuItem>
-                            <DropdownMenuItem onClick={() => handleStatusChange(order.id, 'Cancelled')}>
-                              Cancel Order
-                            </DropdownMenuItem>
                           </DropdownMenuContent>
                         </DropdownMenu>
                       </TableCell>
@@ -719,6 +770,13 @@ export default function OrdersAndSuppliersPage() {
             </div>
           </div>
           <DialogFooter>
+            {selectedOrder.status === 'Cancelled' ? (
+                <Button onClick={() => handleReorder(selectedOrder)} disabled={isReordered}>
+                  {isReordered ? 'Already Reordered' : 'Reorder'}
+                </Button>
+            ) : (
+                <Button variant="destructive" onClick={() => handleCancelOrder(selectedOrder.id)}>Cancel Order</Button>
+            )}
             <Button variant="outline" onClick={() => setSelectedOrder(null)}>Close</Button>
           </DialogFooter>
         </DialogContent>
