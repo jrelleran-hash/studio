@@ -1,23 +1,32 @@
 
 "use client";
 
-import { useState, useEffect } from "react";
-import { format } from "date-fns";
+import { useState, useEffect, useMemo } from "react";
+import { format, addDays } from "date-fns";
+import { useForm, Controller } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
+import * as z from "zod";
 
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useToast } from "@/hooks/use-toast";
-import { getShipments, updateShipmentStatus } from "@/services/data-service";
+import { getShipments, updateShipmentStatus, getUnshippedIssuances, addShipment } from "@/services/data-service";
 import { useData } from "@/context/data-context";
-import type { Shipment } from "@/types";
-import { MoreHorizontal, Package, Truck, CheckCircle, Hourglass, CalendarDays, List } from "lucide-react";
+import type { Shipment, Issuance } from "@/types";
+import { MoreHorizontal, Package, Truck, CheckCircle, Hourglass, CalendarDays, List, PlusCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuTrigger, DropdownMenuSeparator } from "@/components/ui/dropdown-menu";
-import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogFooter, DialogTrigger } from "@/components/ui/dialog";
 import { KpiCard } from "@/components/analytics/kpi-card";
 import { ShipmentCalendar } from "@/components/logistics/shipment-calendar";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Calendar } from "@/components/ui/calendar";
+import { cn } from "@/lib/utils";
 
 
 const statusVariant: { [key: string]: "default" | "secondary" | "destructive" | "outline" } = {
@@ -28,28 +37,56 @@ const statusVariant: { [key: string]: "default" | "secondary" | "destructive" | 
   Cancelled: "destructive",
 };
 
+const createShipmentSchema = z.object({
+    issuanceId: z.string().min(1, "An issuance must be selected"),
+    shippingProvider: z.string().min(1, "Shipping provider is required"),
+    trackingNumber: z.string().optional(),
+    estimatedDeliveryDate: z.date({
+        required_error: "An estimated delivery date is required.",
+    }),
+});
+
+type ShipmentFormValues = z.infer<typeof createShipmentSchema>;
+
+
 type StatusFilter = "all" | Shipment['status'];
 type ViewMode = "list" | "calendar";
 
 export default function LogisticsPage() {
     const { refetchData } = useData();
     const [shipments, setShipments] = useState<Shipment[]>([]);
+    const [unshippedIssuances, setUnshippedIssuances] = useState<Issuance[]>([]);
     const [loading, setLoading] = useState(true);
     const [selectedShipment, setSelectedShipment] = useState<Shipment | null>(null);
     const [statusFilter, setStatusFilter] = useState<StatusFilter>("all");
     const [viewMode, setViewMode] = useState<ViewMode>("list");
+    const [isCreateShipmentOpen, setIsCreateShipmentOpen] = useState(false);
     const { toast } = useToast();
 
-    const fetchShipments = async () => {
+     const shipmentForm = useForm<ShipmentFormValues>({
+        resolver: zodResolver(createShipmentSchema),
+        defaultValues: {
+            issuanceId: "",
+            shippingProvider: "",
+            trackingNumber: "",
+            estimatedDeliveryDate: addDays(new Date(), 7),
+        },
+    });
+
+    const fetchPageData = async () => {
         setLoading(true);
         try {
-            const fetchedShipments = await getShipments();
+            const [fetchedShipments, fetchedIssuances] = await Promise.all([
+                getShipments(),
+                getUnshippedIssuances(),
+            ]);
             setShipments(fetchedShipments);
+            setUnshippedIssuances(fetchedIssuances);
         } catch (error) {
             toast({
                 variant: "destructive",
                 title: "Error",
-                description: "Failed to fetch shipments."
+                description: "Failed to fetch logistics data."
             });
         } finally {
             setLoading(false);
@@ -57,20 +94,44 @@ export default function LogisticsPage() {
     };
 
     useEffect(() => {
-        fetchShipments();
+        fetchPageData();
     }, [toast]);
     
+    useEffect(() => {
+        if (!isCreateShipmentOpen) {
+            shipmentForm.reset();
+        }
+    }, [isCreateShipmentOpen, shipmentForm]);
+
     const handleStatusChange = async (shipmentId: string, status: Shipment['status']) => {
         try {
             await updateShipmentStatus(shipmentId, status);
             toast({ title: "Success", description: `Shipment marked as ${status}.` });
-            await fetchShipments(); // Refetch to update list and KPIs
+            await fetchPageData(); // Refetch to update list and KPIs
             await refetchData(); // Refetch global data context if needed
         } catch (error) {
             toast({
                 variant: "destructive",
                 title: "Error",
                 description: "Failed to update shipment status."
+            });
+        }
+    };
+    
+    const onShipmentSubmit = async (data: ShipmentFormValues) => {
+        try {
+          await addShipment(data);
+          toast({ title: "Success", description: "New shipment created successfully." });
+          setIsCreateShipmentOpen(false);
+          await fetchPageData();
+          await refetchData();
+        } catch (error) {
+            console.error(error);
+            const errorMessage = error instanceof Error ? error.message : "An unexpected error occurred.";
+            toast({
+                variant: "destructive",
+                title: "Error",
+                description: errorMessage,
             });
         }
     };
@@ -137,7 +198,93 @@ export default function LogisticsPage() {
                             <CardDescription>A log of all shipments.</CardDescription>
                          </div>
                          <div className="flex items-center gap-2">
-                             <Button variant={viewMode === 'list' ? 'default' : 'outline'} size="sm" onClick={() => setViewMode('list')}><List className="mr-2 h-4 w-4" />List</Button>
+                            <Dialog open={isCreateShipmentOpen} onOpenChange={setIsCreateShipmentOpen}>
+                                <DialogTrigger asChild>
+                                    <Button size="sm" variant="outline" className="gap-1">
+                                        <PlusCircle className="h-4 w-4" />
+                                        Create Shipment
+                                    </Button>
+                                </DialogTrigger>
+                                <DialogContent>
+                                    <DialogHeader>
+                                        <DialogTitle>Create Shipment</DialogTitle>
+                                        <DialogDescription>
+                                            Select an issuance to create a new shipment.
+                                        </DialogDescription>
+                                    </DialogHeader>
+                                    <form onSubmit={shipmentForm.handleSubmit(onShipmentSubmit)} className="space-y-4">
+                                        <div className="space-y-2">
+                                            <Label htmlFor="issuanceId">Issuance to Ship</Label>
+                                            <Controller
+                                                control={shipmentForm.control}
+                                                name="issuanceId"
+                                                render={({ field }) => (
+                                                    <Select onValueChange={field.onChange} value={field.value}>
+                                                        <SelectTrigger>
+                                                            <SelectValue placeholder="Select an issuance..." />
+                                                        </SelectTrigger>
+                                                        <SelectContent>
+                                                            {unshippedIssuances.map(iss => (
+                                                                <SelectItem key={iss.id} value={iss.id}>
+                                                                    {iss.issuanceNumber} - {iss.client.clientName}
+                                                                </SelectItem>
+                                                            ))}
+                                                        </SelectContent>
+                                                    </Select>
+                                                )}
+                                            />
+                                            {shipmentForm.formState.errors.issuanceId && <p className="text-sm text-destructive">{shipmentForm.formState.errors.issuanceId.message}</p>}
+                                        </div>
+                                        <div className="space-y-2">
+                                            <Label htmlFor="shippingProvider">Shipping Provider</Label>
+                                            <Input id="shippingProvider" {...shipmentForm.register("shippingProvider")} />
+                                            {shipmentForm.formState.errors.shippingProvider && <p className="text-sm text-destructive">{shipmentForm.formState.errors.shippingProvider.message}</p>}
+                                        </div>
+                                        <div className="space-y-2">
+                                            <Label htmlFor="trackingNumber">Tracking Number (Optional)</Label>
+                                            <Input id="trackingNumber" {...shipmentForm.register("trackingNumber")} />
+                                        </div>
+                                        <div className="space-y-2">
+                                            <Label>Estimated Delivery Date</Label>
+                                            <Controller
+                                                control={shipmentForm.control}
+                                                name="estimatedDeliveryDate"
+                                                render={({ field }) => (
+                                                <Popover>
+                                                    <PopoverTrigger asChild>
+                                                        <Button
+                                                        variant={"outline"}
+                                                        className={cn(
+                                                            "w-full justify-start text-left font-normal",
+                                                            !field.value && "text-muted-foreground"
+                                                        )}
+                                                        >
+                                                        {field.value ? format(field.value, "PPP") : <span>Pick a date</span>}
+                                                        </Button>
+                                                    </PopoverTrigger>
+                                                    <PopoverContent className="w-auto p-0">
+                                                        <Calendar
+                                                        mode="single"
+                                                        selected={field.value}
+                                                        onSelect={field.onChange}
+                                                        initialFocus
+                                                        />
+                                                    </PopoverContent>
+                                                    </Popover>
+                                                )}
+                                            />
+                                            {shipmentForm.formState.errors.estimatedDeliveryDate && <p className="text-sm text-destructive">{shipmentForm.formState.errors.estimatedDeliveryDate.message}</p>}
+                                        </div>
+                                        <DialogFooter>
+                                            <Button type="button" variant="outline" onClick={() => setIsCreateShipmentOpen(false)}>Cancel</Button>
+                                            <Button type="submit" disabled={shipmentForm.formState.isSubmitting}>
+                                                {shipmentForm.formState.isSubmitting ? "Creating..." : "Create Shipment"}
+                                            </Button>
+                                        </DialogFooter>
+                                    </form>
+                                </DialogContent>
+                            </Dialog>
+                            <Button variant={viewMode === 'list' ? 'default' : 'outline'} size="sm" onClick={() => setViewMode('list')}><List className="mr-2 h-4 w-4" />List</Button>
                             <Button variant={viewMode === 'calendar' ? 'default' : 'outline'} size="sm" onClick={() => setViewMode('calendar')}><CalendarDays className="mr-2 h-4 w-4" />Calendar</Button>
                          </div>
                     </div>

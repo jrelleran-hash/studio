@@ -1,7 +1,7 @@
 
 
 import { db, storage } from "@/lib/firebase";
-import { collection, getDocs, getDoc, doc, orderBy, query, limit, Timestamp, where, DocumentReference, addDoc, updateDoc, deleteDoc, arrayUnion, runTransaction } from "firebase/firestore";
+import { collection, getDocs, getDoc, doc, orderBy, query, limit, Timestamp, where, DocumentReference, addDoc, updateDoc, deleteDoc, arrayUnion, runTransaction, writeBatch } from "firebase/firestore";
 import { ref, uploadBytes, getDownloadURL } from "firebase/storage";
 import type { Activity, Notification, Order, Product, Client, Issuance, Supplier, PurchaseOrder, Shipment } from "@/types";
 import { format, subDays } from 'date-fns';
@@ -778,6 +778,7 @@ async function checkAndUpdateAwaitingOrders() {
     }
 
     const inventoryCache = new Map<string, Product>();
+    const batch = writeBatch(db);
 
     for (const orderDoc of awaitingOrdersSnapshot.docs) {
         const orderData = orderDoc.data();
@@ -802,9 +803,11 @@ async function checkAndUpdateAwaitingOrders() {
         }
 
         if (allItemsAvailable) {
-            await updateDoc(orderDoc.ref, { status: "Ready for Issuance" });
+            batch.update(orderDoc.ref, { status: "Ready for Issuance" });
         }
     }
+    
+    await batch.commit();
 }
 
 
@@ -932,6 +935,41 @@ export async function getShipments(): Promise<Shipment[]> {
         return [];
     }
 }
+
+export async function getUnshippedIssuances(): Promise<Issuance[]> {
+    try {
+        // 1. Get all shipment issuance refs to know which ones are already shipped
+        const shipmentsCol = collection(db, "shipments");
+        const shipmentSnapshot = await getDocs(shipmentsCol);
+        const shippedIssuanceIds = new Set(shipmentSnapshot.docs.map(doc => doc.data().issuanceRef.id));
+
+        // 2. Get all issuances
+        const issuancesCol = collection(db, "issuances");
+        const issuanceSnapshot = await getDocs(query(issuancesCol, orderBy("date", "desc")));
+
+        // 3. Filter out issuances that are already shipped
+        const unshippedDocs = issuanceSnapshot.docs.filter(doc => !shippedIssuanceIds.has(doc.id));
+
+        // 4. Resolve the remaining issuance documents fully
+        const issuances: Issuance[] = await Promise.all(unshippedDocs.map(async (issuanceDoc) => {
+            const issuanceData = issuanceDoc.data();
+            const client = await resolveDoc<Client>(issuanceData.clientRef);
+            return {
+                id: issuanceDoc.id,
+                issuanceNumber: issuanceData.issuanceNumber,
+                date: (issuanceData.date as Timestamp).toDate(),
+                client: client,
+                items: [], // Items are not needed for the dropdown
+            } as Issuance;
+        }));
+        
+        return issuances;
+    } catch (error) {
+        console.error("Error fetching unshipped issuances:", error);
+        return [];
+    }
+}
+
 
 type NewShipmentData = {
     issuanceId: string;
