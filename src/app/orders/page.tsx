@@ -73,6 +73,7 @@ const statusVariant: { [key: string]: "default" | "secondary" | "destructive" | 
   Cancelled: "destructive",
   Pending: "secondary",
   Received: "default",
+  Processing: "secondary",
 };
 
 // Order Schemas

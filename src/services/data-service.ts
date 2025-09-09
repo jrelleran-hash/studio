@@ -383,6 +383,7 @@ type NewOrderData = {
   clientId: string;
   items: { productId: string; quantity: number }[];
   reorderedFrom?: string;
+  status?: Order['status'];
 };
 
 export async function addOrder(orderData: NewOrderData): Promise<DocumentReference> {
@@ -412,7 +413,9 @@ export async function addOrder(orderData: NewOrderData): Promise<DocumentReferen
       })
     );
     
-    const status: Order['status'] = needsPurchase ? "Awaiting Purchase" : "Ready for Issuance";
+    // Determine the status based on inventory, unless a status is explicitly passed
+    const status: Order['status'] = orderData.status ?? (needsPurchase ? "Awaiting Purchase" : "Ready for Issuance");
+
 
     const newOrder: any = {
       clientRef: doc(db, "clients", orderData.clientId),
@@ -604,8 +607,7 @@ export async function deleteIssuance(issuanceId: string): Promise<void> {
 
     // If the issuance was tied to an order, revert order status
     if (issuanceData.orderId) {
-        const orderRef = doc(db, "orders", issuanceData.orderId);
-        await updateDoc(orderRef, { status: "Ready for Issuance" });
+        await checkAndUpdateAwaitingOrders();
     }
 
   } catch (error) {
@@ -818,10 +820,11 @@ export async function updatePurchaseOrderStatus(poId: string, status: PurchaseOr
       }
       
       // --- Handle 'Received' status ---
-       // 1. READS: Gather all product data first
+      const productRefs = poData.items.map((item: any) => item.productRef as DocumentReference);
       const productDocs = await Promise.all(
-        poData.items.map((item: any) => transaction.get(item.productRef as DocumentReference))
+        productRefs.map((ref: DocumentReference) => transaction.get(ref))
       );
+
 
       // 2. WRITES: Now perform all updates
       const receivedTimestamp = Timestamp.now();

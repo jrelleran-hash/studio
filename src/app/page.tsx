@@ -1,4 +1,5 @@
 
+
 "use client";
 
 import { WelcomeCard } from "@/components/dashboard/welcome-card";
@@ -104,7 +105,7 @@ export default function DashboardPage() {
   }, [clients]);
 
   const activeOrdersData = useMemo(() => {
-    const activeStatuses: Order['status'][] = ["Processing", "Shipped"];
+    const activeStatuses: Order['status'][] = ["Processing", "Awaiting Purchase", "Ready for Issuance"];
     const activeOrders = orders.filter(o => activeStatuses.includes(o.status));
 
     const now = new Date();

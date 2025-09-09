@@ -68,7 +68,7 @@ export interface OrderItem {
 export interface Order {
     id: string;
     date: Date;
-    status: "Pending" | "Awaiting Purchase" | "Ready for Issuance" | "Fulfilled" | "Cancelled";
+    status: "Processing" | "Awaiting Purchase" | "Ready for Issuance" | "Fulfilled" | "Cancelled";
     total: number;
     client: Client;
     items: OrderItem[];

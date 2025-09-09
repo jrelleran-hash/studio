@@ -1,4 +1,5 @@
 
+
 "use client";
 
 import { useState, useEffect, useMemo, useCallback } from "react";
@@ -29,6 +30,8 @@ import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, 
 
 const statusVariant: { [key: string]: "default" | "secondary" | "destructive" | "outline" } = {
   Fulfilled: "default",
+  "Ready for Issuance": "default",
+  "Awaiting Purchase": "secondary",
   Processing: "secondary",
   Shipped: "outline",
   Cancelled: "destructive",
