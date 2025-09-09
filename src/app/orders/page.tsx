@@ -752,7 +752,6 @@ export default function OrdersAndSuppliersPage() {
     }
   };
 
-
   const handleCreatePOFromQueue = () => {
     const itemsForPO = selectedQueueItems.map(item => ({
       productId: item.productId,
@@ -761,6 +760,18 @@ export default function OrdersAndSuppliersPage() {
     poForm.reset({
       supplierId: "",
       items: itemsForPO,
+    });
+    setIsAddPOOpen(true);
+  };
+  
+  const handleReorderFromQueue = (item: PurchaseQueueItem) => {
+    const itemForPO = {
+      productId: item.productId,
+      quantity: item.totalQuantity,
+    };
+    poForm.reset({
+      supplierId: "",
+      items: [itemForPO],
     });
     setIsAddPOOpen(true);
   };
@@ -1221,7 +1232,9 @@ export default function OrdersAndSuppliersPage() {
                             <TableCell>
                                 <div className="flex gap-1 flex-wrap">
                                     {item.fromOrders.map(orderId => (
-                                        <Badge key={orderId} variant={orderId === "Reorder" ? "outline" : "secondary"} className={cn("font-mono", orderId === "Reorder" && "pointer-events-none")}>{orderId}</Badge>
+                                        orderId === "Reorder" 
+                                        ? <Button key={orderId} variant="outline" size="sm" className="h-6 px-2 font-mono" onClick={() => handleReorderFromQueue(item)}>Reorder</Button>
+                                        : <Badge key={orderId} variant="secondary" className="font-mono">{orderId}</Badge>
                                     ))}
                                 </div>
                             </TableCell>
