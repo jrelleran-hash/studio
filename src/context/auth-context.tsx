@@ -10,7 +10,6 @@ interface AuthContextType {
   user: User | null;
   loading: boolean;
   logout: () => Promise<void>;
-  reloadUser: () => Promise<void>;
 }
 
 export const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -45,40 +44,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     router.push("/login");
   }, [router]);
 
-  const reloadUser = useCallback(async () => {
-    const currentUser = auth.currentUser;
-    if (currentUser) {
-      await currentUser.reload();
-      // Get the latest user object from auth
-      const refreshedUser = auth.currentUser;
-      // Create a new plain object to ensure React detects the change for re-rendering.
-      if (refreshedUser) {
-        const userObject: User = {
-            uid: refreshedUser.uid,
-            email: refreshedUser.email,
-            displayName: refreshedUser.displayName,
-            photoURL: refreshedUser.photoURL,
-            emailVerified: refreshedUser.emailVerified,
-            isAnonymous: refreshedUser.isAnonymous,
-            phoneNumber: refreshedUser.phoneNumber,
-            providerData: refreshedUser.providerData,
-            metadata: refreshedUser.metadata,
-            providerId: refreshedUser.providerId,
-            tenantId: refreshedUser.tenantId,
-            delete: refreshedUser.delete,
-            getIdToken: refreshedUser.getIdToken,
-            getIdTokenResult: refreshedUser.getIdTokenResult,
-            reload: refreshedUser.reload,
-            toJSON: refreshedUser.toJSON,
-        };
-        setUser(userObject);
-      }
-    }
-  }, []);
-
   const value = useMemo(() => ({
-     user, loading, logout, reloadUser
-  }), [user, loading, logout, reloadUser]);
+     user, loading, logout
+  }), [user, loading, logout]);
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 }

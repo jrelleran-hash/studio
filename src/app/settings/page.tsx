@@ -82,7 +82,7 @@ const getInitialNames = (displayName: string | null | undefined) => {
 }
 
 export default function SettingsPage() {
-  const { user, reloadUser } = useAuth();
+  const { user } = useAuth();
   const { toast } = useToast();
   const [isProfileDialogOpen, setIsProfileDialogOpen] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -129,8 +129,6 @@ export default function SettingsPage() {
         displayName: displayName,
         photoURL: photoURL,
       });
-
-      await reloadUser();
 
       toast({
         title: "Profile Updated",
