@@ -10,7 +10,7 @@
 
 import { ai } from '@/ai/genkit';
 import { addClient } from '@/services/data-service';
-import { oauth2Client } from '@/services/google-auth-service';
+import { oauth2Client } from '@/services/google-client-service';
 import { google } from 'googleapis';
 import { z } from 'genkit';
 
