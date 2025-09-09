@@ -1,11 +1,12 @@
 
+
 "use client";
 
 import { useState, useEffect, useMemo, useRef } from "react";
 import { useForm, useFieldArray, Controller } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
-import { PlusCircle, MoreHorizontal, X, Printer } from "lucide-react";
+import { PlusCircle, MoreHorizontal, X, Printer, ChevronDown, ChevronUp } from "lucide-react";
 
 import { Button, buttonVariants } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -50,11 +51,15 @@ import { Textarea } from "@/components/ui/textarea";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useToast } from "@/hooks/use-toast";
 import { addIssuance, deleteIssuance } from "@/services/data-service";
-import type { Issuance, Product } from "@/types";
+import type { Issuance, Product, Order } from "@/types";
 import { format } from "date-fns";
 import React from 'react';
 import { useAuth } from "@/hooks/use-auth";
 import { useData } from "@/context/data-context";
+import { Badge } from "@/components/ui/badge";
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
+import { cn } from "@/lib/utils";
+
 
 const issuanceItemSchema = z.object({
   productId: z.string().min(1, "Product is required."),
@@ -64,6 +69,7 @@ const issuanceItemSchema = z.object({
 // We need a way to pass the full product list to the schema for validation
 const createIssuanceSchema = (products: Product[]) => z.object({
   clientId: z.string().min(1, "Client is required."),
+  orderId: z.string().optional(), // Track the order this issuance is for
   items: z.array(issuanceItemSchema)
     .min(1, "At least one item is required.")
     .superRefine((items, ctx) => {
@@ -155,7 +161,7 @@ PrintableIssuanceForm.displayName = "PrintableIssuanceForm";
 
 
 export default function IssuancePage() {
-  const { issuances, clients, products, loading, refetchData } = useData();
+  const { issuances, clients, products, orders, loading, refetchData } = useData();
   const { toast } = useToast();
   const { user } = useAuth();
 
@@ -167,6 +173,10 @@ export default function IssuancePage() {
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
   const [deletingIssuanceId, setDeletingIssuanceId] = useState<string | null>(null);
 
+  const issuanceQueue = useMemo(() => {
+    return orders.filter(order => order.status === 'Ready for Issuance');
+  }, [orders]);
+
 
   // Memoize the schema so it's only recreated when products change
   const issuanceSchema = useMemo(() => createIssuanceSchema(products), [products]);
@@ -177,6 +187,7 @@ export default function IssuancePage() {
       clientId: "",
       items: [{ productId: "", quantity: 1 }],
       remarks: "",
+      orderId: "",
     },
     mode: "onChange", // Validate on change to give instant feedback
   });
@@ -192,6 +203,7 @@ export default function IssuancePage() {
         clientId: "",
         items: [{ productId: "", quantity: 1 }],
         remarks: "",
+        orderId: "",
       });
     }
   }, [isAddDialogOpen, form]);
@@ -252,16 +264,108 @@ export default function IssuancePage() {
       setDeletingIssuanceId(null);
     }
   };
+  
+  const handleCreateIssuanceFromOrder = (order: Order) => {
+    form.reset({
+      clientId: order.client.id,
+      orderId: order.id,
+      items: order.items.map(item => ({
+        productId: item.product.id,
+        quantity: item.quantity,
+      })),
+      remarks: `For Order #${order.id.substring(0, 7)}`,
+    });
+    setIsAddDialogOpen(true);
+  };
 
 
   const formatDate = (date: Date) => format(date, 'PPpp');
   
   return (
     <>
-    <Card>
+    <div className="space-y-4">
+      <Card>
+        <CardHeader>
+          <CardTitle>Issuance Queue</CardTitle>
+          <CardDescription>Orders with items in stock and ready for material issuance.</CardDescription>
+        </CardHeader>
+        <CardContent>
+           <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Order</TableHead>
+                  <TableHead>Client</TableHead>
+                  <TableHead>Date</TableHead>
+                  <TableHead>Items</TableHead>
+                  <TableHead className="text-right">Action</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {loading ? (
+                  Array.from({ length: 3 }).map((_, i) => (
+                    <TableRow key={i}>
+                      <TableCell><Skeleton className="h-4 w-24" /></TableCell>
+                      <TableCell><Skeleton className="h-4 w-40" /></TableCell>
+                      <TableCell><Skeleton className="h-4 w-32" /></TableCell>
+                      <TableCell><Skeleton className="h-4 w-16" /></TableCell>
+                      <TableCell className="text-right"><Skeleton className="h-8 w-24 ml-auto" /></TableCell>
+                    </TableRow>
+                  ))
+                ) : issuanceQueue.length > 0 ? (
+                  issuanceQueue.map((order) => (
+                    <Collapsible key={order.id} asChild>
+                      <>
+                        <TableRow>
+                          <TableCell className="font-medium">{order.id.substring(0, 7)}</TableCell>
+                          <TableCell>{order.client.clientName}</TableCell>
+                          <TableCell>{format(order.date, 'PPP')}</TableCell>
+                          <TableCell>{order.items.length} types</TableCell>
+                          <TableCell className="text-right flex items-center justify-end gap-2">
+                            <Button size="sm" onClick={() => handleCreateIssuanceFromOrder(order)}>Create Issuance</Button>
+                            <CollapsibleTrigger asChild>
+                               <Button variant="ghost" size="sm">
+                                <span className="sr-only">Toggle Details</span>
+                                <ChevronDown className="h-4 w-4" />
+                               </Button>
+                            </CollapsibleTrigger>
+                          </TableCell>
+                        </TableRow>
+                        <CollapsibleContent asChild>
+                          <tr className="bg-muted/50">
+                            <td colSpan={5} className="p-0">
+                               <div className="p-4">
+                                <h4 className="text-sm font-semibold mb-2">Items for Order {order.id.substring(0, 7)}:</h4>
+                                <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-2">
+                                  {order.items.map(item => (
+                                    <div key={item.product.id} className="text-xs flex justify-between items-center bg-background p-2 rounded-md">
+                                        <span>{item.product.name} <span className="text-muted-foreground">({item.product.sku})</span></span>
+                                        <span className="font-mono ml-2">Qty: {item.quantity}</span>
+                                    </div>
+                                  ))}
+                                </div>
+                               </div>
+                            </td>
+                          </tr>
+                        </CollapsibleContent>
+                      </>
+                    </Collapsible>
+                  ))
+                ) : (
+                  <TableRow>
+                    <TableCell colSpan={5} className="h-24 text-center">
+                      No orders are currently ready for issuance.
+                    </TableCell>
+                  </TableRow>
+                )}
+              </TableBody>
+            </Table>
+        </CardContent>
+      </Card>
+      
+      <Card>
       <CardHeader className="flex flex-row items-start justify-between">
         <div>
-          <CardTitle>Material Issuance</CardTitle>
+          <CardTitle>Material Issuance History</CardTitle>
           <CardDescription>Track all materials issued to clients/projects.</CardDescription>
         </div>
          <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>
@@ -283,7 +387,7 @@ export default function IssuancePage() {
                     control={form.control}
                     name="clientId"
                     render={({ field }) => (
-                        <Select onValueChange={field.onChange} defaultValue={field.value}>
+                        <Select onValueChange={field.onChange} value={field.value} disabled={!!form.getValues('orderId')}>
                             <SelectTrigger>
                                 <SelectValue placeholder="Select a client or project" />
                             </SelectTrigger>
@@ -312,7 +416,7 @@ export default function IssuancePage() {
                                 control={form.control}
                                 name={`items.${index}.productId`}
                                 render={({ field }) => (
-                                    <Select onValueChange={(value) => field.onChange(value)} defaultValue={field.value}>
+                                    <Select onValueChange={(value) => field.onChange(value)} value={field.value} disabled={!!form.getValues('orderId')}>
                                     <SelectTrigger>
                                         <SelectValue placeholder="Select a product" />
                                     </SelectTrigger>
@@ -334,6 +438,7 @@ export default function IssuancePage() {
                                 placeholder="Qty" 
                                 className="w-24"
                                 {...form.register(`items.${index}.quantity`)}
+                                readOnly={!!form.getValues('orderId')}
                             />
                             {form.formState.errors.items?.[index]?.quantity ? (
                                 <p className="text-sm text-destructive">{form.formState.errors.items?.[index]?.quantity?.message}</p>
@@ -342,7 +447,7 @@ export default function IssuancePage() {
                              ) : null
                            }
                         </div>
-                        <Button variant="ghost" size="icon" onClick={() => remove(index)}>
+                         <Button variant="ghost" size="icon" onClick={() => !form.getValues('orderId') && remove(index)} disabled={!!form.getValues('orderId')}>
                             <X className="h-4 w-4" />
                         </Button>
                       </div>
@@ -350,7 +455,7 @@ export default function IssuancePage() {
                    })}
                 </div>
                  {form.formState.errors.items && typeof form.formState.errors.items === 'object' && !Array.isArray(form.formState.errors.items) && <p className="text-sm text-destructive">{form.formState.errors.items.message}</p>}
-                <Button type="button" variant="outline" size="sm" onClick={() => append({ productId: "", quantity: 1 })}>
+                <Button type="button" variant="outline" size="sm" onClick={() => append({ productId: "", quantity: 1 })} disabled={!!form.getValues('orderId')}>
                   <PlusCircle className="h-4 w-4 mr-2" /> Add Item
                 </Button>
               </div>
@@ -432,6 +537,7 @@ export default function IssuancePage() {
         </Table>
       </CardContent>
     </Card>
+    </div>
     
     {selectedIssuance && (
        <Dialog open={!!selectedIssuance} onOpenChange={(open) => !open && setSelectedIssuance(null)}>
@@ -443,6 +549,12 @@ export default function IssuancePage() {
             </DialogDescription>
           </DialogHeader>
           <div className="py-4 space-y-4">
+             {selectedIssuance.orderId && (
+              <div>
+                <strong>Original Order:</strong>
+                <p className="text-sm text-primary underline">#{selectedIssuance.orderId.substring(0,7)}</p>
+              </div>
+            )}
             <div>
               <strong>Date Issued:</strong>
               <p className="text-sm text-muted-foreground">{formatDate(selectedIssuance.date)}</p>

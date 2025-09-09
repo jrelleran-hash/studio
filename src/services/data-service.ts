@@ -40,13 +40,14 @@ async function resolveDoc<T>(docRef: DocumentReference): Promise<T> {
     return { id: docSnap.id, ...docSnap.data() } as T;
 }
 
-async function resolveDocFromTransaction<T>(transaction: any, docRef: DocumentReference): Promise<T> {
-    const docSnap = await transaction.get(docRef);
-    if (!docSnap.exists()) {
-        throw new Error(`Document with ref ${docRef.path} does not exist.`);
-    }
-    return { id: docSnap.id, ...docSnap.data() } as T;
-}
+// Not used in transactions, but could be useful if needed.
+// async function resolveDocFromTransaction<T>(transaction: any, docRef: DocumentReference): Promise<T> {
+//     const docSnap = await transaction.get(docRef);
+//     if (!docSnap.exists()) {
+//         throw new Error(`Document with ref ${docRef.path} does not exist.`);
+//     }
+//     return { id: docSnap.id, ...docSnap.data() } as T;
+// }
 
 
 export async function getRecentActivities(count: number = 4): Promise<(Activity & { time: string })[]> {
@@ -461,6 +462,7 @@ export async function getIssuances(): Promise<Issuance[]> {
                 items,
                 remarks: issuanceData.remarks,
                 issuedBy: issuanceData.issuedBy,
+                orderId: issuanceData.orderId,
             };
         }));
 
@@ -476,6 +478,7 @@ type NewIssuanceData = {
   items: { productId: string; quantity: number }[];
   remarks?: string;
   issuedBy: string;
+  orderId?: string;
 };
 
 export async function addIssuance(issuanceData: NewIssuanceData): Promise<DocumentReference> {
@@ -483,7 +486,7 @@ export async function addIssuance(issuanceData: NewIssuanceData): Promise<Docume
   const issuanceDate = Timestamp.now();
 
   try {
-    return await runTransaction(db, async (transaction) => {
+    const newIssuanceRef = await runTransaction(db, async (transaction) => {
       // 1. Resolve product references and prepare item data
       const resolvedItems = await Promise.all(
         issuanceData.items.map(async (item) => {
@@ -523,7 +526,7 @@ export async function addIssuance(issuanceData: NewIssuanceData): Promise<Docume
       );
 
       // 3. Create the new issuance object
-      const newIssuance = {
+      const newIssuance: any = {
         issuanceNumber: issuanceNumber,
         clientRef: doc(db, "clients", issuanceData.clientId),
         date: issuanceDate,
@@ -531,6 +534,10 @@ export async function addIssuance(issuanceData: NewIssuanceData): Promise<Docume
         remarks: issuanceData.remarks || "",
         issuedBy: issuanceData.issuedBy,
       };
+      
+      if (issuanceData.orderId) {
+          newIssuance.orderId = issuanceData.orderId;
+      }
 
       // 4. Add the issuance to Firestore
       const issuancesCol = collection(db, "issuances");
@@ -539,6 +546,15 @@ export async function addIssuance(issuanceData: NewIssuanceData): Promise<Docume
       
       return docRef;
     });
+    
+    // 5. Update the original order's status to Fulfilled, if applicable
+    if (issuanceData.orderId) {
+        const orderRef = doc(db, "orders", issuanceData.orderId);
+        await updateDoc(orderRef, { status: "Fulfilled" });
+    }
+    
+    return newIssuanceRef;
+
   } catch (error) {
     console.error("Error adding issuance and updating stock:", error);
     throw new Error("Failed to create issuance. " + (error as Error).message);
@@ -550,16 +566,16 @@ export async function deleteIssuance(issuanceId: string): Promise<void> {
   const now = Timestamp.now();
 
   try {
-    await runTransaction(db, async (transaction) => {
+    const issuanceData = await runTransaction(db, async (transaction) => {
       // 1. Get the issuance document
       const issuanceDoc = await transaction.get(issuanceRef);
       if (!issuanceDoc.exists()) {
         throw new Error("Issuance not found.");
       }
-      const issuanceData = issuanceDoc.data();
+      const data = issuanceDoc.data();
 
       // 2. Iterate over items, get each product, and restore stock
-      for (const item of issuanceData.items) {
+      for (const item of data.items) {
         const productRef = item.productRef as DocumentReference;
         const productDoc = await transaction.get(productRef);
         if (productDoc.exists()) {
@@ -568,7 +584,7 @@ export async function deleteIssuance(issuanceId: string): Promise<void> {
           const newHistoryEntry = {
             date: format(now.toDate(), 'yyyy-MM-dd'),
             stock: newStock,
-            changeReason: `Deletion of issuance #${issuanceData.issuanceNumber}`,
+            changeReason: `Deletion of issuance #${data.issuanceNumber}`,
             dateUpdated: now,
           };
           transaction.update(productRef, {
@@ -577,17 +593,21 @@ export async function deleteIssuance(issuanceId: string): Promise<void> {
             history: arrayUnion(newHistoryEntry),
           });
         } else {
-          // If the product was deleted, we can't restore stock, but we can log it.
           console.warn(`Product with ID ${productRef.id} not found while deleting issuance. Stock not restored for this item.`);
         }
       }
 
       // 3. Delete the issuance document
       transaction.delete(issuanceRef);
+      return data;
     });
 
-    // After the transaction completes successfully, check awaiting orders.
-    await checkAndUpdateAwaitingOrders();
+    // If the issuance was tied to an order, revert order status
+    if (issuanceData.orderId) {
+        const orderRef = doc(db, "orders", issuanceData.orderId);
+        await updateDoc(orderRef, { status: "Ready for Issuance" });
+    }
+
   } catch (error) {
     console.error("Error deleting issuance:", error);
     throw new Error("Failed to delete issuance. " + (error as Error).message);
@@ -798,31 +818,37 @@ export async function updatePurchaseOrderStatus(poId: string, status: PurchaseOr
       }
       
       // --- Handle 'Received' status ---
+       // 1. READS: Gather all product data first
+      const productDocs = await Promise.all(
+        poData.items.map((item: any) => transaction.get(item.productRef as DocumentReference))
+      );
+
+      // 2. WRITES: Now perform all updates
       const receivedTimestamp = Timestamp.now();
       transaction.update(poRef, { status: 'Received', receivedDate: receivedTimestamp });
 
-      for (const item of poData.items) {
-          const productRef = item.productRef as DocumentReference;
-          const productDoc = await transaction.get(productRef);
+      for (let i = 0; i < poData.items.length; i++) {
+        const item = poData.items[i];
+        const productDoc = productDocs[i];
+
+        if (productDoc.exists()) {
+          const productData = productDoc.data();
+          const newStock = productData.stock + item.quantity;
+          const newHistoryEntry = {
+            date: format(receivedTimestamp.toDate(), 'yyyy-MM-dd'),
+            stock: newStock,
+            changeReason: `Received PO #${poData.poNumber}`,
+            dateUpdated: receivedTimestamp,
+          };
           
-          if (productDoc.exists()) {
-              const productData = productDoc.data();
-              const newStock = productData.stock + item.quantity;
-              const newHistoryEntry = {
-                  date: format(receivedTimestamp.toDate(), 'yyyy-MM-dd'),
-                  stock: newStock,
-                  changeReason: `Received PO #${poData.poNumber}`,
-                  dateUpdated: receivedTimestamp,
-              };
-              
-              transaction.update(productDoc.ref, {
-                  stock: newStock,
-                  lastUpdated: receivedTimestamp,
-                  history: arrayUnion(newHistoryEntry)
-              });
-          } else {
-              console.warn(`Product with ID ${productRef.id} not found while receiving PO. Stock not updated.`);
-          }
+          transaction.update(productDoc.ref, {
+            stock: newStock,
+            lastUpdated: receivedTimestamp,
+            history: arrayUnion(newHistoryEntry)
+          });
+        } else {
+          console.warn(`Product with ID ${item.productRef.id} not found while receiving PO. Stock not updated.`);
+        }
       }
     });
 

@@ -104,4 +104,5 @@ export interface Issuance {
     items: IssuanceItem[];
     remarks?: string;
     issuedBy: string;
+    orderId?: string;
 }

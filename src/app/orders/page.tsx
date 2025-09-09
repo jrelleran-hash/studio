@@ -232,22 +232,27 @@ export default function OrdersAndSuppliersPage() {
   const purchaseQueue = useMemo((): PurchaseQueueItem[] => {
     const neededQuantities: { [productId: string]: { name: string; sku: string; quantity: number; orders: Set<string> } } = {};
 
-    // Calculate total needed quantities from orders awaiting purchase
+    // Calculate total needed quantities from orders awaiting purchase that are not met by current stock
     orders
       .filter(order => order.status === 'Awaiting Purchase')
       .forEach(order => {
         order.items.forEach(item => {
-          const product = item.product;
-          if (!neededQuantities[product.id]) {
-            neededQuantities[product.id] = {
-              name: product.name,
-              sku: product.sku,
-              quantity: 0,
-              orders: new Set(),
-            };
+          const productInfo = products.find(p => p.id === item.product.id);
+          const stock = productInfo?.stock || 0;
+          const needed = item.quantity - stock;
+          
+          if (needed > 0) {
+              if (!neededQuantities[item.product.id]) {
+                neededQuantities[item.product.id] = {
+                  name: item.product.name,
+                  sku: item.product.sku,
+                  quantity: 0,
+                  orders: new Set(),
+                };
+              }
+              neededQuantities[item.product.id].quantity += needed;
+              neededQuantities[item.product.id].orders.add(order.id.substring(0, 7));
           }
-          neededQuantities[product.id].quantity += item.quantity;
-          neededQuantities[product.id].orders.add(order.id.substring(0, 7));
         });
       });
       
@@ -284,7 +289,7 @@ export default function OrdersAndSuppliersPage() {
       });
     
     return queue;
-  }, [orders, purchaseOrders]);
+  }, [orders, purchaseOrders, products]);
 
   const selectedQueueItems = useMemo(() => {
     return purchaseQueue.filter(item => purchaseQueueSelection[item.productId]);
@@ -951,13 +956,7 @@ export default function OrdersAndSuppliersPage() {
                                   {isReordered ? 'Already Reordered' : 'Reorder'}
                                 </DropdownMenuItem>
                             ) : (
-                                <>
-                                    {order.status !== 'Awaiting Purchase' && order.status !== 'Ready for Issuance' && order.status !== 'Fulfilled' && (
-                                        <DropdownMenuItem onClick={() => handleStatusChange(order.id, 'Fulfilled')}>
-                                            Mark as Fulfilled
-                                        </DropdownMenuItem>
-                                    )}
-                                </>
+                                <></>
                             )}
                              <DropdownMenuSeparator />
                              <DropdownMenuItem onClick={() => handleDeleteOrderClick(order.id)} className="text-destructive">
