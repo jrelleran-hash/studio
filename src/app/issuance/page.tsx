@@ -26,7 +26,6 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
-  DialogTrigger,
 } from "@/components/ui/dialog";
 import {
   AlertDialog,
@@ -62,6 +61,7 @@ import { cn } from "@/lib/utils";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Calendar } from "@/components/ui/calendar";
 import { Checkbox } from "@/components/ui/checkbox";
+import { DialogTrigger } from "@/components/ui/dialog";
 
 
 const issuanceItemSchema = z.object({
@@ -337,7 +337,7 @@ export default function IssuancePage() {
        const errorMessage = error instanceof Error ? error.message : "An unexpected error occurred.";
       toast({
         variant: "destructive",
-        title: "Error",
+        title: "Error Creating Issuance",
         description: errorMessage,
       });
     }
@@ -481,6 +481,7 @@ export default function IssuancePage() {
                   <TableHead className="text-right w-[140px]">Action</TableHead>
                 </TableRow>
               </TableHeader>
+                
                 {loading ? (
                   <TableBody>
                     {Array.from({ length: 3 }).map((_, i) => (
@@ -497,7 +498,7 @@ export default function IssuancePage() {
                   <Collapsible asChild>
                     <>
                     {issuanceQueue.map((order) => (
-                      <tbody key={order.id}>
+                      <TableBody key={order.id}>
                           <TableRow>
                             <TableCell className="font-medium">{order.id.substring(0, 7)}</TableCell>
                             <TableCell>{order.client.clientName}</TableCell>
@@ -530,7 +531,7 @@ export default function IssuancePage() {
                               </td>
                             </tr>
                           </CollapsibleContent>
-                        </tbody>
+                        </TableBody>
                       ))}
                     </>
                   </Collapsible>
