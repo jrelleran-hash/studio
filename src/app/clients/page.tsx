@@ -1,4 +1,5 @@
 
+
 "use client";
 
 import { useState, useEffect, useMemo } from "react";
@@ -114,7 +115,6 @@ export default function ClientsPage() {
   const { toast } = useToast();
 
   useEffect(() => {
-    // This is not ideal to call on every render, but for simplicity...
     setGoogleAuthUrl(getGoogleAuthUrl());
   }, []);
 

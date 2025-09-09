@@ -131,7 +131,7 @@ const importClientsFlow = ai.defineFlow(
 
         const response = await sheets.spreadsheets.values.get({
             spreadsheetId: sheetId,
-            range: 'A1:D', // Assuming data is in the first 4 columns
+            range: 'Sheet1!A1:D', // Default to Sheet1 and range A:D
         });
 
         const rows = response.data.values;
