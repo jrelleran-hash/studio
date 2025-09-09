@@ -862,7 +862,7 @@ export default function OrdersAndSuppliersPage() {
                                 </DropdownMenuItem>
                             ) : (
                                 <>
-                                    {order.status !== 'Awaiting Purchase' && order.status !== 'Ready for Issuance' && (
+                                    {order.status !== 'Awaiting Purchase' && order.status !== 'Ready for Issuance' && order.status !== 'Fulfilled' && (
                                         <DropdownMenuItem onClick={() => handleStatusChange(order.id, 'Fulfilled')}>
                                             Mark as Fulfilled
                                         </DropdownMenuItem>
