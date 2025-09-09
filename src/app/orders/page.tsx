@@ -77,6 +77,13 @@ const statusVariant: { [key: string]: "default" | "secondary" | "destructive" | 
   Pending: "secondary",
 };
 
+const outboundReturnStatusVariant: { [key: string]: "default" | "secondary" | "destructive" | "outline" } = {
+  Pending: "secondary",
+  Shipped: "outline",
+  Completed: "default",
+  Cancelled: "destructive",
+};
+
 // Order Schemas
 const orderItemSchema = z.object({
   productId: z.string().min(1, "Product is required."),
@@ -196,7 +203,7 @@ const toTitleCase = (str: string) => {
 
 
 export default function OrdersAndSuppliersPage() {
-  const { orders, clients, products, suppliers, purchaseOrders, loading, refetchData } = useData();
+  const { orders, clients, products, suppliers, purchaseOrders, outboundReturns, loading, refetchData } = useData();
   const [activeTab, setActiveTab] = useState("orders");
   const { toast } = useToast();
 
@@ -1284,52 +1291,59 @@ export default function OrdersAndSuppliersPage() {
                         </TableRow>
                       ))
                     ) : (
-                      purchaseOrders.map((po) => (
-                        <TableRow key={po.id} onClick={() => setSelectedPO(po)} className="cursor-pointer">
-                          <TableCell className="font-medium">{po.poNumber}</TableCell>
-                          <TableCell>{po.supplier.name}</TableCell>
-                          <TableCell>{formatDateSimple(po.orderDate)}</TableCell>
-                          <TableCell>
-                            <Badge variant={statusVariant[po.status] || "default"}>{po.status}</Badge>
-                          </TableCell>
-                          <TableCell className="text-right">
-                             <DropdownMenu>
-                              <DropdownMenuTrigger asChild>
-                                <Button aria-haspopup="true" size="icon" variant="ghost" onClick={(e) => e.stopPropagation()}>
-                                  <MoreHorizontal className="h-4 w-4" />
-                                  <span className="sr-only">Toggle menu</span>
-                                </Button>
-                              </DropdownMenuTrigger>
-                              <DropdownMenuContent align="end" onClick={(e) => e.stopPropagation()}>
-                                <DropdownMenuLabel>Actions</DropdownMenuLabel>
-                                 <DropdownMenuItem onClick={() => setSelectedPO(po)}>View Details</DropdownMenuItem>
-                                <DropdownMenuSeparator />
-                                {po.status === 'Pending' && (
-                                    <DropdownMenuItem onClick={() => handlePOStatusChange(po.id, 'Shipped')}>
-                                    Mark as Shipped
-                                    </DropdownMenuItem>
-                                )}
-                                {po.status === 'Shipped' && (
-                                    <DropdownMenuItem onClick={() => handlePOStatusChange(po.id, 'Received')}>
-                                    Mark as Received
-                                    </DropdownMenuItem>
-                                )}
-                                {po.status === 'Received' && <DropdownMenuItem disabled>Order Received</DropdownMenuItem>}
-                                {po.status === 'Received' && (
-                                    <DropdownMenuItem onClick={() => setPoForReturn(po)}>
-                                      <RefreshCcw className="mr-2 h-4 w-4" />
-                                      Return Items
-                                    </DropdownMenuItem>
-                                )}
-                                <DropdownMenuSeparator />
-                                <DropdownMenuItem onClick={() => handleDeletePOClick(po.id)} className="text-destructive">
-                                    Delete
-                                </DropdownMenuItem>
-                              </DropdownMenuContent>
-                            </DropdownMenu>
-                          </TableCell>
-                        </TableRow>
-                      ))
+                      purchaseOrders.map((po) => {
+                        const associatedReturn = outboundReturns.find(r => r.purchaseOrderId === po.id);
+                        const isReturnCompleted = associatedReturn?.status === 'Completed' || associatedReturn?.status === 'Cancelled';
+                        const displayStatus = associatedReturn && !isReturnCompleted ? `Return ${associatedReturn.status}` : po.status;
+                        const finalVariant = associatedReturn && !isReturnCompleted ? outboundReturnStatusVariant[associatedReturn.status] : statusVariant[po.status];
+                        
+                        return (
+                          <TableRow key={po.id} onClick={() => setSelectedPO(po)} className="cursor-pointer">
+                            <TableCell className="font-medium">{po.poNumber}</TableCell>
+                            <TableCell>{po.supplier.name}</TableCell>
+                            <TableCell>{formatDateSimple(po.orderDate)}</TableCell>
+                            <TableCell>
+                              <Badge variant={finalVariant || "default"}>{displayStatus}</Badge>
+                            </TableCell>
+                            <TableCell className="text-right">
+                              <DropdownMenu>
+                                <DropdownMenuTrigger asChild>
+                                  <Button aria-haspopup="true" size="icon" variant="ghost" onClick={(e) => e.stopPropagation()}>
+                                    <MoreHorizontal className="h-4 w-4" />
+                                    <span className="sr-only">Toggle menu</span>
+                                  </Button>
+                                </DropdownMenuTrigger>
+                                <DropdownMenuContent align="end" onClick={(e) => e.stopPropagation()}>
+                                  <DropdownMenuLabel>Actions</DropdownMenuLabel>
+                                  <DropdownMenuItem onClick={() => setSelectedPO(po)}>View Details</DropdownMenuItem>
+                                  <DropdownMenuSeparator />
+                                  {po.status === 'Pending' && (
+                                      <DropdownMenuItem onClick={() => handlePOStatusChange(po.id, 'Shipped')}>
+                                      Mark as Shipped
+                                      </DropdownMenuItem>
+                                  )}
+                                  {po.status === 'Shipped' && (
+                                      <DropdownMenuItem onClick={() => handlePOStatusChange(po.id, 'Received')}>
+                                      Mark as Received
+                                      </DropdownMenuItem>
+                                  )}
+                                  {po.status === 'Received' && <DropdownMenuItem disabled>Order Received</DropdownMenuItem>}
+                                  {po.status === 'Received' && (
+                                      <DropdownMenuItem onClick={() => setPoForReturn(po)}>
+                                        <RefreshCcw className="mr-2 h-4 w-4" />
+                                        Return Items
+                                      </DropdownMenuItem>
+                                  )}
+                                  <DropdownMenuSeparator />
+                                  <DropdownMenuItem onClick={() => handleDeletePOClick(po.id)} className="text-destructive">
+                                      Delete
+                                  </DropdownMenuItem>
+                                </DropdownMenuContent>
+                              </DropdownMenu>
+                            </TableCell>
+                          </TableRow>
+                        )
+                      })
                     )}
                   </TableBody>
                 </Table>
