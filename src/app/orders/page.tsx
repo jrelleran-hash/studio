@@ -230,29 +230,61 @@ export default function OrdersAndSuppliersPage() {
   });
 
   const purchaseQueue = useMemo((): PurchaseQueueItem[] => {
-    const queue: { [key: string]: PurchaseQueueItem } = {};
+    const neededQuantities: { [productId: string]: { name: string; sku: string; quantity: number; orders: Set<string> } } = {};
 
+    // Calculate total needed quantities from orders awaiting purchase
     orders
       .filter(order => order.status === 'Awaiting Purchase')
       .forEach(order => {
         order.items.forEach(item => {
           const product = item.product;
-          if (!queue[product.id]) {
-            queue[product.id] = {
-              productId: product.id,
+          if (!neededQuantities[product.id]) {
+            neededQuantities[product.id] = {
               name: product.name,
               sku: product.sku,
-              totalQuantity: 0,
-              fromOrders: [],
+              quantity: 0,
+              orders: new Set(),
             };
           }
-          queue[product.id].totalQuantity += item.quantity;
-          queue[product.id].fromOrders.push(order.id.substring(0, 7));
+          neededQuantities[product.id].quantity += item.quantity;
+          neededQuantities[product.id].orders.add(order.id.substring(0, 7));
         });
       });
+      
+      // Calculate quantities already on purchase orders (not yet received)
+      const onOrderQuantities: { [productId: string]: number } = {};
+       purchaseOrders
+        .filter(po => po.status !== 'Received')
+        .forEach(po => {
+            po.items.forEach(item => {
+                const productId = item.product.id;
+                if (!onOrderQuantities[productId]) {
+                    onOrderQuantities[productId] = 0;
+                }
+                onOrderQuantities[productId] += item.quantity;
+            });
+        });
+
+      // Calculate the final queue by subtracting on-order quantities from needed quantities
+      const queue: PurchaseQueueItem[] = [];
+      Object.keys(neededQuantities).forEach(productId => {
+          const needed = neededQuantities[productId];
+          const onOrder = onOrderQuantities[productId] || 0;
+          const stillNeeded = needed.quantity - onOrder;
+
+          if (stillNeeded > 0) {
+              queue.push({
+                  productId: productId,
+                  name: needed.name,
+                  sku: needed.sku,
+                  totalQuantity: stillNeeded,
+                  fromOrders: Array.from(needed.orders),
+              });
+          }
+      });
     
-    return Object.values(queue);
-  }, [orders]);
+    return queue;
+  }, [orders, purchaseOrders]);
 
   const selectedQueueItems = useMemo(() => {
     return purchaseQueue.filter(item => purchaseQueueSelection[item.productId]);
