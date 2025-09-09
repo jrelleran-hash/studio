@@ -9,8 +9,8 @@ import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
-import { Button } from "@/components/ui/button";
-import { getRecentOrders, addOrder, addProduct, updateOrderStatus } from "@/services/data-service";
+import { Button, buttonVariants } from "@/components/ui/button";
+import { getRecentOrders, addOrder, addProduct, updateOrderStatus, deleteOrder } from "@/services/data-service";
 import type { Order, Client, Product } from "@/types";
 import { Skeleton } from "../ui/skeleton";
 import { formatCurrency } from "@/lib/currency";
@@ -24,6 +24,7 @@ import { Switch } from "../ui/switch";
 import { Separator } from "../ui/separator";
 import { cn } from "@/lib/utils";
 import { useData } from "@/context/data-context";
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "../ui/alert-dialog";
 
 
 const statusVariant: { [key: string]: "default" | "secondary" | "destructive" | "outline" } = {
@@ -77,9 +78,11 @@ export function ActiveOrders() {
 
   const [isAddOrderOpen, setIsAddOrderOpen] = useState(false);
   const [isAddProductOpen, setIsAddProductOpen] = useState(false);
+  const [isDeleteOrderOpen, setIsDeleteOrderOpen] = useState(false);
   const { toast } = useToast();
   const [autoGenerateSku, setAutoGenerateSku] = useState(true);
   const [isReordered, setIsReordered] = useState(false);
+  const [deletingOrderId, setDeletingOrderId] = useState<string | null>(null);
 
 
   const productSchema = useMemo(() => createProductSchema(autoGenerateSku), [autoGenerateSku]);
@@ -249,6 +252,31 @@ export function ActiveOrders() {
     }
   };
 
+  const handleDeleteOrderClick = (orderId: string) => {
+    setDeletingOrderId(orderId);
+    setIsDeleteOrderOpen(true);
+  };
+
+  const handleDeleteOrderConfirm = async () => {
+    if (!deletingOrderId) return;
+    try {
+      await deleteOrder(deletingOrderId);
+      toast({ title: "Success", description: "Order deleted successfully." });
+      await refetchData();
+      await fetchLocalData();
+    } catch (error) {
+      console.error(error);
+      toast({
+        variant: "destructive",
+        title: "Error",
+        description: "Failed to delete order. Please try again.",
+      });
+    } finally {
+      setIsDeleteOrderOpen(false);
+      setDeletingOrderId(null);
+    }
+  };
+
 
   return (
     <>
@@ -412,16 +440,29 @@ export function ActiveOrders() {
               </ul>
             </div>
           </div>
-          <DialogFooter>
-             {selectedOrder.status === 'Cancelled' ? (
-                <Button onClick={() => handleReorder(selectedOrder)} disabled={isReordered}>
-                  {isReordered ? 'Already Reordered' : 'Reorder'}
+          <DialogFooter className="!justify-between">
+            <div>
+                <Button
+                    variant="destructive"
+                    onClick={(e) => {
+                        e.stopPropagation();
+                        handleDeleteOrderClick(selectedOrder.id);
+                        setSelectedOrder(null);
+                    }}
+                >
+                    Delete Order
                 </Button>
-             ) : (
-                <Button variant="destructive" onClick={() => handleCancelOrder(selectedOrder.id)}>Cancel Order</Button>
-             )}
-            <Button variant="outline" disabled>Edit Order</Button>
-            <Button onClick={() => setSelectedOrder(null)}>Close</Button>
+            </div>
+            <div className="flex gap-2">
+                {selectedOrder.status === 'Cancelled' ? (
+                    <Button onClick={() => handleReorder(selectedOrder)} disabled={isReordered}>
+                    {isReordered ? 'Already Reordered' : 'Reorder'}
+                    </Button>
+                ) : (
+                    <Button variant="outline" onClick={() => handleCancelOrder(selectedOrder.id)}>Cancel Order</Button>
+                )}
+                <Button onClick={() => setSelectedOrder(null)}>Close</Button>
+            </div>
           </DialogFooter>
         </DialogContent>
       </Dialog>
@@ -496,6 +537,23 @@ export function ActiveOrders() {
         </DialogContent>
     </Dialog>
 
+    <AlertDialog open={isDeleteOrderOpen} onOpenChange={setIsDeleteOrderOpen}>
+      <AlertDialogContent>
+        <AlertDialogHeader>
+          <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
+          <AlertDialogDescription>
+            This action cannot be undone. This will permanently delete this
+            order from your records.
+          </AlertDialogDescription>
+        </AlertDialogHeader>
+        <AlertDialogFooter>
+          <AlertDialogCancel>Cancel</AlertDialogCancel>
+          <AlertDialogAction onClick={handleDeleteOrderConfirm} className={buttonVariants({ variant: "destructive" })}>
+            Delete
+          </AlertDialogAction>
+        </AlertDialogFooter>
+      </AlertDialogContent>
+    </AlertDialog>
     </>
   );
 }

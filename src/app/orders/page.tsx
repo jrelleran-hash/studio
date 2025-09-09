@@ -18,6 +18,7 @@ import {
   DropdownMenuItem,
   DropdownMenuLabel,
   DropdownMenuTrigger,
+  DropdownMenuSeparator,
 } from "@/components/ui/dropdown-menu";
 import {
   Dialog,
@@ -50,7 +51,7 @@ import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useToast } from "@/hooks/use-toast";
-import { updateOrderStatus, addOrder, addProduct, updateSupplier, deleteSupplier, addSupplier } from "@/services/data-service";
+import { updateOrderStatus, addOrder, addProduct, updateSupplier, deleteSupplier, addSupplier, deleteOrder } from "@/services/data-service";
 import type { Order, Supplier } from "@/types";
 import { formatCurrency } from "@/lib/currency";
 import { CURRENCY_CONFIG } from "@/config/currency";
@@ -129,6 +130,7 @@ export default function OrdersAndSuppliersPage() {
   const [isAddSupplierOpen, setIsAddSupplierOpen] = useState(false);
   const [isEditSupplierOpen, setIsEditSupplierOpen] = useState(false);
   const [isDeleteSupplierOpen, setIsDeleteSupplierOpen] = useState(false);
+  const [isDeleteOrderOpen, setIsDeleteOrderOpen] = useState(false);
   const [selectedOrder, setSelectedOrder] = useState<Order | null>(null);
   const [isReordered, setIsReordered] = useState(false);
 
@@ -137,6 +139,7 @@ export default function OrdersAndSuppliersPage() {
   const [autoGenerateSku, setAutoGenerateSku] = useState(true);
   const [editingSupplier, setEditingSupplier] = useState<Supplier | null>(null);
   const [deletingSupplierId, setDeletingSupplierId] = useState<string | null>(null);
+  const [deletingOrderId, setDeletingOrderId] = useState<string | null>(null);
 
   const productSchema = useMemo(() => createProductSchema(autoGenerateSku), [autoGenerateSku]);
 
@@ -270,6 +273,30 @@ export default function OrdersAndSuppliersPage() {
             title: "Error",
             description: "Failed to reorder.",
         });
+    }
+  };
+
+  const handleDeleteOrderClick = (orderId: string) => {
+    setDeletingOrderId(orderId);
+    setIsDeleteOrderOpen(true);
+  };
+
+  const handleDeleteOrderConfirm = async () => {
+    if (!deletingOrderId) return;
+    try {
+      await deleteOrder(deletingOrderId);
+      toast({ title: "Success", description: "Order deleted successfully." });
+      await refetchData();
+    } catch (error) {
+      console.error(error);
+      toast({
+        variant: "destructive",
+        title: "Error",
+        description: "Failed to delete order. Please try again.",
+      });
+    } finally {
+      setIsDeleteOrderOpen(false);
+      setDeletingOrderId(null);
     }
   };
 
@@ -579,7 +606,7 @@ export default function OrdersAndSuppliersPage() {
                     <TableRow key={order.id} onClick={() => setSelectedOrder(order)} className="cursor-pointer">
                       <TableCell className="font-medium">{order.id.substring(0, 7)}</TableCell>
                       <TableCell>{order.client.clientName}</TableCell>
-                      <TableCell>{formatDate(order.date)}</TableCell>
+                      <TableCell>{formatOrderDate(order.date)}</TableCell>
                       <TableCell>
                         <Badge variant={statusVariant[order.status] || "default"}>{order.status}</Badge>
                       </TableCell>
@@ -594,11 +621,18 @@ export default function OrdersAndSuppliersPage() {
                           </DropdownMenuTrigger>
                           <DropdownMenuContent align="end" onClick={(e) => e.stopPropagation()}>
                             <DropdownMenuLabel>Actions</DropdownMenuLabel>
+                            <DropdownMenuItem onClick={() => setSelectedOrder(order)}>
+                                View Details
+                            </DropdownMenuItem>
                             <DropdownMenuItem onClick={() => handleStatusChange(order.id, 'Fulfilled')}>
                               Mark as Fulfilled
                             </DropdownMenuItem>
                             <DropdownMenuItem onClick={() => handleStatusChange(order.id, 'Shipped')}>
                               Mark as Shipped
+                            </DropdownMenuItem>
+                             <DropdownMenuSeparator />
+                             <DropdownMenuItem onClick={() => handleDeleteOrderClick(order.id)} className="text-destructive">
+                                Delete
                             </DropdownMenuItem>
                           </DropdownMenuContent>
                         </DropdownMenu>
@@ -851,6 +885,24 @@ export default function OrdersAndSuppliersPage() {
         <AlertDialogFooter>
           <AlertDialogCancel>Cancel</AlertDialogCancel>
           <AlertDialogAction onClick={handleDeleteSupplierConfirm} className={buttonVariants({ variant: "destructive" })}>
+            Delete
+          </AlertDialogAction>
+        </AlertDialogFooter>
+      </AlertDialogContent>
+    </AlertDialog>
+    
+    <AlertDialog open={isDeleteOrderOpen} onOpenChange={setIsDeleteOrderOpen}>
+      <AlertDialogContent>
+        <AlertDialogHeader>
+          <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
+          <AlertDialogDescription>
+            This action cannot be undone. This will permanently delete this
+            order from your records.
+          </AlertDialogDescription>
+        </AlertDialogHeader>
+        <AlertDialogFooter>
+          <AlertDialogCancel>Cancel</AlertDialogCancel>
+          <AlertDialogAction onClick={handleDeleteOrderConfirm} className={buttonVariants({ variant: "destructive" })}>
             Delete
           </AlertDialogAction>
         </AlertDialogFooter>

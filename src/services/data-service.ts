@@ -313,6 +313,16 @@ export async function updateOrderStatus(orderId: string, status: Order['status']
   }
 }
 
+export async function deleteOrder(orderId: string): Promise<void> {
+  try {
+    const orderRef = doc(db, "orders", orderId);
+    await deleteDoc(orderRef);
+  } catch (error) {
+    console.error("Error deleting order:", error);
+    throw new Error("Failed to delete order.");
+  }
+}
+
 export async function getClients(): Promise<Client[]> {
   try {
     const clientsCol = collection(db, "clients");
