@@ -213,6 +213,32 @@ export function ActiveOrders() {
     }
   };
 
+  const handleReorder = async (order: Order) => {
+    try {
+        const reorderData = {
+            clientId: order.client.id,
+            items: order.items.map(item => ({
+                productId: item.product.id,
+                quantity: item.quantity
+            })),
+            status: 'Processing' as const
+        };
+        await addOrder(reorderData);
+        toast({ title: "Success", description: "Order has been re-created." });
+        await refetchData();
+        await fetchLocalData();
+        setSelectedOrder(null);
+    } catch (error) {
+        console.error(error);
+        toast({
+            variant: "destructive",
+            title: "Error",
+            description: "Failed to reorder.",
+        });
+    }
+  };
+
+
   return (
     <>
     <Card className="card-gradient">
@@ -376,7 +402,11 @@ export function ActiveOrders() {
             </div>
           </div>
           <DialogFooter>
-            <Button variant="destructive" onClick={() => handleCancelOrder(selectedOrder.id)}>Cancel Order</Button>
+             {selectedOrder.status === 'Cancelled' ? (
+                <Button onClick={() => handleReorder(selectedOrder)}>Reorder</Button>
+             ) : (
+                <Button variant="destructive" onClick={() => handleCancelOrder(selectedOrder.id)}>Cancel Order</Button>
+             )}
             <Button variant="outline" disabled>Edit Order</Button>
             <Button onClick={() => setSelectedOrder(null)}>Close</Button>
           </DialogFooter>
