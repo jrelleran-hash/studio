@@ -1,3 +1,4 @@
+
 "use server";
 
 import {
@@ -6,6 +7,7 @@ import {
   importClientsFromSheet,
   type ImportClientsInput,
 } from "@/ai/flows/smart-search-mvp";
+import { getGoogleAuthUrl as getAuthUrl } from "@/services/google-auth-service";
 import { z } from "zod";
 
 const SmartSearchInputSchema = z.object({
@@ -51,4 +53,8 @@ export async function importClientsAction(
     console.error("Client import failed:", error);
     return { success: false, error: "An unexpected error occurred during import." };
   }
+}
+
+export async function getGoogleAuthUrlAction(): Promise<string> {
+  return getAuthUrl();
 }

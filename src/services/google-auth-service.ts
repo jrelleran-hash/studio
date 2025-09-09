@@ -7,27 +7,21 @@ const oauth2Client = new google.auth.OAuth2(
   process.env.GOOGLE_REDIRECT_URI
 );
 
-// Store the URL so we don't regenerate it on every call
-let googleAuthUrl: string | null = null;
 
 export function getGoogleAuthUrl() {
-  if (googleAuthUrl) {
-    return googleAuthUrl;
-  }
-
   const scopes = [
     'https://www.googleapis.com/auth/spreadsheets.readonly',
     'https://www.googleapis.com/auth/userinfo.email',
     'https://www.googleapis.com/auth/userinfo.profile'
   ];
 
-  googleAuthUrl = oauth2Client.generateAuthUrl({
+  const url = oauth2Client.generateAuthUrl({
     access_type: 'offline',
     scope: scopes,
     prompt: 'consent'
   });
   
-  return googleAuthUrl;
+  return url;
 }
 
 export async function getGoogleAuthTokens(code: string) {

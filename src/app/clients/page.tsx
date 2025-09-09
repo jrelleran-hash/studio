@@ -45,8 +45,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { useToast } from "@/hooks/use-toast";
 import { addClient, updateClient, deleteClient } from "@/services/data-service";
 import { useData } from "@/context/data-context";
-import { importClientsAction } from "@/app/actions";
-import { getGoogleAuthUrl } from "@/services/google-auth-service";
+import { importClientsAction, getGoogleAuthUrlAction } from "@/app/actions";
 
 import type { Client } from "@/types";
 
@@ -115,7 +114,11 @@ export default function ClientsPage() {
   const { toast } = useToast();
 
   useEffect(() => {
-    setGoogleAuthUrl(getGoogleAuthUrl());
+    async function fetchAuthUrl() {
+        const url = await getGoogleAuthUrlAction();
+        setGoogleAuthUrl(url);
+    }
+    fetchAuthUrl();
   }, []);
 
   // Memoize schemas to avoid re-creating them on every render
@@ -260,7 +263,7 @@ export default function ClientsPage() {
                         </DialogDescription>
                     </DialogHeader>
                     <div className="space-y-4">
-                        <Button onClick={() => window.location.href = googleAuthUrl} className="w-full">
+                        <Button onClick={() => window.location.href = googleAuthUrl} className="w-full" disabled={!googleAuthUrl}>
                             Connect Google Account
                         </Button>
                         <div className="space-y-2">
