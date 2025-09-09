@@ -1,8 +1,7 @@
 
-
 "use client";
 
-import { useState, useEffect, useCallback, useMemo } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
@@ -43,7 +42,8 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useToast } from "@/hooks/use-toast";
-import { getClients, addClient, updateClient, deleteClient } from "@/services/data-service";
+import { addClient, updateClient, deleteClient } from "@/services/data-service";
+import { useData } from "@/context/data-context";
 
 import type { Client } from "@/types";
 
@@ -99,35 +99,13 @@ const toTitleCase = (str: string) => {
 };
 
 export default function ClientsPage() {
-  const [clients, setClients] = useState<Client[]>([]);
-  const [loading, setLoading] = useState(true);
+  const { clients, loading, refetchData } = useData();
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
   const [editingClient, setEditingClient] = useState<Client | null>(null);
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
   const [deletingClientId, setDeletingClientId] = useState<string | null>(null);
   const { toast } = useToast();
-
-  const fetchClients = useCallback(async () => {
-    setLoading(true);
-    try {
-      const fetchedClients = await getClients();
-      setClients(fetchedClients);
-    } catch (error) {
-       toast({
-        variant: "destructive",
-        title: "Error",
-        description: "Failed to fetch clients.",
-      });
-    } finally {
-      setLoading(false);
-    }
-  }, [toast]);
-
-
-  useEffect(() => {
-    fetchClients();
-  }, [fetchClients]);
 
   // Memoize schemas to avoid re-creating them on every render
   const addClientSchema = useMemo(() => createClientSchema(clients), [clients]);
@@ -159,7 +137,7 @@ export default function ClientsPage() {
       toast({ title: "Success", description: "Client added successfully." });
       setIsAddDialogOpen(false);
       form.reset();
-      fetchClients(); // Refresh the list
+      await refetchData(); // Refresh the list
     } catch (error) {
       console.error(error);
       toast({
@@ -178,7 +156,7 @@ export default function ClientsPage() {
       toast({ title: "Success", description: "Client updated successfully." });
       setIsEditDialogOpen(false);
       setEditingClient(null);
-      fetchClients();
+      await refetchData();
     } catch (error) {
        console.error(error);
        toast({
@@ -205,7 +183,7 @@ export default function ClientsPage() {
     try {
       await deleteClient(deletingClientId);
       toast({ title: "Success", description: "Client deleted successfully." });
-      fetchClients();
+      await refetchData();
     } catch (error) {
       console.error(error);
       toast({

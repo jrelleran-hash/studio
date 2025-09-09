@@ -12,51 +12,25 @@ import { Package, ShoppingCart, Users } from "lucide-react";
 import { useAuth } from "@/hooks/use-auth";
 import { useRouter } from "next/navigation";
 import { useEffect, useState, useMemo } from "react";
-import { getProducts, getClients, getOrders } from "@/services/data-service";
-import type { Product, Client, Order } from "@/types";
+import { useData } from "@/context/data-context";
 import { formatCurrency } from "@/lib/currency";
 import { PesoSign } from "@/components/icons";
-import { subDays, subHours } from "date-fns";
+import { subDays } from "date-fns";
+import type { Order } from "@/types";
 
 export default function DashboardPage() {
   const { user, loading: authLoading } = useAuth();
   const router = useRouter();
+  const { products, clients, orders, loading: dataLoading } = useData();
   
   const [revenueFilter, setRevenueFilter] = useState<FilterType>("month");
   const [inventoryFilter, setInventoryFilter] = useState<InventoryFilterType>("all");
-  const [products, setProducts] = useState<Product[]>([]);
-  const [clients, setClients] = useState<Client[]>([]);
-  const [orders, setOrders] = useState<Order[]>([]);
-  const [dataLoading, setDataLoading] = useState(true);
 
   useEffect(() => {
     if (!authLoading && !user) {
       router.push("/login");
     }
   }, [user, authLoading, router]);
-
-  useEffect(() => {
-    async function fetchData() {
-      if (user) {
-        setDataLoading(true);
-        try {
-          const [fetchedProducts, fetchedClients, fetchedOrders] = await Promise.all([
-            getProducts(),
-            getClients(),
-            getOrders(),
-          ]);
-          setProducts(fetchedProducts);
-          setClients(fetchedClients);
-          setOrders(fetchedOrders);
-        } catch (error) {
-            console.error("Failed to fetch dashboard data", error);
-        } finally {
-            setDataLoading(false);
-        }
-      }
-    }
-    fetchData();
-  }, [user?.uid]);
 
   const { totalRevenue, changeText: revenueChangeText, title: revenueTitle } = useMemo(() => {
     const data = chartData[revenueFilter];
@@ -134,13 +108,13 @@ export default function DashboardPage() {
     const activeOrders = orders.filter(o => activeStatuses.includes(o.status));
 
     const now = new Date();
-    const oneHourAgo = subHours(now, 1);
+    const oneHourAgo = subDays(now, 1); // Changed to subDays for more realistic "recent" data
 
     const recentActiveOrders = orders.filter(o => o.date > oneHourAgo).length;
 
     return {
       count: activeOrders.length,
-      change: `+${recentActiveOrders} since last hour`,
+      change: `+${recentActiveOrders} in the last 24 hours`,
     };
   }, [orders]);
 
@@ -148,7 +122,7 @@ export default function DashboardPage() {
   if (authLoading || !user) {
     return (
       <div className="flex h-screen items-center justify-center">
-        <p>Loading...</p>
+        <p>Loading application...</p>
       </div>
     );
   }

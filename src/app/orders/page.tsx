@@ -1,5 +1,4 @@
 
-
 "use client";
 
 import { useState, useEffect, useMemo, useCallback } from "react";
@@ -51,14 +50,15 @@ import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useToast } from "@/hooks/use-toast";
-import { getOrders, updateOrderStatus, getClients, getProducts, addOrder, addProduct, getSuppliers, addSupplier, updateSupplier, deleteSupplier } from "@/services/data-service";
-import type { Order, Client, Product, Supplier } from "@/types";
+import { updateOrderStatus, addOrder, addProduct, updateSupplier, deleteSupplier } from "@/services/data-service";
+import type { Order, Supplier } from "@/types";
 import { formatCurrency } from "@/lib/currency";
 import { CURRENCY_CONFIG } from "@/config/currency";
 import { Separator } from "@/components/ui/separator";
 import { cn } from "@/lib/utils";
 import { Switch } from "@/components/ui/switch";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { useData } from "@/context/data-context";
 
 
 const statusVariant: { [key: string]: "default" | "secondary" | "destructive" | "outline" } = {
@@ -119,10 +119,8 @@ const toTitleCase = (str: string) => {
 
 
 export default function OrdersAndSuppliersPage() {
+  const { orders, clients, products, suppliers, loading, refetchData } = useData();
   const [activeTab, setActiveTab] = useState("orders");
-  const [orders, setOrders] = useState<Order[]>([]);
-  const [suppliers, setSuppliers] = useState<Supplier[]>([]);
-  const [loading, setLoading] = useState(true);
   const { toast } = useToast();
 
   // Dialog states
@@ -134,8 +132,6 @@ export default function OrdersAndSuppliersPage() {
   const [selectedOrder, setSelectedOrder] = useState<Order | null>(null);
 
   // Data states
-  const [clients, setClients] = useState<Client[]>([]);
-  const [products, setProducts] = useState<Product[]>([]);
   const [autoGenerateSku, setAutoGenerateSku] = useState(true);
   const [editingSupplier, setEditingSupplier] = useState<Supplier | null>(null);
   const [deletingSupplierId, setDeletingSupplierId] = useState<string | null>(null);
@@ -179,35 +175,6 @@ export default function OrdersAndSuppliersPage() {
     name: "items",
   });
   
-  const fetchPageData = useCallback(async () => {
-    setLoading(true);
-    try {
-      const [fetchedOrders, fetchedClients, fetchedProducts, fetchedSuppliers] = await Promise.all([
-        getOrders(),
-        getClients(),
-        getProducts(),
-        getSuppliers()
-      ]);
-      setOrders(fetchedOrders);
-      setClients(fetchedClients);
-      setProducts(fetchedProducts);
-      setSuppliers(fetchedSuppliers);
-    } catch (error) {
-      console.error(error);
-      toast({
-        variant: "destructive",
-        title: "Error",
-        description: "Failed to fetch page data.",
-      });
-    } finally {
-        setLoading(false);
-    }
-  }, [toast]);
-
-  useEffect(() => {
-    fetchPageData();
-  }, [fetchPageData]);
-  
   // Reset dialogs
   useEffect(() => {
     if(!isAddOrderOpen) {
@@ -242,7 +209,7 @@ export default function OrdersAndSuppliersPage() {
     try {
       await updateOrderStatus(orderId, status);
       toast({ title: "Success", description: `Order marked as ${status}.` });
-      fetchPageData(); // Refresh the list
+      await refetchData(); // Refresh the list
     } catch (error) {
       console.error(error);
       toast({
@@ -258,7 +225,7 @@ export default function OrdersAndSuppliersPage() {
       await addOrder({...data, status: "Processing"});
       toast({ title: "Success", description: "New order created." });
       setIsAddOrderOpen(false);
-      fetchPageData();
+      await refetchData();
     } catch (error) {
        console.error(error);
       toast({
@@ -278,11 +245,10 @@ export default function OrdersAndSuppliersPage() {
         const randomPart = Math.floor(1000 + Math.random() * 9000);
         productData.sku = `${namePart}-${randomPart}`;
       }
-      await addProduct(productData as Product);
+      await addProduct(productData as any);
       toast({ title: "Success", description: "Product added successfully." });
       setIsAddProductOpen(false);
-      const fetchedProducts = await getProducts(); // Refetch just products
-      setProducts(fetchedProducts);
+      await refetchData();
     } catch (error) {
       console.error(error);
       toast({
@@ -299,7 +265,7 @@ export default function OrdersAndSuppliersPage() {
       await addSupplier(data);
       toast({ title: "Success", description: "Supplier added successfully." });
       setIsAddSupplierOpen(false);
-      fetchPageData();
+      await refetchData();
     } catch (error) {
       console.error(error);
       toast({
@@ -317,7 +283,7 @@ export default function OrdersAndSuppliersPage() {
       toast({ title: "Success", description: "Supplier updated successfully." });
       setIsEditSupplierOpen(false);
       setEditingSupplier(null);
-      fetchPageData();
+      await refetchData();
     } catch (error) {
        console.error(error);
        toast({
@@ -343,7 +309,7 @@ export default function OrdersAndSuppliersPage() {
     try {
       await deleteSupplier(deletingSupplierId);
       toast({ title: "Success", description: "Supplier deleted successfully." });
-      fetchPageData();
+      await refetchData();
     } catch (error) {
       console.error(error);
       toast({

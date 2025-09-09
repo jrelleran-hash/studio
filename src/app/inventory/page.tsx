@@ -1,5 +1,4 @@
 
-
 "use client";
 
 import { useState, useEffect, useMemo } from "react";
@@ -40,7 +39,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useToast } from "@/hooks/use-toast";
-import { getProducts, addProduct, updateProduct, deleteProduct } from "@/services/data-service";
+import { addProduct, updateProduct, deleteProduct } from "@/services/data-service";
 import type { Product } from "@/types";
 import Image from "next/image";
 import { Badge } from "@/components/ui/badge";
@@ -50,6 +49,7 @@ import { CURRENCY_CONFIG } from "@/config/currency";
 import { formatCurrency } from "@/lib/currency";
 import { Timestamp } from "firebase/firestore";
 import { format } from "date-fns";
+import { useData } from "@/context/data-context";
 
 const createProductSchema = (isSkuAuto: boolean) => z.object({
   name: z.string().min(1, "Product name is required."),
@@ -86,8 +86,7 @@ const toTitleCase = (str: string) => {
 };
 
 export default function InventoryPage() {
-  const [products, setProducts] = useState<Product[]>([]);
-  const [loading, setLoading] = useState(true);
+  const { products, loading, refetchData } = useData();
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
   const [editingProduct, setEditingProduct] = useState<Product | null>(null);
@@ -122,17 +121,6 @@ export default function InventoryPage() {
       setAutoGenerateSku(true);
     }
   }, [isAddDialogOpen, addForm]);
-
-  async function fetchProducts() {
-    setLoading(true);
-    const fetchedProducts = await getProducts();
-    setProducts(fetchedProducts);
-    setLoading(false);
-  }
-
-  useEffect(() => {
-    fetchProducts();
-  }, []);
 
   useEffect(() => {
     if (editingProduct) {
@@ -174,7 +162,7 @@ export default function InventoryPage() {
       toast({ title: "Success", description: "Product added successfully." });
       setIsAddDialogOpen(false);
       addForm.reset();
-      fetchProducts();
+      await refetchData();
     } catch (error) {
       console.error(error);
       toast({
@@ -194,7 +182,7 @@ export default function InventoryPage() {
       toast({ title: "Success", description: "Product updated successfully." });
       setIsEditDialogOpen(false);
       setEditingProduct(null);
-      fetchProducts();
+      await refetchData();
     } catch (error) {
        console.error(error);
        toast({
@@ -220,7 +208,7 @@ export default function InventoryPage() {
     try {
       await deleteProduct(deletingProductId);
       toast({ title: "Success", description: "Product deleted successfully." });
-      fetchProducts();
+      await refetchData();
     } catch (error) {
       console.error(error);
       toast({

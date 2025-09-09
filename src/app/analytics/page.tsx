@@ -1,52 +1,17 @@
 
 "use client";
 
-import { useState, useEffect } from "react";
 import { DollarSign, ShoppingCart, Users, Package } from "lucide-react";
 import { KpiCard } from "@/components/analytics/kpi-card";
 import { SalesChart } from "@/components/analytics/sales-chart";
 import { ActivityChart } from "@/components/analytics/activity-chart";
 import { TopProducts } from "@/components/analytics/top-products";
 import { ActiveClients } from "@/components/analytics/active-clients";
-
-import { getOrders, getClients, getProducts, getIssuances } from "@/services/data-service";
-import type { Order, Client, Product, Issuance } from "@/types";
+import { useData } from "@/context/data-context";
 import { formatCurrency } from "@/lib/currency";
 
 export default function AnalyticsPage() {
-  const [orders, setOrders] = useState<Order[]>([]);
-  const [clients, setClients] = useState<Client[]>([]);
-  const [products, setProducts] = useState<Product[]>([]);
-  const [issuances, setIssuances] = useState<Issuance[]>([]);
-  const [loading, setLoading] = useState(true);
-
-  useEffect(() => {
-    async function fetchData() {
-      setLoading(true);
-      try {
-        const [
-          fetchedOrders,
-          fetchedClients,
-          fetchedProducts,
-          fetchedIssuances
-        ] = await Promise.all([
-          getOrders(),
-          getClients(),
-          getProducts(),
-          getIssuances()
-        ]);
-        setOrders(fetchedOrders);
-        setClients(fetchedClients);
-        setProducts(fetchedProducts);
-        setIssuances(fetchedIssuances);
-      } catch (error) {
-        console.error("Failed to fetch analytics data", error);
-      } finally {
-        setLoading(false);
-      }
-    }
-    fetchData();
-  }, []);
+  const { orders, clients, products, issuances, loading } = useData();
 
   const totalRevenue = orders.reduce((acc, order) => acc + order.total, 0);
 

@@ -1,5 +1,4 @@
 
-
 "use client";
 
 import { useState, useEffect, useMemo, useRef } from "react";
@@ -50,11 +49,12 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useToast } from "@/hooks/use-toast";
-import { getIssuances, getClients, getProducts, addIssuance, deleteIssuance } from "@/services/data-service";
-import type { Issuance, Client, Product } from "@/types";
+import { addIssuance, deleteIssuance } from "@/services/data-service";
+import type { Issuance, Product } from "@/types";
 import { format } from "date-fns";
 import React from 'react';
 import { useAuth } from "@/hooks/use-auth";
+import { useData } from "@/context/data-context";
 
 const issuanceItemSchema = z.object({
   productId: z.string().min(1, "Product is required."),
@@ -155,14 +155,11 @@ PrintableIssuanceForm.displayName = "PrintableIssuanceForm";
 
 
 export default function IssuancePage() {
-  const [issuances, setIssuances] = useState<Issuance[]>([]);
-  const [loading, setLoading] = useState(true);
+  const { issuances, clients, products, loading, refetchData } = useData();
   const { toast } = useToast();
   const { user } = useAuth();
 
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
-  const [clients, setClients] = useState<Client[]>([]);
-  const [products, setProducts] = useState<Product[]>([]);
   
   const [selectedIssuance, setSelectedIssuance] = useState<Issuance | null>(null);
   const [isPreviewOpen, setIsPreviewOpen] = useState(false);
@@ -189,33 +186,6 @@ export default function IssuancePage() {
     name: "items",
   });
   
-  async function fetchPageData() {
-    setLoading(true);
-    try {
-      const [fetchedIssuances, fetchedClients, fetchedProducts] = await Promise.all([
-        getIssuances(),
-        getClients(),
-        getProducts()
-      ]);
-      setIssuances(fetchedIssuances);
-      setClients(fetchedClients);
-      setProducts(fetchedProducts);
-    } catch (error) {
-      console.error(error);
-      toast({
-        variant: "destructive",
-        title: "Error",
-        description: "Failed to fetch page data.",
-      });
-    } finally {
-      setLoading(false);
-    }
-  }
-
-  useEffect(() => {
-    fetchPageData();
-  }, []);
-  
   useEffect(() => {
     if(!isAddDialogOpen) {
       form.reset({
@@ -238,7 +208,7 @@ export default function IssuancePage() {
       });
       toast({ title: "Success", description: "New issuance created and inventory updated." });
       setIsAddDialogOpen(false);
-      fetchPageData(); // Refresh all data
+      await refetchData(); // Refresh all data
     } catch (error) {
        console.error(error);
        const errorMessage = error instanceof Error ? error.message : "An unexpected error occurred.";
@@ -269,7 +239,7 @@ export default function IssuancePage() {
     try {
       await deleteIssuance(deletingIssuanceId);
       toast({ title: "Success", description: "Issuance deleted and stock restored." });
-      fetchPageData();
+      await refetchData();
     } catch (error) {
       console.error(error);
       toast({
@@ -348,7 +318,7 @@ export default function IssuancePage() {
                                     </SelectTrigger>
                                     <SelectContent>
                                         {products.map(p => (
-                                          <SelectItem key={p.id} value={p.id}>
+                                          <SelectItem key={p.id} value={p.id} disabled={p.stock === 0}>
                                             {p.name} (Stock: {p.stock})
                                           </SelectItem>
                                         ))}

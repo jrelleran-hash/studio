@@ -7,6 +7,7 @@ import { Toaster } from "@/components/ui/toaster";
 import { AuthProvider } from "@/context/auth-context";
 import { AppContent } from "@/components/layout/app-content";
 import { ThemeProvider } from "@/components/theme-provider";
+import { DataProvider } from "@/context/data-context";
 
 const fontBody = Inter({
   subsets: ["latin"],
@@ -63,9 +64,11 @@ export default function RootLayout({
           disableTransitionOnChange
         >
           <AuthProvider>
-            <AppContent>
-              {children}
-            </AppContent>
+            <DataProvider>
+              <AppContent>
+                {children}
+              </AppContent>
+            </DataProvider>
           </AuthProvider>
           <Toaster />
         </ThemeProvider>

@@ -1,8 +1,7 @@
 
-
 "use client";
 
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, useCallback } from "react";
 import { useForm, useFieldArray } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
@@ -11,7 +10,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
-import { getRecentOrders, getClients, getProducts, addOrder, addProduct } from "@/services/data-service";
+import { getRecentOrders, addOrder, addProduct } from "@/services/data-service";
 import type { Order, Client, Product } from "@/types";
 import { Skeleton } from "../ui/skeleton";
 import { formatCurrency } from "@/lib/currency";
@@ -24,6 +23,7 @@ import { CURRENCY_CONFIG } from "@/config/currency";
 import { Switch } from "../ui/switch";
 import { Separator } from "../ui/separator";
 import { cn } from "@/lib/utils";
+import { useData } from "@/context/data-context";
 
 
 const statusVariant: { [key: string]: "default" | "secondary" | "destructive" | "outline" } = {
@@ -69,14 +69,13 @@ const toTitleCase = (str: string) => {
 };
 
 export function ActiveOrders() {
+  const { clients, products, refetchData } = useData();
   const [orders, setOrders] = useState<Order[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedOrder, setSelectedOrder] = useState<Order | null>(null);
 
   const [isAddOrderOpen, setIsAddOrderOpen] = useState(false);
   const [isAddProductOpen, setIsAddProductOpen] = useState(false);
-  const [clients, setClients] = useState<Client[]>([]);
-  const [products, setProducts] = useState<Product[]>([]);
   const { toast } = useToast();
   const [autoGenerateSku, setAutoGenerateSku] = useState(true);
 
@@ -108,29 +107,25 @@ export function ActiveOrders() {
     },
   });
 
-  async function fetchInitialData() {
-      try {
-        const [fetchedOrders, fetchedClients, fetchedProducts] = await Promise.all([
-          getRecentOrders(5),
-          getClients(),
-          getProducts()
-        ]);
-        setOrders(fetchedOrders);
-        setClients(fetchedClients);
-        setProducts(fetchedProducts);
-      } catch (error) {
-         toast({
-          variant: "destructive",
-          title: "Error",
-          description: "Failed to fetch necessary data.",
-        });
-      }
-    }
-
-  useEffect(() => {
+  const fetchLocalData = useCallback(async () => {
     setLoading(true);
-    fetchInitialData().finally(() => setLoading(false));
-  }, []);
+    try {
+      const fetchedOrders = await getRecentOrders(5);
+      setOrders(fetchedOrders);
+    } catch (error) {
+       toast({
+        variant: "destructive",
+        title: "Error",
+        description: "Failed to fetch recent orders.",
+      });
+    } finally {
+      setLoading(false);
+    }
+  }, [toast]);
+  
+  useEffect(() => {
+    fetchLocalData();
+  }, [fetchLocalData]);
   
   useEffect(() => {
     if (!isAddProductOpen) {
@@ -163,7 +158,9 @@ export function ActiveOrders() {
       setIsAddOrderOpen(false);
       orderForm.reset();
       setLoading(true);
-      fetchInitialData().finally(() => setLoading(false));
+      await refetchData(); // refetch global data
+      await fetchLocalData(); // refetch local data
+      setLoading(false);
     } catch (error) {
        console.error(error);
       toast({
@@ -187,8 +184,7 @@ export function ActiveOrders() {
       toast({ title: "Success", description: "Product added successfully." });
       setIsAddProductOpen(false);
       productForm.reset();
-      const fetchedProducts = await getProducts();
-      setProducts(fetchedProducts);
+      await refetchData();
     } catch (error) {
       console.error(error);
       toast({
