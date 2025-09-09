@@ -744,45 +744,52 @@ export async function updatePurchaseOrderStatus(poId: string, status: PurchaseOr
       }
       
       const poData = poDoc.data();
-      
-      // If status is already 'Received', do nothing.
       if (poData.status === 'Received') {
-          console.warn(`Purchase Order ${poId} is already marked as Received.`);
-          return;
+        console.warn(`Purchase Order ${poId} is already marked as Received.`);
+        return;
       }
 
-      const updatePayload: any = { status };
+      // If status is not 'Received', just update the status.
+      if (status !== 'Received') {
+        transaction.update(poRef, { status });
+        return;
+      }
       
-      if (status === 'Received') {
-        updatePayload.receivedDate = Timestamp.now();
+      // --- All reads must happen before all writes ---
 
-        // Update stock for each item in the purchase order
-        for (const item of poData.items) {
-          const productRef = item.productRef as DocumentReference;
-          const productDoc = await transaction.get(productRef);
+      // 1. Read all product documents first.
+      const productDocs = await Promise.all(
+        poData.items.map((item: any) => transaction.get(item.productRef as DocumentReference))
+      );
 
-          if (productDoc.exists()) {
-            const productData = productDoc.data();
-            const newStock = productData.stock + item.quantity;
-            const newHistoryEntry = {
-                date: format(updatePayload.receivedDate.toDate(), 'yyyy-MM-dd'),
-                stock: newStock,
-                changeReason: `Received PO #${poData.poNumber}`,
-                dateUpdated: updatePayload.receivedDate,
-            };
+      // 2. Now perform all the writes.
+      const receivedTimestamp = Timestamp.now();
+      
+      // Update the PO status and receivedDate
+      transaction.update(poRef, { status: 'Received', receivedDate: receivedTimestamp });
 
-            transaction.update(productRef, {
-              stock: newStock,
-              lastUpdated: updatePayload.receivedDate,
-              history: arrayUnion(newHistoryEntry)
-            });
-          } else {
-             console.warn(`Product with ID ${productRef.id} not found while receiving PO. Stock not updated for this item.`);
-          }
+      // Update stock for each product
+      poData.items.forEach((item: any, index: number) => {
+        const productDoc = productDocs[index];
+        if (productDoc.exists()) {
+          const productData = productDoc.data();
+          const newStock = productData.stock + item.quantity;
+          const newHistoryEntry = {
+            date: format(receivedTimestamp.toDate(), 'yyyy-MM-dd'),
+            stock: newStock,
+            changeReason: `Received PO #${poData.poNumber}`,
+            dateUpdated: receivedTimestamp,
+          };
+          
+          transaction.update(productDoc.ref, {
+            stock: newStock,
+            lastUpdated: receivedTimestamp,
+            history: arrayUnion(newHistoryEntry)
+          });
+        } else {
+          console.warn(`Product with ID ${item.productRef.id} not found while receiving PO. Stock not updated.`);
         }
-      }
-      
-      transaction.update(poRef, updatePayload);
+      });
     });
   } catch (error) {
     console.error("Error updating purchase order status:", error);
