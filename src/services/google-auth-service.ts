@@ -2,10 +2,19 @@
 'use server';
 
 import { google } from 'googleapis';
-import { getGoogleOauth2Client } from '@/services/google-client-service';
+
+const oauth2Client = new google.auth.OAuth2(
+  process.env.GOOGLE_CLIENT_ID,
+  process.env.GOOGLE_CLIENT_SECRET,
+  process.env.GOOGLE_REDIRECT_URI
+);
+
+export function getGoogleOauth2Client() {
+  return oauth2Client;
+}
+
 
 export async function getGoogleAuthUrl() {
-  const oauth2Client = getGoogleOauth2Client();
   const scopes = [
     'https://www.googleapis.com/auth/spreadsheets.readonly',
     'https://www.googleapis.com/auth/userinfo.email',
@@ -22,7 +31,6 @@ export async function getGoogleAuthUrl() {
 }
 
 export async function getGoogleAuthTokens(code: string) {
-    const oauth2Client = getGoogleOauth2Client();
     const { tokens } = await oauth2Client.getToken(code);
     oauth2Client.setCredentials(tokens);
     return tokens;
