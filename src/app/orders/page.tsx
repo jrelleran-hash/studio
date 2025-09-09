@@ -1,4 +1,5 @@
 
+
 "use client";
 
 import { useState, useEffect, useMemo, useCallback } from "react";
@@ -624,12 +625,23 @@ export default function OrdersAndSuppliersPage() {
                             <DropdownMenuItem onClick={() => setSelectedOrder(order)}>
                                 View Details
                             </DropdownMenuItem>
-                            <DropdownMenuItem onClick={() => handleStatusChange(order.id, 'Fulfilled')}>
-                              Mark as Fulfilled
-                            </DropdownMenuItem>
-                            <DropdownMenuItem onClick={() => handleStatusChange(order.id, 'Shipped')}>
-                              Mark as Shipped
-                            </DropdownMenuItem>
+                            {order.status === 'Cancelled' ? (
+                                <DropdownMenuItem 
+                                  onClick={() => handleReorder(order)} 
+                                  disabled={orders.some(o => o.reorderedFrom === order.id)}
+                                >
+                                  {orders.some(o => o.reorderedFrom === order.id) ? 'Already Reordered' : 'Reorder'}
+                                </DropdownMenuItem>
+                            ) : (
+                                <>
+                                    <DropdownMenuItem onClick={() => handleStatusChange(order.id, 'Fulfilled')}>
+                                    Mark as Fulfilled
+                                    </DropdownMenuItem>
+                                    <DropdownMenuItem onClick={() => handleStatusChange(order.id, 'Shipped')}>
+                                    Mark as Shipped
+                                    </DropdownMenuItem>
+                                </>
+                            )}
                              <DropdownMenuSeparator />
                              <DropdownMenuItem onClick={() => handleDeleteOrderClick(order.id)} className="text-destructive">
                                 Delete
@@ -803,15 +815,22 @@ export default function OrdersAndSuppliersPage() {
               </ul>
             </div>
           </div>
-          <DialogFooter>
-            {selectedOrder.status === 'Cancelled' ? (
-                <Button onClick={() => handleReorder(selectedOrder)} disabled={isReordered}>
-                  {isReordered ? 'Already Reordered' : 'Reorder'}
-                </Button>
-            ) : (
-                <Button variant="destructive" onClick={() => handleCancelOrder(selectedOrder.id)}>Cancel Order</Button>
-            )}
-            <Button variant="outline" onClick={() => setSelectedOrder(null)}>Close</Button>
+          <DialogFooter className="!justify-between">
+             <div>
+                {selectedOrder.status !== 'Cancelled' && (
+                    <Button variant="outline">Edit Order</Button>
+                )}
+            </div>
+            <div className="flex gap-2">
+                {selectedOrder.status === 'Cancelled' ? (
+                    <Button onClick={() => handleReorder(selectedOrder)} disabled={isReordered}>
+                    {isReordered ? 'Already Reordered' : 'Reorder'}
+                    </Button>
+                ) : (
+                    <Button variant="destructive" onClick={() => handleCancelOrder(selectedOrder.id)}>Cancel Order</Button>
+                )}
+                <Button variant="outline" onClick={() => setSelectedOrder(null)}>Close</Button>
+            </div>
           </DialogFooter>
         </DialogContent>
       </Dialog>
@@ -911,5 +930,7 @@ export default function OrdersAndSuppliersPage() {
     </>
   );
 }
+
+    
 
     
