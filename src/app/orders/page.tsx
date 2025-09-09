@@ -163,6 +163,7 @@ export default function OrdersAndSuppliersPage() {
   const [isDeleteSupplierOpen, setIsDeleteSupplierOpen] = useState(false);
   const [isDeleteOrderOpen, setIsDeleteOrderOpen] = useState(false);
   const [selectedOrder, setSelectedOrder] = useState<Order | null>(null);
+  const [selectedPO, setSelectedPO] = useState<PurchaseOrder | null>(null);
   const [isReordered, setIsReordered] = useState(false);
   const [purchaseQueueSelection, setPurchaseQueueSelection] = useState<{[key: string]: boolean}>({});
 
@@ -1101,7 +1102,7 @@ export default function OrdersAndSuppliersPage() {
                       ))
                     ) : (
                       purchaseOrders.map((po) => (
-                        <TableRow key={po.id}>
+                        <TableRow key={po.id} onClick={() => setSelectedPO(po)} className="cursor-pointer">
                           <TableCell className="font-medium">{po.poNumber}</TableCell>
                           <TableCell>{po.supplier.name}</TableCell>
                           <TableCell>{formatDateSimple(po.orderDate)}</TableCell>
@@ -1111,13 +1112,14 @@ export default function OrdersAndSuppliersPage() {
                           <TableCell className="text-right">
                              <DropdownMenu>
                               <DropdownMenuTrigger asChild>
-                                <Button aria-haspopup="true" size="icon" variant="ghost">
+                                <Button aria-haspopup="true" size="icon" variant="ghost" onClick={(e) => e.stopPropagation()}>
                                   <MoreHorizontal className="h-4 w-4" />
                                   <span className="sr-only">Toggle menu</span>
                                 </Button>
                               </DropdownMenuTrigger>
-                              <DropdownMenuContent align="end">
+                              <DropdownMenuContent align="end" onClick={(e) => e.stopPropagation()}>
                                 <DropdownMenuLabel>Actions</DropdownMenuLabel>
+                                 <DropdownMenuItem onClick={() => setSelectedPO(po)}>View Details</DropdownMenuItem>
                                 {po.status !== 'Received' && (
                                   <>
                                     <DropdownMenuItem onClick={() => handlePOStatusChange(po.id, 'Shipped')}>
@@ -1432,6 +1434,37 @@ export default function OrdersAndSuppliersPage() {
         </AlertDialogFooter>
       </AlertDialogContent>
     </AlertDialog>
+    
+    {selectedPO && (
+        <Dialog open={!!selectedPO} onOpenChange={(open) => !open && setSelectedPO(null)}>
+            <DialogContent>
+                <DialogHeader>
+                    <DialogTitle>Purchase Order: {selectedPO.poNumber}</DialogTitle>
+                    <DialogDescription>
+                        Supplier: {selectedPO.supplier.name}
+                    </DialogDescription>
+                </DialogHeader>
+                <div className="py-4 space-y-4">
+                    <p><strong>Order Date:</strong> {formatDateSimple(selectedPO.orderDate)}</p>
+                    <p><strong>Status:</strong> <Badge variant={statusVariant[selectedPO.status] || "default"}>{selectedPO.status}</Badge></p>
+                    {selectedPO.receivedDate && <p><strong>Date Received:</strong> {formatDateSimple(selectedPO.receivedDate)}</p>}
+                    <div>
+                        <h4 className="font-semibold mt-2">Items:</h4>
+                        <ul className="list-disc list-inside text-muted-foreground space-y-1 mt-1">
+                            {selectedPO.items.map(item => (
+                                <li key={item.product.id}>
+                                    {item.quantity} x {item.product.name} ({item.product.sku})
+                                </li>
+                            ))}
+                        </ul>
+                    </div>
+                </div>
+                <DialogFooter>
+                    <Button variant="outline" onClick={() => setSelectedPO(null)}>Close</Button>
+                </DialogFooter>
+            </DialogContent>
+        </Dialog>
+    )}
     </>
   );
 }
