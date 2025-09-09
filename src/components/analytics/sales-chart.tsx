@@ -53,9 +53,9 @@ export function SalesChart({ orders, loading }: SalesChartProps) {
   return (
     <Card>
       <CardHeader>
-        <CardTitle>Sales Over Time</CardTitle>
+        <CardTitle>Revenue Over Time</CardTitle>
         <CardDescription>
-          Showing total sales revenue per month for the last year.
+          Showing total revenue per month for the last year.
         </CardDescription>
       </CardHeader>
       <CardContent>

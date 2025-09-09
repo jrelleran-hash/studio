@@ -450,7 +450,7 @@ export default function OrdersAndSuppliersPage() {
       toast({ title: "Success", description: "New purchase order created." });
       setIsAddPOOpen(false);
       await refetchData();
-    } catch (error) {
+    } catch (error)
       console.error(error);
       toast({
         variant: "destructive",
@@ -489,7 +489,7 @@ export default function OrdersAndSuppliersPage() {
     <Tabs defaultValue={activeTab} onValueChange={setActiveTab} className="space-y-4">
       <div className="flex items-center justify-between">
         <TabsList>
-            <TabsTrigger value="orders">Sales Orders</TabsTrigger>
+            <TabsTrigger value="orders">Orders</TabsTrigger>
             <TabsTrigger value="purchase-orders">Purchase Orders</TabsTrigger>
             <TabsTrigger value="suppliers">Suppliers</TabsTrigger>
         </TabsList>
@@ -499,12 +499,12 @@ export default function OrdersAndSuppliersPage() {
                 <DialogTrigger asChild>
                     <Button size="sm" className="gap-1">
                     <PlusCircle className="h-4 w-4" />
-                    Add Sales Order
+                    Add Order
                     </Button>
                 </DialogTrigger>
                 <DialogContent className="sm:max-w-2xl">
                     <DialogHeader>
-                    <DialogTitle>Create New Sales Order</DialogTitle>
+                    <DialogTitle>Create New Order</DialogTitle>
                     <DialogDescription>Fill in the details to create a new order for a client.</DialogDescription>
                     </DialogHeader>
                     <form onSubmit={orderForm.handleSubmit(onOrderSubmit)} className="space-y-4">
@@ -728,8 +728,8 @@ export default function OrdersAndSuppliersPage() {
       <TabsContent value="orders">
         <Card>
           <CardHeader>
-            <CardTitle>Sales Orders</CardTitle>
-            <CardDescription>Manage all client sales orders.</CardDescription>
+            <CardTitle>Orders</CardTitle>
+            <CardDescription>Manage all client orders.</CardDescription>
           </CardHeader>
           <CardContent>
             <Table>
@@ -1156,3 +1156,4 @@ export default function OrdersAndSuppliersPage() {
     </>
   );
 }
+
