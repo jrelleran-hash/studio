@@ -10,7 +10,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
-import { getRecentOrders, addOrder, addProduct } from "@/services/data-service";
+import { getRecentOrders, addOrder, addProduct, updateOrderStatus } from "@/services/data-service";
 import type { Order, Client, Product } from "@/types";
 import { Skeleton } from "../ui/skeleton";
 import { formatCurrency } from "@/lib/currency";
@@ -30,6 +30,7 @@ const statusVariant: { [key: string]: "default" | "secondary" | "destructive" | 
   Fulfilled: "default",
   Processing: "secondary",
   Shipped: "outline",
+  Cancelled: "destructive",
 };
 
 const orderItemSchema = z.object({
@@ -194,6 +195,23 @@ export function ActiveOrders() {
       });
     }
   };
+  
+  const handleCancelOrder = async (orderId: string) => {
+    try {
+      await updateOrderStatus(orderId, 'Cancelled');
+      toast({ title: "Success", description: "Order has been cancelled." });
+      await refetchData();
+      await fetchLocalData();
+      setSelectedOrder(null);
+    } catch (error) {
+        console.error(error);
+        toast({
+            variant: "destructive",
+            title: "Error",
+            description: "Failed to cancel order.",
+        });
+    }
+  };
 
   return (
     <>
@@ -337,7 +355,7 @@ export function ActiveOrders() {
       <Dialog open={!!selectedOrder} onOpenChange={(open) => !open && setSelectedOrder(null)}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Order Details: {selectedOrder.id}</DialogTitle>
+            <DialogTitle>Order Details: {selectedOrder.id.substring(0,7)}</DialogTitle>
             <DialogDescription>
               Client: {selectedOrder.client.clientName} ({selectedOrder.client.projectName})
             </DialogDescription>
@@ -358,8 +376,8 @@ export function ActiveOrders() {
             </div>
           </div>
           <DialogFooter>
-            <Button variant="destructive">Cancel Order</Button>
-            <Button variant="outline">Edit Order</Button>
+            <Button variant="destructive" onClick={() => handleCancelOrder(selectedOrder.id)}>Cancel Order</Button>
+            <Button variant="outline" disabled>Edit Order</Button>
             <Button onClick={() => setSelectedOrder(null)}>Close</Button>
           </DialogFooter>
         </DialogContent>
