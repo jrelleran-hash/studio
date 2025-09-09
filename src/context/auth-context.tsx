@@ -45,7 +45,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     router.push("/login");
   };
 
-  const reloadUser = useCallback(async () => {
+  const reloadUser = async () => {
     const currentUser = auth.currentUser;
     if (currentUser) {
       await currentUser.reload();
@@ -68,7 +68,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         setUser(null);
       }
     }
-  }, [auth.currentUser]);
+  };
 
   const value = { user, loading, logout, reloadUser };
 
