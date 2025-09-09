@@ -50,7 +50,7 @@ import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useToast } from "@/hooks/use-toast";
-import { updateOrderStatus, addOrder, addProduct, updateSupplier, deleteSupplier } from "@/services/data-service";
+import { updateOrderStatus, addOrder, addProduct, updateSupplier, deleteSupplier, addSupplier } from "@/services/data-service";
 import type { Order, Supplier } from "@/types";
 import { formatCurrency } from "@/lib/currency";
 import { CURRENCY_CONFIG } from "@/config/currency";
@@ -859,3 +859,5 @@ export default function OrdersAndSuppliersPage() {
     </>
   );
 }
+
+    
