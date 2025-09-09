@@ -6,7 +6,7 @@ import { useState, useEffect, useMemo, useRef } from "react";
 import { useForm, useFieldArray, Controller } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
-import { PlusCircle, MoreHorizontal, X, Printer, ChevronDown, Truck } from "lucide-react";
+import { PlusCircle, MoreHorizontal, X, Printer, ChevronDown, Truck, RefreshCcw } from "lucide-react";
 
 import { Button, buttonVariants } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -50,8 +50,8 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useToast } from "@/hooks/use-toast";
-import { addIssuance, deleteIssuance, addShipment } from "@/services/data-service";
-import type { Issuance, Product, Order } from "@/types";
+import { addIssuance, deleteIssuance, addShipment, initiateReturn } from "@/services/data-service";
+import type { Issuance, Product, Order, ReturnItem } from "@/types";
 import { format, addDays } from "date-fns";
 import React from 'react';
 import { useAuth } from "@/hooks/use-auth";
@@ -61,6 +61,7 @@ import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/component
 import { cn } from "@/lib/utils";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Calendar } from "@/components/ui/calendar";
+import { Checkbox } from "@/components/ui/checkbox";
 
 
 const issuanceItemSchema = z.object({
@@ -100,6 +101,50 @@ const createShipmentSchema = z.object({
 });
 
 type ShipmentFormValues = z.infer<typeof createShipmentSchema>;
+
+const createReturnItemSchema = z.object({
+    productId: z.string(),
+    name: z.string(),
+    sku: z.string(),
+    issuedQuantity: z.number(),
+    returnQuantity: z.coerce.number().nonnegative("Quantity must be non-negative").optional(),
+    selected: z.boolean().default(false),
+});
+
+const createReturnSchema = (issuance: Issuance | null) => z.object({
+    reason: z.string().min(5, "A reason for the return is required."),
+    items: z.array(createReturnItemSchema).superRefine((items, ctx) => {
+        const isAnyItemSelected = items.some(item => item.selected);
+        if (!isAnyItemSelected) {
+            ctx.addIssue({
+                code: z.ZodIssueCode.custom,
+                message: "At least one item must be selected for return.",
+                path: [], // Top-level error
+            });
+            return;
+        }
+
+        items.forEach((item, index) => {
+            if (item.selected) {
+                if (!item.returnQuantity || item.returnQuantity <= 0) {
+                    ctx.addIssue({
+                        path: [`${index}.returnQuantity`],
+                        message: "Quantity must be greater than 0.",
+                        code: z.ZodIssueCode.custom,
+                    });
+                } else if (item.returnQuantity > item.issuedQuantity) {
+                    ctx.addIssue({
+                        path: [`${index}.returnQuantity`],
+                        message: `Cannot return more than ${item.issuedQuantity} issued items.`,
+                        code: z.ZodIssueCode.custom,
+                    });
+                }
+            }
+        });
+    }),
+});
+
+type ReturnFormValues = z.infer<ReturnType<typeof createReturnSchema>>;
 
 
 // Printable Component
@@ -179,9 +224,12 @@ export default function IssuancePage() {
 
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
   const [isCreateShipmentOpen, setIsCreateShipmentOpen] = useState(false);
+  const [isReturnDialogOpen, setIsReturnDialogOpen] = useState(false);
   
   const [selectedIssuance, setSelectedIssuance] = useState<Issuance | null>(null);
   const [issuanceForShipment, setIssuanceForShipment] = useState<Issuance | null>(null);
+  const [issuanceForReturn, setIssuanceForReturn] = useState<Issuance | null>(null);
+
   const [isPreviewOpen, setIsPreviewOpen] = useState(false);
   const printableRef = useRef<HTMLDivElement>(null);
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
@@ -191,9 +239,8 @@ export default function IssuancePage() {
     return orders.filter(order => order.status === 'Ready for Issuance');
   }, [orders]);
 
-
-  // Memoize the schema so it's only recreated when products change
   const issuanceSchema = useMemo(() => createIssuanceSchema(products), [products]);
+  const returnSchema = useMemo(() => createReturnSchema(issuanceForReturn), [issuanceForReturn]);
 
   const form = useForm<IssuanceFormValues>({
     resolver: zodResolver(issuanceSchema),
@@ -203,7 +250,7 @@ export default function IssuancePage() {
       remarks: "",
       orderId: "",
     },
-    mode: "onChange", // Validate on change to give instant feedback
+    mode: "onChange",
   });
 
   const shipmentForm = useForm<ShipmentFormValues>({
@@ -215,9 +262,16 @@ export default function IssuancePage() {
     },
   });
 
+  const returnForm = useForm<ReturnFormValues>({
+    resolver: zodResolver(returnSchema),
+  });
 
   const { fields, append, remove } = useFieldArray({
     control: form.control,
+    name: "items",
+  });
+   const { fields: returnFields } = useFieldArray({
+    control: returnForm.control,
     name: "items",
   });
   
@@ -244,6 +298,26 @@ export default function IssuancePage() {
         setIsCreateShipmentOpen(false);
     }
   }, [issuanceForShipment, shipmentForm]);
+
+  useEffect(() => {
+    if (issuanceForReturn) {
+      returnForm.reset({
+        reason: "",
+        items: issuanceForReturn.items.map(item => ({
+          productId: item.product.id,
+          name: item.product.name,
+          sku: item.product.sku,
+          issuedQuantity: item.quantity,
+          returnQuantity: item.quantity,
+          selected: false,
+        })),
+      });
+      setIsReturnDialogOpen(true);
+    } else {
+      setIsReturnDialogOpen(false);
+    }
+  }, [issuanceForReturn, returnForm]);
+
 
   const onAddSubmit = async (data: IssuanceFormValues) => {
     if (!user) {
@@ -282,6 +356,38 @@ export default function IssuancePage() {
       await refetchData();
     } catch (error) {
         console.error(error);
+        const errorMessage = error instanceof Error ? error.message : "An unexpected error occurred.";
+        toast({
+            variant: "destructive",
+            title: "Error",
+            description: errorMessage,
+        });
+    }
+  };
+
+  const onReturnSubmit = async (data: ReturnFormValues) => {
+    if (!issuanceForReturn) return;
+    
+    const itemsToReturn = data.items
+      .filter(item => item.selected && item.returnQuantity)
+      .map(item => ({
+        productId: item.productId,
+        name: item.name,
+        sku: item.sku,
+        quantity: item.returnQuantity!,
+      }));
+      
+    try {
+        await initiateReturn({
+            issuanceId: issuanceForReturn.id,
+            reason: data.reason,
+            items: itemsToReturn,
+        });
+        toast({ title: "Success", description: "Return initiated successfully." });
+        setIssuanceForReturn(null);
+        await refetchData();
+    } catch(error) {
+         console.error(error);
         const errorMessage = error instanceof Error ? error.message : "An unexpected error occurred.";
         toast({
             variant: "destructive",
@@ -372,44 +478,46 @@ export default function IssuancePage() {
                     ))}
                   </TableBody>
                 ) : issuanceQueue.length > 0 ? (
-                  issuanceQueue.map((order) => (
-                   <Collapsible asChild key={order.id} >
-                    <TableBody>
-                        <TableRow>
-                          <TableCell className="font-medium">{order.id.substring(0, 7)}</TableCell>
-                          <TableCell>{order.client.clientName}</TableCell>
-                          <TableCell>{format(order.date, 'PPP')}</TableCell>
-                          <TableCell>{order.items.length} types</TableCell>
-                          <TableCell className="text-right flex items-center justify-end gap-2">
-                            <Button size="sm" onClick={() => handleCreateIssuanceFromOrder(order)}>Create Issuance</Button>
-                            <CollapsibleTrigger asChild>
-                               <Button variant="ghost" size="icon" className="w-8 h-8">
-                                <span className="sr-only">Toggle Details</span>
-                                <ChevronDown className="h-4 w-4" />
-                               </Button>
-                            </CollapsibleTrigger>
-                          </TableCell>
-                        </TableRow>
-                        <CollapsibleContent asChild>
-                          <tr className="bg-muted/50">
-                            <td colSpan={5} className="p-0">
-                               <div className="p-4">
-                                <h4 className="text-sm font-semibold mb-2">Items for Order {order.id.substring(0, 7)}:</h4>
-                                <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-2">
-                                  {order.items.map(item => (
-                                    <div key={item.product.id} className="text-xs flex justify-between items-center bg-background p-2 rounded-md border">
-                                        <span>{item.product.name} <span className="text-muted-foreground">({item.product.sku})</span></span>
-                                        <Badge variant="outline" className="font-mono ml-2">Qty: {item.quantity}</Badge>
-                                    </div>
-                                  ))}
+                  <Collapsible asChild>
+                    <>
+                    {issuanceQueue.map((order) => (
+                      <TableBody key={order.id}>
+                          <TableRow>
+                            <TableCell className="font-medium">{order.id.substring(0, 7)}</TableCell>
+                            <TableCell>{order.client.clientName}</TableCell>
+                            <TableCell>{format(order.date, 'PPP')}</TableCell>
+                            <TableCell>{order.items.length} types</TableCell>
+                            <TableCell className="text-right flex items-center justify-end gap-2">
+                              <Button size="sm" onClick={() => handleCreateIssuanceFromOrder(order)}>Create Issuance</Button>
+                              <CollapsibleTrigger asChild>
+                                <Button variant="ghost" size="icon" className="w-8 h-8">
+                                  <span className="sr-only">Toggle Details</span>
+                                  <ChevronDown className="h-4 w-4" />
+                                </Button>
+                              </CollapsibleTrigger>
+                            </TableCell>
+                          </TableRow>
+                          <CollapsibleContent asChild>
+                            <tr className="bg-muted/50">
+                              <td colSpan={5} className="p-0">
+                                <div className="p-4">
+                                  <h4 className="text-sm font-semibold mb-2">Items for Order {order.id.substring(0, 7)}:</h4>
+                                  <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-2">
+                                    {order.items.map(item => (
+                                      <div key={item.product.id} className="text-xs flex justify-between items-center bg-background p-2 rounded-md border">
+                                          <span>{item.product.name} <span className="text-muted-foreground">({item.product.sku})</span></span>
+                                          <Badge variant="outline" className="font-mono ml-2">Qty: {item.quantity}</Badge>
+                                      </div>
+                                    ))}
+                                  </div>
                                 </div>
-                               </div>
-                            </td>
-                          </tr>
-                        </CollapsibleContent>
-                      </TableBody>
-                    </Collapsible>
-                  ))
+                              </td>
+                            </tr>
+                          </CollapsibleContent>
+                        </TableBody>
+                      ))}
+                    </>
+                  </Collapsible>
                 ) : (
                   <TableBody>
                     <TableRow>
@@ -588,6 +696,10 @@ export default function IssuancePage() {
                           <Truck className="mr-2 h-4 w-4" />
                           <span>Create Shipment</span>
                         </DropdownMenuItem>
+                         <DropdownMenuItem onClick={() => setIssuanceForReturn(issuance)}>
+                          <RefreshCcw className="mr-2 h-4 w-4" />
+                          <span>Process Return</span>
+                        </DropdownMenuItem>
                         <DropdownMenuSeparator />
                         <DropdownMenuItem onClick={() => handleDeleteClick(issuance.id)} className="text-destructive">
                           Delete
@@ -714,6 +826,79 @@ export default function IssuancePage() {
                 </DialogFooter>
             </form>
         </DialogContent>
+    </Dialog>
+
+    <Dialog open={isReturnDialogOpen} onOpenChange={(isOpen) => { if (!isOpen) setIssuanceForReturn(null) }}>
+      <DialogContent className="sm:max-w-2xl">
+        <DialogHeader>
+            <DialogTitle>Process Return</DialogTitle>
+            <DialogDescription>
+                Initiate a return for items from Issuance #{issuanceForReturn?.issuanceNumber}.
+            </DialogDescription>
+        </DialogHeader>
+        <form onSubmit={returnForm.handleSubmit(onReturnSubmit)} className="space-y-4">
+            <div className="space-y-2">
+                <Label htmlFor="reason">Reason for Return</Label>
+                <Textarea id="reason" {...returnForm.register("reason")} placeholder="e.g., incorrect item, damaged goods, etc." />
+                {returnForm.formState.errors.reason && <p className="text-sm text-destructive">{returnForm.formState.errors.reason.message}</p>}
+            </div>
+            
+            <div className="space-y-2">
+                 <Label>Items to Return</Label>
+                 <div className="border rounded-md max-h-60 overflow-y-auto">
+                    <Table>
+                        <TableHeader>
+                            <TableRow>
+                                <TableHead className="w-12"></TableHead>
+                                <TableHead>Product</TableHead>
+                                <TableHead className="w-24 text-center">Issued</TableHead>
+                                <TableHead className="w-32">Return Qty</TableHead>
+                            </TableRow>
+                        </TableHeader>
+                        <TableBody>
+                            {returnFields.map((field, index) => (
+                                <TableRow key={field.id}>
+                                    <TableCell>
+                                        <Controller
+                                            control={returnForm.control}
+                                            name={`items.${index}.selected`}
+                                            render={({ field: controllerField }) => (
+                                                <Checkbox
+                                                    checked={controllerField.value}
+                                                    onCheckedChange={controllerField.onChange}
+                                                />
+                                            )}
+                                        />
+                                    </TableCell>
+                                    <TableCell>
+                                        <p className="font-medium">{field.name}</p>
+                                        <p className="text-xs text-muted-foreground">{field.sku}</p>
+                                    </TableCell>
+                                    <TableCell className="text-center">{field.issuedQuantity}</TableCell>
+                                    <TableCell>
+                                        <Input 
+                                            type="number" 
+                                            {...returnForm.register(`items.${index}.returnQuantity`)}
+                                            disabled={!returnForm.watch(`items.${index}.selected`)}
+                                        />
+                                        {returnForm.formState.errors.items?.[index]?.returnQuantity && <p className="text-xs text-destructive mt-1">{returnForm.formState.errors.items?.[index]?.returnQuantity?.message}</p>}
+                                    </TableCell>
+                                </TableRow>
+                            ))}
+                        </TableBody>
+                    </Table>
+                 </div>
+                 {returnForm.formState.errors.items && typeof returnForm.formState.errors.items !== 'object' && <p className="text-sm text-destructive">{returnForm.formState.errors.items.message}</p>}
+            </div>
+
+            <DialogFooter>
+                <Button type="button" variant="outline" onClick={() => setIssuanceForReturn(null)}>Cancel</Button>
+                <Button type="submit" disabled={returnForm.formState.isSubmitting}>
+                    {returnForm.formState.isSubmitting ? "Initiating..." : "Initiate Return"}
+                </Button>
+            </DialogFooter>
+        </form>
+      </DialogContent>
     </Dialog>
 
     <Dialog open={isPreviewOpen} onOpenChange={setIsPreviewOpen}>

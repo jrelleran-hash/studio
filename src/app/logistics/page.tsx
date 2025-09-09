@@ -14,8 +14,8 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { useToast } from "@/hooks/use-toast";
 import { updateShipmentStatus, addShipment, updatePurchaseOrderStatus } from "@/services/data-service";
 import { useData } from "@/context/data-context";
-import type { Shipment, Issuance, PurchaseOrder } from "@/types";
-import { MoreHorizontal, Package, Truck, CheckCircle, Hourglass, CalendarDays, List, PlusCircle, ArrowDown, ArrowUp } from "lucide-react";
+import type { Shipment, Issuance, PurchaseOrder, Return } from "@/types";
+import { MoreHorizontal, Package, Truck, CheckCircle, Hourglass, CalendarDays, List, PlusCircle, ArrowDown, ArrowUp, RefreshCcw } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuTrigger, DropdownMenuSeparator } from "@/components/ui/dropdown-menu";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogFooter, DialogTrigger } from "@/components/ui/dialog";
@@ -42,6 +42,7 @@ const inboundStatusVariant: { [key: string]: "default" | "secondary" | "destruct
   Pending: "secondary",
   Received: "default",
   Shipped: "outline",
+  Restocked: "default",
 };
 
 const createShipmentSchema = z.object({
@@ -60,7 +61,7 @@ type StatusFilter = "all" | Shipment['status'];
 type ViewMode = "list" | "calendar";
 
 export default function LogisticsPage() {
-    const { shipments, purchaseOrders, unshippedIssuances, loading, refetchData } = useData();
+    const { shipments, purchaseOrders, unshippedIssuances, returns, loading, refetchData } = useData();
     const [selectedShipment, setSelectedShipment] = useState<Shipment | null>(null);
     const [selectedPO, setSelectedPO] = useState<PurchaseOrder | null>(null);
     const [statusFilter, setStatusFilter] = useState<StatusFilter>("all");
@@ -137,11 +138,9 @@ export default function LogisticsPage() {
     
     const kpiData = {
         totalOutbound: shipments.length,
-        pendingOutbound: shipments.filter(s => s.status === 'Pending').length,
         inTransit: shipments.filter(s => s.status === 'In Transit').length,
         delivered: shipments.filter(s => s.status === 'Delivered').length,
-        totalInbound: purchaseOrders.length,
-        pendingInbound: purchaseOrders.filter(po => po.status === 'Pending').length,
+        totalInbound: purchaseOrders.length + returns.length,
     }
 
     const formatDate = (date?: Date) => {
@@ -168,7 +167,7 @@ export default function LogisticsPage() {
                     loading={loading}
                 />
                  <KpiCard
-                    title="Inbound Shipments (POs)"
+                    title="Inbound Movements"
                     value={kpiData.totalInbound.toString()}
                     icon={<ArrowDown className="size-5 text-muted-foreground" />}
                     loading={loading}
@@ -180,7 +179,7 @@ export default function LogisticsPage() {
                     loading={loading}
                 />
                 <KpiCard
-                    title="Delivered"
+                    title="Delivered / Received"
                     value={kpiData.delivered.toString()}
                     icon={<CheckCircle className="size-5 text-muted-foreground" />}
                     loading={loading}
@@ -381,76 +380,137 @@ export default function LogisticsPage() {
                     </Card>
                 </TabsContent>
                 <TabsContent value="inbound">
-                    <Card>
-                         <CardHeader>
-                            <CardTitle>Inbound Shipments</CardTitle>
-                            <CardDescription>A log of all purchase orders from suppliers.</CardDescription>
-                         </CardHeader>
-                          <CardContent>
-                            <Table>
-                                <TableHeader>
-                                    <TableRow>
-                                        <TableHead>PO Number</TableHead>
-                                        <TableHead>Supplier</TableHead>
-                                        <TableHead>Order Date</TableHead>
-                                        <TableHead>Expected Date</TableHead>
-                                        <TableHead>Status</TableHead>
-                                        <TableHead className="text-right">Actions</TableHead>
-                                    </TableRow>
-                                </TableHeader>
-                                 <TableBody>
-                                    {loading ? (
-                                        Array.from({ length: 8 }).map((_, i) => (
-                                            <TableRow key={i}>
-                                            <TableCell><Skeleton className="h-4 w-24" /></TableCell>
-                                            <TableCell><Skeleton className="h-4 w-32" /></TableCell>
-                                            <TableCell><Skeleton className="h-4 w-24" /></TableCell>
-                                            <TableCell><Skeleton className="h-4 w-24" /></TableCell>
-                                            <TableCell><Skeleton className="h-6 w-20 rounded-full" /></TableCell>
-                                            <TableCell><Skeleton className="h-8 w-8 ml-auto" /></TableCell>
+                    <Tabs defaultValue="po">
+                        <TabsList className="mb-4">
+                            <TabsTrigger value="po">Purchase Orders</TabsTrigger>
+                            <TabsTrigger value="returns">Returns</TabsTrigger>
+                        </TabsList>
+                        <TabsContent value="po">
+                            <Card>
+                                <CardHeader>
+                                    <CardTitle>Inbound Shipments (POs)</CardTitle>
+                                    <CardDescription>A log of all purchase orders from suppliers.</CardDescription>
+                                </CardHeader>
+                                <CardContent>
+                                    <Table>
+                                        <TableHeader>
+                                            <TableRow>
+                                                <TableHead>PO Number</TableHead>
+                                                <TableHead>Supplier</TableHead>
+                                                <TableHead>Order Date</TableHead>
+                                                <TableHead>Expected Date</TableHead>
+                                                <TableHead>Status</TableHead>
+                                                <TableHead className="text-right">Actions</TableHead>
                                             </TableRow>
-                                        ))
-                                    ) : purchaseOrders.length > 0 ? (
-                                        purchaseOrders.map((po) => (
-                                            <TableRow key={po.id} onClick={() => setSelectedPO(po)} className="cursor-pointer">
-                                                <TableCell className="font-medium">{po.poNumber}</TableCell>
-                                                <TableCell>{po.supplier.name}</TableCell>
-                                                <TableCell>{formatDate(po.orderDate)}</TableCell>
-                                                <TableCell>{formatDate(po.expectedDate)}</TableCell>
-                                                <TableCell><Badge variant={inboundStatusVariant[po.status]}>{po.status}</Badge></TableCell>
-                                                <TableCell className="text-right">
-                                                    <DropdownMenu>
-                                                        <DropdownMenuTrigger asChild>
-                                                            <Button aria-haspopup="true" size="icon" variant="ghost" onClick={(e) => e.stopPropagation()}>
-                                                            <MoreHorizontal className="h-4 w-4" />
-                                                            <span className="sr-only">Toggle menu</span>
-                                                            </Button>
-                                                        </DropdownMenuTrigger>
-                                                        <DropdownMenuContent align="end" onClick={(e) => e.stopPropagation()}>
-                                                            <DropdownMenuLabel>Actions</DropdownMenuLabel>
-                                                            <DropdownMenuItem onClick={() => setSelectedPO(po)}>View Details</DropdownMenuItem>
-                                                            <DropdownMenuSeparator />
-                                                            {po.status !== 'Received' && (
-                                                                <>
-                                                                <DropdownMenuItem onClick={() => handlePOStatusChange(po.id, 'Shipped')}>Mark as Shipped</DropdownMenuItem>
-                                                                <DropdownMenuItem onClick={() => handlePOStatusChange(po.id, 'Received')}>Mark as Received</DropdownMenuItem>
-                                                                </>
-                                                            )}
-                                                            {po.status === 'Received' && <DropdownMenuItem disabled>Order Received</DropdownMenuItem>}
-                                                        </DropdownMenuContent>
-                                                    </DropdownMenu>
-                                                </TableCell>
+                                        </TableHeader>
+                                        <TableBody>
+                                            {loading ? (
+                                                Array.from({ length: 4 }).map((_, i) => (
+                                                    <TableRow key={i}>
+                                                    <TableCell><Skeleton className="h-4 w-24" /></TableCell>
+                                                    <TableCell><Skeleton className="h-4 w-32" /></TableCell>
+                                                    <TableCell><Skeleton className="h-4 w-24" /></TableCell>
+                                                    <TableCell><Skeleton className="h-4 w-24" /></TableCell>
+                                                    <TableCell><Skeleton className="h-6 w-20 rounded-full" /></TableCell>
+                                                    <TableCell><Skeleton className="h-8 w-8 ml-auto" /></TableCell>
+                                                    </TableRow>
+                                                ))
+                                            ) : purchaseOrders.length > 0 ? (
+                                                purchaseOrders.map((po) => (
+                                                    <TableRow key={po.id} onClick={() => setSelectedPO(po)} className="cursor-pointer">
+                                                        <TableCell className="font-medium">{po.poNumber}</TableCell>
+                                                        <TableCell>{po.supplier.name}</TableCell>
+                                                        <TableCell>{formatDate(po.orderDate)}</TableCell>
+                                                        <TableCell>{formatDate(po.expectedDate)}</TableCell>
+                                                        <TableCell><Badge variant={inboundStatusVariant[po.status]}>{po.status}</Badge></TableCell>
+                                                        <TableCell className="text-right">
+                                                            <DropdownMenu>
+                                                                <DropdownMenuTrigger asChild>
+                                                                    <Button aria-haspopup="true" size="icon" variant="ghost" onClick={(e) => e.stopPropagation()}>
+                                                                    <MoreHorizontal className="h-4 w-4" />
+                                                                    <span className="sr-only">Toggle menu</span>
+                                                                    </Button>
+                                                                </DropdownMenuTrigger>
+                                                                <DropdownMenuContent align="end" onClick={(e) => e.stopPropagation()}>
+                                                                    <DropdownMenuLabel>Actions</DropdownMenuLabel>
+                                                                    <DropdownMenuItem onClick={() => setSelectedPO(po)}>View Details</DropdownMenuItem>
+                                                                    <DropdownMenuSeparator />
+                                                                    {po.status !== 'Received' && (
+                                                                        <>
+                                                                        <DropdownMenuItem onClick={() => handlePOStatusChange(po.id, 'Shipped')}>Mark as Shipped</DropdownMenuItem>
+                                                                        <DropdownMenuItem onClick={() => handlePOStatusChange(po.id, 'Received')}>Mark as Received</DropdownMenuItem>
+                                                                        </>
+                                                                    )}
+                                                                    {po.status === 'Received' && <DropdownMenuItem disabled>Order Received</DropdownMenuItem>}
+                                                                </DropdownMenuContent>
+                                                            </DropdownMenu>
+                                                        </TableCell>
+                                                    </TableRow>
+                                                ))
+                                            ) : (
+                                                <TableRow>
+                                                    <TableCell colSpan={6} className="h-24 text-center">No purchase orders found.</TableCell>
+                                                </TableRow>
+                                            )}
+                                        </TableBody>
+                                    </Table>
+                                </CardContent>
+                            </Card>
+                        </TabsContent>
+                        <TabsContent value="returns">
+                            <Card>
+                                <CardHeader>
+                                    <CardTitle>Inbound Returns</CardTitle>
+                                    <CardDescription>A log of all customer returns.</CardDescription>
+                                </CardHeader>
+                                <CardContent>
+                                    <Table>
+                                         <TableHeader>
+                                            <TableRow>
+                                                <TableHead>RMA #</TableHead>
+                                                <TableHead>Client</TableHead>
+                                                <TableHead>Issuance #</TableHead>
+                                                <TableHead>Date Initiated</TableHead>
+                                                <TableHead>Status</TableHead>
+                                                <TableHead className="text-right">Actions</TableHead>
                                             </TableRow>
-                                        ))
-                                    ) : (
-                                        <TableRow>
-                                            <TableCell colSpan={6} className="h-24 text-center">No purchase orders found.</TableCell>
-                                        </TableRow>
-                                    )}
-                                </TableBody>
-                            </Table>
-                         </CardContent>
-                    </Card>
+                                        </TableHeader>
+                                        <TableBody>
+                                             {loading ? (
+                                                Array.from({ length: 4 }).map((_, i) => (
+                                                    <TableRow key={i}>
+                                                    <TableCell><Skeleton className="h-4 w-24" /></TableCell>
+                                                    <TableCell><Skeleton className="h-4 w-32" /></TableCell>
+                                                    <TableCell><Skeleton className="h-4 w-24" /></TableCell>
+                                                    <TableCell><Skeleton className="h-4 w-24" /></TableCell>
+                                                    <TableCell><Skeleton className="h-6 w-20 rounded-full" /></TableCell>
+                                                    <TableCell><Skeleton className="h-8 w-8 ml-auto" /></TableCell>
+                                                    </TableRow>
+                                                ))
+                                            ) : returns.length > 0 ? (
+                                                returns.map((ret) => (
+                                                    <TableRow key={ret.id}>
+                                                        <TableCell className="font-medium">{ret.rmaNumber}</TableCell>
+                                                        <TableCell>{ret.client.clientName}</TableCell>
+                                                        <TableCell>{ret.issuanceNumber}</TableCell>
+                                                        <TableCell>{formatDate(ret.dateInitiated)}</TableCell>
+                                                        <TableCell><Badge variant={inboundStatusVariant[ret.status]}>{ret.status}</Badge></TableCell>
+                                                        <TableCell className="text-right">
+                                                            <Button variant="outline" size="sm">View</Button>
+                                                        </TableCell>
+                                                    </TableRow>
+                                                ))
+                                            ) : (
+                                                 <TableRow>
+                                                    <TableCell colSpan={6} className="h-24 text-center">No returns found.</TableCell>
+                                                </TableRow>
+                                            )}
+                                        </TableBody>
+                                    </Table>
+                                </CardContent>
+                            </Card>
+                        </TabsContent>
+                    </Tabs>
                 </TabsContent>
             </Tabs>
             ) : (

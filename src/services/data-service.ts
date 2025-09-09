@@ -3,7 +3,7 @@
 import { db, storage } from "@/lib/firebase";
 import { collection, getDocs, getDoc, doc, orderBy, query, limit, Timestamp, where, DocumentReference, addDoc, updateDoc, deleteDoc, arrayUnion, runTransaction, writeBatch } from "firebase/firestore";
 import { ref, uploadBytes, getDownloadURL } from "firebase/storage";
-import type { Activity, Notification, Order, Product, Client, Issuance, Supplier, PurchaseOrder, Shipment } from "@/types";
+import type { Activity, Notification, Order, Product, Client, Issuance, Supplier, PurchaseOrder, Shipment, Return, ReturnItem } from "@/types";
 import { format, subDays } from 'date-fns';
 
 function timeSince(date: Date) {
@@ -891,7 +891,13 @@ export async function getShipments(): Promise<Shipment[]> {
             const shipmentData = shipmentDoc.data();
             
             // First, resolve the issuance reference to get the full issuance object
-            const issuance = await resolveDoc<Issuance>(shipmentData.issuanceRef);
+            const issuanceRef = shipmentData.issuanceRef as DocumentReference;
+            const issuanceSnap = await getDoc(issuanceRef);
+            if (!issuanceSnap.exists()) {
+                throw new Error(`Issuance with ref ${issuanceRef.path} does not exist for shipment ${shipmentDoc.id}`);
+            }
+            const issuance = { id: issuanceSnap.id, ...issuanceSnap.data()} as Issuance;
+
 
             // Now, the issuance object itself contains references, which need to be resolved.
             // This is a simplified approach; a real app might need deeper resolution or denormalization.
@@ -1012,4 +1018,117 @@ export async function updateShipmentStatus(shipmentId: string, status: Shipment[
         console.error("Error updating shipment status:", error);
         throw new Error("Failed to update shipment status.");
     }
+}
+
+export async function getReturns(): Promise<Return[]> {
+    try {
+        const returnsCol = collection(db, "returns");
+        const q = query(returnsCol, orderBy("dateInitiated", "desc"));
+        const returnsSnapshot = await getDocs(q);
+        
+        const returns: Return[] = await Promise.all(returnsSnapshot.docs.map(async (returnDoc) => {
+            const returnData = returnDoc.data();
+            const client = await resolveDoc<Client>(returnData.clientRef);
+            
+            return {
+                id: returnDoc.id,
+                ...returnData,
+                dateInitiated: (returnData.dateInitiated as Timestamp).toDate(),
+                dateReceived: returnData.dateReceived ? (returnData.dateReceived as Timestamp).toDate() : undefined,
+                client,
+            } as Return;
+        }));
+
+        return returns;
+    } catch (error) {
+        console.error("Error fetching returns:", error);
+        return [];
+    }
+}
+
+type NewReturnData = {
+  issuanceId: string;
+  reason: string;
+  items: ReturnItem[];
+};
+
+export async function initiateReturn(returnData: NewReturnData): Promise<DocumentReference> {
+  try {
+    const issuanceRef = doc(db, 'issuances', returnData.issuanceId);
+    const issuanceDoc = await getDoc(issuanceRef);
+    if (!issuanceDoc.exists()) {
+      throw new Error("Original issuance not found.");
+    }
+    const issuanceData = issuanceDoc.data();
+
+    const newReturn = {
+      rmaNumber: `RMA-${Date.now()}`,
+      issuanceId: returnData.issuanceId,
+      issuanceNumber: issuanceData.issuanceNumber,
+      clientRef: issuanceData.clientRef,
+      items: returnData.items,
+      reason: returnData.reason,
+      status: "Pending",
+      dateInitiated: Timestamp.now(),
+    };
+
+    const returnsCol = collection(db, "returns");
+    const docRef = await addDoc(returnsCol, newReturn);
+    return docRef;
+  } catch (error) {
+    console.error("Error initiating return:", error);
+    throw new Error("Failed to initiate return.");
+  }
+}
+
+export async function processReturn(returnId: string, status: "Received" | "Restocked" | "Cancelled"): Promise<void> {
+  const returnRef = doc(db, "returns", returnId);
+  
+  try {
+    await runTransaction(db, async (transaction) => {
+      const returnDoc = await transaction.get(returnRef);
+      if (!returnDoc.exists()) {
+        throw new Error("Return record not found.");
+      }
+      const returnData = returnDoc.data();
+      
+      const now = Timestamp.now();
+      const payload: any = { status };
+
+      if (status === 'Received') {
+        if(returnData.status !== 'Pending') throw new Error("Can only mark 'Pending' returns as 'Received'.");
+        payload.dateReceived = now;
+      } else if (status === 'Restocked') {
+        if(returnData.status !== 'Received') throw new Error("Can only restock items from a 'Received' return.");
+        
+        for (const item of returnData.items) {
+          const productRef = doc(db, "inventory", item.productId);
+          const productDoc = await transaction.get(productRef);
+
+          if (productDoc.exists()) {
+            const productData = productDoc.data();
+            const newStock = productData.stock + item.quantity;
+            const newHistoryEntry = {
+              date: format(now.toDate(), 'yyyy-MM-dd'),
+              stock: newStock,
+              changeReason: `Return #${returnData.rmaNumber}`,
+              dateUpdated: now,
+            };
+            transaction.update(productRef, {
+              stock: newStock,
+              lastUpdated: now,
+              history: arrayUnion(newHistoryEntry)
+            });
+          }
+        }
+      } else if (status === 'Cancelled') {
+        if(returnData.status !== 'Pending') throw new Error("Can only cancel a 'Pending' return.");
+      }
+      
+      transaction.update(returnRef, payload);
+    });
+  } catch(error) {
+     console.error("Error processing return:", error);
+     throw error;
+  }
 }

@@ -118,3 +118,23 @@ export interface Shipment {
     actualDeliveryDate?: Date;
     createdAt: Date;
 }
+
+export interface ReturnItem {
+    productId: string;
+    name: string;
+    sku: string;
+    quantity: number;
+}
+
+export interface Return {
+    id: string;
+    rmaNumber: string;
+    issuanceId: string;
+    issuanceNumber: string;
+    client: Client;
+    items: ReturnItem[];
+    reason: string;
+    status: "Pending" | "Received" | "Restocked" | "Cancelled";
+    dateInitiated: Date;
+    dateReceived?: Date;
+}

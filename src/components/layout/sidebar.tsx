@@ -12,6 +12,7 @@ import {
   Settings,
   FileText,
   Truck,
+  RefreshCcw,
 } from "lucide-react";
 import { CoreFlowLogo } from "@/components/icons";
 import { cn } from "@/lib/utils";
@@ -25,6 +26,7 @@ const navItems = [
   { href: "/clients", label: "Clients", icon: Users },
   { href: "/issuance", label: "Issuance", icon: FileText },
   { href: "/logistics", label: "Logistics", icon: Truck },
+  { href: "/returns", label: "Returns", icon: RefreshCcw },
   { href: "/analytics", label: "Analytics", icon: BarChart },
 ];
 
