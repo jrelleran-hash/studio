@@ -56,7 +56,7 @@ export default function DashboardPage() {
       }
     }
     fetchData();
-  }, [user]);
+  }, [user?.uid]);
 
   const { totalRevenue, changeText: revenueChangeText, title: revenueTitle } = useMemo(() => {
     const data = chartData[revenueFilter];
