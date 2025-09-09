@@ -25,6 +25,7 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
+  DialogTrigger,
 } from "@/components/ui/dialog";
 import {
   AlertDialog,
@@ -478,7 +479,7 @@ export default function IssuancePage() {
                 ) : issuanceQueue.length > 0 ? (
                   issuanceQueue.map((order) => (
                       <Collapsible asChild key={order.id} >
-                        <TableBody>
+                        <tbody>
                             <TableRow>
                               <TableCell className="font-medium">{order.id.substring(0, 7)}</TableCell>
                               <TableCell>{order.client.clientName}</TableCell>
@@ -511,7 +512,7 @@ export default function IssuancePage() {
                                 </td>
                               </tr>
                             </CollapsibleContent>
-                          </TableBody>
+                          </tbody>
                       </Collapsible>
                     ))
                 ) : (
