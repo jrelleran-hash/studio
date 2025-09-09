@@ -381,14 +381,14 @@ export async function deleteClient(clientId: string): Promise<void> {
 type NewOrderData = {
   clientId: string;
   items: { productId: string; quantity: number }[];
-  status: Order['status'];
   reorderedFrom?: string;
 };
 
 export async function addOrder(orderData: NewOrderData): Promise<DocumentReference> {
   try {
-    // 1. Fetch product details to calculate total
     let total = 0;
+    let needsPurchase = false;
+
     const resolvedItems = await Promise.all(
       orderData.items.map(async (item) => {
         const productRef = doc(db, "inventory", item.productId);
@@ -397,6 +397,11 @@ export async function addOrder(orderData: NewOrderData): Promise<DocumentReferen
           throw new Error(`Product with ID ${item.productId} not found.`);
         }
         const productData = productDoc.data() as Product;
+        
+        if (productData.stock < item.quantity) {
+          needsPurchase = true;
+        }
+
         total += productData.price * item.quantity;
         return {
           productRef: productRef,
@@ -405,13 +410,14 @@ export async function addOrder(orderData: NewOrderData): Promise<DocumentReferen
         };
       })
     );
+    
+    const status: Order['status'] = needsPurchase ? "Awaiting Purchase" : "Ready for Issuance";
 
-    // 2. Create the new order object
     const newOrder: any = {
       clientRef: doc(db, "clients", orderData.clientId),
       date: Timestamp.now(),
       items: resolvedItems,
-      status: orderData.status,
+      status: status,
       total: total,
     };
     
@@ -419,8 +425,6 @@ export async function addOrder(orderData: NewOrderData): Promise<DocumentReferen
         newOrder.reorderedFrom = orderData.reorderedFrom;
     }
 
-
-    // 3. Add the order to Firestore
     const ordersCol = collection(db, "orders");
     const docRef = await addDoc(ordersCol, newOrder);
     return docRef;

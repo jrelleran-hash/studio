@@ -65,7 +65,8 @@ import { useData } from "@/context/data-context";
 
 const statusVariant: { [key: string]: "default" | "secondary" | "destructive" | "outline" } = {
   Fulfilled: "default",
-  Processing: "secondary",
+  "Ready for Issuance": "default",
+  "Awaiting Purchase": "secondary",
   Shipped: "outline",
   Cancelled: "destructive",
   Pending: "secondary",
@@ -299,7 +300,6 @@ export default function OrdersAndSuppliersPage() {
                 productId: item.product.id,
                 quantity: item.quantity
             })),
-            status: 'Processing' as const,
             reorderedFrom: order.id,
         };
         await addOrder(reorderData);
@@ -343,7 +343,7 @@ export default function OrdersAndSuppliersPage() {
 
   const onOrderSubmit = async (data: OrderFormValues) => {
     try {
-      await addOrder({...data, status: "Processing"});
+      await addOrder(data);
       toast({ title: "Success", description: "New order created." });
       setIsAddOrderOpen(false);
       await refetchData();
@@ -505,14 +505,14 @@ export default function OrdersAndSuppliersPage() {
                 <DialogContent className="sm:max-w-2xl">
                     <DialogHeader>
                     <DialogTitle>Create New Order</DialogTitle>
-                    <DialogDescription>Fill in the details to create a new order for a client.</DialogDescription>
+                    <DialogDescription>Fill in the details to create a new internal order.</DialogDescription>
                     </DialogHeader>
                     <form onSubmit={orderForm.handleSubmit(onOrderSubmit)} className="space-y-4">
                     <div className="space-y-2">
-                        <Label>Client</Label>
+                        <Label>Client / Project</Label>
                         <Select onValueChange={(value) => orderForm.setValue('clientId', value)} defaultValue={orderForm.getValues('clientId')}>
                             <SelectTrigger>
-                                <SelectValue placeholder="Select a client" />
+                                <SelectValue placeholder="Select a client or project" />
                             </SelectTrigger>
                             <SelectContent>
                                 {clients.map(c => <SelectItem key={c.id} value={c.id}>{c.clientName} - {c.projectName}</SelectItem>)}
@@ -523,7 +523,7 @@ export default function OrdersAndSuppliersPage() {
 
                     <div className="space-y-2">
                         <div className="flex justify-between items-center">
-                            <Label>Items</Label>
+                            <Label>Items Requested</Label>
                         </div>
                         <div className="space-y-2">
                         {fields.map((field, index) => (
@@ -565,12 +565,7 @@ export default function OrdersAndSuppliersPage() {
                         <PlusCircle className="h-4 w-4 mr-2" /> Add Item
                         </Button>
                     </div>
-                     <div className="space-y-2">
-                        <Label>Status</Label>
-                        <p className="flex h-10 w-full items-center rounded-md border border-input bg-background px-3 py-2 text-sm text-muted-foreground">
-                            Processing
-                        </p>
-                        </div>
+                    
                     <DialogFooter>
                         <Button type="button" variant="outline" onClick={() => setIsAddOrderOpen(false)}>Cancel</Button>
                         <Button type="submit" disabled={orderForm.formState.isSubmitting}>
@@ -729,7 +724,7 @@ export default function OrdersAndSuppliersPage() {
         <Card>
           <CardHeader>
             <CardTitle>Orders</CardTitle>
-            <CardDescription>Manage all client orders.</CardDescription>
+            <CardDescription>Manage all internal requisitions.</CardDescription>
           </CardHeader>
           <CardContent>
             <Table>
@@ -787,16 +782,7 @@ export default function OrdersAndSuppliersPage() {
                                 >
                                   {orders.some(o => o.reorderedFrom === order.id) ? 'Already Reordered' : 'Reorder'}
                                 </DropdownMenuItem>
-                            ) : (
-                                <>
-                                    <DropdownMenuItem onClick={() => handleStatusChange(order.id, 'Fulfilled')}>
-                                    Mark as Fulfilled
-                                    </DropdownMenuItem>
-                                    <DropdownMenuItem onClick={() => handleStatusChange(order.id, 'Shipped')}>
-                                    Mark as Shipped
-                                    </DropdownMenuItem>
-                                </>
-                            )}
+                            ) : null}
                              <DropdownMenuSeparator />
                              <DropdownMenuItem onClick={() => handleDeleteOrderClick(order.id)} className="text-destructive">
                                 Delete
