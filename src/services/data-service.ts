@@ -733,6 +733,46 @@ export async function addPurchaseOrder(poData: NewPurchaseOrderData): Promise<Do
   }
 }
 
+async function checkAndUpdateAwaitingOrders() {
+    const ordersCol = collection(db, "orders");
+    const q = query(ordersCol, where("status", "==", "Awaiting Purchase"));
+    const awaitingOrdersSnapshot = await getDocs(q);
+
+    if (awaitingOrdersSnapshot.empty) {
+        return; // No orders to check
+    }
+
+    const inventoryCache = new Map<string, Product>();
+
+    for (const orderDoc of awaitingOrdersSnapshot.docs) {
+        const orderData = orderDoc.data();
+        let allItemsAvailable = true;
+
+        for (const item of orderData.items) {
+            const productRef = item.productRef as DocumentReference;
+            let productData: Product | undefined = inventoryCache.get(productRef.id);
+            
+            if (!productData) {
+                const productDoc = await getDoc(productRef);
+                if (productDoc.exists()) {
+                    productData = { id: productDoc.id, ...productDoc.data() } as Product;
+                    inventoryCache.set(productRef.id, productData);
+                }
+            }
+
+            if (!productData || productData.stock < item.quantity) {
+                allItemsAvailable = false;
+                break; 
+            }
+        }
+
+        if (allItemsAvailable) {
+            await updateDoc(orderDoc.ref, { status: "Ready for Issuance" });
+        }
+    }
+}
+
+
 export async function updatePurchaseOrderStatus(poId: string, status: PurchaseOrder['status']): Promise<void> {
   const poRef = doc(db, "purchaseOrders", poId);
 
@@ -749,29 +789,27 @@ export async function updatePurchaseOrderStatus(poId: string, status: PurchaseOr
         return;
       }
 
-      // If status is not 'Received', just update the status.
       if (status !== 'Received') {
         transaction.update(poRef, { status });
-        return;
+        return; // Only update status and exit if not 'Received'
       }
       
-      // --- All reads must happen before all writes ---
+      // --- Handle 'Received' status ---
+      const productDocsMap = new Map<string, any>();
+      for (const item of poData.items) {
+        const productRef = item.productRef as DocumentReference;
+        const productDoc = await transaction.get(productRef);
+        productDocsMap.set(productRef.id, productDoc);
+      }
 
-      // 1. Read all product documents first.
-      const productDocs = await Promise.all(
-        poData.items.map((item: any) => transaction.get(item.productRef as DocumentReference))
-      );
-
-      // 2. Now perform all the writes.
       const receivedTimestamp = Timestamp.now();
-      
-      // Update the PO status and receivedDate
       transaction.update(poRef, { status: 'Received', receivedDate: receivedTimestamp });
 
-      // Update stock for each product
-      poData.items.forEach((item: any, index: number) => {
-        const productDoc = productDocs[index];
-        if (productDoc.exists()) {
+      poData.items.forEach((item: any) => {
+        const productRef = item.productRef as DocumentReference;
+        const productDoc = productDocsMap.get(productRef.id);
+        
+        if (productDoc && productDoc.exists()) {
           const productData = productDoc.data();
           const newStock = productData.stock + item.quantity;
           const newHistoryEntry = {
@@ -787,10 +825,16 @@ export async function updatePurchaseOrderStatus(poId: string, status: PurchaseOr
             history: arrayUnion(newHistoryEntry)
           });
         } else {
-          console.warn(`Product with ID ${item.productRef.id} not found while receiving PO. Stock not updated.`);
+          console.warn(`Product with ID ${productRef.id} not found while receiving PO. Stock not updated.`);
         }
       });
     });
+
+    // After the transaction completes successfully, check awaiting orders.
+    if (status === 'Received') {
+      await checkAndUpdateAwaitingOrders();
+    }
+
   } catch (error) {
     console.error("Error updating purchase order status:", error);
     throw new Error(`Failed to update purchase order status. ${(error as Error).message}`);
