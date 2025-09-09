@@ -1,5 +1,4 @@
 
-
 "use client";
 
 import { useState, useEffect, useMemo, useRef } from "react";
@@ -26,7 +25,6 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
-  DialogTrigger,
 } from "@/components/ui/dialog";
 import {
   AlertDialog,
@@ -50,8 +48,8 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useToast } from "@/hooks/use-toast";
-import { addIssuance, deleteIssuance, addShipment, initiateReturn } from "@/services/data-service";
-import type { Issuance, Product, Order, ReturnItem } from "@/types";
+import { addIssuance, deleteIssuance, addShipment, initiateReturn, processReturn } from "@/services/data-service";
+import type { Issuance, Product, Order, Return, ReturnItem } from "@/types";
 import { format, addDays } from "date-fns";
 import React from 'react';
 import { useAuth } from "@/hooks/use-auth";
@@ -478,46 +476,44 @@ export default function IssuancePage() {
                     ))}
                   </TableBody>
                 ) : issuanceQueue.length > 0 ? (
-                  <Collapsible asChild>
-                    <>
-                    {issuanceQueue.map((order) => (
-                      <TableBody key={order.id}>
-                          <TableRow>
-                            <TableCell className="font-medium">{order.id.substring(0, 7)}</TableCell>
-                            <TableCell>{order.client.clientName}</TableCell>
-                            <TableCell>{format(order.date, 'PPP')}</TableCell>
-                            <TableCell>{order.items.length} types</TableCell>
-                            <TableCell className="text-right flex items-center justify-end gap-2">
-                              <Button size="sm" onClick={() => handleCreateIssuanceFromOrder(order)}>Create Issuance</Button>
-                              <CollapsibleTrigger asChild>
-                                <Button variant="ghost" size="icon" className="w-8 h-8">
-                                  <span className="sr-only">Toggle Details</span>
-                                  <ChevronDown className="h-4 w-4" />
-                                </Button>
-                              </CollapsibleTrigger>
-                            </TableCell>
-                          </TableRow>
-                          <CollapsibleContent asChild>
-                            <tr className="bg-muted/50">
-                              <td colSpan={5} className="p-0">
-                                <div className="p-4">
-                                  <h4 className="text-sm font-semibold mb-2">Items for Order {order.id.substring(0, 7)}:</h4>
-                                  <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-2">
-                                    {order.items.map(item => (
-                                      <div key={item.product.id} className="text-xs flex justify-between items-center bg-background p-2 rounded-md border">
-                                          <span>{item.product.name} <span className="text-muted-foreground">({item.product.sku})</span></span>
-                                          <Badge variant="outline" className="font-mono ml-2">Qty: {item.quantity}</Badge>
-                                      </div>
-                                    ))}
+                  issuanceQueue.map((order) => (
+                      <Collapsible asChild key={order.id} >
+                        <TableBody>
+                            <TableRow>
+                              <TableCell className="font-medium">{order.id.substring(0, 7)}</TableCell>
+                              <TableCell>{order.client.clientName}</TableCell>
+                              <TableCell>{format(order.date, 'PPP')}</TableCell>
+                              <TableCell>{order.items.length} types</TableCell>
+                              <TableCell className="text-right flex items-center justify-end gap-2">
+                                <Button size="sm" onClick={() => handleCreateIssuanceFromOrder(order)}>Create Issuance</Button>
+                                <CollapsibleTrigger asChild>
+                                  <Button variant="ghost" size="icon" className="w-8 h-8">
+                                    <span className="sr-only">Toggle Details</span>
+                                    <ChevronDown className="h-4 w-4" />
+                                  </Button>
+                                </CollapsibleTrigger>
+                              </TableCell>
+                            </TableRow>
+                            <CollapsibleContent asChild>
+                              <tr className="bg-muted/50">
+                                <td colSpan={5} className="p-0">
+                                  <div className="p-4">
+                                    <h4 className="text-sm font-semibold mb-2">Items for Order {order.id.substring(0, 7)}:</h4>
+                                    <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-2">
+                                      {order.items.map(item => (
+                                        <div key={item.product.id} className="text-xs flex justify-between items-center bg-background p-2 rounded-md border">
+                                            <span>{item.product.name} <span className="text-muted-foreground">({item.product.sku})</span></span>
+                                            <Badge variant="outline" className="font-mono ml-2">Qty: {item.quantity}</Badge>
+                                        </div>
+                                      ))}
+                                    </div>
                                   </div>
-                                </div>
-                              </td>
-                            </tr>
-                          </CollapsibleContent>
-                        </TableBody>
-                      ))}
-                    </>
-                  </Collapsible>
+                                </td>
+                              </tr>
+                            </CollapsibleContent>
+                          </TableBody>
+                      </Collapsible>
+                    ))
                 ) : (
                   <TableBody>
                     <TableRow>
@@ -947,3 +943,5 @@ export default function IssuancePage() {
     </>
   );
 }
+
+    
