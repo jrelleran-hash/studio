@@ -1,7 +1,7 @@
 
 "use client";
 
-import { createContext, useEffect, useState, ReactNode, useCallback, useMemo } from "react";
+import { createContext, useEffect, useState, ReactNode, useCallback } from "react";
 import { onAuthStateChanged, User, signOut, Auth } from "firebase/auth";
 import { auth } from "@/lib/firebase";
 import { useRouter, usePathname } from "next/navigation";
@@ -70,9 +70,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   }, []);
 
-  const value = useMemo(() => ({
+  const value = {
      user, loading, logout, reloadUser
-  }), [user, loading, logout, reloadUser]);
+  };
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 }

@@ -2,7 +2,8 @@
 "use client";
 
 import { createContext, useContext, useEffect, useState, ReactNode, useCallback } from "react";
-import { useAuth } from "@/hooks/use-auth";
+import { onAuthStateChanged } from "firebase/auth";
+import { auth } from "@/lib/firebase";
 import { getProducts, getClients, getOrders, getIssuances, getSuppliers } from "@/services/data-service";
 import type { Product, Client, Order, Issuance, Supplier } from "@/types";
 
@@ -19,16 +20,24 @@ interface DataContextType {
 const DataContext = createContext<DataContextType | undefined>(undefined);
 
 export function DataProvider({ children }: { children: ReactNode }) {
-  const { user } = useAuth();
   const [products, setProducts] = useState<Product[]>([]);
   const [clients, setClients] = useState<Client[]>([]);
   const [orders, setOrders] = useState<Order[]>([]);
   const [issuances, setIssuances] = useState<Issuance[]>([]);
   const [suppliers, setSuppliers] = useState<Supplier[]>([]);
   const [loading, setLoading] = useState(true);
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
+
+  useEffect(() => {
+    const unsubscribe = onAuthStateChanged(auth, (user) => {
+      setIsAuthenticated(!!user);
+    });
+    return () => unsubscribe();
+  }, []);
+
 
   const fetchData = useCallback(async () => {
-    if (!user) {
+    if (!isAuthenticated) {
       // Clear data if user logs out
       setProducts([]);
       setClients([]);
@@ -65,7 +74,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
     } finally {
       setLoading(false);
     }
-  }, [user?.uid]);
+  }, [isAuthenticated]);
 
   useEffect(() => {
     fetchData();
@@ -91,4 +100,3 @@ export const useData = () => {
   }
   return context;
 };
-
