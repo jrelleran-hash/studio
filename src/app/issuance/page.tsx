@@ -6,7 +6,7 @@ import { useState, useEffect, useMemo, useRef } from "react";
 import { useForm, useFieldArray, Controller } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
-import { PlusCircle, MoreHorizontal, X, Printer, ChevronDown, ChevronUp } from "lucide-react";
+import { PlusCircle, MoreHorizontal, X, Printer, ChevronDown } from "lucide-react";
 
 import { Button, buttonVariants } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -297,7 +297,7 @@ export default function IssuancePage() {
                   <TableHead>Client</TableHead>
                   <TableHead>Date</TableHead>
                   <TableHead>Items</TableHead>
-                  <TableHead className="text-right">Action</TableHead>
+                  <TableHead className="text-right w-[140px]">Action</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -308,7 +308,7 @@ export default function IssuancePage() {
                       <TableCell><Skeleton className="h-4 w-40" /></TableCell>
                       <TableCell><Skeleton className="h-4 w-32" /></TableCell>
                       <TableCell><Skeleton className="h-4 w-16" /></TableCell>
-                      <TableCell className="text-right"><Skeleton className="h-8 w-24 ml-auto" /></TableCell>
+                      <TableCell className="text-right"><Skeleton className="h-8 w-32 ml-auto" /></TableCell>
                     </TableRow>
                   ))
                 ) : issuanceQueue.length > 0 ? (
@@ -323,7 +323,7 @@ export default function IssuancePage() {
                           <TableCell className="text-right flex items-center justify-end gap-2">
                             <Button size="sm" onClick={() => handleCreateIssuanceFromOrder(order)}>Create Issuance</Button>
                             <CollapsibleTrigger asChild>
-                               <Button variant="ghost" size="sm">
+                               <Button variant="ghost" size="icon" className="w-8 h-8">
                                 <span className="sr-only">Toggle Details</span>
                                 <ChevronDown className="h-4 w-4" />
                                </Button>
@@ -337,9 +337,9 @@ export default function IssuancePage() {
                                 <h4 className="text-sm font-semibold mb-2">Items for Order {order.id.substring(0, 7)}:</h4>
                                 <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-2">
                                   {order.items.map(item => (
-                                    <div key={item.product.id} className="text-xs flex justify-between items-center bg-background p-2 rounded-md">
+                                    <div key={item.product.id} className="text-xs flex justify-between items-center bg-background p-2 rounded-md border">
                                         <span>{item.product.name} <span className="text-muted-foreground">({item.product.sku})</span></span>
-                                        <span className="font-mono ml-2">Qty: {item.quantity}</span>
+                                        <Badge variant="outline" className="font-mono ml-2">Qty: {item.quantity}</Badge>
                                     </div>
                                   ))}
                                 </div>
@@ -638,3 +638,5 @@ export default function IssuancePage() {
     </>
   );
 }
+
+    
