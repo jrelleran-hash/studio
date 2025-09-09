@@ -359,21 +359,22 @@ export default function IssuancePage() {
                   <TableHead className="text-right w-[140px]">Action</TableHead>
                 </TableRow>
               </TableHeader>
-              <TableBody>
                 {loading ? (
-                  Array.from({ length: 3 }).map((_, i) => (
-                    <TableRow key={i}>
-                      <TableCell><Skeleton className="h-4 w-24" /></TableCell>
-                      <TableCell><Skeleton className="h-4 w-40" /></TableCell>
-                      <TableCell><Skeleton className="h-4 w-32" /></TableCell>
-                      <TableCell><Skeleton className="h-4 w-16" /></TableCell>
-                      <TableCell className="text-right"><Skeleton className="h-8 w-32 ml-auto" /></TableCell>
-                    </TableRow>
-                  ))
+                  <TableBody>
+                    {Array.from({ length: 3 }).map((_, i) => (
+                      <TableRow key={i}>
+                        <TableCell><Skeleton className="h-4 w-24" /></TableCell>
+                        <TableCell><Skeleton className="h-4 w-40" /></TableCell>
+                        <TableCell><Skeleton className="h-4 w-32" /></TableCell>
+                        <TableCell><Skeleton className="h-4 w-16" /></TableCell>
+                        <TableCell className="text-right"><Skeleton className="h-8 w-32 ml-auto" /></TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
                 ) : issuanceQueue.length > 0 ? (
                   issuanceQueue.map((order) => (
-                    <Collapsible key={order.id} asChild>
-                      <>
+                   <Collapsible asChild key={order.id} >
+                    <TableBody>
                         <TableRow>
                           <TableCell className="font-medium">{order.id.substring(0, 7)}</TableCell>
                           <TableCell>{order.client.clientName}</TableCell>
@@ -406,17 +407,18 @@ export default function IssuancePage() {
                             </td>
                           </tr>
                         </CollapsibleContent>
-                      </>
+                      </TableBody>
                     </Collapsible>
                   ))
                 ) : (
-                  <TableRow>
-                    <TableCell colSpan={5} className="h-24 text-center">
-                      No orders are currently ready for issuance.
-                    </TableCell>
-                  </TableRow>
+                  <TableBody>
+                    <TableRow>
+                      <TableCell colSpan={5} className="h-24 text-center">
+                        No orders are currently ready for issuance.
+                      </TableCell>
+                    </TableRow>
+                  </TableBody>
                 )}
-              </TableBody>
             </Table>
         </CardContent>
       </Card>
@@ -760,5 +762,3 @@ export default function IssuancePage() {
     </>
   );
 }
-
-    
