@@ -45,7 +45,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { useToast } from "@/hooks/use-toast";
 import { addClient, updateClient, deleteClient } from "@/services/data-service";
 import { useData } from "@/context/data-context";
-import { importClientsAction, getGoogleAuthUrlAction } from "@/app/actions";
+import { importClientsAction, getGoogleAuthUrlAction } from "./actions";
 
 import type { Client } from "@/types";
 
