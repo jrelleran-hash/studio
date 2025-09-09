@@ -6,7 +6,7 @@ import { useState, useEffect, useMemo, useRef } from "react";
 import { useForm, useFieldArray, Controller } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
-import { PlusCircle, MoreHorizontal, X, Printer, ChevronDown } from "lucide-react";
+import { PlusCircle, MoreHorizontal, X, Printer, ChevronDown, Truck } from "lucide-react";
 
 import { Button, buttonVariants } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -50,15 +50,17 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useToast } from "@/hooks/use-toast";
-import { addIssuance, deleteIssuance } from "@/services/data-service";
+import { addIssuance, deleteIssuance, addShipment } from "@/services/data-service";
 import type { Issuance, Product, Order } from "@/types";
-import { format } from "date-fns";
+import { format, addDays } from "date-fns";
 import React from 'react';
 import { useAuth } from "@/hooks/use-auth";
 import { useData } from "@/context/data-context";
 import { Badge } from "@/components/ui/badge";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { cn } from "@/lib/utils";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Calendar } from "@/components/ui/calendar";
 
 
 const issuanceItemSchema = z.object({
@@ -87,8 +89,18 @@ const createIssuanceSchema = (products: Product[]) => z.object({
   remarks: z.string().optional(),
 });
 
-
 type IssuanceFormValues = z.infer<ReturnType<typeof createIssuanceSchema>>;
+
+const createShipmentSchema = z.object({
+    shippingProvider: z.string().min(1, "Shipping provider is required"),
+    trackingNumber: z.string().optional(),
+    estimatedDeliveryDate: z.date({
+        required_error: "An estimated delivery date is required.",
+    }),
+});
+
+type ShipmentFormValues = z.infer<typeof createShipmentSchema>;
+
 
 // Printable Component
 const PrintableIssuanceForm = React.forwardRef<HTMLDivElement, { issuance: Issuance }>(({ issuance }, ref) => {
@@ -166,8 +178,10 @@ export default function IssuancePage() {
   const { user } = useAuth();
 
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
+  const [isCreateShipmentOpen, setIsCreateShipmentOpen] = useState(false);
   
   const [selectedIssuance, setSelectedIssuance] = useState<Issuance | null>(null);
+  const [issuanceForShipment, setIssuanceForShipment] = useState<Issuance | null>(null);
   const [isPreviewOpen, setIsPreviewOpen] = useState(false);
   const printableRef = useRef<HTMLDivElement>(null);
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
@@ -192,6 +206,16 @@ export default function IssuancePage() {
     mode: "onChange", // Validate on change to give instant feedback
   });
 
+  const shipmentForm = useForm<ShipmentFormValues>({
+    resolver: zodResolver(createShipmentSchema),
+    defaultValues: {
+      shippingProvider: "",
+      trackingNumber: "",
+      estimatedDeliveryDate: addDays(new Date(), 7),
+    },
+  });
+
+
   const { fields, append, remove } = useFieldArray({
     control: form.control,
     name: "items",
@@ -207,6 +231,19 @@ export default function IssuancePage() {
       });
     }
   }, [isAddDialogOpen, form]);
+  
+  useEffect(() => {
+    if(issuanceForShipment) {
+      shipmentForm.reset({
+        shippingProvider: "",
+        trackingNumber: "",
+        estimatedDeliveryDate: addDays(new Date(), 7),
+      });
+      setIsCreateShipmentOpen(true);
+    } else {
+        setIsCreateShipmentOpen(false);
+    }
+  }, [issuanceForShipment, shipmentForm]);
 
   const onAddSubmit = async (data: IssuanceFormValues) => {
     if (!user) {
@@ -232,6 +269,28 @@ export default function IssuancePage() {
     }
   };
   
+  const onShipmentSubmit = async (data: ShipmentFormValues) => {
+    if(!issuanceForShipment) return;
+    
+    try {
+      await addShipment({
+          ...data,
+          issuanceId: issuanceForShipment.id,
+      });
+      toast({ title: "Success", description: "New shipment created successfully." });
+      setIssuanceForShipment(null);
+      await refetchData();
+    } catch (error) {
+        console.error(error);
+        const errorMessage = error instanceof Error ? error.message : "An unexpected error occurred.";
+        toast({
+            variant: "destructive",
+            title: "Error",
+            description: errorMessage,
+        });
+    }
+  };
+
   const handlePrint = () => {
     window.print();
   };
@@ -523,6 +582,10 @@ export default function IssuancePage() {
                           <Printer className="mr-2 h-4 w-4" />
                           <span>Print</span>
                         </DropdownMenuItem>
+                        <DropdownMenuItem onClick={() => setIssuanceForShipment(issuance)}>
+                          <Truck className="mr-2 h-4 w-4" />
+                          <span>Create Shipment</span>
+                        </DropdownMenuItem>
                         <DropdownMenuSeparator />
                         <DropdownMenuItem onClick={() => handleDeleteClick(issuance.id)} className="text-destructive">
                           Delete
@@ -592,6 +655,65 @@ export default function IssuancePage() {
       </Dialog>
     )}
     
+    <Dialog open={isCreateShipmentOpen} onOpenChange={(isOpen) => { if (!isOpen) setIssuanceForShipment(null) }}>
+        <DialogContent>
+            <DialogHeader>
+                <DialogTitle>Create Shipment</DialogTitle>
+                <DialogDescription>
+                    Create a new shipment for Issuance #{issuanceForShipment?.issuanceNumber}.
+                </DialogDescription>
+            </DialogHeader>
+            <form onSubmit={shipmentForm.handleSubmit(onShipmentSubmit)} className="space-y-4">
+                <div className="space-y-2">
+                    <Label htmlFor="shippingProvider">Shipping Provider</Label>
+                    <Input id="shippingProvider" {...shipmentForm.register("shippingProvider")} />
+                    {shipmentForm.formState.errors.shippingProvider && <p className="text-sm text-destructive">{shipmentForm.formState.errors.shippingProvider.message}</p>}
+                </div>
+                <div className="space-y-2">
+                    <Label htmlFor="trackingNumber">Tracking Number (Optional)</Label>
+                    <Input id="trackingNumber" {...shipmentForm.register("trackingNumber")} />
+                </div>
+                <div className="space-y-2">
+                     <Label>Estimated Delivery Date</Label>
+                     <Controller
+                        control={shipmentForm.control}
+                        name="estimatedDeliveryDate"
+                        render={({ field }) => (
+                           <Popover>
+                            <PopoverTrigger asChild>
+                                <Button
+                                variant={"outline"}
+                                className={cn(
+                                    "w-full justify-start text-left font-normal",
+                                    !field.value && "text-muted-foreground"
+                                )}
+                                >
+                                {field.value ? format(field.value, "PPP") : <span>Pick a date</span>}
+                                </Button>
+                            </PopoverTrigger>
+                            <PopoverContent className="w-auto p-0">
+                                <Calendar
+                                mode="single"
+                                selected={field.value}
+                                onSelect={field.onChange}
+                                initialFocus
+                                />
+                            </PopoverContent>
+                            </Popover>
+                        )}
+                     />
+                    {shipmentForm.formState.errors.estimatedDeliveryDate && <p className="text-sm text-destructive">{shipmentForm.formState.errors.estimatedDeliveryDate.message}</p>}
+                </div>
+                 <DialogFooter>
+                    <Button type="button" variant="outline" onClick={() => setIssuanceForShipment(null)}>Cancel</Button>
+                    <Button type="submit" disabled={shipmentForm.formState.isSubmitting}>
+                        {shipmentForm.formState.isSubmitting ? "Creating..." : "Create Shipment"}
+                    </Button>
+                </DialogFooter>
+            </form>
+        </DialogContent>
+    </Dialog>
+
     <Dialog open={isPreviewOpen} onOpenChange={setIsPreviewOpen}>
         <DialogContent className="max-w-4xl print-hidden">
             <DialogHeader>

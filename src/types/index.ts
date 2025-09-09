@@ -1,5 +1,4 @@
 
-
 import { Timestamp, DocumentReference } from "firebase/firestore";
 
 export interface Activity {
@@ -106,4 +105,16 @@ export interface Issuance {
     remarks?: string;
     issuedBy: string;
     orderId?: string;
+}
+
+export interface Shipment {
+    id: string;
+    shipmentNumber: string;
+    issuance: Issuance;
+    status: "Pending" | "In Transit" | "Delivered" | "Delayed" | "Cancelled";
+    shippingProvider: string;
+    trackingNumber?: string;
+    estimatedDeliveryDate?: Date;
+    actualDeliveryDate?: Date;
+    createdAt: Date;
 }

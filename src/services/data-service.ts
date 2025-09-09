@@ -3,7 +3,7 @@
 import { db, storage } from "@/lib/firebase";
 import { collection, getDocs, getDoc, doc, orderBy, query, limit, Timestamp, where, DocumentReference, addDoc, updateDoc, deleteDoc, arrayUnion, runTransaction } from "firebase/firestore";
 import { ref, uploadBytes, getDownloadURL } from "firebase/storage";
-import type { Activity, Notification, Order, Product, Client, Issuance, Supplier, PurchaseOrder } from "@/types";
+import type { Activity, Notification, Order, Product, Client, Issuance, Supplier, PurchaseOrder, Shipment } from "@/types";
 import { format, subDays } from 'date-fns';
 
 function timeSince(date: Date) {
@@ -876,4 +876,102 @@ export async function updatePurchaseOrderStatus(poId: string, status: PurchaseOr
     console.error("Error updating purchase order status:", error);
     throw new Error(`Failed to update purchase order status. ${(error as Error).message}`);
   }
+}
+
+export async function getShipments(): Promise<Shipment[]> {
+    try {
+        const shipmentsCol = collection(db, "shipments");
+        const q = query(shipmentsCol, orderBy("createdAt", "desc"));
+        const shipmentSnapshot = await getDocs(q);
+        
+        const shipments: Shipment[] = await Promise.all(shipmentSnapshot.docs.map(async (shipmentDoc) => {
+            const shipmentData = shipmentDoc.data();
+            
+            // First, resolve the issuance reference to get the full issuance object
+            const issuance = await resolveDoc<Issuance>(shipmentData.issuanceRef);
+
+            // Now, the issuance object itself contains references, which need to be resolved.
+            // This is a simplified approach; a real app might need deeper resolution or denormalization.
+            // For now, we assume the issuance object fetched is sufficient.
+            // Let's resolve the client within the issuance.
+            const client = await resolveDoc<Client>(issuance.clientRef);
+            
+            // And resolve products within the issuance items
+            const items = await Promise.all(issuance.items.map(async (item: any) => {
+                 const product = await resolveDoc<Product>(item.productRef);
+                return {
+                    quantity: item.quantity,
+                    product: product,
+                };
+            }));
+
+            const resolvedIssuance: Issuance = {
+                ...issuance,
+                id: shipmentData.issuanceRef.id,
+                date: (issuance.date as unknown as Timestamp).toDate(),
+                client: client,
+                items: items,
+            };
+            
+            return {
+                id: shipmentDoc.id,
+                shipmentNumber: shipmentData.shipmentNumber,
+                status: shipmentData.status,
+                shippingProvider: shipmentData.shippingProvider,
+                trackingNumber: shipmentData.trackingNumber,
+                estimatedDeliveryDate: shipmentData.estimatedDeliveryDate ? (shipmentData.estimatedDeliveryDate as Timestamp).toDate() : undefined,
+                actualDeliveryDate: shipmentData.actualDeliveryDate ? (shipmentData.actualDeliveryDate as Timestamp).toDate() : undefined,
+                createdAt: (shipmentData.createdAt as Timestamp).toDate(),
+                issuance: resolvedIssuance,
+            } as Shipment;
+        }));
+
+        return shipments;
+    } catch (error) {
+        console.error("Error fetching shipments:", error);
+        return [];
+    }
+}
+
+type NewShipmentData = {
+    issuanceId: string;
+    shippingProvider: string;
+    trackingNumber?: string;
+    estimatedDeliveryDate: Date;
+}
+
+export async function addShipment(shipmentData: NewShipmentData): Promise<DocumentReference> {
+    try {
+        const newShipment = {
+            shipmentNumber: `SH-${Date.now()}`,
+            issuanceRef: doc(db, "issuances", shipmentData.issuanceId),
+            status: "Pending",
+            shippingProvider: shipmentData.shippingProvider,
+            trackingNumber: shipmentData.trackingNumber || "",
+            estimatedDeliveryDate: Timestamp.fromDate(shipmentData.estimatedDeliveryDate),
+            createdAt: Timestamp.now(),
+        };
+
+        const shipmentsCol = collection(db, "shipments");
+        const docRef = await addDoc(shipmentsCol, newShipment);
+        return docRef;
+
+    } catch (error) {
+        console.error("Error adding shipment:", error);
+        throw new Error("Failed to add shipment.");
+    }
+}
+
+export async function updateShipmentStatus(shipmentId: string, status: Shipment['status']): Promise<void> {
+    try {
+        const shipmentRef = doc(db, "shipments", shipmentId);
+        const payload: any = { status };
+        if (status === 'Delivered') {
+            payload.actualDeliveryDate = Timestamp.now();
+        }
+        await updateDoc(shipmentRef, payload);
+    } catch (error) {
+        console.error("Error updating shipment status:", error);
+        throw new Error("Failed to update shipment status.");
+    }
 }
