@@ -1,12 +1,13 @@
 
 
+
 "use client";
 
 import { useState, useEffect, useMemo, useCallback } from "react";
 import { useForm, useFieldArray, Controller } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
-import { PlusCircle, MoreHorizontal, X, Plus } from "lucide-react";
+import { PlusCircle, MoreHorizontal, X, Plus, RefreshCcw } from "lucide-react";
 import { Timestamp } from "firebase/firestore";
 import { format } from "date-fns";
 
@@ -52,8 +53,8 @@ import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useToast } from "@/hooks/use-toast";
-import { updateOrderStatus, addOrder, addProduct, updateSupplier, deleteSupplier, addSupplier, deleteOrder, addPurchaseOrder, updatePurchaseOrderStatus, deletePurchaseOrder } from "@/services/data-service";
-import type { Order, Supplier, PurchaseOrder, Product } from "@/types";
+import { updateOrderStatus, addOrder, addProduct, updateSupplier, deleteSupplier, addSupplier, deleteOrder, addPurchaseOrder, updatePurchaseOrderStatus, deletePurchaseOrder, initiateOutboundReturn } from "@/services/data-service";
+import type { Order, Supplier, PurchaseOrder, Product, OutboundReturnItem } from "@/types";
 import { formatCurrency } from "@/lib/currency";
 import { CURRENCY_CONFIG } from "@/config/currency";
 import { Separator } from "@/components/ui/separator";
@@ -63,6 +64,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useData } from "@/context/data-context";
 import { Checkbox } from "@/components/ui/checkbox";
 import { validateEmailAction } from "./actions";
+import { Textarea } from "@/components/ui/textarea";
 
 
 const statusVariant: { [key: string]: "default" | "secondary" | "destructive" | "outline" } = {
@@ -140,6 +142,50 @@ interface PurchaseQueueItem {
   fromOrders: string[];
 }
 
+const outboundReturnItemSchema = z.object({
+    productId: z.string(),
+    name: z.string(),
+    sku: z.string(),
+    receivedQuantity: z.number(),
+    returnQuantity: z.coerce.number().nonnegative("Quantity must be non-negative").optional(),
+    selected: z.boolean().default(false),
+});
+
+const createOutboundReturnSchema = (po: PurchaseOrder | null) => z.object({
+    reason: z.string().min(5, "A reason for the return is required."),
+    items: z.array(outboundReturnItemSchema).superRefine((items, ctx) => {
+        const isAnyItemSelected = items.some(item => item.selected);
+        if (!isAnyItemSelected) {
+            ctx.addIssue({
+                code: z.ZodIssueCode.custom,
+                message: "At least one item must be selected for return.",
+                path: [], // Top-level error
+            });
+            return;
+        }
+
+        items.forEach((item, index) => {
+            if (item.selected) {
+                if (!item.returnQuantity || item.returnQuantity <= 0) {
+                    ctx.addIssue({
+                        path: [`${index}.returnQuantity`],
+                        message: "Quantity must be greater than 0.",
+                        code: z.ZodIssueCode.custom,
+                    });
+                } else if (item.returnQuantity > item.receivedQuantity) {
+                    ctx.addIssue({
+                        path: [`${index}.returnQuantity`],
+                        message: `Cannot return more than ${item.receivedQuantity} received items.`,
+                        code: z.ZodIssueCode.custom,
+                    });
+                }
+            }
+        });
+    }),
+});
+
+type OutboundReturnFormValues = z.infer<ReturnType<typeof createOutboundReturnSchema>>;
+
 
 const toTitleCase = (str: string) => {
   if (!str) return "";
@@ -168,6 +214,7 @@ export default function OrdersAndSuppliersPage() {
   const [selectedPO, setSelectedPO] = useState<PurchaseOrder | null>(null);
   const [isReordered, setIsReordered] = useState(false);
   const [purchaseQueueSelection, setPurchaseQueueSelection] = useState<{[key: string]: boolean}>({});
+  const [poForReturn, setPoForReturn] = useState<PurchaseOrder | null>(null);
 
 
   // Data states
@@ -183,6 +230,8 @@ export default function OrdersAndSuppliersPage() {
 
 
   const productSchema = useMemo(() => createProductSchema(autoGenerateSku), [autoGenerateSku]);
+  const outboundReturnSchema = useMemo(() => createOutboundReturnSchema(poForReturn), [poForReturn]);
+
 
   // Forms
   const orderForm = useForm<OrderFormValues>({
@@ -225,6 +274,10 @@ export default function OrdersAndSuppliersPage() {
     mode: 'onBlur',
   });
 
+  const outboundReturnForm = useForm<OutboundReturnFormValues>({
+    resolver: zodResolver(outboundReturnSchema),
+  });
+
   const { fields, append, remove } = useFieldArray({
     control: orderForm.control,
     name: "items",
@@ -232,6 +285,11 @@ export default function OrdersAndSuppliersPage() {
   
   const { fields: poFields, append: poAppend, remove: poRemove } = useFieldArray({
     control: poForm.control,
+    name: "items",
+  });
+
+  const { fields: outboundReturnFields } = useFieldArray({
+    control: outboundReturnForm.control,
     name: "items",
   });
 
@@ -376,6 +434,24 @@ export default function OrdersAndSuppliersPage() {
       setIsReordered(false);
     }
   }, [selectedOrder, orders]);
+
+   useEffect(() => {
+    if (poForReturn) {
+      outboundReturnForm.reset({
+        reason: "",
+        items: poForReturn.items.map(item => ({
+          productId: item.product.id,
+          name: item.product.name,
+          sku: item.product.sku,
+          receivedQuantity: item.quantity,
+          returnQuantity: item.quantity,
+          selected: false,
+        })),
+      });
+    } else {
+      outboundReturnForm.reset();
+    }
+  }, [poForReturn, outboundReturnForm]);
 
 
   // Order handlers
@@ -603,6 +679,38 @@ export default function OrdersAndSuppliersPage() {
         title: "Error",
         description: "Failed to create purchase order.",
       });
+    }
+  };
+
+  const onOutboundReturnSubmit = async (data: OutboundReturnFormValues) => {
+    if (!poForReturn) return;
+    
+    const itemsToReturn = data.items
+      .filter(item => item.selected && item.returnQuantity)
+      .map(item => ({
+        productId: item.productId,
+        name: item.name,
+        sku: item.sku,
+        quantity: item.returnQuantity!,
+      }));
+      
+    try {
+        await initiateOutboundReturn({
+            purchaseOrderId: poForReturn.id,
+            reason: data.reason,
+            items: itemsToReturn,
+        });
+        toast({ title: "Success", description: "Return to supplier initiated." });
+        setPoForReturn(null);
+        await refetchData();
+    } catch(error) {
+         console.error(error);
+        const errorMessage = error instanceof Error ? error.message : "An unexpected error occurred.";
+        toast({
+            variant: "destructive",
+            title: "Error Initiating Return",
+            description: errorMessage,
+        });
     }
   };
   
@@ -1195,6 +1303,12 @@ export default function OrdersAndSuppliersPage() {
                                     </DropdownMenuItem>
                                 )}
                                 {po.status === 'Received' && <DropdownMenuItem disabled>Order Received</DropdownMenuItem>}
+                                {po.status === 'Received' && (
+                                    <DropdownMenuItem onClick={() => setPoForReturn(po)}>
+                                      <RefreshCcw className="mr-2 h-4 w-4" />
+                                      Return Items
+                                    </DropdownMenuItem>
+                                )}
                                 <DropdownMenuSeparator />
                                 <DropdownMenuItem onClick={() => handleDeletePOClick(po.id)} className="text-destructive">
                                     Delete
@@ -1283,7 +1397,7 @@ export default function OrdersAndSuppliersPage() {
        <DialogContent className="sm:max-w-lg">
            <DialogHeader>
             <DialogTitle>Add New Product</DialogTitle>
-            <DialogDescription>Fill in the details for the new product. It will be added to inventory once the PO is received.</DialogDescription>
+            <DialogDescription>Fill in the details for the new product. Stock will be added once the PO is received.</DialogDescription>
           </DialogHeader>
           <form onSubmit={productForm.handleSubmit(onProductSubmit)} className="space-y-4">
             <div className="space-y-2">
@@ -1471,6 +1585,81 @@ export default function OrdersAndSuppliersPage() {
               </form>
             </DialogContent>
           </Dialog>
+    )}
+
+    {poForReturn && (
+      <Dialog open={!!poForReturn} onOpenChange={(isOpen) => { if (!isOpen) setPoForReturn(null) }}>
+        <DialogContent className="sm:max-w-2xl">
+          <DialogHeader>
+              <DialogTitle>Return to Supplier</DialogTitle>
+              <DialogDescription>
+                  Create a return for items from PO #{poForReturn?.poNumber}.
+              </DialogDescription>
+          </DialogHeader>
+          <form onSubmit={outboundReturnForm.handleSubmit(onOutboundReturnSubmit)} className="space-y-4">
+              <div className="space-y-2">
+                  <Label htmlFor="reason">Reason for Return</Label>
+                  <Textarea id="reason" {...outboundReturnForm.register("reason")} placeholder="e.g., incorrect item, damaged goods, etc." />
+                  {outboundReturnForm.formState.errors.reason && <p className="text-sm text-destructive">{outboundReturnForm.formState.errors.reason.message}</p>}
+              </div>
+              
+              <div className="space-y-2">
+                  <Label>Items to Return</Label>
+                  <div className="border rounded-md max-h-60 overflow-y-auto">
+                      <Table>
+                          <TableHeader>
+                              <TableRow>
+                                  <TableHead className="w-12"></TableHead>
+                                  <TableHead>Product</TableHead>
+                                  <TableHead className="w-24 text-center">Received</TableHead>
+                                  <TableHead className="w-32">Return Qty</TableHead>
+                              </TableRow>
+                          </TableHeader>
+                          <TableBody>
+                              {outboundReturnFields.map((field, index) => (
+                                  <TableRow key={field.id}>
+                                      <TableCell>
+                                          <Controller
+                                              control={outboundReturnForm.control}
+                                              name={`items.${index}.selected`}
+                                              render={({ field: controllerField }) => (
+                                                  <Checkbox
+                                                      checked={controllerField.value}
+                                                      onCheckedChange={controllerField.onChange}
+                                                  />
+                                              )}
+                                          />
+                                      </TableCell>
+                                      <TableCell>
+                                          <p className="font-medium">{field.name}</p>
+                                          <p className="text-xs text-muted-foreground">{field.sku}</p>
+                                      </TableCell>
+                                      <TableCell className="text-center">{field.receivedQuantity}</TableCell>
+                                      <TableCell>
+                                          <Input 
+                                              type="number" 
+                                              {...outboundReturnForm.register(`items.${index}.returnQuantity`)}
+                                              disabled={!outboundReturnForm.watch(`items.${index}.selected`)}
+                                          />
+                                          {outboundReturnForm.formState.errors.items?.[index]?.returnQuantity && <p className="text-xs text-destructive mt-1">{outboundReturnForm.formState.errors.items?.[index]?.returnQuantity?.message}</p>}
+                                      </TableCell>
+                                  </TableRow>
+                              ))}
+                          </TableBody>
+                      </Table>
+                  </div>
+                  {outboundReturnForm.formState.errors.items && typeof outboundReturnForm.formState.errors.items !== 'object' && <p className="text-sm text-destructive">{outboundReturnForm.formState.errors.items.message}</p>}
+              </div>
+
+              <DialogFooter>
+                  <Button type="button" variant="outline" onClick={() => setPoForReturn(null)}>Cancel</Button>
+                  <Button type="submit" disabled={outboundReturnForm.formState.isSubmitting}>
+                      {outboundReturnForm.formState.isSubmitting ? "Initiating..." : "Initiate Return"}
+                  </Button>
+              </DialogFooter>
+          </form>
+        </DialogContent>
+      </Dialog>
     )}
     
     <AlertDialog open={isDeleteSupplierOpen} onOpenChange={setIsDeleteSupplierOpen}>

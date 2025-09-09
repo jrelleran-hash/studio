@@ -1,9 +1,10 @@
 
 
+
 import { db, storage } from "@/lib/firebase";
 import { collection, getDocs, getDoc, doc, orderBy, query, limit, Timestamp, where, DocumentReference, addDoc, updateDoc, deleteDoc, arrayUnion, runTransaction, writeBatch } from "firebase/firestore";
 import { ref, uploadBytes, getDownloadURL } from "firebase/storage";
-import type { Activity, Notification, Order, Product, Client, Issuance, Supplier, PurchaseOrder, Shipment, Return, ReturnItem } from "@/types";
+import type { Activity, Notification, Order, Product, Client, Issuance, Supplier, PurchaseOrder, Shipment, Return, ReturnItem, OutboundReturn, OutboundReturnItem } from "@/types";
 import { format, subDays } from 'date-fns';
 
 function timeSince(date: Date) {
@@ -199,35 +200,25 @@ async function checkStockAndCreateNotification(product: Omit<Product, 'id' | 'hi
   }
 }
 
-export async function addProduct(product: Omit<Product, 'id' | 'lastUpdated' | 'history'>): Promise<DocumentReference> {
+export async function addProduct(product: Partial<Omit<Product, 'id' | 'lastUpdated' | 'history'>>): Promise<DocumentReference> {
   try {
     const now = Timestamp.now();
     const productWithDefaults = {
-      ...product,
+      name: product.name || "Unnamed Product",
+      sku: product.sku || "",
       stock: product.stock || 0,
       price: product.price || 0,
+      reorderLimit: product.reorderLimit || 10,
+      maxStockLevel: product.maxStockLevel || 100,
+      location: product.location || "",
+      supplier: product.supplier || "",
       lastUpdated: now,
       history: [],
     };
     
-    // Only add a history entry if initial stock is provided and greater than 0
-    if (product.stock && product.stock > 0) {
-      const newHistoryEntry = {
-        date: format(now.toDate(), 'yyyy-MM-dd'),
-        stock: product.stock,
-        dateUpdated: now,
-      };
-      productWithDefaults.history = [newHistoryEntry];
-    }
-    
     const productsCol = collection(db, "inventory");
     const docRef = await addDoc(productsCol, productWithDefaults);
     
-    // Check for notification only if there's an initial stock
-    if (product.stock && product.stock > 0) {
-      await checkStockAndCreateNotification(product, docRef.id);
-    }
-
     return docRef;
   } catch (error) {
     console.error("Error adding product:", error);
@@ -1142,5 +1133,104 @@ export async function processReturn(returnId: string, status: "Received" | "Rest
   } catch(error) {
      console.error("Error processing return:", error);
      throw error;
+  }
+}
+
+export async function getOutboundReturns(): Promise<OutboundReturn[]> {
+    try {
+        const returnsCol = collection(db, "outboundReturns");
+        const q = query(returnsCol, orderBy("dateInitiated", "desc"));
+        const returnsSnapshot = await getDocs(q);
+        
+        const returns: OutboundReturn[] = await Promise.all(returnsSnapshot.docs.map(async (returnDoc) => {
+            const returnData = returnDoc.data();
+            const supplier = await resolveDoc<Supplier>(returnData.supplierRef);
+            
+            return {
+                id: returnDoc.id,
+                ...returnData,
+                dateInitiated: (returnData.dateInitiated as Timestamp).toDate(),
+                dateShipped: returnData.dateShipped ? (returnData.dateShipped as Timestamp).toDate() : undefined,
+                supplier,
+            } as OutboundReturn;
+        }));
+
+        return returns;
+    } catch (error) {
+        console.error("Error fetching outbound returns:", error);
+        return [];
+    }
+}
+
+type NewOutboundReturnData = {
+  purchaseOrderId: string;
+  reason: string;
+  items: OutboundReturnItem[];
+};
+
+export async function initiateOutboundReturn(returnData: NewOutboundReturnData): Promise<DocumentReference> {
+  const rtsNumber = `RTS-${Date.now()}`;
+  const dateInitiated = Timestamp.now();
+
+  try {
+    const newReturnRef = await runTransaction(db, async (transaction) => {
+      const poRef = doc(db, 'purchaseOrders', returnData.purchaseOrderId);
+      const poDoc = await transaction.get(poRef);
+      if (!poDoc.exists()) {
+        throw new Error("Original purchase order not found.");
+      }
+      const poData = poDoc.data();
+
+      // Deduct stock for returned items
+      for (const item of returnData.items) {
+        const productRef = doc(db, "inventory", item.productId);
+        const productDoc = await transaction.get(productRef);
+        if (!productDoc.exists()) {
+          throw new Error(`Product with ID ${item.productId} not found.`);
+        }
+        const productData = productDoc.data();
+
+        if (productData.stock < item.quantity) {
+          throw new Error(`Insufficient stock to return for ${productData.name}. Available: ${productData.stock}, Returning: ${item.quantity}`);
+        }
+        
+        const newStock = productData.stock - item.quantity;
+        const newHistoryEntry = {
+          date: format(dateInitiated.toDate(), 'yyyy-MM-dd'),
+          stock: newStock,
+          changeReason: `Return to Supplier #${rtsNumber}`,
+          dateUpdated: dateInitiated,
+        };
+        transaction.update(productRef, {
+          stock: newStock,
+          lastUpdated: dateInitiated,
+          history: arrayUnion(newHistoryEntry)
+        });
+      }
+
+      // Create the outbound return record
+      const newReturn = {
+        rtsNumber: rtsNumber,
+        purchaseOrderId: returnData.purchaseOrderId,
+        poNumber: poData.poNumber,
+        supplierRef: poData.supplierRef,
+        items: returnData.items,
+        reason: returnData.reason,
+        status: "Pending",
+        dateInitiated: dateInitiated,
+      };
+
+      const returnsCol = collection(db, "outboundReturns");
+      const docRef = doc(returnsCol);
+      transaction.set(docRef, newReturn);
+      
+      return docRef;
+    });
+
+    return newReturnRef;
+
+  } catch (error) {
+    console.error("Error initiating outbound return:", error);
+    throw new Error("Failed to initiate outbound return. " + (error as Error).message);
   }
 }

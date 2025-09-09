@@ -139,3 +139,23 @@ export interface Return {
     dateInitiated: Date;
     dateReceived?: Date;
 }
+
+export interface OutboundReturnItem {
+    productId: string;
+    name: string;
+    sku: string;
+    quantity: number;
+}
+
+export interface OutboundReturn {
+    id: string;
+    rtsNumber: string; // Return to Supplier
+    purchaseOrderId: string;
+    poNumber: string;
+    supplier: Supplier;
+    items: OutboundReturnItem[];
+    reason: string;
+    status: "Pending" | "Shipped" | "Completed" | "Cancelled";
+    dateInitiated: Date;
+    dateShipped?: Date;
+}
