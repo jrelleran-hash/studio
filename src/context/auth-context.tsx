@@ -1,8 +1,8 @@
 
 "use client";
 
-import { createContext, useEffect, useState, ReactNode, useCallback } from "react";
-import { onAuthStateChanged, User, signOut, Auth } from "firebase/auth";
+import { createContext, useEffect, useState, ReactNode, useCallback, useMemo } from "react";
+import { onAuthStateChanged, User, signOut } from "firebase/auth";
 import { auth } from "@/lib/firebase";
 import { useRouter, usePathname } from "next/navigation";
 
@@ -49,30 +49,36 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const currentUser = auth.currentUser;
     if (currentUser) {
       await currentUser.reload();
+      // Get the latest user object from auth
       const refreshedUser = auth.currentUser;
+      // Create a new plain object to ensure React detects the change for re-rendering.
       if (refreshedUser) {
-        // Create a new plain object from the refreshed user to ensure React detects the change.
-        const userObject = {
-          uid: refreshedUser.uid,
-          email: refreshedUser.email,
-          displayName: refreshedUser.displayName,
-          photoURL: refreshedUser.photoURL,
-          emailVerified: refreshedUser.emailVerified,
-          isAnonymous: refreshedUser.isAnonymous,
-          phoneNumber: refreshedUser.phoneNumber,
-          providerData: refreshedUser.providerData,
-          // Add any other user properties you need
-        } as User;
+        const userObject: User = {
+            uid: refreshedUser.uid,
+            email: refreshedUser.email,
+            displayName: refreshedUser.displayName,
+            photoURL: refreshedUser.photoURL,
+            emailVerified: refreshedUser.emailVerified,
+            isAnonymous: refreshedUser.isAnonymous,
+            phoneNumber: refreshedUser.phoneNumber,
+            providerData: refreshedUser.providerData,
+            metadata: refreshedUser.metadata,
+            providerId: refreshedUser.providerId,
+            tenantId: refreshedUser.tenantId,
+            delete: refreshedUser.delete,
+            getIdToken: refreshedUser.getIdToken,
+            getIdTokenResult: refreshedUser.getIdTokenResult,
+            reload: refreshedUser.reload,
+            toJSON: refreshedUser.toJSON,
+        };
         setUser(userObject);
-      } else {
-        setUser(null);
       }
     }
   }, []);
 
-  const value = {
+  const value = useMemo(() => ({
      user, loading, logout, reloadUser
-  };
+  }), [user, loading, logout, reloadUser]);
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 }

@@ -1,7 +1,7 @@
 
 "use client";
 
-import { createContext, useContext, useEffect, useState, ReactNode, useCallback } from "react";
+import { createContext, useContext, useEffect, useState, ReactNode, useCallback, useMemo } from "react";
 import { onAuthStateChanged } from "firebase/auth";
 import { auth } from "@/lib/firebase";
 import { getProducts, getClients, getOrders, getIssuances, getSuppliers } from "@/services/data-service";
@@ -80,7 +80,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
     fetchData();
   }, [fetchData]);
 
-  const value = {
+  const value = useMemo(() => ({
     products,
     clients,
     orders,
@@ -88,7 +88,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
     suppliers,
     loading,
     refetchData: fetchData,
-  };
+  }), [products, clients, orders, issuances, suppliers, loading, fetchData]);
 
   return <DataContext.Provider value={value}>{children}</DataContext.Provider>;
 }
