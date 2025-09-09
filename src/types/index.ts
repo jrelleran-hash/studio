@@ -89,6 +89,7 @@ export interface PurchaseOrder {
     expectedDate?: Date;
     receivedDate?: Date;
     poNumber: string;
+    docRef?: DocumentReference;
 }
 
 export interface IssuanceItem {

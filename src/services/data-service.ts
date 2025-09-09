@@ -758,6 +758,16 @@ export async function addPurchaseOrder(poData: NewPurchaseOrderData): Promise<Do
   }
 }
 
+export async function deletePurchaseOrder(poId: string): Promise<void> {
+    try {
+        const poRef = doc(db, "purchaseOrders", poId);
+        await deleteDoc(poRef);
+    } catch (error) {
+        console.error("Error deleting purchase order:", error);
+        throw new Error("Failed to delete purchase order.");
+    }
+}
+
 async function checkAndUpdateAwaitingOrders() {
     const ordersCol = collection(db, "orders");
     const q = query(ordersCol, where("status", "==", "Awaiting Purchase"));
@@ -821,6 +831,8 @@ export async function updatePurchaseOrderStatus(poId: string, status: PurchaseOr
       
       // --- Handle 'Received' status ---
       const productRefs = poData.items.map((item: any) => item.productRef as DocumentReference);
+      
+      // 1. READS: Perform all reads first.
       const productDocs = await Promise.all(
         productRefs.map((ref: DocumentReference) => transaction.get(ref))
       );

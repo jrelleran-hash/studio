@@ -52,7 +52,7 @@ import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useToast } from "@/hooks/use-toast";
-import { updateOrderStatus, addOrder, addProduct, updateSupplier, deleteSupplier, addSupplier, deleteOrder, addPurchaseOrder, updatePurchaseOrderStatus } from "@/services/data-service";
+import { updateOrderStatus, addOrder, addProduct, updateSupplier, deleteSupplier, addSupplier, deleteOrder, addPurchaseOrder, updatePurchaseOrderStatus, deletePurchaseOrder } from "@/services/data-service";
 import type { Order, Supplier, PurchaseOrder, Product } from "@/types";
 import { formatCurrency } from "@/lib/currency";
 import { CURRENCY_CONFIG } from "@/config/currency";
@@ -162,6 +162,7 @@ export default function OrdersAndSuppliersPage() {
   const [isEditSupplierOpen, setIsEditSupplierOpen] = useState(false);
   const [isDeleteSupplierOpen, setIsDeleteSupplierOpen] = useState(false);
   const [isDeleteOrderOpen, setIsDeleteOrderOpen] = useState(false);
+  const [isDeletePOOpen, setIsDeletePOOpen] = useState(false);
   const [selectedOrder, setSelectedOrder] = useState<Order | null>(null);
   const [selectedPO, setSelectedPO] = useState<PurchaseOrder | null>(null);
   const [isReordered, setIsReordered] = useState(false);
@@ -173,6 +174,7 @@ export default function OrdersAndSuppliersPage() {
   const [editingSupplier, setEditingSupplier] = useState<Supplier | null>(null);
   const [deletingSupplierId, setDeletingSupplierId] = useState<string | null>(null);
   const [deletingOrderId, setDeletingOrderId] = useState<string | null>(null);
+  const [deletingPOId, setDeletingPOId] = useState<string | null>(null);
   const [poView, setPoView] = useState<'queue' | 'list'>('queue');
   const [emailValidation, setEmailValidation] = useState<{ isValid: boolean; reason?: string; error?: string } | null>(null);
   const [isEmailChecking, setIsEmailChecking] = useState(false);
@@ -594,6 +596,31 @@ export default function OrdersAndSuppliersPage() {
       });
     }
   };
+  
+  const handleDeletePOClick = (poId: string) => {
+    setDeletingPOId(poId);
+    setIsDeletePOOpen(true);
+  };
+
+  const handleDeletePOConfirm = async () => {
+    if (!deletingPOId) return;
+    try {
+      await deletePurchaseOrder(deletingPOId);
+      toast({ title: "Success", description: "Purchase Order deleted successfully." });
+      await refetchData();
+    } catch (error) {
+      console.error(error);
+      toast({
+        variant: "destructive",
+        title: "Error",
+        description: "Failed to delete purchase order.",
+      });
+    } finally {
+      setIsDeletePOOpen(false);
+      setDeletingPOId(null);
+    }
+  };
+
 
   const handleCreatePOFromQueue = () => {
     const itemsForPO = selectedQueueItems.map(item => ({
@@ -1131,6 +1158,10 @@ export default function OrdersAndSuppliersPage() {
                                   </>
                                 )}
                                  {po.status === 'Received' && <DropdownMenuItem disabled>Order Received</DropdownMenuItem>}
+                                <DropdownMenuSeparator />
+                                <DropdownMenuItem onClick={() => handleDeletePOClick(po.id)} className="text-destructive">
+                                    Delete
+                                </DropdownMenuItem>
                               </DropdownMenuContent>
                             </DropdownMenu>
                           </TableCell>
@@ -1441,6 +1472,24 @@ export default function OrdersAndSuppliersPage() {
       </AlertDialogContent>
     </AlertDialog>
     
+     <AlertDialog open={isDeletePOOpen} onOpenChange={setIsDeletePOOpen}>
+      <AlertDialogContent>
+        <AlertDialogHeader>
+          <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
+          <AlertDialogDescription>
+            This action cannot be undone. This will permanently delete this
+            purchase order.
+          </AlertDialogDescription>
+        </AlertDialogHeader>
+        <AlertDialogFooter>
+          <AlertDialogCancel>Cancel</AlertDialogCancel>
+          <AlertDialogAction onClick={handleDeletePOConfirm} className={buttonVariants({ variant: "destructive" })}>
+            Delete
+          </AlertDialogAction>
+        </AlertDialogFooter>
+      </AlertDialogContent>
+    </AlertDialog>
+
     {selectedPO && (
         <Dialog open={!!selectedPO} onOpenChange={(open) => !open && setSelectedPO(null)}>
             <DialogContent>
