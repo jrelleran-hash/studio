@@ -18,6 +18,7 @@ import { formatCurrency } from "@/lib/currency";
 import { PesoSign } from "@/components/icons";
 import { subDays } from "date-fns";
 import type { Order } from "@/types";
+import { Button } from "@/components/ui/button";
 
 export default function DashboardPage() {
   const { user, loading: authLoading } = useAuth();
@@ -139,9 +140,17 @@ export default function DashboardPage() {
           icon={<PesoSign className="size-5 text-primary" />}
           loading={dataLoading}
           href="/analytics"
-        >
-           <RevenueChart filter={revenueFilter} setFilter={setRevenueFilter} />
-        </KpiCard>
+          children={<RevenueChart filter={revenueFilter} />}
+          footer={
+             <div className="flex justify-end gap-1 mt-2">
+              {(["day", "week", "month", "year"] as FilterType[]).map((f) => (
+                <Button key={f} variant={revenueFilter === f ? "secondary" : "ghost"} size="sm" className="capitalize h-7 px-2" onClick={() => setRevenueFilter(f)}>
+                  {f}
+                </Button>
+              ))}
+            </div>
+          }
+        />
         <KpiCard
           title={inventoryTitle}
           value={inventoryValue}
@@ -149,9 +158,23 @@ export default function DashboardPage() {
           icon={<Package className="size-5 text-primary" />}
           loading={dataLoading}
           href="/inventory"
-        >
-           <InventoryStatusChart products={products} filter={inventoryFilter} setFilter={setInventoryFilter} />
-        </KpiCard>
+          children={<InventoryStatusChart products={products} filter={inventoryFilter} />}
+          footer={
+            <div className="flex justify-end gap-1 mt-2">
+              {(["all", "in-stock", "low-stock", "out-of-stock"] as InventoryFilterType[]).map((f) => (
+                <Button 
+                  key={f} 
+                  variant={inventoryFilter === f ? "secondary" : "ghost"} 
+                  size="sm" 
+                  className="capitalize h-7 px-2 text-xs" 
+                  onClick={() => setInventoryFilter(f)}
+                >
+                  {f.replace('-', ' ')}
+                </Button>
+              ))}
+            </div>
+          }
+        />
         <KpiCard
           title="Active Orders"
           value={activeOrdersData.count.toLocaleString()}

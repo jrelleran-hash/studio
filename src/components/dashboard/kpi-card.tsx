@@ -16,14 +16,15 @@ type KpiCardProps = {
   change: string;
   icon: ReactNode;
   children?: ReactNode;
+  footer?: ReactNode;
   loading?: boolean;
   href?: string;
 };
 
-export function KpiCard({ title, value, change, icon, children, loading = false, href }: KpiCardProps) {
-  const CardContentWrapper = ({children}: {children: ReactNode}) => (
-    <Card className={cn("card-gradient", href && "hover:border-primary/50 transition-colors")}>
-      <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+export function KpiCard({ title, value, change, icon, children, footer, loading = false, href }: KpiCardProps) {
+  const MainContent = () => (
+    <>
+       <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
         <CardTitle className="text-sm font-medium">{title}</CardTitle>
         {icon}
       </CardHeader>
@@ -39,15 +40,21 @@ export function KpiCard({ title, value, change, icon, children, loading = false,
             <p className="text-xs text-muted-foreground">{change}</p>
           </>
         )}
-        
         {children}
       </CardContent>
+    </>
+  );
+
+  return (
+    <Card className={cn("card-gradient flex flex-col", href && "hover:border-primary/50 transition-colors")}>
+        {href ? (
+            <Link href={href} className="flex flex-col flex-grow">
+                <MainContent />
+            </Link>
+        ) : (
+            <MainContent />
+        )}
+        {footer && <div className="p-6 pt-0">{footer}</div>}
     </Card>
   );
-  
-  if (href) {
-    return <Link href={href}>{CardContentWrapper({children})}</Link>
-  }
-  
-  return CardContentWrapper({children});
 }

@@ -9,7 +9,6 @@ import {
   ChartTooltip,
   ChartTooltipContent,
 } from "@/components/ui/chart";
-import { Button } from "../ui/button";
 import type { Product } from "@/types";
 import { subDays, format, parseISO, startOfDay } from 'date-fns';
 
@@ -44,7 +43,6 @@ export type InventoryFilterType = "all" | "in-stock" | "low-stock" | "out-of-sto
 interface InventoryStatusChartProps {
   products: Product[];
   filter: InventoryFilterType;
-  setFilter: (filter: InventoryFilterType) => void;
 }
 
 const getStatusForProduct = (product: Product, stockLevel?: number) => {
@@ -54,7 +52,7 @@ const getStatusForProduct = (product: Product, stockLevel?: number) => {
     return "in-stock";
 };
 
-export function InventoryStatusChart({ products, filter, setFilter }: InventoryStatusChartProps) {
+export function InventoryStatusChart({ products, filter }: InventoryStatusChartProps) {
   
   const { summaryData, historicalData } = useMemo(() => {
     const today = startOfDay(new Date());
@@ -176,23 +174,8 @@ export function InventoryStatusChart({ products, filter, setFilter }: InventoryS
   }
 
   return (
-    <>
-      <ChartContainer config={chartConfig} className="h-[100px] w-full mt-4">
-        {renderChart()}
-      </ChartContainer>
-       <div className="flex justify-end gap-1 mt-2">
-        {(["all", "in-stock", "low-stock", "out-of-stock"] as InventoryFilterType[]).map((f) => (
-          <Button 
-            key={f} 
-            variant={filter === f ? "secondary" : "ghost"} 
-            size="sm" 
-            className="capitalize h-7 px-2 text-xs" 
-            onClick={() => setFilter(f)}
-          >
-            {f.replace('-', ' ')}
-          </Button>
-        ))}
-      </div>
-    </>
+    <ChartContainer config={chartConfig} className="h-[100px] w-full mt-4">
+      {renderChart()}
+    </ChartContainer>
   );
 }
