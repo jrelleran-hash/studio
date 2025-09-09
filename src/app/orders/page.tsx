@@ -62,6 +62,7 @@ import { Switch } from "@/components/ui/switch";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useData } from "@/context/data-context";
 import { Checkbox } from "@/components/ui/checkbox";
+import { validateEmailAction } from "./actions";
 
 
 const statusVariant: { [key: string]: "default" | "secondary" | "destructive" | "outline" } = {
@@ -171,6 +172,9 @@ export default function OrdersAndSuppliersPage() {
   const [deletingSupplierId, setDeletingSupplierId] = useState<string | null>(null);
   const [deletingOrderId, setDeletingOrderId] = useState<string | null>(null);
   const [poView, setPoView] = useState<'queue' | 'list'>('queue');
+  const [emailValidation, setEmailValidation] = useState<{ isValid: boolean; reason?: string; error?: string } | null>(null);
+  const [isEmailChecking, setIsEmailChecking] = useState(false);
+  const [emailValidationTimeout, setEmailValidationTimeout] = useState<NodeJS.Timeout | null>(null);
 
 
   const productSchema = useMemo(() => createProductSchema(autoGenerateSku), [autoGenerateSku]);
@@ -283,8 +287,13 @@ export default function OrdersAndSuppliersPage() {
   }, [isAddProductOpen, productForm]);
 
   useEffect(() => {
-    if (!isAddSupplierOpen) supplierForm.reset();
-  }, [isAddSupplierOpen, supplierForm]);
+    if (!isAddSupplierOpen && !isEditSupplierOpen) {
+      supplierForm.reset();
+      editSupplierForm.reset();
+      setEmailValidation(null);
+      setIsEmailChecking(false);
+    }
+  }, [isAddSupplierOpen, isEditSupplierOpen, supplierForm, editSupplierForm]);
 
   useEffect(() => {
     if (editingSupplier) {
@@ -425,6 +434,34 @@ export default function OrdersAndSuppliersPage() {
   };
   
   // Supplier handlers
+    const handleEmailBlur = async (email: string) => {
+        const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+        if (!email || !emailRegex.test(email)) {
+            setEmailValidation(null);
+            return;
+        }
+
+        setIsEmailChecking(true);
+        setEmailValidation(null);
+        const result = await validateEmailAction({ email });
+        setIsEmailChecking(false);
+
+        if (result.error) {
+            toast({ variant: 'destructive', title: 'Validation Error', description: result.error });
+        } else {
+            setEmailValidation(result);
+        }
+    };
+
+    const handleEmailChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+        if (emailValidationTimeout) {
+            clearTimeout(emailValidationTimeout);
+        }
+        setEmailValidation(null);
+        const newTimeout = setTimeout(() => handleEmailBlur(e.target.value), 1000);
+        setEmailValidationTimeout(newTimeout);
+    };
+
   const onAddSupplierSubmit = async (data: SupplierFormValues) => {
     try {
       await addSupplier(data);
@@ -553,6 +590,16 @@ export default function OrdersAndSuppliersPage() {
   const formatDateSimple = (date: Date) => {
     return format(date, 'PPP');
   };
+
+  const renderEmailValidation = () => {
+    if (isEmailChecking) {
+        return <p className="text-xs text-muted-foreground">Checking email...</p>;
+    }
+    if (emailValidation) {
+        return <p className={`text-xs ${emailValidation.isValid ? 'text-green-500' : 'text-destructive'}`}>{emailValidation.reason}</p>;
+    }
+    return null;
+};
 
   return (
     <>
@@ -765,8 +812,19 @@ export default function OrdersAndSuppliersPage() {
                 </div>
                 <div className="space-y-2">
                     <Label htmlFor="email">Email</Label>
-                    <Input id="email" type="email" {...supplierForm.register("email")} />
+                    <Input 
+                        id="email" 
+                        type="email" 
+                        {...supplierForm.register("email")}
+                        onBlur={(e) => handleEmailBlur(e.target.value)}
+                        onChange={(e) => {
+                           supplierForm.setValue("email", e.target.value);
+                           supplierForm.trigger("email");
+                           handleEmailChange(e);
+                        }}
+                    />
                     {supplierForm.formState.errors.email && <p className="text-sm text-destructive">{supplierForm.formState.errors.email.message}</p>}
+                    {renderEmailValidation()}
                 </div>
                 <div className="grid grid-cols-2 gap-4">
                     <div className="space-y-2">
@@ -1265,8 +1323,19 @@ export default function OrdersAndSuppliersPage() {
                 </div>
                  <div className="space-y-2">
                   <Label htmlFor="edit-email">Email</Label>
-                  <Input id="edit-email" type="email" {...editSupplierForm.register("email")} />
+                  <Input 
+                    id="edit-email" 
+                    type="email" 
+                    {...editSupplierForm.register("email")}
+                    onBlur={(e) => handleEmailBlur(e.target.value)}
+                    onChange={(e) => {
+                        editSupplierForm.setValue("email", e.target.value);
+                        editSupplierForm.trigger("email");
+                        handleEmailChange(e);
+                    }}
+                   />
                   {editSupplierForm.formState.errors.email && <p className="text-sm text-destructive">{editSupplierForm.formState.errors.email.message}</p>}
+                   {renderEmailValidation()}
                 </div>
                  <div className="grid grid-cols-2 gap-4">
                     <div className="space-y-2">
