@@ -58,6 +58,7 @@ const createProductSchema = (isSkuAuto: boolean) => z.object({
   price: z.coerce.number().nonnegative("Price must be a non-negative number.").optional(),
   stock: z.coerce.number().int().nonnegative("Stock must be a non-negative integer.").optional(),
   reorderLimit: z.coerce.number().int().nonnegative("Reorder limit must be a non-negative integer."),
+  maxStockLevel: z.coerce.number().int().nonnegative("Max stock must be a non-negative integer."),
   location: z.string().optional(),
   supplier: z.string().optional(),
 }).refine(data => isSkuAuto || (data.sku && data.sku.length > 0), {
@@ -71,6 +72,7 @@ const editProductSchema = z.object({
   price: z.coerce.number().nonnegative("Price must be a non-negative number."),
   stock: z.coerce.number().int().nonnegative("Stock must be a non-negative integer."),
   reorderLimit: z.coerce.number().int().nonnegative("Reorder limit must be a non-negative integer."),
+  maxStockLevel: z.coerce.number().int().nonnegative("Max stock must be a non-negative integer."),
   location: z.string().optional(),
   supplier: z.string().optional(),
 });
@@ -107,6 +109,7 @@ export default function InventoryPage() {
       price: undefined,
       stock: undefined,
       reorderLimit: 10,
+      maxStockLevel: 100,
       location: "",
       supplier: "",
     },
@@ -306,6 +309,13 @@ export default function InventoryPage() {
                   </div>
                 </div>
                 <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="maxStockLevel">Max Stock Level</Label>
+                    <Input id="maxStockLevel" type="number" {...addForm.register("maxStockLevel")} />
+                    {addForm.formState.errors.maxStockLevel && <p className="text-sm text-destructive">{addForm.formState.errors.maxStockLevel.message}</p>}
+                  </div>
+                </div>
+                <div className="grid grid-cols-2 gap-4">
                     <div className="space-y-2">
                       <Label htmlFor="location">Location</Label>
                       <Input id="location" placeholder="e.g. 'Warehouse A'" {...addForm.register("location")} />
@@ -447,6 +457,13 @@ export default function InventoryPage() {
                     <Input id="edit-reorderLimit" type="number" {...editForm.register("reorderLimit")} />
                     {editForm.formState.errors.reorderLimit && <p className="text-sm text-destructive">{editForm.formState.errors.reorderLimit.message}</p>}
                   </div>
+                </div>
+                <div className="grid grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                        <Label htmlFor="edit-maxStockLevel">Max Stock Level</Label>
+                        <Input id="edit-maxStockLevel" type="number" {...editForm.register("maxStockLevel")} />
+                        {editForm.formState.errors.maxStockLevel && <p className="text-sm text-destructive">{editForm.formState.errors.maxStockLevel.message}</p>}
+                    </div>
                 </div>
                 <div className="grid grid-cols-2 gap-4">
                     <div className="space-y-2">

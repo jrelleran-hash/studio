@@ -52,6 +52,7 @@ export interface Product {
     stock: number;
     price: number;
     reorderLimit: number;
+    maxStockLevel: number;
     location?: string;
     supplier?: string;
     history?: ProductHistory[];

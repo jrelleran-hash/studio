@@ -110,6 +110,7 @@ const createProductSchema = (isSkuAuto: boolean) => z.object({
   price: z.coerce.number().nonnegative("Price must be a non-negative number.").optional(),
   stock: z.coerce.number().int().nonnegative("Stock must be a non-negative integer.").optional(),
   reorderLimit: z.coerce.number().int().nonnegative("Reorder limit must be a non-negative integer."),
+  maxStockLevel: z.coerce.number().int().nonnegative("Max stock must be a non-negative integer."),
   location: z.string().optional(),
   supplier: z.string().optional(),
 }).refine(data => isSkuAuto || (data.sku && data.sku.length > 0), {
@@ -208,6 +209,7 @@ export default function OrdersAndSuppliersPage() {
       price: undefined,
       stock: undefined,
       reorderLimit: 10,
+      maxStockLevel: 100,
       location: "",
       supplier: "",
     },
@@ -259,6 +261,28 @@ export default function OrdersAndSuppliersPage() {
           }
         });
       });
+      
+    // Add items that have hit their reorder limit and are not already queued for purchase
+    products.forEach(product => {
+      if (product.stock <= product.reorderLimit) {
+        const reorderQty = (product.maxStockLevel || product.reorderLimit + 20) - product.stock;
+        if (reorderQty > 0) {
+          if (!neededQuantities[product.id]) {
+            neededQuantities[product.id] = {
+              name: product.name,
+              sku: product.sku,
+              quantity: 0,
+              orders: new Set(),
+            };
+          }
+          // Use Math.max to not override a larger quantity needed for an order
+          neededQuantities[product.id].quantity = Math.max(neededQuantities[product.id].quantity, reorderQty);
+          if (neededQuantities[product.id].orders.size === 0) {
+             neededQuantities[product.id].orders.add("Reorder");
+          }
+        }
+      }
+    });
       
       // Calculate quantities already on purchase orders (not yet received)
       const onOrderQuantities: { [productId: string]: number } = {};
@@ -1036,7 +1060,7 @@ export default function OrdersAndSuppliersPage() {
                     <div className="flex items-center justify-between">
                         <div>
                             <CardTitle>Purchase Queue</CardTitle>
-                            <CardDescription>Items from orders that require purchasing from a supplier.</CardDescription>
+                            <CardDescription>Items that require purchasing from a supplier.</CardDescription>
                         </div>
                         {selectedQueueItems.length > 0 && (
                             <Button size="sm" className="gap-1" onClick={handleCreatePOFromQueue}>
@@ -1090,7 +1114,7 @@ export default function OrdersAndSuppliersPage() {
                             <TableCell>
                                 <div className="flex gap-1 flex-wrap">
                                     {item.fromOrders.map(orderId => (
-                                        <Badge key={orderId} variant="secondary" className="font-mono">{orderId}</Badge>
+                                        <Badge key={orderId} variant={orderId === "Reorder" ? "outline" : "secondary"} className="font-mono">{orderId}</Badge>
                                     ))}
                                 </div>
                             </TableCell>
@@ -1299,14 +1323,21 @@ export default function OrdersAndSuppliersPage() {
                 {productForm.formState.errors.reorderLimit && <p className="text-sm text-destructive">{productForm.formState.errors.reorderLimit.message}</p>}
               </div>
                <div className="space-y-2">
+                <Label htmlFor="maxStockLevel-order">Max Stock Level</Label>
+                <Input id="maxStockLevel-order" type="number" placeholder="100" {...productForm.register("maxStockLevel")} />
+                {productForm.formState.errors.maxStockLevel && <p className="text-sm text-destructive">{productForm.formState.errors.maxStockLevel.message}</p>}
+              </div>
+            </div>
+            <div className="grid grid-cols-2 gap-4">
+               <div className="space-y-2">
                   <Label htmlFor="location-order">Location</Label>
                   <Input id="location-order" placeholder="e.g. 'Warehouse A'" {...productForm.register("location")} />
               </div>
-            </div>
-             <div className="space-y-2">
+              <div className="space-y-2">
                   <Label htmlFor="supplier-order">Supplier</Label>
                   <Input id="supplier-order" placeholder="e.g. 'ACME Inc.'" {...productForm.register("supplier")} />
               </div>
+            </div>
             <DialogFooter>
               <Button type="button" variant="outline" onClick={() => setIsAddProductOpen(false)}>Cancel</Button>
               <Button type="submit" disabled={productForm.formState.isSubmitting}>
