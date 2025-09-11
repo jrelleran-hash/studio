@@ -14,7 +14,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { useToast } from "@/hooks/use-toast";
 import { updateShipmentStatus, addShipment, updatePurchaseOrderStatus } from "@/services/data-service";
 import { useData } from "@/context/data-context";
-import type { Shipment, Issuance, PurchaseOrder, Return } from "@/types";
+import type { Shipment, Issuance, PurchaseOrder, Return, OutboundReturn } from "@/types";
 import { MoreHorizontal, Package, Truck, CheckCircle, Hourglass, CalendarDays, List, PlusCircle, ArrowDown, ArrowUp, RefreshCcw } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuTrigger, DropdownMenuSeparator } from "@/components/ui/dropdown-menu";
@@ -45,6 +45,14 @@ const inboundStatusVariant: { [key: string]: "default" | "secondary" | "destruct
   Restocked: "default",
 };
 
+const outboundReturnStatusVariant: { [key: string]: "default" | "secondary" | "destructive" | "outline" } = {
+  Pending: "secondary",
+  Shipped: "outline",
+  Completed: "default",
+  Cancelled: "destructive",
+};
+
+
 const createShipmentSchema = z.object({
     issuanceId: z.string().min(1, "An issuance must be selected"),
     shippingProvider: z.string().min(1, "Shipping provider is required"),
@@ -61,9 +69,10 @@ type StatusFilter = "all" | Shipment['status'];
 type ViewMode = "list" | "calendar";
 
 export default function LogisticsPage() {
-    const { shipments, purchaseOrders, unshippedIssuances, returns, loading, refetchData } = useData();
+    const { shipments, purchaseOrders, unshippedIssuances, returns, outboundReturns, loading, refetchData } = useData();
     const [selectedShipment, setSelectedShipment] = useState<Shipment | null>(null);
     const [selectedPO, setSelectedPO] = useState<PurchaseOrder | null>(null);
+    const [selectedOutboundReturn, setSelectedOutboundReturn] = useState<OutboundReturn | null>(null);
     const [statusFilter, setStatusFilter] = useState<StatusFilter>("all");
     const [viewMode, setViewMode] = useState<ViewMode>("list");
     const [isCreateShipmentOpen, setIsCreateShipmentOpen] = useState(false);
@@ -137,7 +146,7 @@ export default function LogisticsPage() {
     );
     
     const kpiData = {
-        totalOutbound: shipments.length,
+        totalOutbound: shipments.length + outboundReturns.length,
         inTransit: shipments.filter(s => s.status === 'In Transit').length,
         delivered: shipments.filter(s => s.status === 'Delivered').length,
         totalInbound: purchaseOrders.length + returns.length,
@@ -161,7 +170,7 @@ export default function LogisticsPage() {
             
              <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-4">
                 <KpiCard
-                    title="Outbound Shipments"
+                    title="Outbound Movements"
                     value={kpiData.totalOutbound.toString()}
                     icon={<ArrowUp className="size-5 text-muted-foreground" />}
                     loading={loading}
@@ -202,188 +211,249 @@ export default function LogisticsPage() {
             {viewMode === 'list' ? (
              <Tabs defaultValue={activeTab} value={activeTab} onValueChange={setActiveTab}>
                 <TabsContent value="outbound">
-                    <Card>
-                        <CardHeader>
-                            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-                                <div>
-                                    <CardTitle>Outbound Shipments</CardTitle>
-                                    <CardDescription>A log of all shipments to clients.</CardDescription>
-                                </div>
-                                <Dialog open={isCreateShipmentOpen} onOpenChange={setIsCreateShipmentOpen}>
-                                <DialogTrigger asChild>
-                                    <Button size="sm" variant="outline" className="gap-1">
-                                        <PlusCircle className="h-4 w-4" />
-                                        Create Shipment
-                                    </Button>
-                                </DialogTrigger>
-                                <DialogContent>
-                                    <DialogHeader>
-                                        <DialogTitle>Create Shipment</DialogTitle>
-                                        <DialogDescription>
-                                            Select an issuance to create a new shipment.
-                                        </DialogDescription>
-                                    </DialogHeader>
-                                    <form onSubmit={shipmentForm.handleSubmit(onShipmentSubmit)} className="space-y-4">
-                                        <div className="space-y-2">
-                                            <Label htmlFor="issuanceId">Issuance to Ship</Label>
-                                            <Controller
-                                                control={shipmentForm.control}
-                                                name="issuanceId"
-                                                render={({ field }) => (
-                                                    <Select onValueChange={field.onChange} value={field.value}>
-                                                        <SelectTrigger>
-                                                            <SelectValue placeholder="Select an issuance..." />
-                                                        </SelectTrigger>
-                                                        <SelectContent>
-                                                            {unshippedIssuances.map(iss => (
-                                                                <SelectItem key={iss.id} value={iss.id}>
-                                                                    {iss.issuanceNumber} - {iss.client.clientName}
-                                                                </SelectItem>
-                                                            ))}
-                                                        </SelectContent>
-                                                    </Select>
-                                                )}
-                                            />
-                                            {shipmentForm.formState.errors.issuanceId && <p className="text-sm text-destructive">{shipmentForm.formState.errors.issuanceId.message}</p>}
+                    <Tabs defaultValue="deliveries">
+                        <TabsList className="mb-4">
+                            <TabsTrigger value="deliveries">Site Deliveries</TabsTrigger>
+                            <TabsTrigger value="returns">Returns to Supplier</TabsTrigger>
+                        </TabsList>
+                        <TabsContent value="deliveries">
+                            <Card>
+                                <CardHeader>
+                                    <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+                                        <div>
+                                            <CardTitle>Site Deliveries</CardTitle>
+                                            <CardDescription>A log of all shipments to clients.</CardDescription>
                                         </div>
-                                        <div className="space-y-2">
-                                            <Label htmlFor="shippingProvider">Shipping Provider</Label>
-                                            <Input id="shippingProvider" {...shipmentForm.register("shippingProvider")} />
-                                            {shipmentForm.formState.errors.shippingProvider && <p className="text-sm text-destructive">{shipmentForm.formState.errors.shippingProvider.message}</p>}
-                                        </div>
-                                        <div className="space-y-2">
-                                            <Label htmlFor="trackingNumber">Tracking Number (Optional)</Label>
-                                            <Input id="trackingNumber" {...shipmentForm.register("trackingNumber")} />
-                                        </div>
-                                        <div className="space-y-2">
-                                            <Label>Estimated Delivery Date</Label>
-                                            <Controller
-                                                control={shipmentForm.control}
-                                                name="estimatedDeliveryDate"
-                                                render={({ field }) => (
-                                                <Popover>
-                                                    <PopoverTrigger asChild>
-                                                        <Button
-                                                        variant={"outline"}
-                                                        className={cn(
-                                                            "w-full justify-start text-left font-normal",
-                                                            !field.value && "text-muted-foreground"
-                                                        )}
-                                                        >
-                                                        {field.value ? format(field.value, "PPP") : <span>Pick a date</span>}
-                                                        </Button>
-                                                    </PopoverTrigger>
-                                                    <PopoverContent className="w-auto p-0">
-                                                        <Calendar
-                                                        mode="single"
-                                                        selected={field.value}
-                                                        onSelect={field.onChange}
-                                                        initialFocus
-                                                        />
-                                                    </PopoverContent>
-                                                    </Popover>
-                                                )}
-                                            />
-                                            {shipmentForm.formState.errors.estimatedDeliveryDate && <p className="text-sm text-destructive">{shipmentForm.formState.errors.estimatedDeliveryDate.message}</p>}
-                                        </div>
-                                        <DialogFooter>
-                                            <Button type="button" variant="outline" onClick={() => setIsCreateShipmentOpen(false)}>Cancel</Button>
-                                            <Button type="submit" disabled={shipmentForm.formState.isSubmitting}>
-                                                {shipmentForm.formState.isSubmitting ? "Creating..." : "Create Shipment"}
+                                        <Dialog open={isCreateShipmentOpen} onOpenChange={setIsCreateShipmentOpen}>
+                                        <DialogTrigger asChild>
+                                            <Button size="sm" variant="outline" className="gap-1">
+                                                <PlusCircle className="h-4 w-4" />
+                                                Create Shipment
                                             </Button>
-                                        </DialogFooter>
-                                    </form>
-                                </DialogContent>
-                            </Dialog>
-                            </div>
-                        </CardHeader>
-                         <CardContent>
-                                <div className="flex items-center gap-2 mb-4">
-                                    {(["all", "Pending", "In Transit", "Delivered", "Delayed", "Cancelled"] as StatusFilter[]).map((filter) => (
-                                        <Button
-                                        key={filter}
-                                        variant={statusFilter === filter ? "secondary" : "outline"}
-                                        size="sm"
-                                        onClick={() => setStatusFilter(filter)}
-                                        className="capitalize"
-                                        >
-                                        {filter}
-                                        </Button>
-                                    ))}
-                                </div>
-                                <Table>
-                                    <TableHeader>
-                                        <TableRow>
-                                            <TableHead>Shipment #</TableHead>
-                                            <TableHead>Client</TableHead>
-                                            <TableHead>Issuance #</TableHead>
-                                            <TableHead>Date Created</TableHead>
-                                            <TableHead>Status</TableHead>
-                                            <TableHead>Carrier</TableHead>
-                                            <TableHead>Est. Delivery</TableHead>
-                                            <TableHead className="text-right">Actions</TableHead>
-                                        </TableRow>
-                                    </TableHeader>
-                                    <TableBody>
-                                        {loading ? (
-                                            Array.from({ length: 8 }).map((_, i) => (
-                                                <TableRow key={i}>
-                                                    <TableCell><Skeleton className="h-4 w-24" /></TableCell>
-                                                    <TableCell><Skeleton className="h-4 w-32" /></TableCell>
-                                                    <TableCell><Skeleton className="h-4 w-24" /></TableCell>
-                                                    <TableCell><Skeleton className="h-4 w-24" /></TableCell>
-                                                    <TableCell><Skeleton className="h-6 w-20 rounded-full" /></TableCell>
-                                                    <TableCell><Skeleton className="h-4 w-24" /></TableCell>
-                                                    <TableCell><Skeleton className="h-4 w-24" /></TableCell>
-                                                    <TableCell><Skeleton className="h-8 w-8 ml-auto" /></TableCell>
-                                                </TableRow>
-                                            ))
-                                        ) : filteredShipments.length > 0 ? (
-                                            filteredShipments.map((shipment) => (
-                                                <TableRow key={shipment.id} onClick={() => setSelectedShipment(shipment)} className="cursor-pointer">
-                                                    <TableCell className="font-medium">{shipment.shipmentNumber}</TableCell>
-                                                    <TableCell>{shipment.issuance.client.clientName}</TableCell>
-                                                    <TableCell>{shipment.issuance.issuanceNumber}</TableCell>
-                                                    <TableCell>{formatDate(shipment.createdAt)}</TableCell>
-                                                    <TableCell><Badge variant={outboudStatusVariant[shipment.status]}>{shipment.status}</Badge></TableCell>
-                                                    <TableCell>{shipment.shippingProvider}</TableCell>
-                                                    <TableCell>{formatDate(shipment.estimatedDeliveryDate)}</TableCell>
-                                                    <TableCell className="text-right">
-                                                        <DropdownMenu>
-                                                            <DropdownMenuTrigger asChild>
-                                                                <Button aria-haspopup="true" size="icon" variant="ghost" onClick={(e) => e.stopPropagation()}>
-                                                                    <MoreHorizontal className="h-4 w-4" />
-                                                                    <span className="sr-only">Toggle menu</span>
+                                        </DialogTrigger>
+                                        <DialogContent>
+                                            <DialogHeader>
+                                                <DialogTitle>Create Shipment</DialogTitle>
+                                                <DialogDescription>
+                                                    Select an issuance to create a new shipment.
+                                                </DialogDescription>
+                                            </DialogHeader>
+                                            <form onSubmit={shipmentForm.handleSubmit(onShipmentSubmit)} className="space-y-4">
+                                                <div className="space-y-2">
+                                                    <Label htmlFor="issuanceId">Issuance to Ship</Label>
+                                                    <Controller
+                                                        control={shipmentForm.control}
+                                                        name="issuanceId"
+                                                        render={({ field }) => (
+                                                            <Select onValueChange={field.onChange} value={field.value}>
+                                                                <SelectTrigger>
+                                                                    <SelectValue placeholder="Select an issuance..." />
+                                                                </SelectTrigger>
+                                                                <SelectContent>
+                                                                    {unshippedIssuances.map(iss => (
+                                                                        <SelectItem key={iss.id} value={iss.id}>
+                                                                            {iss.issuanceNumber} - {iss.client.clientName}
+                                                                        </SelectItem>
+                                                                    ))}
+                                                                </SelectContent>
+                                                            </Select>
+                                                        )}
+                                                    />
+                                                    {shipmentForm.formState.errors.issuanceId && <p className="text-sm text-destructive">{shipmentForm.formState.errors.issuanceId.message}</p>}
+                                                </div>
+                                                <div className="space-y-2">
+                                                    <Label htmlFor="shippingProvider">Shipping Provider</Label>
+                                                    <Input id="shippingProvider" {...shipmentForm.register("shippingProvider")} />
+                                                    {shipmentForm.formState.errors.shippingProvider && <p className="text-sm text-destructive">{shipmentForm.formState.errors.shippingProvider.message}</p>}
+                                                </div>
+                                                <div className="space-y-2">
+                                                    <Label htmlFor="trackingNumber">Tracking Number (Optional)</Label>
+                                                    <Input id="trackingNumber" {...shipmentForm.register("trackingNumber")} />
+                                                </div>
+                                                <div className="space-y-2">
+                                                    <Label>Estimated Delivery Date</Label>
+                                                    <Controller
+                                                        control={shipmentForm.control}
+                                                        name="estimatedDeliveryDate"
+                                                        render={({ field }) => (
+                                                        <Popover>
+                                                            <PopoverTrigger asChild>
+                                                                <Button
+                                                                variant={"outline"}
+                                                                className={cn(
+                                                                    "w-full justify-start text-left font-normal",
+                                                                    !field.value && "text-muted-foreground"
+                                                                )}
+                                                                >
+                                                                {field.value ? format(field.value, "PPP") : <span>Pick a date</span>}
                                                                 </Button>
-                                                            </DropdownMenuTrigger>
-                                                            <DropdownMenuContent align="end" onClick={(e) => e.stopPropagation()}>
-                                                                <DropdownMenuLabel>Actions</DropdownMenuLabel>
-                                                                <DropdownMenuItem onClick={() => setSelectedShipment(shipment)}>View Details</DropdownMenuItem>
-                                                                <DropdownMenuSeparator />
-                                                                <DropdownMenuItem onClick={() => handleStatusChange(shipment.id, 'In Transit')}>Mark In Transit</DropdownMenuItem>
-                                                                <DropdownMenuItem onClick={() => handleStatusChange(shipment.id, 'Delivered')}>Mark Delivered</DropdownMenuItem>
-                                                                <DropdownMenuItem onClick={() => handleStatusChange(shipment.id, 'Delayed')}>Mark Delayed</DropdownMenuItem>
-                                                                <DropdownMenuItem onClick={() => handleStatusChange(shipment.id, 'Cancelled')} className="text-destructive">Cancel Shipment</DropdownMenuItem>
-                                                            </DropdownMenuContent>
-                                                        </DropdownMenu>
-                                                    </TableCell>
+                                                            </PopoverTrigger>
+                                                            <PopoverContent className="w-auto p-0">
+                                                                <Calendar
+                                                                mode="single"
+                                                                selected={field.value}
+                                                                onSelect={field.onChange}
+                                                                initialFocus
+                                                                />
+                                                            </PopoverContent>
+                                                            </Popover>
+                                                        )}
+                                                    />
+                                                    {shipmentForm.formState.errors.estimatedDeliveryDate && <p className="text-sm text-destructive">{shipmentForm.formState.errors.estimatedDeliveryDate.message}</p>}
+                                                </div>
+                                                <DialogFooter>
+                                                    <Button type="button" variant="outline" onClick={() => setIsCreateShipmentOpen(false)}>Cancel</Button>
+                                                    <Button type="submit" disabled={shipmentForm.formState.isSubmitting}>
+                                                        {shipmentForm.formState.isSubmitting ? "Creating..." : "Create Shipment"}
+                                                    </Button>
+                                                </DialogFooter>
+                                            </form>
+                                        </DialogContent>
+                                    </Dialog>
+                                    </div>
+                                </CardHeader>
+                                <CardContent>
+                                        <div className="flex items-center gap-2 mb-4">
+                                            {(["all", "Pending", "In Transit", "Delivered", "Delayed", "Cancelled"] as StatusFilter[]).map((filter) => (
+                                                <Button
+                                                key={filter}
+                                                variant={statusFilter === filter ? "secondary" : "outline"}
+                                                size="sm"
+                                                onClick={() => setStatusFilter(filter)}
+                                                className="capitalize"
+                                                >
+                                                {filter}
+                                                </Button>
+                                            ))}
+                                        </div>
+                                        <Table>
+                                            <TableHeader>
+                                                <TableRow>
+                                                    <TableHead>Shipment #</TableHead>
+                                                    <TableHead>Client</TableHead>
+                                                    <TableHead>Issuance #</TableHead>
+                                                    <TableHead>Date Created</TableHead>
+                                                    <TableHead>Status</TableHead>
+                                                    <TableHead>Carrier</TableHead>
+                                                    <TableHead>Est. Delivery</TableHead>
+                                                    <TableHead className="text-right">Actions</TableHead>
                                                 </TableRow>
-                                            ))
-                                        ) : (
+                                            </TableHeader>
+                                            <TableBody>
+                                                {loading ? (
+                                                    Array.from({ length: 8 }).map((_, i) => (
+                                                        <TableRow key={i}>
+                                                            <TableCell><Skeleton className="h-4 w-24" /></TableCell>
+                                                            <TableCell><Skeleton className="h-4 w-32" /></TableCell>
+                                                            <TableCell><Skeleton className="h-4 w-24" /></TableCell>
+                                                            <TableCell><Skeleton className="h-4 w-24" /></TableCell>
+                                                            <TableCell><Skeleton className="h-6 w-20 rounded-full" /></TableCell>
+                                                            <TableCell><Skeleton className="h-4 w-24" /></TableCell>
+                                                            <TableCell><Skeleton className="h-4 w-24" /></TableCell>
+                                                            <TableCell><Skeleton className="h-8 w-8 ml-auto" /></TableCell>
+                                                        </TableRow>
+                                                    ))
+                                                ) : filteredShipments.length > 0 ? (
+                                                    filteredShipments.map((shipment) => (
+                                                        <TableRow key={shipment.id} onClick={() => setSelectedShipment(shipment)} className="cursor-pointer">
+                                                            <TableCell className="font-medium">{shipment.shipmentNumber}</TableCell>
+                                                            <TableCell>{shipment.issuance.client.clientName}</TableCell>
+                                                            <TableCell>{shipment.issuance.issuanceNumber}</TableCell>
+                                                            <TableCell>{formatDate(shipment.createdAt)}</TableCell>
+                                                            <TableCell><Badge variant={outboudStatusVariant[shipment.status]}>{shipment.status}</Badge></TableCell>
+                                                            <TableCell>{shipment.shippingProvider}</TableCell>
+                                                            <TableCell>{formatDate(shipment.estimatedDeliveryDate)}</TableCell>
+                                                            <TableCell className="text-right">
+                                                                <DropdownMenu>
+                                                                    <DropdownMenuTrigger asChild>
+                                                                        <Button aria-haspopup="true" size="icon" variant="ghost" onClick={(e) => e.stopPropagation()}>
+                                                                            <MoreHorizontal className="h-4 w-4" />
+                                                                            <span className="sr-only">Toggle menu</span>
+                                                                        </Button>
+                                                                    </DropdownMenuTrigger>
+                                                                    <DropdownMenuContent align="end" onClick={(e) => e.stopPropagation()}>
+                                                                        <DropdownMenuLabel>Actions</DropdownMenuLabel>
+                                                                        <DropdownMenuItem onClick={() => setSelectedShipment(shipment)}>View Details</DropdownMenuItem>
+                                                                        <DropdownMenuSeparator />
+                                                                        <DropdownMenuItem onClick={() => handleStatusChange(shipment.id, 'In Transit')}>Mark In Transit</DropdownMenuItem>
+                                                                        <DropdownMenuItem onClick={() => handleStatusChange(shipment.id, 'Delivered')}>Mark Delivered</DropdownMenuItem>
+                                                                        <DropdownMenuItem onClick={() => handleStatusChange(shipment.id, 'Delayed')}>Mark Delayed</DropdownMenuItem>
+                                                                        <DropdownMenuItem onClick={() => handleStatusChange(shipment.id, 'Cancelled')} className="text-destructive">Cancel Shipment</DropdownMenuItem>
+                                                                    </DropdownMenuContent>
+                                                                </DropdownMenu>
+                                                            </TableCell>
+                                                        </TableRow>
+                                                    ))
+                                                ) : (
+                                                    <TableRow>
+                                                        <TableCell colSpan={8} className="h-24 text-center">No shipments found for this filter.</TableCell>
+                                                    </TableRow>
+                                                )}
+                                            </TableBody>
+                                        </Table>
+                                </CardContent>
+                            </Card>
+                        </TabsContent>
+                         <TabsContent value="returns">
+                           <Card>
+                                <CardHeader>
+                                    <CardTitle>Returns to Supplier</CardTitle>
+                                    <CardDescription>A log of all returns to suppliers.</CardDescription>
+                                </CardHeader>
+                                <CardContent>
+                                    <Table>
+                                        <TableHeader>
                                             <TableRow>
-                                                <TableCell colSpan={8} className="h-24 text-center">No shipments found for this filter.</TableCell>
+                                                <TableHead>RTS #</TableHead>
+                                                <TableHead>Supplier</TableHead>
+                                                <TableHead>PO #</TableHead>
+                                                <TableHead>Date Initiated</TableHead>
+                                                <TableHead>Status</TableHead>
+                                                <TableHead className="text-right">Actions</TableHead>
                                             </TableRow>
-                                        )}
-                                    </TableBody>
-                                </Table>
-                        </CardContent>
-                    </Card>
+                                        </TableHeader>
+                                        <TableBody>
+                                            {loading ? (
+                                                Array.from({ length: 4 }).map((_, i) => (
+                                                    <TableRow key={i}>
+                                                        <TableCell><Skeleton className="h-4 w-24" /></TableCell>
+                                                        <TableCell><Skeleton className="h-4 w-32" /></TableCell>
+                                                        <TableCell><Skeleton className="h-4 w-24" /></TableCell>
+                                                        <TableCell><Skeleton className="h-4 w-24" /></TableCell>
+                                                        <TableCell><Skeleton className="h-6 w-20 rounded-full" /></TableCell>
+                                                        <TableCell><Skeleton className="h-8 w-8 ml-auto" /></TableCell>
+                                                    </TableRow>
+                                                ))
+                                            ) : outboundReturns.length > 0 ? (
+                                                outboundReturns.map((ret) => (
+                                                    <TableRow key={ret.id} onClick={() => setSelectedOutboundReturn(ret)} className="cursor-pointer">
+                                                        <TableCell className="font-medium">{ret.rtsNumber}</TableCell>
+                                                        <TableCell>{ret.supplier.name}</TableCell>
+                                                        <TableCell>{ret.poNumber}</TableCell>
+                                                        <TableCell>{formatDate(ret.dateInitiated)}</TableCell>
+                                                        <TableCell><Badge variant={outboundReturnStatusVariant[ret.status]}>{ret.status}</Badge></TableCell>
+                                                        <TableCell className="text-right">
+                                                           <Button variant="outline" size="sm">View</Button>
+                                                        </TableCell>
+                                                    </TableRow>
+                                                ))
+                                            ) : (
+                                                <TableRow>
+                                                    <TableCell colSpan={6} className="h-24 text-center">No outbound returns found.</TableCell>
+                                                </TableRow>
+                                            )}
+                                        </TableBody>
+                                    </Table>
+                                </CardContent>
+                            </Card>
+                        </TabsContent>
+                    </Tabs>
                 </TabsContent>
                 <TabsContent value="inbound">
                     <Tabs defaultValue="po">
                         <TabsList className="mb-4">
                             <TabsTrigger value="po">Purchase Orders</TabsTrigger>
-                            <TabsTrigger value="returns">Returns</TabsTrigger>
+                            <TabsTrigger value="returns">Returns from Client</TabsTrigger>
                         </TabsList>
                         <TabsContent value="po">
                             <Card>
@@ -460,7 +530,7 @@ export default function LogisticsPage() {
                         <TabsContent value="returns">
                             <Card>
                                 <CardHeader>
-                                    <CardTitle>Inbound Returns</CardTitle>
+                                    <CardTitle>Inbound Returns from Client</CardTitle>
                                     <CardDescription>A log of all customer returns.</CardDescription>
                                 </CardHeader>
                                 <CardContent>
@@ -581,8 +651,35 @@ export default function LogisticsPage() {
                     </DialogContent>
                 </Dialog>
             )}
+            {selectedOutboundReturn && (
+                <Dialog open={!!selectedOutboundReturn} onOpenChange={(open) => !open && setSelectedOutboundReturn(null)}>
+                <DialogContent>
+                    <DialogHeader>
+                    <DialogTitle>Outbound Return: {selectedOutboundReturn.rtsNumber}</DialogTitle>
+                    <DialogDescription>
+                        To Supplier: {selectedOutboundReturn.supplier.name} for PO: {selectedOutboundReturn.poNumber}
+                    </DialogDescription>
+                    </DialogHeader>
+                    <div className="py-4 space-y-4">
+                    <div>
+                        <strong>Reason for Return:</strong>
+                        <p className="text-sm text-muted-foreground p-2 bg-muted/50 rounded-md">{selectedOutboundReturn.reason}</p>
+                    </div>
+                    <div>
+                        <h4 className="font-semibold mb-2">Items being returned:</h4>
+                        <ul className="list-disc list-inside text-muted-foreground space-y-1">
+                        {selectedOutboundReturn.items.map(item => (
+                            <li key={item.productId}>{item.quantity} x {item.name} ({item.sku})</li>
+                        ))}
+                        </ul>
+                    </div>
+                    </div>
+                    <DialogFooter>
+                    <Button variant="outline" onClick={() => setSelectedOutboundReturn(null)}>Close</Button>
+                    </DialogFooter>
+                </DialogContent>
+                </Dialog>
+            )}
         </div>
     );
 }
-
-    
