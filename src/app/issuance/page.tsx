@@ -276,6 +276,7 @@ export default function IssuancePage() {
   
   const watchedReturnItems = returnForm.watch('items');
   const returnTotal = useMemo(() => {
+    if (!watchedReturnItems) return 0;
     return watchedReturnItems.reduce((total, item) => {
         if (!item.selected || !item.returnQuantity) return total;
         const product = products.find(p => p.id === item.productId);
