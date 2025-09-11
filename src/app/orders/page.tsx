@@ -7,7 +7,7 @@ import { useForm, useFieldArray, Controller } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
 import { PlusCircle, MoreHorizontal, X, Plus, RefreshCcw, ChevronsUpDown, Check } from "lucide-react";
-import { Timestamp } from "firebase/firestore";
+import { Timestamp, doc } from "firebase/firestore";
 import { format } from "date-fns";
 
 import { Button, buttonVariants } from "@/components/ui/button";
@@ -58,6 +58,8 @@ import { useData } from "@/context/data-context";
 import { Checkbox } from "@/components/ui/checkbox";
 import { validateEmailAction } from "./actions";
 import { Textarea } from "@/components/ui/textarea";
+import { db } from "@/lib/firebase";
+import { Separator } from "@/components/ui/separator";
 
 
 const statusVariant: { [key: string]: "default" | "secondary" | "destructive" | "outline" } = {
@@ -295,6 +297,15 @@ export default function OrdersAndSuppliersPage() {
     control: outboundReturnForm.control,
     name: "items",
   });
+
+  const orderFormItems = orderForm.watch("items");
+  const orderTotal = useMemo(() => {
+    return orderFormItems.reduce((total, item) => {
+      const product = products.find(p => p.id === item.productId);
+      return total + (product ? product.price * item.quantity : 0);
+    }, 0);
+  }, [orderFormItems, products]);
+
 
   const purchaseQueue: Backorder[] = useMemo(() => {
     // Add items that have hit their reorder limit and are not already queued for purchase
@@ -818,8 +829,11 @@ export default function OrdersAndSuppliersPage() {
                                                         <CommandItem
                                                             key={c.id}
                                                             value={c.clientName}
-                                                            onSelect={() => {
-                                                                field.onChange(c.id)
+                                                            onSelect={(currentValue) => {
+                                                                const selectedId = clients.find(client => client.clientName.toLowerCase() === currentValue.toLowerCase())?.id;
+                                                                if(selectedId){
+                                                                    field.onChange(selectedId)
+                                                                }
                                                                 setOrderClientPopover(false);
                                                             }}
                                                         >
@@ -847,77 +861,103 @@ export default function OrdersAndSuppliersPage() {
                             <Label>Items Requested</Label>
                         </div>
                         <div className="space-y-2">
-                        {fields.map((field, index) => (
-                            <div key={field.id} className="flex items-center gap-2">
-                            <Controller
-                                control={orderForm.control}
-                                name={`items.${index}.productId`}
-                                render={({ field: controllerField }) => (
-                                    <Popover open={orderProductPopovers[index]} onOpenChange={(open) => setOrderProductPopovers(prev => ({...prev, [index]: open}))}>
-                                        <PopoverTrigger asChild>
-                                            <Button
-                                                variant="outline"
-                                                role="combobox"
-                                                className={cn("w-full justify-between", !controllerField.value && "text-muted-foreground")}
-                                            >
-                                                {controllerField.value ? products.find(p => p.id === controllerField.value)?.name : "Select a product"}
-                                                <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
-                                            </Button>
-                                        </PopoverTrigger>
-                                        <PopoverContent className="w-[--radix-popover-trigger-width] p-0">
-                                            <Command>
-                                                <CommandInput placeholder="Search product..." />
-                                                <CommandEmpty>No product found.</CommandEmpty>
-                                                <CommandList>
-                                                    <CommandGroup>
-                                                        {products.map(p => (
-                                                            <CommandItem
-                                                                key={p.id}
-                                                                value={p.name}
-                                                                onSelect={() => {
-                                                                    controllerField.onChange(p.id)
-                                                                    setOrderProductPopovers(prev => ({...prev, [index]: false}));
-                                                                }}
+                        {fields.map((field, index) => {
+                            const selectedProductId = orderFormItems?.[index]?.productId;
+                            const selectedProduct = products.find(p => p.id === selectedProductId);
+                            const lineSubtotal = selectedProduct ? selectedProduct.price * (orderFormItems?.[index]?.quantity || 0) : 0;
+                            
+                            return (
+                                <div key={field.id} className="space-y-2">
+                                    <div className="flex items-start gap-2">
+                                        <div className="flex-grow">
+                                            <Controller
+                                                control={orderForm.control}
+                                                name={`items.${index}.productId`}
+                                                render={({ field: controllerField }) => (
+                                                    <Popover open={orderProductPopovers[index]} onOpenChange={(open) => setOrderProductPopovers(prev => ({...prev, [index]: open}))}>
+                                                        <PopoverTrigger asChild>
+                                                            <Button
+                                                                variant="outline"
+                                                                role="combobox"
+                                                                className={cn("w-full justify-between", !controllerField.value && "text-muted-foreground")}
                                                             >
-                                                                 <div className="flex items-center justify-between w-full">
-                                                                    <div className="flex items-center">
-                                                                        <Check
-                                                                            className={cn(
-                                                                                "mr-2 h-4 w-4",
-                                                                                controllerField.value === p.id ? "opacity-100" : "opacity-0"
-                                                                            )}
-                                                                        />
-                                                                        {p.name}
-                                                                    </div>
-                                                                    <span className="ml-auto text-xs text-muted-foreground">
-                                                                        Stock: {p.stock}
-                                                                    </span>
-                                                                </div>
-                                                            </CommandItem>
-                                                        ))}
-                                                    </CommandGroup>
-                                                </CommandList>
-                                            </Command>
-                                        </PopoverContent>
-                                    </Popover>
-                                )}
-                            />
-                            <Input 
-                                type="number" 
-                                placeholder="Qty" 
-                                className="w-20"
-                                {...orderForm.register(`items.${index}.quantity`)}
-                            />
-                            <Button variant="ghost" size="icon" onClick={() => remove(index)}>
-                                <X className="h-4 w-4" />
-                            </Button>
-                            </div>
-                        ))}
+                                                                {controllerField.value ? products.find(p => p.id === controllerField.value)?.name : "Select a product"}
+                                                                <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                                                            </Button>
+                                                        </PopoverTrigger>
+                                                        <PopoverContent className="w-[--radix-popover-trigger-width] p-0">
+                                                            <Command>
+                                                                <CommandInput placeholder="Search product..." />
+                                                                <CommandEmpty>No product found.</CommandEmpty>
+                                                                <CommandList>
+                                                                    <CommandGroup>
+                                                                        {products.map(p => (
+                                                                            <CommandItem
+                                                                                key={p.id}
+                                                                                value={p.name}
+                                                                                onSelect={(currentValue) => {
+                                                                                    const selectedId = products.find(prod => prod.name.toLowerCase() === currentValue.toLowerCase())?.id
+                                                                                    if(selectedId) {
+                                                                                        controllerField.onChange(selectedId)
+                                                                                    }
+                                                                                    setOrderProductPopovers(prev => ({...prev, [index]: false}));
+                                                                                }}
+                                                                            >
+                                                                                <div className="flex items-center justify-between w-full">
+                                                                                    <div className="flex items-center">
+                                                                                        <Check
+                                                                                            className={cn(
+                                                                                                "mr-2 h-4 w-4",
+                                                                                                controllerField.value === p.id ? "opacity-100" : "opacity-0"
+                                                                                            )}
+                                                                                        />
+                                                                                        {p.name}
+                                                                                    </div>
+                                                                                    <span className="ml-auto text-xs text-muted-foreground">
+                                                                                        Stock: {p.stock}
+                                                                                    </span>
+                                                                                </div>
+                                                                            </CommandItem>
+                                                                        ))}
+                                                                    </CommandGroup>
+                                                                </CommandList>
+                                                            </Command>
+                                                        </PopoverContent>
+                                                    </Popover>
+                                                )}
+                                            />
+                                        </div>
+                                        <Input 
+                                            type="number" 
+                                            placeholder="Qty" 
+                                            className="w-20"
+                                            {...orderForm.register(`items.${index}.quantity`)}
+                                        />
+                                        <Button variant="ghost" size="icon" onClick={() => remove(index)}>
+                                            <X className="h-4 w-4" />
+                                        </Button>
+                                    </div>
+                                    {selectedProduct && (
+                                        <div className="flex justify-between items-center text-xs text-muted-foreground pl-1 pr-12">
+                                            <span>Price: {formatCurrency(selectedProduct.price)}</span>
+                                            <span>Subtotal: {formatCurrency(lineSubtotal)}</span>
+                                        </div>
+                                    )}
+                                </div>
+                            );
+                        })}
                         </div>
                         {orderForm.formState.errors.items && <p className="text-sm text-destructive">{typeof orderForm.formState.errors.items === 'object' && 'message' in orderForm.formState.errors.items ? orderForm.formState.errors.items.message : 'Please add at least one item.'}</p>}
                         <Button type="button" variant="outline" size="sm" onClick={() => append({ productId: "", quantity: 1 })}>
                         <PlusCircle className="h-4 w-4 mr-2" /> Add Item
                         </Button>
+                    </div>
+
+                    <Separator />
+                    
+                    <div className="flex justify-end items-center gap-4 pr-12">
+                        <span className="font-semibold">Grand Total:</span>
+                        <span className="font-bold text-lg">{formatCurrency(orderTotal)}</span>
                     </div>
                     
                     <DialogFooter>
@@ -973,8 +1013,11 @@ export default function OrdersAndSuppliersPage() {
                                                         <CommandItem
                                                             key={s.id}
                                                             value={s.name}
-                                                            onSelect={() => {
-                                                                field.onChange(s.id)
+                                                            onSelect={(currentValue) => {
+                                                                const selectedId = suppliers.find(sup => sup.name.toLowerCase() === currentValue.toLowerCase())?.id
+                                                                if(selectedId) {
+                                                                    field.onChange(selectedId)
+                                                                }
                                                                 setPoSupplierPopover(false);
                                                             }}
                                                         >
@@ -1026,8 +1069,11 @@ export default function OrdersAndSuppliersPage() {
                                                         <CommandItem
                                                             key={c.id}
                                                             value={c.clientName}
-                                                            onSelect={() => {
-                                                                field.onChange(c.id);
+                                                            onSelect={(currentValue) => {
+                                                                const selectedId = clients.find(client => client.clientName.toLowerCase() === currentValue.toLowerCase())?.id
+                                                                if(selectedId) {
+                                                                    field.onChange(selectedId);
+                                                                }
                                                                 setPoClientPopover(false);
                                                             }}
                                                         >
@@ -1081,8 +1127,11 @@ export default function OrdersAndSuppliersPage() {
                                                                 <CommandItem
                                                                     key={p.id}
                                                                     value={p.name}
-                                                                    onSelect={() => {
-                                                                        controllerField.onChange(p.id)
+                                                                    onSelect={(currentValue) => {
+                                                                         const selectedId = products.find(prod => prod.name.toLowerCase() === currentValue.toLowerCase())?.id
+                                                                        if(selectedId) {
+                                                                            controllerField.onChange(selectedId)
+                                                                        }
                                                                         setPoProductPopovers(prev => ({...prev, [index]: false}));
                                                                     }}
                                                                 >
@@ -1914,7 +1963,3 @@ export default function OrdersAndSuppliersPage() {
     </>
   );
 }
-
-
-
-

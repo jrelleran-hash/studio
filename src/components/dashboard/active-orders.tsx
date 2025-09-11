@@ -107,7 +107,13 @@ export function ActiveOrders() {
     name: "items",
   });
   
-  const watchedItems = orderForm.watch("items");
+  const orderFormItems = orderForm.watch("items");
+  const orderTotal = useMemo(() => {
+    return orderFormItems.reduce((total, item) => {
+      const product = products.find(p => p.id === item.productId);
+      return total + (product ? product.price * item.quantity : 0);
+    }, 0);
+  }, [orderFormItems, products]);
 
 
    const productForm = useForm<ProductFormValues>({
@@ -178,7 +184,7 @@ export function ActiveOrders() {
   
   const onOrderSubmit = async (data: OrderFormValues) => {
     try {
-      await addOrder({ ...data, status: "Processing" });
+      await addOrder({ ...data });
       toast({ title: "Success", description: "New order created." });
       setIsAddOrderOpen(false);
       orderForm.reset();
@@ -244,7 +250,6 @@ export function ActiveOrders() {
                 productId: item.product.id,
                 quantity: item.quantity
             })),
-            status: 'Processing' as const,
             reorderedFrom: order.id,
         };
         await addOrder(reorderData);
@@ -339,9 +344,12 @@ export function ActiveOrders() {
                                             {clients.map(c => (
                                                 <CommandItem
                                                     key={c.id}
-                                                    value={c.id}
+                                                    value={c.clientName}
                                                     onSelect={(currentValue) => {
-                                                        field.onChange(currentValue);
+                                                        const selectedId = clients.find(client => client.clientName.toLowerCase() === currentValue.toLowerCase())?.id;
+                                                        if(selectedId){
+                                                            field.onChange(selectedId)
+                                                        }
                                                         setIsClientPopoverOpen(false);
                                                     }}
                                                 >
@@ -370,77 +378,87 @@ export function ActiveOrders() {
                 </div>
                 <div className="space-y-2">
                   {fields.map((field, index) => {
-                    const selectedProductId = watchedItems?.[index]?.productId;
-                    const selectedProduct = products.find(p => p.id === selectedProductId);
-                    const stockPlaceholder = selectedProduct ? `Stock: ${selectedProduct.stock}` : 'Qty';
+                     const selectedProductId = orderFormItems?.[index]?.productId;
+                     const selectedProduct = products.find(p => p.id === selectedProductId);
+                     const lineSubtotal = selectedProduct ? selectedProduct.price * (orderFormItems?.[index]?.quantity || 0) : 0;
 
                     return (
-                        <div key={field.id} className="flex items-center gap-2">
-                          <Controller
-                              control={orderForm.control}
-                              name={`items.${index}.productId`}
-                              render={({ field: controllerField }) => (
-                                  <Popover open={productPopovers[index]} onOpenChange={(open) => setProductPopovers(prev => ({...prev, [index]: open}))}>
-                                      <PopoverTrigger asChild>
-                                          <Button
-                                              variant="outline"
-                                              role="combobox"
-                                              className={cn("w-full justify-between", !controllerField.value && "text-muted-foreground")}
-                                          >
-                                              {controllerField.value ? products.find(p => p.id === controllerField.value)?.name : "Select a product"}
-                                              <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
-                                          </Button>
-                                      </PopoverTrigger>
-                                      <PopoverContent className="w-[--radix-popover-trigger-width] p-0">
-                                          <Command>
-                                              <CommandInput placeholder="Search product..." />
-                                              <CommandEmpty>No product found.</CommandEmpty>
-                                              <CommandList>
-                                                  <CommandGroup>
-                                                      {products.map(p => (
-                                                          <CommandItem
-                                                              key={p.id}
-                                                              value={p.name}
-                                                              onSelect={(currentValue) => {
-                                                                  const selected = products.find(prod => prod.name.toLowerCase() === currentValue.toLowerCase());
-                                                                  if(selected) {
-                                                                      controllerField.onChange(selected.id)
-                                                                  }
-                                                                  setProductPopovers(prev => ({...prev, [index]: false}));
-                                                              }}
-                                                          >
-                                                              <div className="flex items-center justify-between w-full">
-                                                                  <div className="flex items-center">
-                                                                      <Check
-                                                                          className={cn(
-                                                                              "mr-2 h-4 w-4",
-                                                                              controllerField.value === p.id ? "opacity-100" : "opacity-0"
-                                                                          )}
-                                                                      />
-                                                                      {p.name}
-                                                                  </div>
-                                                                  <span className="ml-auto text-xs text-muted-foreground">
-                                                                      Stock: {p.stock}
-                                                                  </span>
-                                                              </div>
-                                                          </CommandItem>
-                                                      ))}
-                                                  </CommandGroup>
-                                              </CommandList>
-                                          </Command>
-                                      </PopoverContent>
-                                  </Popover>
-                              )}
-                          />
-                          <Input 
-                            type="number" 
-                            placeholder={stockPlaceholder}
-                            className="w-28"
-                            {...orderForm.register(`items.${index}.quantity`)}
-                          />
-                          <Button variant="ghost" size="icon" onClick={() => remove(index)}>
-                            <X className="h-4 w-4" />
-                          </Button>
+                        <div key={field.id} className="space-y-2">
+                            <div className="flex items-start gap-2">
+                                <div className="flex-grow">
+                                    <Controller
+                                        control={orderForm.control}
+                                        name={`items.${index}.productId`}
+                                        render={({ field: controllerField }) => (
+                                            <Popover open={productPopovers[index]} onOpenChange={(open) => setProductPopovers(prev => ({...prev, [index]: open}))}>
+                                                <PopoverTrigger asChild>
+                                                    <Button
+                                                        variant="outline"
+                                                        role="combobox"
+                                                        className={cn("w-full justify-between", !controllerField.value && "text-muted-foreground")}
+                                                    >
+                                                        {controllerField.value ? products.find(p => p.id === controllerField.value)?.name : "Select a product"}
+                                                        <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                                                    </Button>
+                                                </PopoverTrigger>
+                                                <PopoverContent className="w-[--radix-popover-trigger-width] p-0">
+                                                    <Command>
+                                                        <CommandInput placeholder="Search product..." />
+                                                        <CommandEmpty>No product found.</CommandEmpty>
+                                                        <CommandList>
+                                                            <CommandGroup>
+                                                                {products.map(p => (
+                                                                    <CommandItem
+                                                                        key={p.id}
+                                                                        value={p.name}
+                                                                        onSelect={(currentValue) => {
+                                                                            const selectedId = products.find(prod => prod.name.toLowerCase() === currentValue.toLowerCase())?.id
+                                                                            if(selectedId) {
+                                                                                controllerField.onChange(selectedId)
+                                                                            }
+                                                                            setProductPopovers(prev => ({...prev, [index]: false}));
+                                                                        }}
+                                                                    >
+                                                                        <div className="flex items-center justify-between w-full">
+                                                                            <div className="flex items-center">
+                                                                                <Check
+                                                                                    className={cn(
+                                                                                        "mr-2 h-4 w-4",
+                                                                                        controllerField.value === p.id ? "opacity-100" : "opacity-0"
+                                                                                    )}
+                                                                                />
+                                                                                {p.name}
+                                                                            </div>
+                                                                            <span className="ml-auto text-xs text-muted-foreground">
+                                                                                Stock: {p.stock}
+                                                                            </span>
+                                                                        </div>
+                                                                    </CommandItem>
+                                                                ))}
+                                                            </CommandGroup>
+                                                        </CommandList>
+                                                    </Command>
+                                                </PopoverContent>
+                                            </Popover>
+                                        )}
+                                    />
+                                </div>
+                                <Input 
+                                  type="number" 
+                                  placeholder="Qty"
+                                  className="w-20"
+                                  {...orderForm.register(`items.${index}.quantity`)}
+                                />
+                                <Button variant="ghost" size="icon" onClick={() => remove(index)}>
+                                  <X className="h-4 w-4" />
+                                </Button>
+                            </div>
+                            {selectedProduct && (
+                                <div className="flex justify-between items-center text-xs text-muted-foreground pl-1 pr-12">
+                                    <span>Price: {formatCurrency(selectedProduct.price)}</span>
+                                    <span>Subtotal: {formatCurrency(lineSubtotal)}</span>
+                                </div>
+                            )}
                         </div>
                     );
                    })}
@@ -450,11 +468,12 @@ export function ActiveOrders() {
                   <PlusCircle className="h-4 w-4 mr-2" /> Add Item
                 </Button>
               </div>
-               <div className="space-y-2">
-                  <Label>Status</Label>
-                  <p className="flex h-10 w-full items-center rounded-md border border-input bg-background px-3 py-2 text-sm text-muted-foreground">
-                    Processing
-                  </p>
+
+               <Separator />
+                    
+                <div className="flex justify-end items-center gap-4 pr-12">
+                    <span className="font-semibold">Grand Total:</span>
+                    <span className="font-bold text-lg">{formatCurrency(orderTotal)}</span>
                 </div>
 
               <DialogFooter>
