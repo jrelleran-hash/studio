@@ -6,7 +6,7 @@ import { useState, useEffect, useMemo, useCallback } from "react";
 import { useForm, useFieldArray, Controller } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
-import { PlusCircle, MoreHorizontal, X, Plus, RefreshCcw } from "lucide-react";
+import { PlusCircle, MoreHorizontal, X, Plus, RefreshCcw, ChevronsUpDown, Check } from "lucide-react";
 import { Timestamp } from "firebase/firestore";
 import { format } from "date-fns";
 
@@ -47,6 +47,8 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
@@ -860,26 +862,51 @@ export default function OrdersAndSuppliersPage() {
                         <div className="space-y-2">
                         {fields.map((field, index) => (
                             <div key={field.id} className="flex items-center gap-2">
-                            <Select onValueChange={(value) => orderForm.setValue(`items.${index}.productId`, value)}>
-                                <SelectTrigger>
-                                    <SelectValue placeholder="Select a product" />
-                                </SelectTrigger>
-                                <SelectContent>
-                                    {products.map(p => <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>)}
-                                    <Separator />
-                                    <div
-                                    className={cn(
-                                        "relative flex w-full cursor-pointer select-none items-center rounded-sm py-1.5 pl-8 pr-2 text-sm outline-none focus:bg-accent focus:text-accent-foreground data-[disabled]:pointer-events-none data-[disabled]:opacity-50"
-                                    )}
-                                    onMouseDown={(e) => {
-                                        e.preventDefault();
-                                        setIsAddProductOpen(true);
-                                    }}
-                                    >
-                                        <Plus className="h-4 w-4 mr-2"/> Add New Product
-                                    </div>
-                                </SelectContent>
-                            </Select>
+                            <Controller
+                                control={orderForm.control}
+                                name={`items.${index}.productId`}
+                                render={({ field: { onChange, value } }) => (
+                                    <Popover>
+                                        <PopoverTrigger asChild>
+                                            <Button
+                                                variant="outline"
+                                                role="combobox"
+                                                className="w-full justify-between"
+                                            >
+                                                {value ? products.find(p => p.id === value)?.name : "Select a product"}
+                                                <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                                            </Button>
+                                        </PopoverTrigger>
+                                        <PopoverContent className="w-full p-0">
+                                            <Command>
+                                                <CommandInput placeholder="Search product..." />
+                                                <CommandEmpty>No product found.</CommandEmpty>
+                                                <CommandList>
+                                                    <CommandGroup>
+                                                        {products.map(p => (
+                                                            <CommandItem
+                                                                key={p.id}
+                                                                value={p.id}
+                                                                onSelect={(currentValue) => {
+                                                                    onChange(currentValue === value ? "" : currentValue);
+                                                                }}
+                                                            >
+                                                                <Check
+                                                                    className={cn(
+                                                                        "mr-2 h-4 w-4",
+                                                                        value === p.id ? "opacity-100" : "opacity-0"
+                                                                    )}
+                                                                />
+                                                                {p.name}
+                                                            </CommandItem>
+                                                        ))}
+                                                    </CommandGroup>
+                                                </CommandList>
+                                            </Command>
+                                        </PopoverContent>
+                                    </Popover>
+                                )}
+                            />
                             <Input 
                                 type="number" 
                                 placeholder="Qty" 
@@ -951,27 +978,46 @@ export default function OrdersAndSuppliersPage() {
                              <Controller
                                     control={poForm.control}
                                     name={`items.${index}.productId`}
-                                    render={({ field: controllerField }) => (
-                                        <Select onValueChange={controllerField.onChange} defaultValue={controllerField.value} value={controllerField.value}>
-                                        <SelectTrigger>
-                                            <SelectValue placeholder="Select a product" />
-                                        </SelectTrigger>
-                                        <SelectContent>
-                                            {products.map(p => <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>)}
-                                            <Separator />
-                                            <div
-                                            className={cn(
-                                                "relative flex w-full cursor-pointer select-none items-center rounded-sm py-1.5 pl-8 pr-2 text-sm outline-none focus:bg-accent focus:text-accent-foreground data-[disabled]:pointer-events-none data-[disabled]:opacity-50"
-                                            )}
-                                            onMouseDown={(e) => {
-                                                e.preventDefault();
-                                                setIsAddProductOpen(true);
-                                            }}
-                                            >
-                                                <Plus className="h-4 w-4 mr-2"/> Add New Product
-                                            </div>
-                                        </SelectContent>
-                                        </Select>
+                                    render={({ field: { onChange, value } }) => (
+                                        <Popover>
+                                            <PopoverTrigger asChild>
+                                                <Button
+                                                    variant="outline"
+                                                    role="combobox"
+                                                    className="w-full justify-between"
+                                                >
+                                                    {value ? products.find(p => p.id === value)?.name : "Select a product"}
+                                                    <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                                                </Button>
+                                            </PopoverTrigger>
+                                            <PopoverContent className="w-full p-0">
+                                                <Command>
+                                                    <CommandInput placeholder="Search product..." />
+                                                    <CommandEmpty>No product found.</CommandEmpty>
+                                                    <CommandList>
+                                                        <CommandGroup>
+                                                            {products.map(p => (
+                                                                <CommandItem
+                                                                    key={p.id}
+                                                                    value={p.id}
+                                                                    onSelect={(currentValue) => {
+                                                                        onChange(currentValue === value ? "" : currentValue);
+                                                                    }}
+                                                                >
+                                                                    <Check
+                                                                        className={cn(
+                                                                            "mr-2 h-4 w-4",
+                                                                            value === p.id ? "opacity-100" : "opacity-0"
+                                                                        )}
+                                                                    />
+                                                                    {p.name}
+                                                                </CommandItem>
+                                                            ))}
+                                                        </CommandGroup>
+                                                    </CommandList>
+                                                </Command>
+                                            </PopoverContent>
+                                        </Popover>
                                     )}
                                 />
                             <Input 

@@ -1,11 +1,12 @@
 
+
 "use client";
 
 import { useState, useEffect, useMemo, useRef } from "react";
 import { useForm, useFieldArray, Controller } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
-import { PlusCircle, MoreHorizontal, X, Printer, ChevronDown, Truck, RefreshCcw } from "lucide-react";
+import { PlusCircle, MoreHorizontal, X, Printer, ChevronDown, Truck, RefreshCcw, ChevronsUpDown, Check } from "lucide-react";
 
 import { Button, buttonVariants } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -58,6 +59,7 @@ import { Badge } from "@/components/ui/badge";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { cn } from "@/lib/utils";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
 import { Calendar } from "@/components/ui/calendar";
 import { Checkbox } from "@/components/ui/checkbox";
 import { DialogTrigger } from "@/components/ui/dialog";
@@ -596,19 +598,48 @@ export default function IssuancePage() {
                             <Controller
                                 control={form.control}
                                 name={`items.${index}.productId`}
-                                render={({ field }) => (
-                                    <Select onValueChange={(value) => field.onChange(value)} value={field.value} disabled={!!form.getValues('orderId')}>
-                                    <SelectTrigger>
-                                        <SelectValue placeholder="Select a product" />
-                                    </SelectTrigger>
-                                    <SelectContent>
-                                        {products.map(p => (
-                                          <SelectItem key={p.id} value={p.id} disabled={p.stock === 0}>
-                                            {p.name} (Stock: {p.stock})
-                                          </SelectItem>
-                                        ))}
-                                    </SelectContent>
-                                    </Select>
+                                render={({ field: { onChange, value } }) => (
+                                    <Popover>
+                                        <PopoverTrigger asChild>
+                                            <Button
+                                                variant="outline"
+                                                role="combobox"
+                                                className={cn("w-full justify-between", !value && "text-muted-foreground")}
+                                                disabled={!!form.getValues('orderId')}
+                                            >
+                                                {value ? products.find(p => p.id === value)?.name : "Select a product"}
+                                                <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                                            </Button>
+                                        </PopoverTrigger>
+                                        <PopoverContent className="w-[--radix-popover-trigger-width] p-0">
+                                            <Command>
+                                                <CommandInput placeholder="Search product..." />
+                                                <CommandEmpty>No product found.</CommandEmpty>
+                                                <CommandList>
+                                                    <CommandGroup>
+                                                        {products.map(p => (
+                                                            <CommandItem
+                                                                key={p.id}
+                                                                value={p.id}
+                                                                onSelect={(currentValue) => {
+                                                                    onChange(currentValue === value ? "" : currentValue);
+                                                                }}
+                                                                disabled={p.stock === 0}
+                                                            >
+                                                                <Check
+                                                                    className={cn(
+                                                                        "mr-2 h-4 w-4",
+                                                                        value === p.id ? "opacity-100" : "opacity-0"
+                                                                    )}
+                                                                />
+                                                                {p.name} (Stock: {p.stock})
+                                                            </CommandItem>
+                                                        ))}
+                                                    </CommandGroup>
+                                                </CommandList>
+                                            </Command>
+                                        </PopoverContent>
+                                    </Popover>
                                 )}
                             />
                             {form.formState.errors.items?.[index]?.productId && <p className="text-sm text-destructive">{form.formState.errors.items?.[index]?.productId?.message}</p>}
