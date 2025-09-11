@@ -88,7 +88,9 @@ export function ActiveOrders() {
   const [autoGenerateSku, setAutoGenerateSku] = useState(true);
   const [isReordered, setIsReordered] = useState(false);
   const [deletingOrderId, setDeletingOrderId] = useState<string | null>(null);
-
+  
+  const [isClientPopoverOpen, setIsClientPopoverOpen] = useState(false);
+  const [productPopoverOpen, setProductPopoverOpen] = useState<{[key: number]: boolean}>({});
 
   const productSchema = useMemo(() => createProductSchema(autoGenerateSku), [autoGenerateSku]);
 
@@ -315,7 +317,7 @@ export function ActiveOrders() {
                     control={orderForm.control}
                     name="clientId"
                     render={({ field }) => (
-                        <Popover>
+                        <Popover open={isClientPopoverOpen} onOpenChange={setIsClientPopoverOpen}>
                             <PopoverTrigger asChild>
                                 <Button
                                     variant="outline"
@@ -339,7 +341,8 @@ export function ActiveOrders() {
                                                     key={c.id}
                                                     value={`${c.clientName} ${c.projectName}`}
                                                     onSelect={() => {
-                                                        orderForm.setValue("clientId", c.id);
+                                                        field.onChange(c.id);
+                                                        setIsClientPopoverOpen(false);
                                                     }}
                                                 >
                                                     <Check
@@ -377,7 +380,7 @@ export function ActiveOrders() {
                               control={orderForm.control}
                               name={`items.${index}.productId`}
                               render={({ field: controllerField }) => (
-                                  <Popover>
+                                  <Popover open={productPopoverOpen[index]} onOpenChange={(open) => setProductPopoverOpen(prev => ({...prev, [index]: open}))}>
                                       <PopoverTrigger asChild>
                                           <Button
                                               variant="outline"
@@ -399,7 +402,8 @@ export function ActiveOrders() {
                                                               key={p.id}
                                                               value={p.name}
                                                               onSelect={() => {
-                                                                  orderForm.setValue(`items.${index}.productId`, p.id);
+                                                                  controllerField.onChange(p.id)
+                                                                  setProductPopoverOpen(prev => ({...prev, [index]: false}))
                                                               }}
                                                           >
                                                               <Check
@@ -635,5 +639,3 @@ export function ActiveOrders() {
     </>
   );
 }
-
-    

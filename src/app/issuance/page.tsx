@@ -235,6 +235,10 @@ export default function IssuancePage() {
   const printableRef = useRef<HTMLDivElement>(null);
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
   const [deletingIssuanceId, setDeletingIssuanceId] = useState<string | null>(null);
+  
+  const [isClientPopoverOpen, setIsClientPopoverOpen] = useState(false);
+  const [productPopoverOpen, setProductPopoverOpen] = useState<{[key: number]: boolean}>({});
+
 
   const issuanceQueue = useMemo(() => {
     return orders.filter(order => order.status === 'Ready for Issuance');
@@ -497,7 +501,7 @@ export default function IssuancePage() {
                 ) : issuanceQueue.length > 0 ? (
                   issuanceQueue.map((order) => (
                     <Collapsible asChild key={order.id}>
-                      <>
+                      <React.Fragment>
                         <TableRow>
                           <TableCell className="font-medium">{order.id.substring(0, 7)}</TableCell>
                           <TableCell>{order.client.clientName}</TableCell>
@@ -530,7 +534,7 @@ export default function IssuancePage() {
                             </td>
                           </tr>
                         </CollapsibleContent>
-                      </>
+                      </React.Fragment>
                     </Collapsible>
                   ))
                 ) : (
@@ -570,7 +574,7 @@ export default function IssuancePage() {
                     control={form.control}
                     name="clientId"
                     render={({ field }) => (
-                         <Popover>
+                         <Popover open={isClientPopoverOpen} onOpenChange={setIsClientPopoverOpen}>
                             <PopoverTrigger asChild>
                                 <Button
                                     variant="outline"
@@ -595,7 +599,8 @@ export default function IssuancePage() {
                                                     key={c.id}
                                                     value={`${c.clientName} ${c.projectName}`}
                                                     onSelect={() => {
-                                                        form.setValue("clientId", c.id);
+                                                        field.onChange(c.id);
+                                                        setIsClientPopoverOpen(false);
                                                     }}
                                                 >
                                                     <Check
@@ -633,7 +638,7 @@ export default function IssuancePage() {
                                 control={form.control}
                                 name={`items.${index}.productId`}
                                 render={({ field: controllerField }) => (
-                                    <Popover>
+                                    <Popover open={productPopoverOpen[index]} onOpenChange={(open) => setProductPopoverOpen(prev => ({...prev, [index]: open}))}>
                                         <PopoverTrigger asChild>
                                             <Button
                                                 variant="outline"
@@ -656,7 +661,8 @@ export default function IssuancePage() {
                                                                 key={p.id}
                                                                 value={p.name}
                                                                 onSelect={() => {
-                                                                    form.setValue(`items.${index}.productId`, p.id);
+                                                                    controllerField.onChange(p.id)
+                                                                    setProductPopoverOpen(prev => ({...prev, [index]: false}))
                                                                 }}
                                                                 disabled={p.stock === 0}
                                                             >
@@ -1024,5 +1030,3 @@ export default function IssuancePage() {
     </>
   );
 }
-
-    
