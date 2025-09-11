@@ -4,6 +4,7 @@
 
 
 
+
 import { db, storage } from "@/lib/firebase";
 import { collection, getDocs, getDoc, doc, orderBy, query, limit, Timestamp, where, DocumentReference, addDoc, updateDoc, deleteDoc, arrayUnion, runTransaction, writeBatch, setDoc } from "firebase/firestore";
 import { ref, uploadBytes, getDownloadURL } from "firebase/storage";
@@ -36,10 +37,11 @@ function timeSince(date: Date) {
   return Math.floor(seconds) + " seconds ago";
 }
 
-async function resolveDoc<T>(docRef: DocumentReference): Promise<T> {
+async function resolveDoc<T>(docRef: DocumentReference): Promise<T | null> {
     const docSnap = await getDoc(docRef);
     if (!docSnap.exists()) {
-        throw new Error(`Document with ref ${docRef.path} does not exist.`);
+        console.warn(`Document with ref ${docRef.path} does not exist.`);
+        return null;
     }
     return { id: docSnap.id, ...docSnap.data() } as T;
 }
@@ -124,26 +126,30 @@ export async function getRecentOrders(count: number): Promise<Order[]> {
         const orders: Order[] = await Promise.all(orderSnapshot.docs.map(async (orderDoc) => {
             const orderData = orderDoc.data();
             const client = await resolveDoc<Client>(orderData.clientRef);
+            if (!client) return null;
             
             const items = await Promise.all(orderData.items.map(async (item: any) => {
                 const product = await resolveDoc<Product>(item.productRef);
+                if (!product) return null;
                 return {
                     quantity: item.quantity,
                     price: item.price,
                     product: product,
                 };
             }));
+
+            if (items.some(i => i === null)) return null;
             
             return {
                 id: orderDoc.id,
                 ...orderData,
                 date: (orderData.date as Timestamp).toDate(),
                 client,
-                items,
+                items: items as OrderItem[],
             } as Order;
         }));
 
-        return orders;
+        return orders.filter(Boolean) as Order[];
     } catch (error) {
         console.error("Error fetching recent orders:", error);
         return [];
@@ -321,9 +327,11 @@ export async function getOrders(): Promise<Order[]> {
         const orders: Order[] = await Promise.all(orderSnapshot.docs.map(async (orderDoc) => {
             const orderData = orderDoc.data();
             const client = await resolveDoc<Client>(orderData.clientRef);
+            if (!client) return null;
             
             const items = await Promise.all(orderData.items.map(async (item: any) => {
                 const product = await resolveDoc<Product>(item.productRef);
+                if (!product) return null;
                 return {
                     quantity: item.quantity,
                     price: item.price,
@@ -331,16 +339,18 @@ export async function getOrders(): Promise<Order[]> {
                 };
             }));
             
+            if (items.some(i => i === null)) return null;
+
             return {
                 id: orderDoc.id,
                 ...orderData,
                 date: (orderData.date as Timestamp).toDate(),
                 client,
-                items,
+                items: items as OrderItem[],
             } as Order;
         }));
 
-        return orders;
+        return orders.filter(Boolean) as Order[];
     } catch (error) {
         console.error("Error fetching orders:", error);
         return [];
@@ -490,28 +500,32 @@ export async function getIssuances(): Promise<Issuance[]> {
         const issuances: Issuance[] = await Promise.all(issuanceSnapshot.docs.map(async (issuanceDoc) => {
             const issuanceData = issuanceDoc.data();
             const client = await resolveDoc<Client>(issuanceData.clientRef);
+            if (!client) return null;
             
             const items = await Promise.all(issuanceData.items.map(async (item: any) => {
                 const product = await resolveDoc<Product>(item.productRef);
+                if (!product) return null;
                 return {
                     quantity: item.quantity,
                     product: product,
                 };
             }));
+
+            if (items.some(i => i === null)) return null;
             
             return {
                 id: issuanceDoc.id,
                 issuanceNumber: issuanceData.issuanceNumber,
                 date: (issuanceData.date as Timestamp).toDate(),
                 client,
-                items,
+                items: items as IssuanceItem[],
                 remarks: issuanceData.remarks,
                 issuedBy: issuanceData.issuedBy,
                 orderId: issuanceData.orderId,
             };
         }));
 
-        return issuances;
+        return issuances.filter(Boolean) as Issuance[];
     } catch (error) {
         console.error("Error fetching issuances:", error);
         return [];
@@ -737,14 +751,18 @@ export async function getPurchaseOrders(): Promise<PurchaseOrder[]> {
         const purchaseOrders: PurchaseOrder[] = await Promise.all(poSnapshot.docs.map(async (poDoc) => {
             const poData = poDoc.data();
             const supplier = await resolveDoc<Supplier>(poData.supplierRef);
+            if (!supplier) return null;
             
             const items = await Promise.all(poData.items.map(async (item: any) => {
                 const product = await resolveDoc<Product>(item.productRef);
+                 if (!product) return null;
                 return {
                     quantity: item.quantity,
                     product: product,
                 };
             }));
+
+            if (items.some(i => i === null)) return null;
             
             return {
                 id: poDoc.id,
@@ -753,11 +771,11 @@ export async function getPurchaseOrders(): Promise<PurchaseOrder[]> {
                 expectedDate: poData.expectedDate ? (poData.expectedDate as Timestamp).toDate() : undefined,
                 receivedDate: poData.receivedDate ? (poData.receivedDate as Timestamp).toDate() : undefined,
                 supplier,
-                items,
+                items: items as PurchaseOrderItem[],
             } as PurchaseOrder;
         }));
 
-        return purchaseOrders;
+        return purchaseOrders.filter(Boolean) as PurchaseOrder[];
     } catch (error) {
         console.error("Error fetching purchase orders:", error);
         return [];
@@ -932,36 +950,34 @@ export async function getShipments(): Promise<Shipment[]> {
         const shipments: Shipment[] = await Promise.all(shipmentSnapshot.docs.map(async (shipmentDoc) => {
             const shipmentData = shipmentDoc.data();
             
-            // First, resolve the issuance reference to get the full issuance object
             const issuanceRef = shipmentData.issuanceRef as DocumentReference;
             const issuanceSnap = await getDoc(issuanceRef);
-            if (!issuanceSnap.exists()) {
-                throw new Error(`Issuance with ref ${issuanceRef.path} does not exist for shipment ${shipmentDoc.id}`);
+             if (!issuanceSnap.exists()) {
+                console.warn(`Issuance with ref ${issuanceRef.path} does not exist for shipment ${shipmentDoc.id}`);
+                return null;
             }
             const issuance = { id: issuanceSnap.id, ...issuanceSnap.data()} as Issuance;
 
-
-            // Now, the issuance object itself contains references, which need to be resolved.
-            // This is a simplified approach; a real app might need deeper resolution or denormalization.
-            // For now, we assume the issuance object fetched is sufficient.
-            // Let's resolve the client within the issuance.
             const client = await resolveDoc<Client>(issuance.clientRef);
+            if (!client) return null;
             
-            // And resolve products within the issuance items
             const items = await Promise.all(issuance.items.map(async (item: any) => {
                  const product = await resolveDoc<Product>(item.productRef);
+                 if (!product) return null;
                 return {
                     quantity: item.quantity,
                     product: product,
                 };
             }));
 
+            if (items.some(i => i === null)) return null;
+
             const resolvedIssuance: Issuance = {
                 ...issuance,
                 id: shipmentData.issuanceRef.id,
                 date: (issuance.date as unknown as Timestamp).toDate(),
                 client: client,
-                items: items,
+                items: items as IssuanceItem[],
             };
             
             return {
@@ -977,7 +993,7 @@ export async function getShipments(): Promise<Shipment[]> {
             } as Shipment;
         }));
 
-        return shipments;
+        return shipments.filter(Boolean) as Shipment[];
     } catch (error) {
         console.error("Error fetching shipments:", error);
         return [];
@@ -1002,6 +1018,7 @@ export async function getUnshippedIssuances(): Promise<Issuance[]> {
         const issuances: Issuance[] = await Promise.all(unshippedDocs.map(async (issuanceDoc) => {
             const issuanceData = issuanceDoc.data();
             const client = await resolveDoc<Client>(issuanceData.clientRef);
+            if (!client) return null;
             return {
                 id: issuanceDoc.id,
                 issuanceNumber: issuanceData.issuanceNumber,
@@ -1011,7 +1028,7 @@ export async function getUnshippedIssuances(): Promise<Issuance[]> {
             } as Issuance;
         }));
         
-        return issuances;
+        return issuances.filter(Boolean) as Issuance[];
     } catch (error) {
         console.error("Error fetching unshipped issuances:", error);
         return [];
@@ -1071,6 +1088,7 @@ export async function getReturns(): Promise<Return[]> {
         const returns: Return[] = await Promise.all(returnsSnapshot.docs.map(async (returnDoc) => {
             const returnData = returnDoc.data();
             const client = await resolveDoc<Client>(returnData.clientRef);
+            if (!client) return null;
             
             return {
                 id: returnDoc.id,
@@ -1081,7 +1099,7 @@ export async function getReturns(): Promise<Return[]> {
             } as Return;
         }));
 
-        return returns;
+        return returns.filter(Boolean) as Return[];
     } catch (error) {
         console.error("Error fetching returns:", error);
         return [];
@@ -1184,6 +1202,7 @@ export async function getOutboundReturns(): Promise<OutboundReturn[]> {
         const returns: OutboundReturn[] = await Promise.all(returnsSnapshot.docs.map(async (returnDoc) => {
             const returnData = returnDoc.data();
             const supplier = await resolveDoc<Supplier>(returnData.supplierRef);
+            if (!supplier) return null;
             
             return {
                 id: returnDoc.id,
@@ -1194,7 +1213,7 @@ export async function getOutboundReturns(): Promise<OutboundReturn[]> {
             } as OutboundReturn;
         }));
 
-        return returns;
+        return returns.filter(Boolean) as OutboundReturn[];
     } catch (error) {
         console.error("Error fetching outbound returns:", error);
         return [];
