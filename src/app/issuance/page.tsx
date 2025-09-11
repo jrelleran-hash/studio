@@ -597,9 +597,9 @@ export default function IssuancePage() {
                                             {clients.map(c => (
                                                 <CommandItem
                                                     key={c.id}
-                                                    value={c.clientName}
-                                                    onSelect={() => {
-                                                        field.onChange(c.id);
+                                                    value={c.id}
+                                                    onSelect={(currentValue) => {
+                                                        field.onChange(currentValue);
                                                         setIsClientPopoverOpen(false);
                                                     }}
                                                 >
@@ -660,19 +660,29 @@ export default function IssuancePage() {
                                                             <CommandItem
                                                                 key={p.id}
                                                                 value={p.name}
-                                                                onSelect={() => {
-                                                                    controllerField.onChange(p.id)
+                                                                onSelect={(currentValue) => {
+                                                                    const selected = products.find(prod => prod.name.toLowerCase() === currentValue.toLowerCase());
+                                                                    if(selected) {
+                                                                        controllerField.onChange(selected.id)
+                                                                    }
                                                                     setProductPopovers(prev => ({...prev, [index]: false}))
                                                                 }}
                                                                 disabled={p.stock === 0}
                                                             >
-                                                                <Check
-                                                                    className={cn(
-                                                                        "mr-2 h-4 w-4",
-                                                                        controllerField.value === p.id ? "opacity-100" : "opacity-0"
-                                                                    )}
-                                                                />
-                                                                {p.name} (Stock: {p.stock})
+                                                                 <div className="flex items-center justify-between w-full">
+                                                                    <div className="flex items-center">
+                                                                        <Check
+                                                                            className={cn(
+                                                                                "mr-2 h-4 w-4",
+                                                                                controllerField.value === p.id ? "opacity-100" : "opacity-0"
+                                                                            )}
+                                                                        />
+                                                                        {p.name}
+                                                                    </div>
+                                                                    <span className="ml-auto text-xs text-muted-foreground">
+                                                                        Stock: {p.stock}
+                                                                    </span>
+                                                                </div>
                                                             </CommandItem>
                                                         ))}
                                                     </CommandGroup>

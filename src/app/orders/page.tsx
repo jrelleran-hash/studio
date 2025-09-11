@@ -882,9 +882,9 @@ export default function OrdersAndSuppliersPage() {
                                                     {clients.map(c => (
                                                         <CommandItem
                                                             key={c.id}
-                                                            value={c.clientName}
-                                                            onSelect={() => {
-                                                                field.onChange(c.id)
+                                                            value={c.id}
+                                                            onSelect={(currentValue) => {
+                                                                field.onChange(currentValue)
                                                                 setOrderClientPopover(false);
                                                             }}
                                                         >
@@ -939,18 +939,28 @@ export default function OrdersAndSuppliersPage() {
                                                             <CommandItem
                                                                 key={p.id}
                                                                 value={p.name}
-                                                                onSelect={() => {
-                                                                    controllerField.onChange(p.id);
+                                                                onSelect={(currentValue) => {
+                                                                    const selected = products.find(prod => prod.name.toLowerCase() === currentValue.toLowerCase());
+                                                                    if(selected) {
+                                                                        controllerField.onChange(selected.id)
+                                                                    }
                                                                     setOrderProductPopovers(prev => ({...prev, [index]: false}));
                                                                 }}
                                                             >
-                                                                <Check
-                                                                    className={cn(
-                                                                        "mr-2 h-4 w-4",
-                                                                        controllerField.value === p.id ? "opacity-100" : "opacity-0"
-                                                                    )}
-                                                                />
-                                                                {p.name}
+                                                                 <div className="flex items-center justify-between w-full">
+                                                                    <div className="flex items-center">
+                                                                        <Check
+                                                                            className={cn(
+                                                                                "mr-2 h-4 w-4",
+                                                                                controllerField.value === p.id ? "opacity-100" : "opacity-0"
+                                                                            )}
+                                                                        />
+                                                                        {p.name}
+                                                                    </div>
+                                                                    <span className="ml-auto text-xs text-muted-foreground">
+                                                                        Stock: {p.stock}
+                                                                    </span>
+                                                                </div>
                                                             </CommandItem>
                                                         ))}
                                                     </CommandGroup>
@@ -1030,9 +1040,9 @@ export default function OrdersAndSuppliersPage() {
                                                     {suppliers.map(s => (
                                                         <CommandItem
                                                             key={s.id}
-                                                            value={s.name}
-                                                            onSelect={() => {
-                                                                field.onChange(s.id)
+                                                            value={s.id}
+                                                            onSelect={(currentValue) => {
+                                                                field.onChange(currentValue)
                                                                 setPoSupplierPopover(false);
                                                             }}
                                                         >
@@ -1083,9 +1093,9 @@ export default function OrdersAndSuppliersPage() {
                                                     {clients.map(c => (
                                                         <CommandItem
                                                             key={c.id}
-                                                            value={c.clientName}
-                                                            onSelect={() => {
-                                                                field.onChange(c.id);
+                                                            value={c.id}
+                                                            onSelect={(currentValue) => {
+                                                                field.onChange(currentValue);
                                                                 setPoClientPopover(false);
                                                             }}
                                                         >
@@ -1139,18 +1149,28 @@ export default function OrdersAndSuppliersPage() {
                                                                 <CommandItem
                                                                     key={p.id}
                                                                     value={p.name}
-                                                                    onSelect={() => {
-                                                                        controllerField.onChange(p.id);
+                                                                    onSelect={(currentValue) => {
+                                                                        const selected = products.find(prod => prod.name.toLowerCase() === currentValue.toLowerCase());
+                                                                        if(selected) {
+                                                                            controllerField.onChange(selected.id)
+                                                                        }
                                                                         setPoProductPopovers(prev => ({...prev, [index]: false}));
                                                                     }}
                                                                 >
-                                                                    <Check
-                                                                        className={cn(
-                                                                            "mr-2 h-4 w-4",
-                                                                            controllerField.value === p.id ? "opacity-100" : "opacity-0"
-                                                                        )}
-                                                                    />
-                                                                    {p.name}
+                                                                    <div className="flex items-center justify-between w-full">
+                                                                        <div className="flex items-center">
+                                                                            <Check
+                                                                                className={cn(
+                                                                                    "mr-2 h-4 w-4",
+                                                                                    controllerField.value === p.id ? "opacity-100" : "opacity-0"
+                                                                                )}
+                                                                            />
+                                                                            {p.name}
+                                                                        </div>
+                                                                        <span className="ml-auto text-xs text-muted-foreground">
+                                                                            Stock: {p.stock}
+                                                                        </span>
+                                                                    </div>
                                                                 </CommandItem>
                                                             ))}
                                                         </CommandGroup>
