@@ -298,13 +298,13 @@ export default function OrdersAndSuppliersPage() {
     name: "items",
   });
 
-  const orderFormItems = orderForm.watch("items");
+  const watchedOrderItems = orderForm.watch('items');
   const orderTotal = useMemo(() => {
-    return orderFormItems.reduce((total, item) => {
+    return watchedOrderItems.reduce((total, item) => {
       const product = products.find(p => p.id === item.productId);
-      return total + (product ? product.price * item.quantity : 0);
+      return total + (product ? product.price * (item.quantity || 0) : 0);
     }, 0);
-  }, [orderFormItems, products]);
+  }, [watchedOrderItems, products, orderForm.watch()]);
 
 
   const purchaseQueue: Backorder[] = useMemo(() => {
@@ -862,9 +862,9 @@ export default function OrdersAndSuppliersPage() {
                         </div>
                         <div className="space-y-2">
                         {fields.map((field, index) => {
-                            const selectedProductId = orderFormItems?.[index]?.productId;
+                            const selectedProductId = watchedOrderItems?.[index]?.productId;
                             const selectedProduct = products.find(p => p.id === selectedProductId);
-                            const lineSubtotal = selectedProduct ? selectedProduct.price * (orderFormItems?.[index]?.quantity || 0) : 0;
+                            const lineSubtotal = selectedProduct ? selectedProduct.price * (watchedOrderItems?.[index]?.quantity || 0) : 0;
                             
                             return (
                                 <div key={field.id} className="space-y-2">
@@ -1716,7 +1716,7 @@ export default function OrdersAndSuppliersPage() {
                     {isReordered ? 'Already Reordered' : 'Reorder'}
                     </Button>
                 ) : (
-                    <Button variant="outline" disabled>Edit Order</Button>
+                    <></>
                 )}
                 <Button variant="outline" onClick={() => setSelectedOrder(null)}>Close</Button>
             </div>
