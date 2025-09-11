@@ -2,7 +2,7 @@
 "use client";
 
 import Link from "next/link";
-import { Menu } from "lucide-react";
+import { Menu, Search } from "lucide-react";
 import { useEffect, useState } from "react";
 
 import { Button } from "@/components/ui/button";
@@ -14,11 +14,11 @@ import {
   SheetTitle,
   SheetTrigger,
 } from "@/components/ui/sheet";
-import { SmartSearch } from "@/components/smart-search";
 import { UserNav } from "@/components/user-nav";
 import { NotificationsMenu } from "@/components/notifications-menu";
 import { Sidebar } from "./sidebar";
 import { CoreFlowLogo } from "../icons";
+import { Input } from "../ui/input";
 
 export function Header() {
   const [isClient, setIsClient] = useState(false);
@@ -53,7 +53,16 @@ export function Header() {
       </Sheet>
       
       <div className="w-full flex-1">
-        <SmartSearch />
+         <form>
+          <div className="relative">
+            <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
+            <Input
+              type="search"
+              placeholder="Search..."
+              className="w-full appearance-none bg-background pl-8 shadow-none md:w-2/3 lg:w-1/3"
+            />
+          </div>
+        </form>
       </div>
 
       <div className="flex items-center gap-4">
