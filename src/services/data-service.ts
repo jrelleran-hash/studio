@@ -1,10 +1,4 @@
 
-
-
-
-
-
-
 import { db, storage } from "@/lib/firebase";
 import { collection, getDocs, getDoc, doc, orderBy, query, limit, Timestamp, where, DocumentReference, addDoc, updateDoc, deleteDoc, arrayUnion, runTransaction, writeBatch, setDoc } from "firebase/firestore";
 import { ref, uploadBytes, getDownloadURL } from "firebase/storage";
@@ -1141,7 +1135,7 @@ export async function initiateReturn(returnData: NewReturnData): Promise<Documen
   }
 }
 
-export async function processReturn(returnId: string, status: "Received" | "Restocked" | "Cancelled"): Promise<void> {
+export async function processReturn(returnId: string, status: "Received" | "Cancelled"): Promise<void> {
   const returnRef = doc(db, "returns", returnId);
   
   try {
@@ -1158,29 +1152,6 @@ export async function processReturn(returnId: string, status: "Received" | "Rest
       if (status === 'Received') {
         if(returnData.status !== 'Pending') throw new Error("Can only mark 'Pending' returns as 'Received'.");
         payload.dateReceived = now;
-      } else if (status === 'Restocked') {
-        if(returnData.status !== 'Received') throw new Error("Can only restock items from a 'Received' return.");
-        
-        for (const item of returnData.items) {
-          const productRef = doc(db, "inventory", item.productId);
-          const productDoc = await transaction.get(productRef);
-
-          if (productDoc.exists()) {
-            const productData = productDoc.data();
-            const newStock = productData.stock + item.quantity;
-            const newHistoryEntry = {
-              date: format(now.toDate(), 'yyyy-MM-dd'),
-              stock: newStock,
-              changeReason: `Return #${returnData.rmaNumber}`,
-              dateUpdated: now,
-            };
-            transaction.update(productRef, {
-              stock: newStock,
-              lastUpdated: now,
-              history: arrayUnion(newHistoryEntry)
-            });
-          }
-        }
       } else if (status === 'Cancelled') {
         if(returnData.status !== 'Pending') throw new Error("Can only cancel a 'Pending' return.");
       }
@@ -1192,6 +1163,60 @@ export async function processReturn(returnId: string, status: "Received" | "Rest
      throw error;
   }
 }
+
+type InspectionData = {
+  productId: string;
+  restockQuantity: number;
+  disposalQuantity: number;
+}
+
+export async function completeInspection(returnId: string, inspectionItems: InspectionData[]): Promise<void> {
+  const returnRef = doc(db, "returns", returnId);
+
+  try {
+    await runTransaction(db, async (transaction) => {
+      const returnDoc = await transaction.get(returnRef);
+      if (!returnDoc.exists()) throw new Error("Return not found.");
+      if (returnDoc.data().status !== 'Received') throw new Error("Can only inspect 'Received' returns.");
+      
+      const now = Timestamp.now();
+
+      for (const item of inspectionItems) {
+        if (item.restockQuantity > 0) {
+          const productRef = doc(db, "inventory", item.productId);
+          const productDoc = await transaction.get(productRef);
+          if (productDoc.exists()) {
+            const productData = productDoc.data();
+            const newStock = productData.stock + item.restockQuantity;
+             const newHistoryEntry = {
+              date: format(now.toDate(), 'yyyy-MM-dd'),
+              stock: newStock,
+              changeReason: `Restock from RMA #${returnDoc.data().rmaNumber}`,
+              dateUpdated: now,
+            };
+            transaction.update(productRef, { 
+              stock: newStock,
+              lastUpdated: now,
+              history: arrayUnion(newHistoryEntry)
+            });
+          }
+        }
+      }
+
+      transaction.update(returnRef, {
+        status: "Completed",
+        inspection: {
+          date: now,
+          items: inspectionItems,
+        }
+      });
+    });
+  } catch (error) {
+    console.error("Error completing inspection:", error);
+    throw error;
+  }
+}
+
 
 export async function getOutboundReturns(): Promise<OutboundReturn[]> {
     try {

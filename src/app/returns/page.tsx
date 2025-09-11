@@ -14,11 +14,12 @@ import { processReturn } from "@/services/data-service";
 import { useToast } from "@/hooks/use-toast";
 import type { Return, OutboundReturn } from "@/types";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { useRouter } from "next/navigation";
 
 const inboundStatusVariant: { [key: string]: "default" | "secondary" | "destructive" } = {
   Pending: "secondary",
   Received: "outline",
-  Restocked: "default",
+  Completed: "default",
   Cancelled: "destructive",
 };
 
@@ -35,8 +36,10 @@ export default function ReturnsPage() {
   const [selectedReturn, setSelectedReturn] = useState<Return | null>(null);
   const [selectedOutboundReturn, setSelectedOutboundReturn] = useState<OutboundReturn | null>(null);
   const { toast } = useToast();
+  const router = useRouter();
 
-  const handleProcessReturn = async (returnId: string, status: "Received" | "Restocked" | "Cancelled") => {
+
+  const handleProcessReturn = async (returnId: string, status: "Received" | "Cancelled") => {
     try {
       await processReturn(returnId, status);
       toast({ title: "Success", description: `Return marked as ${status}.` });
@@ -47,6 +50,11 @@ export default function ReturnsPage() {
       toast({ variant: "destructive", title: "Error", description: errorMessage });
     }
   };
+
+  const handleInspectClick = (returnId: string) => {
+    setSelectedReturn(null);
+    router.push('/quality-control');
+  }
 
   const formatDate = (date?: Date) => {
     if (!date) return 'N/A';
@@ -206,18 +214,19 @@ export default function ReturnsPage() {
                     Cancel Return
                 </Button>
               <div className="flex gap-2">
+                 {selectedReturn.status === 'Pending' && (
+                    <Button 
+                        variant="outline"
+                        onClick={() => handleProcessReturn(selectedReturn.id, "Received")}
+                    >
+                        Mark as Received
+                    </Button>
+                 )}
                 <Button 
-                    variant="outline"
-                    onClick={() => handleProcessReturn(selectedReturn.id, "Received")}
-                    disabled={selectedReturn.status !== 'Pending'}
-                >
-                    Mark as Received
-                </Button>
-                <Button 
-                    onClick={() => handleProcessReturn(selectedReturn.id, "Restocked")}
+                    onClick={() => handleInspectClick(selectedReturn.id)}
                     disabled={selectedReturn.status !== 'Received'}
                 >
-                    Restock Items
+                    Inspect Items
                 </Button>
               </div>
             </DialogFooter>

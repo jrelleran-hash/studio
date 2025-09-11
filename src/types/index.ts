@@ -136,9 +136,17 @@ export interface Return {
     client: Client;
     items: ReturnItem[];
     reason: string;
-    status: "Pending" | "Received" | "Restocked" | "Cancelled";
+    status: "Pending" | "Received" | "Completed" | "Cancelled";
     dateInitiated: Date;
     dateReceived?: Date;
+    inspection?: {
+      date: Timestamp;
+      items: {
+        productId: string;
+        restockQuantity: number;
+        disposalQuantity: number;
+      }[];
+    }
 }
 
 export interface OutboundReturnItem {
