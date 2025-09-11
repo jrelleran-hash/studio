@@ -181,7 +181,7 @@ const createOutboundReturnSchema = (po: PurchaseOrder | null) => z.object({
     }),
 });
 
-type OutboundReturnFormValues = z.infer<ReturnType<typeof createOutboundReturnSchema>>;
+type OutboundReturnFormValues = z.infer<typeof createOutboundReturnSchema>;
 
 
 const toTitleCase = (str: string) => {
@@ -298,25 +298,26 @@ export default function OrdersAndSuppliersPage() {
     name: "items",
   });
 
-  const watchedOrderItems = orderForm.watch('items');
+  const watchedOrderItems = orderForm.watch();
   const orderTotal = useMemo(() => {
-    return watchedOrderItems.reduce((total, item) => {
+    return watchedOrderItems.items?.reduce((total, item) => {
       const product = products.find(p => p.id === item.productId);
       return total + (product ? product.price * (item.quantity || 0) : 0);
     }, 0);
-  }, [watchedOrderItems, products, orderForm.watch()]);
+  }, [watchedOrderItems, products]);
 
-  const watchedPOItems = poForm.watch('items');
+  const watchedPOItems = poForm.watch();
   const poTotal = useMemo(() => {
-    return watchedPOItems.reduce((total, item) => {
-      const product = products.find(p => p.id === item.productId);
+    return watchedPOItems.items?.reduce((total, item) => {
       // Using price here as a stand-in for cost. In a real app, you'd have a separate 'cost' field.
+      const product = products.find(p => p.id === item.productId);
       return total + (product ? product.price * (item.quantity || 0) : 0);
     }, 0);
-  }, [watchedPOItems, products, poForm.watch()]);
+  }, [watchedPOItems, products]);
   
   const watchedReturnItems = outboundReturnForm.watch('items');
   const returnTotal = useMemo(() => {
+    if (!watchedReturnItems) return 0;
     return watchedReturnItems.reduce((total, item) => {
         if (!item.selected || !item.returnQuantity) return total;
         const product = products.find(p => p.id === item.productId);
@@ -846,9 +847,9 @@ export default function OrdersAndSuppliersPage() {
                                                     {clients.map(c => (
                                                         <CommandItem
                                                             key={c.id}
-                                                            value={c.id}
-                                                            onSelect={(currentValue) => {
-                                                                field.onChange(currentValue === field.value ? "" : currentValue)
+                                                            value={c.clientName}
+                                                            onSelect={() => {
+                                                                field.onChange(c.id)
                                                                 setOrderClientPopover(false);
                                                             }}
                                                         >
@@ -877,9 +878,9 @@ export default function OrdersAndSuppliersPage() {
                         </div>
                         <div className="space-y-2">
                         {fields.map((field, index) => {
-                            const selectedProductId = watchedOrderItems?.[index]?.productId;
+                            const selectedProductId = watchedOrderItems.items?.[index]?.productId;
                             const selectedProduct = products.find(p => p.id === selectedProductId);
-                            const lineSubtotal = selectedProduct ? selectedProduct.price * (watchedOrderItems?.[index]?.quantity || 0) : 0;
+                            const lineSubtotal = selectedProduct ? selectedProduct.price * (watchedOrderItems.items?.[index]?.quantity || 0) : 0;
                             
                             return (
                                 <div key={field.id} className="space-y-2">
@@ -909,9 +910,9 @@ export default function OrdersAndSuppliersPage() {
                                                                         {products.map(p => (
                                                                             <CommandItem
                                                                                 key={p.id}
-                                                                                value={p.id}
-                                                                                onSelect={(currentValue) => {
-                                                                                    controllerField.onChange(currentValue === controllerField.value ? "" : currentValue)
+                                                                                value={p.name}
+                                                                                onSelect={() => {
+                                                                                    controllerField.onChange(p.id)
                                                                                     setOrderProductPopovers(prev => ({...prev, [index]: false}));
                                                                                 }}
                                                                             >
@@ -969,7 +970,7 @@ export default function OrdersAndSuppliersPage() {
                     
                     <div className="flex justify-end items-center gap-4 pr-12">
                         <span className="font-semibold">Grand Total:</span>
-                        <span className="font-bold text-lg">{formatCurrency(orderTotal)}</span>
+                        <span className="font-bold text-lg">{formatCurrency(orderTotal || 0)}</span>
                     </div>
                     
                     <DialogFooter>
@@ -1024,9 +1025,9 @@ export default function OrdersAndSuppliersPage() {
                                                     {suppliers.map(s => (
                                                         <CommandItem
                                                             key={s.id}
-                                                            value={s.id}
-                                                            onSelect={(currentValue) => {
-                                                                field.onChange(currentValue === field.value ? "" : currentValue)
+                                                            value={s.name}
+                                                            onSelect={() => {
+                                                                field.onChange(s.id)
                                                                 setPoSupplierPopover(false);
                                                             }}
                                                         >
@@ -1077,9 +1078,9 @@ export default function OrdersAndSuppliersPage() {
                                                     {clients.map(c => (
                                                         <CommandItem
                                                             key={c.id}
-                                                            value={c.id}
-                                                            onSelect={(currentValue) => {
-                                                                field.onChange(currentValue === field.value ? "" : currentValue)
+                                                            value={c.clientName}
+                                                            onSelect={() => {
+                                                                field.onChange(c.id)
                                                                 setPoClientPopover(false);
                                                             }}
                                                         >
@@ -1107,9 +1108,9 @@ export default function OrdersAndSuppliersPage() {
                         </div>
                         <div className="space-y-2">
                         {poFields.map((field, index) => {
-                             const selectedProductId = watchedPOItems?.[index]?.productId;
+                             const selectedProductId = watchedPOItems.items?.[index]?.productId;
                              const selectedProduct = products.find(p => p.id === selectedProductId);
-                             const lineSubtotal = selectedProduct ? selectedProduct.price * (watchedPOItems?.[index]?.quantity || 0) : 0;
+                             const lineSubtotal = selectedProduct ? selectedProduct.price * (watchedPOItems.items?.[index]?.quantity || 0) : 0;
                             return (
                                 <div key={field.id} className="space-y-2">
                                 <div className="flex items-center gap-2">
@@ -1137,9 +1138,9 @@ export default function OrdersAndSuppliersPage() {
                                                                 {products.map(p => (
                                                                     <CommandItem
                                                                         key={p.id}
-                                                                        value={p.id}
-                                                                        onSelect={(currentValue) => {
-                                                                            controllerField.onChange(currentValue === controllerField.value ? "" : currentValue)
+                                                                        value={p.name}
+                                                                        onSelect={() => {
+                                                                            controllerField.onChange(p.id)
                                                                             setPoProductPopovers(prev => ({...prev, [index]: false}));
                                                                         }}
                                                                     >
@@ -1200,7 +1201,7 @@ export default function OrdersAndSuppliersPage() {
                     <Separator />
                     <div className="flex justify-end items-center gap-4 pr-12">
                         <span className="font-semibold">Grand Total:</span>
-                        <span className="font-bold text-lg">{formatCurrency(poTotal)}</span>
+                        <span className="font-bold text-lg">{formatCurrency(poTotal || 0)}</span>
                     </div>
 
                     <DialogFooter>
