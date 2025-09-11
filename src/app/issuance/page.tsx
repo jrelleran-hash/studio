@@ -1,5 +1,4 @@
 
-
 "use client";
 
 import { useState, useEffect, useMemo, useRef } from "react";
@@ -282,7 +281,7 @@ export default function IssuancePage() {
         const product = products.find(p => p.id === item.productId);
         return total + (product ? product.price * item.returnQuantity : 0);
     }, 0);
-  }, [watchedReturnItems, products, returnForm.watch()]);
+  }, [watchedReturnItems, products]);
 
 
   const { fields, append, remove } = useFieldArray({
@@ -515,38 +514,40 @@ export default function IssuancePage() {
                 ) : issuanceQueue.length > 0 ? (
                   issuanceQueue.map((order) => (
                     <Collapsible asChild key={order.id}>
-                        <TableRow>
-                          <TableCell className="font-medium">{order.id.substring(0, 7)}</TableCell>
-                          <TableCell>{order.client.clientName}</TableCell>
-                          <TableCell>{format(order.date, 'PPP')}</TableCell>
-                          <TableCell>{order.items.length} types</TableCell>
-                          <TableCell className="text-right flex items-center justify-end gap-2">
-                            <Button size="sm" onClick={() => handleCreateIssuanceFromOrder(order)}>Create Issuance</Button>
-                            <CollapsibleTrigger asChild>
-                              <Button variant="ghost" size="icon" className="w-8 h-8">
-                                <span className="sr-only">Toggle Details</span>
-                                <ChevronDown className="h-4 w-4" />
-                              </Button>
-                            </CollapsibleTrigger>
-                          </TableCell>
-                        </TableRow>
-                        <CollapsibleContent asChild>
-                          <tr className="bg-muted/50">
-                            <td colSpan={5} className="p-0">
-                              <div className="p-4">
-                                <h4 className="text-sm font-semibold mb-2">Items for Order {order.id.substring(0, 7)}:</h4>
-                                <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-2">
-                                  {order.items.map(item => (
-                                    <div key={item.product.id} className="text-xs flex justify-between items-center bg-background p-2 rounded-md border">
-                                        <span>{item.product.name} <span className="text-muted-foreground">({item.product.sku})</span></span>
-                                        <Badge variant="outline" className="font-mono ml-2">Qty: {item.quantity}</Badge>
+                        <tbody className="border-b">
+                            <TableRow>
+                            <TableCell className="font-medium">{order.id.substring(0, 7)}</TableCell>
+                            <TableCell>{order.client.clientName}</TableCell>
+                            <TableCell>{format(order.date, 'PPP')}</TableCell>
+                            <TableCell>{order.items.length} types</TableCell>
+                            <TableCell className="text-right flex items-center justify-end gap-2">
+                                <Button size="sm" onClick={() => handleCreateIssuanceFromOrder(order)}>Create Issuance</Button>
+                                <CollapsibleTrigger asChild>
+                                <Button variant="ghost" size="icon" className="w-8 h-8">
+                                    <span className="sr-only">Toggle Details</span>
+                                    <ChevronDown className="h-4 w-4" />
+                                </Button>
+                                </CollapsibleTrigger>
+                            </TableCell>
+                            </TableRow>
+                            <CollapsibleContent asChild>
+                            <tr className="bg-muted/50">
+                                <td colSpan={5} className="p-0">
+                                <div className="p-4">
+                                    <h4 className="text-sm font-semibold mb-2">Items for Order {order.id.substring(0, 7)}:</h4>
+                                    <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-2">
+                                    {order.items.map(item => (
+                                        <div key={item.product.id} className="text-xs flex justify-between items-center bg-background p-2 rounded-md border">
+                                            <span>{item.product.name} <span className="text-muted-foreground">({item.product.sku})</span></span>
+                                            <Badge variant="outline" className="font-mono ml-2">Qty: {item.quantity}</Badge>
+                                        </div>
+                                    ))}
                                     </div>
-                                  ))}
                                 </div>
-                              </div>
-                            </td>
-                          </tr>
-                        </CollapsibleContent>
+                                </td>
+                            </tr>
+                            </CollapsibleContent>
+                        </tbody>
                     </Collapsible>
                   ))
                 ) : (
