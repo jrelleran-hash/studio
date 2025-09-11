@@ -1,5 +1,4 @@
 
-
 "use client";
 
 import { useState, useEffect, useMemo, useCallback } from "react";
@@ -102,6 +101,9 @@ export function ActiveOrders() {
     control: orderForm.control,
     name: "items",
   });
+  
+  const watchedItems = orderForm.watch("items");
+
 
    const productForm = useForm<ProductFormValues>({
     resolver: zodResolver(productSchema),
@@ -322,39 +324,45 @@ export function ActiveOrders() {
                     <Label>Items</Label>
                 </div>
                 <div className="space-y-2">
-                  {fields.map((field, index) => (
-                    <div key={field.id} className="flex items-center gap-2">
-                      <Select onValueChange={(value) => orderForm.setValue(`items.${index}.productId`, value)}>
-                         <SelectTrigger>
-                            <SelectValue placeholder="Select a product" />
-                        </SelectTrigger>
-                        <SelectContent>
-                            {products.map(p => <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>)}
-                             <Separator />
-                            <div
-                              className={cn(
-                                "relative flex w-full cursor-pointer select-none items-center rounded-sm py-1.5 pl-8 pr-2 text-sm outline-none focus:bg-accent focus:text-accent-foreground data-[disabled]:pointer-events-none data-[disabled]:opacity-50"
-                              )}
-                              onMouseDown={(e) => {
-                                e.preventDefault();
-                                setIsAddProductOpen(true);
-                              }}
-                            >
-                                <Plus className="h-4 w-4 mr-2"/> Add New Product
-                            </div>
-                        </SelectContent>
-                      </Select>
-                      <Input 
-                        type="number" 
-                        placeholder="Qty" 
-                        className="w-20"
-                        {...orderForm.register(`items.${index}.quantity`)}
-                      />
-                      <Button variant="ghost" size="icon" onClick={() => remove(index)}>
-                        <X className="h-4 w-4" />
-                      </Button>
-                    </div>
-                  ))}
+                  {fields.map((field, index) => {
+                    const selectedProductId = watchedItems?.[index]?.productId;
+                    const selectedProduct = products.find(p => p.id === selectedProductId);
+                    const stockPlaceholder = selectedProduct ? `Stock: ${selectedProduct.stock}` : 'Qty';
+
+                    return (
+                        <div key={field.id} className="flex items-center gap-2">
+                          <Select onValueChange={(value) => orderForm.setValue(`items.${index}.productId`, value)}>
+                            <SelectTrigger>
+                                <SelectValue placeholder="Select a product" />
+                            </SelectTrigger>
+                            <SelectContent>
+                                {products.map(p => <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>)}
+                                <Separator />
+                                <div
+                                  className={cn(
+                                    "relative flex w-full cursor-pointer select-none items-center rounded-sm py-1.5 pl-8 pr-2 text-sm outline-none focus:bg-accent focus:text-accent-foreground data-[disabled]:pointer-events-none data-[disabled]:opacity-50"
+                                  )}
+                                  onMouseDown={(e) => {
+                                    e.preventDefault();
+                                    setIsAddProductOpen(true);
+                                  }}
+                                >
+                                    <Plus className="h-4 w-4 mr-2"/> Add New Product
+                                </div>
+                            </SelectContent>
+                          </Select>
+                          <Input 
+                            type="number" 
+                            placeholder={stockPlaceholder}
+                            className="w-28"
+                            {...orderForm.register(`items.${index}.quantity`)}
+                          />
+                          <Button variant="ghost" size="icon" onClick={() => remove(index)}>
+                            <X className="h-4 w-4" />
+                          </Button>
+                        </div>
+                    );
+                   })}
                 </div>
                  {orderForm.formState.errors.items && <p className="text-sm text-destructive">{typeof orderForm.formState.errors.items === 'object' && 'message' in orderForm.formState.errors.items ? orderForm.formState.errors.items.message : 'Please add at least one item.'}</p>}
                 <Button type="button" variant="outline" size="sm" onClick={() => append({ productId: "", quantity: 1 })}>
@@ -560,3 +568,5 @@ export function ActiveOrders() {
     </>
   );
 }
+
+    
