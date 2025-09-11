@@ -868,8 +868,8 @@ export default function OrdersAndSuppliersPage() {
                                             className={cn("w-full justify-between", !field.value && "text-muted-foreground")}
                                         >
                                             {field.value
-                                                ? `${clients.find(c => c.id === field.value)?.clientName} - ${clients.find(c => c.id === field.value)?.projectName}`
-                                                : "Select a client or project"}
+                                                ? clients.find(c => c.id === field.value)?.clientName
+                                                : "Select a client"}
                                             <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
                                         </Button>
                                     </PopoverTrigger>
@@ -882,9 +882,9 @@ export default function OrdersAndSuppliersPage() {
                                                     {clients.map(c => (
                                                         <CommandItem
                                                             key={c.id}
-                                                            value={c.id}
-                                                            onSelect={(currentValue) => {
-                                                                field.onChange(currentValue);
+                                                            value={c.clientName}
+                                                            onSelect={() => {
+                                                                field.onChange(c.id)
                                                                 setOrderClientPopover(false);
                                                             }}
                                                         >
@@ -938,9 +938,9 @@ export default function OrdersAndSuppliersPage() {
                                                         {products.map(p => (
                                                             <CommandItem
                                                                 key={p.id}
-                                                                value={p.id}
-                                                                onSelect={(currentValue) => {
-                                                                    controllerField.onChange(currentValue);
+                                                                value={p.name}
+                                                                onSelect={() => {
+                                                                    controllerField.onChange(p.id);
                                                                     setOrderProductPopovers(prev => ({...prev, [index]: false}));
                                                                 }}
                                                             >
@@ -1030,9 +1030,9 @@ export default function OrdersAndSuppliersPage() {
                                                     {suppliers.map(s => (
                                                         <CommandItem
                                                             key={s.id}
-                                                            value={s.id}
-                                                            onSelect={(currentValue) => {
-                                                                field.onChange(currentValue)
+                                                            value={s.name}
+                                                            onSelect={() => {
+                                                                field.onChange(s.id)
                                                                 setPoSupplierPopover(false);
                                                             }}
                                                         >
@@ -1069,8 +1069,8 @@ export default function OrdersAndSuppliersPage() {
                                             className={cn("w-full justify-between", !field.value && "text-muted-foreground")}
                                         >
                                             {field.value
-                                                ? `${clients.find(c => c.id === field.value)?.clientName} - ${clients.find(c => c.id === field.value)?.projectName}`
-                                                : "Select a client or project"}
+                                                ? clients.find(c => c.id === field.value)?.clientName
+                                                : "Select a client"}
                                             <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
                                         </Button>
                                     </PopoverTrigger>
@@ -1083,9 +1083,9 @@ export default function OrdersAndSuppliersPage() {
                                                     {clients.map(c => (
                                                         <CommandItem
                                                             key={c.id}
-                                                            value={c.id}
-                                                            onSelect={(currentValue) => {
-                                                                field.onChange(currentValue);
+                                                            value={c.clientName}
+                                                            onSelect={() => {
+                                                                field.onChange(c.id);
                                                                 setPoClientPopover(false);
                                                             }}
                                                         >
@@ -1138,9 +1138,9 @@ export default function OrdersAndSuppliersPage() {
                                                             {products.map(p => (
                                                                 <CommandItem
                                                                     key={p.id}
-                                                                    value={p.id}
-                                                                    onSelect={(currentValue) => {
-                                                                        controllerField.onChange(currentValue);
+                                                                    value={p.name}
+                                                                    onSelect={() => {
+                                                                        controllerField.onChange(p.id);
                                                                         setPoProductPopovers(prev => ({...prev, [index]: false}));
                                                                     }}
                                                                 >
@@ -1966,5 +1966,6 @@ export default function OrdersAndSuppliersPage() {
     </>
   );
 }
+
 
 

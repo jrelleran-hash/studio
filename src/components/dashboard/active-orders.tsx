@@ -55,7 +55,7 @@ const createProductSchema = (isSkuAuto: boolean) => z.object({
   name: z.string().min(1, "Product name is required."),
   sku: z.string().optional(),
   price: z.coerce.number().nonnegative("Price must be a non-negative number.").optional(),
-  stock: z.coerce.number().int().nonnegative("Stock must be a non-negative integer."),
+  stock: z.coerce.number().int().nonnegative("Stock must be a non-negative integer.").optional(),
   reorderLimit: z.coerce.number().int().nonnegative("Reorder limit must be a non-negative integer."),
   location: z.string().optional(),
   supplier: z.string().optional(),
@@ -325,8 +325,8 @@ export function ActiveOrders() {
                                     className={cn("w-full justify-between", !field.value && "text-muted-foreground")}
                                 >
                                     {field.value
-                                        ? `${clients.find(c => c.id === field.value)?.clientName} - ${clients.find(c => c.id === field.value)?.projectName}`
-                                        : "Select a client or project"}
+                                        ? clients.find(c => c.id === field.value)?.clientName
+                                        : "Select a client"}
                                     <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
                                 </Button>
                             </PopoverTrigger>
@@ -339,9 +339,9 @@ export function ActiveOrders() {
                                             {clients.map(c => (
                                                 <CommandItem
                                                     key={c.id}
-                                                    value={c.id}
-                                                    onSelect={(currentValue) => {
-                                                        field.onChange(currentValue);
+                                                    value={c.clientName}
+                                                    onSelect={() => {
+                                                        field.onChange(c.id);
                                                         setIsClientPopoverOpen(false);
                                                     }}
                                                 >
@@ -400,9 +400,9 @@ export function ActiveOrders() {
                                                       {products.map(p => (
                                                           <CommandItem
                                                               key={p.id}
-                                                              value={p.id}
-                                                              onSelect={(currentValue) => {
-                                                                  controllerField.onChange(currentValue);
+                                                              value={p.name}
+                                                              onSelect={() => {
+                                                                  controllerField.onChange(p.id);
                                                                   setProductPopovers(prev => ({...prev, [index]: false}));
                                                               }}
                                                           >

@@ -583,8 +583,8 @@ export default function IssuancePage() {
                                     disabled={!!form.getValues('orderId')}
                                 >
                                     {field.value
-                                        ? `${clients.find(c => c.id === field.value)?.clientName} - ${clients.find(c => c.id === field.value)?.projectName}`
-                                        : "Select a client or project"}
+                                        ? clients.find(c => c.id === field.value)?.clientName
+                                        : "Select a client"}
                                     <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
                                 </Button>
                             </PopoverTrigger>
@@ -597,9 +597,9 @@ export default function IssuancePage() {
                                             {clients.map(c => (
                                                 <CommandItem
                                                     key={c.id}
-                                                    value={c.id}
-                                                    onSelect={(currentValue) => {
-                                                        field.onChange(currentValue);
+                                                    value={c.clientName}
+                                                    onSelect={() => {
+                                                        field.onChange(c.id);
                                                         setIsClientPopoverOpen(false);
                                                     }}
                                                 >
@@ -659,9 +659,9 @@ export default function IssuancePage() {
                                                         {products.map(p => (
                                                             <CommandItem
                                                                 key={p.id}
-                                                                value={p.id}
-                                                                onSelect={(currentValue) => {
-                                                                    controllerField.onChange(currentValue)
+                                                                value={p.name}
+                                                                onSelect={() => {
+                                                                    controllerField.onChange(p.id)
                                                                     setProductPopovers(prev => ({...prev, [index]: false}))
                                                                 }}
                                                                 disabled={p.stock === 0}
