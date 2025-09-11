@@ -139,6 +139,7 @@ export interface Return {
     status: "Pending" | "Received" | "Completed" | "Cancelled";
     dateInitiated: Date;
     dateReceived?: Date;
+    processedBy?: string;
     inspection?: {
       date: Timestamp;
       items: {

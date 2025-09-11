@@ -2,7 +2,7 @@
 import { db, storage } from "@/lib/firebase";
 import { collection, getDocs, getDoc, doc, orderBy, query, limit, Timestamp, where, DocumentReference, addDoc, updateDoc, deleteDoc, arrayUnion, runTransaction, writeBatch, setDoc } from "firebase/firestore";
 import { ref, uploadBytes, getDownloadURL } from "firebase/storage";
-import type { Activity, Notification, Order, Product, Client, Issuance, Supplier, PurchaseOrder, Shipment, Return, ReturnItem, OutboundReturn, OutboundReturnItem, UserProfile } from "@/types";
+import type { Activity, Notification, Order, Product, Client, Issuance, Supplier, PurchaseOrder, Shipment, Return, ReturnItem, OutboundReturn, OutboundReturnItem, UserProfile, OrderItem } from "@/types";
 import { format, subDays } from 'date-fns';
 
 function timeSince(date: Date) {
@@ -1135,7 +1135,7 @@ export async function initiateReturn(returnData: NewReturnData): Promise<Documen
   }
 }
 
-export async function processReturn(returnId: string, status: "Received" | "Cancelled"): Promise<void> {
+export async function processReturn(returnId: string, status: "Received" | "Cancelled", processedBy: string): Promise<void> {
   const returnRef = doc(db, "returns", returnId);
   
   try {
@@ -1147,7 +1147,7 @@ export async function processReturn(returnId: string, status: "Received" | "Canc
       const returnData = returnDoc.data();
       
       const now = Timestamp.now();
-      const payload: any = { status };
+      const payload: any = { status, processedBy };
 
       if (status === 'Received') {
         if(returnData.status !== 'Pending') throw new Error("Can only mark 'Pending' returns as 'Received'.");
@@ -1162,6 +1162,23 @@ export async function processReturn(returnId: string, status: "Received" | "Canc
      console.error("Error processing return:", error);
      throw error;
   }
+}
+
+export async function deleteReturn(returnId: string): Promise<void> {
+    try {
+        const returnRef = doc(db, "returns", returnId);
+        const returnDoc = await getDoc(returnRef);
+        if (!returnDoc.exists()) {
+            throw new Error("Return record not found.");
+        }
+        if (returnDoc.data().status === 'Completed') {
+            throw new Error("Cannot delete a completed return as inventory has been adjusted.");
+        }
+        await deleteDoc(returnRef);
+    } catch (error) {
+        console.error("Error deleting return:", error);
+        throw error;
+    }
 }
 
 type InspectionData = {

@@ -8,13 +8,17 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Button } from "@/components/ui/button";
+import { Button, buttonVariants } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
-import { processReturn } from "@/services/data-service";
+import { deleteReturn, processReturn } from "@/services/data-service";
 import { useToast } from "@/hooks/use-toast";
 import type { Return, OutboundReturn } from "@/types";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useRouter } from "next/navigation";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
+import { MoreHorizontal } from "lucide-react";
+import { useAuth } from "@/hooks/use-auth";
 
 const inboundStatusVariant: { [key: string]: "default" | "secondary" | "destructive" } = {
   Pending: "secondary",
@@ -33,15 +37,22 @@ const outboundStatusVariant: { [key: string]: "default" | "secondary" | "destruc
 
 export default function ReturnsPage() {
   const { returns, outboundReturns, loading, refetchData } = useData();
+  const { user } = useAuth();
   const [selectedReturn, setSelectedReturn] = useState<Return | null>(null);
   const [selectedOutboundReturn, setSelectedOutboundReturn] = useState<OutboundReturn | null>(null);
+  const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
+  const [deletingReturnId, setDeletingReturnId] = useState<string | null>(null);
   const { toast } = useToast();
   const router = useRouter();
 
 
   const handleProcessReturn = async (returnId: string, status: "Received" | "Cancelled") => {
+    if (!user) {
+        toast({ variant: "destructive", title: "Authentication Error", description: "You must be logged in." });
+        return;
+    }
     try {
-      await processReturn(returnId, status);
+      await processReturn(returnId, status, user.displayName || user.email || "System");
       toast({ title: "Success", description: `Return marked as ${status}.` });
       await refetchData();
       setSelectedReturn(null);
@@ -55,6 +66,26 @@ export default function ReturnsPage() {
     setSelectedReturn(null);
     router.push('/quality-control');
   }
+
+  const handleDeleteClick = (returnId: string) => {
+    setDeletingReturnId(returnId);
+    setIsDeleteDialogOpen(true);
+  };
+
+  const handleDeleteConfirm = async () => {
+    if (!deletingReturnId) return;
+    try {
+      await deleteReturn(deletingReturnId);
+      toast({ title: "Success", description: "Return record deleted successfully." });
+      await refetchData();
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : "Failed to delete return.";
+      toast({ variant: "destructive", title: "Error", description: errorMessage });
+    } finally {
+        setDeletingReturnId(null);
+        setIsDeleteDialogOpen(false);
+    }
+  };
 
   const formatDate = (date?: Date) => {
     if (!date) return 'N/A';
@@ -100,19 +131,32 @@ export default function ReturnsPage() {
                           <TableCell><Skeleton className="h-4 w-24" /></TableCell>
                           <TableCell><Skeleton className="h-4 w-24" /></TableCell>
                           <TableCell><Skeleton className="h-6 w-20 rounded-full" /></TableCell>
-                          <TableCell className="text-right"><Skeleton className="h-8 w-20" /></TableCell>
+                          <TableCell className="text-right"><Skeleton className="h-8 w-8 ml-auto" /></TableCell>
                         </TableRow>
                       ))
                     ) : returns.length > 0 ? (
                       returns.map((ret) => (
-                        <TableRow key={ret.id} onClick={() => setSelectedReturn(ret)} className="cursor-pointer">
-                          <TableCell className="font-medium">{ret.rmaNumber}</TableCell>
-                          <TableCell>{ret.client.clientName}</TableCell>
-                          <TableCell>{ret.issuanceNumber}</TableCell>
-                          <TableCell>{formatDate(ret.dateInitiated)}</TableCell>
-                          <TableCell><Badge variant={inboundStatusVariant[ret.status]}>{ret.status}</Badge></TableCell>
+                        <TableRow key={ret.id}>
+                          <TableCell className="font-medium" onClick={() => setSelectedReturn(ret)}>{ret.rmaNumber}</TableCell>
+                          <TableCell onClick={() => setSelectedReturn(ret)}>{ret.client.clientName}</TableCell>
+                          <TableCell onClick={() => setSelectedReturn(ret)}>{ret.issuanceNumber}</TableCell>
+                          <TableCell onClick={() => setSelectedReturn(ret)}>{formatDate(ret.dateInitiated)}</TableCell>
+                          <TableCell onClick={() => setSelectedReturn(ret)}><Badge variant={inboundStatusVariant[ret.status]}>{ret.status}</Badge></TableCell>
                           <TableCell className="text-right">
-                            <Button variant="outline" size="sm">View Details</Button>
+                             <DropdownMenu>
+                                <DropdownMenuTrigger asChild>
+                                    <Button aria-haspopup="true" size="icon" variant="ghost" onClick={(e) => e.stopPropagation()}>
+                                        <MoreHorizontal className="h-4 w-4" />
+                                        <span className="sr-only">Toggle menu</span>
+                                    </Button>
+                                </DropdownMenuTrigger>
+                                <DropdownMenuContent align="end" onClick={(e) => e.stopPropagation()}>
+                                    <DropdownMenuLabel>Actions</DropdownMenuLabel>
+                                    <DropdownMenuItem onClick={() => setSelectedReturn(ret)}>View Details</DropdownMenuItem>
+                                    <DropdownMenuSeparator />
+                                    <DropdownMenuItem onClick={() => handleDeleteClick(ret.id)} className="text-destructive">Delete</DropdownMenuItem>
+                                </DropdownMenuContent>
+                            </DropdownMenu>
                           </TableCell>
                         </TableRow>
                       ))
@@ -263,6 +307,24 @@ export default function ReturnsPage() {
           </DialogContent>
         </Dialog>
       )}
+
+       <AlertDialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
+        <AlertDialogContent>
+            <AlertDialogHeader>
+            <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
+            <AlertDialogDescription>
+                This action cannot be undone. This will permanently delete this
+                return record. This action does not affect inventory.
+            </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={handleDeleteConfirm} className={buttonVariants({ variant: "destructive" })}>
+                Delete
+            </AlertDialogAction>
+            </AlertDialogFooter>
+        </AlertDialogContent>
+        </AlertDialog>
     </div>
   );
 }
