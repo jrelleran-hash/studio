@@ -2,7 +2,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { Bell, Check } from "lucide-react";
+import { Bell, Check, ShoppingCart, UserPlus, Package, Truck, RefreshCcw, ClipboardCheck } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 
@@ -33,6 +33,16 @@ import type { Notification } from "@/types";
 import { Skeleton } from "./ui/skeleton";
 
 type NotificationWithTime = Notification & { time: string };
+
+const iconMap = {
+  ShoppingCart: <ShoppingCart className="size-4 text-primary" />,
+  UserPlus: <UserPlus className="size-4 text-primary" />,
+  Package: <Package className="size-4 text-primary" />,
+  Truck: <Truck className="size-4 text-primary" />,
+  RefreshCcw: <RefreshCcw className="size-4 text-primary" />,
+  ClipboardCheck: <ClipboardCheck className="size-4 text-primary" />,
+};
+
 
 export function NotificationsMenu() {
   const [notifications, setNotifications] = useState<NotificationWithTime[]>([]);
@@ -82,6 +92,7 @@ export function NotificationsMenu() {
                 {loading ? (
                   Array.from({ length: 3 }).map((_, index) => (
                     <div key={index} className="flex items-center space-x-4 p-3">
+                       <Skeleton className="h-8 w-8 rounded-full" />
                       <div className="flex-1 space-y-2">
                         <Skeleton className="h-4 w-3/4" />
                         <Skeleton className="h-4 w-1/4" />
@@ -95,6 +106,11 @@ export function NotificationsMenu() {
                       className="flex items-center space-x-4 rounded-md p-3 transition-all hover:bg-accent hover:text-accent-foreground cursor-pointer"
                       onClick={() => setSelectedNotification(notification)}
                     >
+                      {notification.icon && (
+                        <div className="p-2 bg-muted/50 rounded-full">
+                            {iconMap[notification.icon]}
+                        </div>
+                      )}
                       <div className="flex-1 space-y-1">
                         <p className="text-sm font-medium leading-none">
                           {notification.title}

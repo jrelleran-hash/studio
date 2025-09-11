@@ -17,6 +17,7 @@ export interface Notification {
   href: string;
   timestamp: Timestamp;
   read: boolean;
+  icon?: "ShoppingCart" | "UserPlus" | "Package" | "Truck" | "RefreshCcw" | "ClipboardCheck";
 }
 
 export interface Client {

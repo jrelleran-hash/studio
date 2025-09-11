@@ -2,7 +2,7 @@
 import { db, storage } from "@/lib/firebase";
 import { collection, getDocs, getDoc, doc, orderBy, query, limit, Timestamp, where, DocumentReference, addDoc, updateDoc, deleteDoc, arrayUnion, runTransaction, writeBatch, setDoc } from "firebase/firestore";
 import { ref, uploadBytes, getDownloadURL } from "firebase/storage";
-import type { Activity, Notification, Order, Product, Client, Issuance, Supplier, PurchaseOrder, Shipment, Return, ReturnItem, OutboundReturn, OutboundReturnItem, UserProfile, OrderItem, PurchaseOrderItem } from "@/types";
+import type { Activity, Notification, Order, Product, Client, Issuance, Supplier, PurchaseOrder, Shipment, Return, ReturnItem, OutboundReturn, OutboundReturnItem, UserProfile, OrderItem, PurchaseOrderItem, IssuanceItem } from "@/types";
 import { format, subDays } from 'date-fns';
 
 function timeSince(date: Date) {
@@ -48,6 +48,20 @@ async function resolveDoc<T>(docRef: DocumentReference): Promise<T | null> {
 //     }
 //     return { id: docSnap.id, ...docSnap.data() } as T;
 // }
+
+// Centralized function to create notifications
+async function createNotification(notification: Omit<Notification, 'id' | 'timestamp' | 'read' | 'time'>) {
+    try {
+        const notificationWithDefaults = {
+            ...notification,
+            timestamp: Timestamp.now(),
+            read: false,
+        };
+        await addDoc(collection(db, "notifications"), notificationWithDefaults);
+    } catch (error) {
+        console.error("Error creating notification:", error);
+    }
+}
 
 
 export async function getRecentActivities(count: number = 4): Promise<(Activity & { time: string })[]> {
@@ -174,12 +188,12 @@ export async function getProducts(): Promise<Product[]> {
 async function checkStockAndCreateNotification(product: Omit<Product, 'id' | 'history'>, productId: string) {
   if (product.stock > 0 && product.stock <= product.reorderLimit) {
     const status = "Low Stock";
-    const notification: Omit<Notification, 'id'> = {
+    const notification: Omit<Notification, 'id' | 'timestamp' | 'read'> = {
       title: `${status} Alert: ${product.name}`,
       description: `${product.name} is ${status.toLowerCase()}.`,
       details: `Product "${product.name}" (SKU: ${product.sku}) has a stock level of ${product.stock}, which is at or below the reorder limit of ${product.reorderLimit}. Please reorder soon.`,
       href: `/inventory`,
-      timestamp: Timestamp.now(),
+      icon: "Package",
       read: false
     };
 
@@ -253,6 +267,14 @@ export async function addProduct(product: Partial<Omit<Product, 'id' | 'lastUpda
     
     await setDoc(docRef, productWithDefaults);
     
+    await createNotification({
+        title: "New Product Added",
+        description: `"${productWithDefaults.name}" was added to inventory.`,
+        details: `A new product, ${productWithDefaults.name} (SKU: ${productWithDefaults.sku}), has been created.`,
+        href: "/inventory",
+        icon: "Package",
+    });
+
     return docRef;
   } catch (error) {
     console.error("Error adding product:", error);
@@ -398,6 +420,15 @@ export async function addClient(client: Omit<Client, 'id' | 'createdAt'>): Promi
       createdAt: Timestamp.now(),
     };
     const docRef = await addDoc(clientsCol, clientWithDate);
+    
+    await createNotification({
+        title: "New Client Added",
+        description: `${client.clientName} is now a client.`,
+        details: `A new client, ${client.clientName} for project "${client.projectName}", has been added to the database.`,
+        href: "/clients",
+        icon: "UserPlus",
+    });
+
     return docRef;
   } catch (error) {
     console.error("Error adding client:", error);
@@ -437,6 +468,10 @@ export async function addOrder(orderData: NewOrderData): Promise<DocumentReferen
     let total = 0;
     let needsPurchase = false;
 
+    const clientRef = doc(db, "clients", orderData.clientId);
+    const client = await resolveDoc<Client>(clientRef);
+    if (!client) throw new Error("Client not found.");
+
     const resolvedItems = await Promise.all(
       orderData.items.map(async (item) => {
         const productRef = doc(db, "inventory", item.productId);
@@ -464,7 +499,7 @@ export async function addOrder(orderData: NewOrderData): Promise<DocumentReferen
 
 
     const newOrder: any = {
-      clientRef: doc(db, "clients", orderData.clientId),
+      clientRef: clientRef,
       date: Timestamp.now(),
       items: resolvedItems,
       status: status,
@@ -477,6 +512,15 @@ export async function addOrder(orderData: NewOrderData): Promise<DocumentReferen
 
     const ordersCol = collection(db, "orders");
     const docRef = await addDoc(ordersCol, newOrder);
+    
+    await createNotification({
+        title: "New Order Created",
+        description: `Order for ${client.clientName} has been placed.`,
+        details: `A new order (${docRef.id.substring(0, 7)}) for ${client.clientName} has been created with a total of ${resolvedItems.length} item(s). Status: ${status}.`,
+        href: "/orders",
+        icon: "ShoppingCart",
+    });
+
     return docRef;
 
   } catch (error) {
@@ -787,6 +831,10 @@ type NewPurchaseOrderData = {
 
 export async function addPurchaseOrder(poData: NewPurchaseOrderData): Promise<DocumentReference> {
   try {
+    const supplierRef = doc(db, "suppliers", poData.supplierId);
+    const supplier = await resolveDoc<Supplier>(supplierRef);
+    if (!supplier) throw new Error("Supplier not found.");
+
     const resolvedItems = await Promise.all(
       poData.items.map(async (item) => {
         const productRef = doc(db, "inventory", item.productId);
@@ -799,7 +847,7 @@ export async function addPurchaseOrder(poData: NewPurchaseOrderData): Promise<Do
     );
 
     const newPurchaseOrder: any = {
-      supplierRef: doc(db, "suppliers", poData.supplierId),
+      supplierRef: supplierRef,
       orderDate: Timestamp.now(),
       status: "Pending",
       items: resolvedItems,
@@ -812,6 +860,15 @@ export async function addPurchaseOrder(poData: NewPurchaseOrderData): Promise<Do
 
     const poCol = collection(db, "purchaseOrders");
     const docRef = await addDoc(poCol, newPurchaseOrder);
+
+    await createNotification({
+        title: "New Purchase Order",
+        description: `PO for ${supplier.name} has been created.`,
+        details: `A new purchase order (${newPurchaseOrder.poNumber}) has been created for ${supplier.name}.`,
+        href: "/orders?tab=purchase-orders",
+        icon: "ShoppingCart",
+    });
+
     return docRef;
 
   } catch (error) {
@@ -1047,8 +1104,9 @@ type NewShipmentData = {
 
 export async function addShipment(shipmentData: NewShipmentData): Promise<DocumentReference> {
     try {
+        const shipmentNumber = `SH-${Date.now()}`;
         const newShipment = {
-            shipmentNumber: `SH-${Date.now()}`,
+            shipmentNumber,
             issuanceRef: doc(db, "issuances", shipmentData.issuanceId),
             status: "Pending",
             shippingProvider: shipmentData.shippingProvider,
@@ -1059,6 +1117,15 @@ export async function addShipment(shipmentData: NewShipmentData): Promise<Docume
 
         const shipmentsCol = collection(db, "shipments");
         const docRef = await addDoc(shipmentsCol, newShipment);
+        
+        await createNotification({
+            title: "New Shipment Created",
+            description: `Shipment ${shipmentNumber} is now pending.`,
+            details: `A new shipment (${shipmentNumber}) has been created and is now pending.`,
+            href: "/logistics",
+            icon: "Truck",
+        });
+        
         return docRef;
 
     } catch (error) {
@@ -1136,6 +1203,15 @@ export async function initiateReturn(returnData: NewReturnData): Promise<Documen
 
     const returnsCol = collection(db, "returns");
     const docRef = await addDoc(returnsCol, newReturn);
+    
+    await createNotification({
+        title: "Return Initiated",
+        description: `RMA ${newReturn.rmaNumber} has been created.`,
+        details: `A new return request (${newReturn.rmaNumber}) has been initiated.`,
+        href: "/returns",
+        icon: "RefreshCcw",
+    });
+
     return docRef;
   } catch (error) {
     console.error("Error initiating return:", error);
@@ -1234,6 +1310,14 @@ export async function completeInspection(returnId: string, inspectionItems: Insp
           date: now,
           items: inspectionItems,
         }
+      });
+
+      await createNotification({
+          title: "Inspection Completed",
+          description: `Return ${returnDoc.data().rmaNumber} has been inspected.`,
+          details: `The inspection for return ${returnDoc.data().rmaNumber} is complete. Inventory has been updated.`,
+          href: "/quality-control",
+          icon: "ClipboardCheck",
       });
     });
   } catch (error) {
