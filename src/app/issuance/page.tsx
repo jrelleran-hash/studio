@@ -1,4 +1,5 @@
 
+
 "use client";
 
 import { useState, useEffect, useMemo, useRef } from "react";
@@ -513,7 +514,8 @@ export default function IssuancePage() {
                     ))
                 ) : issuanceQueue.length > 0 ? (
                   issuanceQueue.map((order) => (
-                    <Collapsible key={order.id}>
+                    <Collapsible key={order.id} asChild>
+                      <React.Fragment>
                         <TableRow>
                           <TableCell className="font-medium">{order.id.substring(0, 7)}</TableCell>
                           <TableCell>{order.client.clientName}</TableCell>
@@ -530,7 +532,7 @@ export default function IssuancePage() {
                           </TableCell>
                         </TableRow>
                         <CollapsibleContent asChild>
-                          <tr className="bg-muted/50 border-b">
+                          <tr className="bg-muted/50">
                             <td colSpan={5} className="p-0">
                               <div className="p-4">
                                 <h4 className="text-sm font-semibold mb-2">Items for Order {order.id.substring(0, 7)}:</h4>
@@ -546,6 +548,7 @@ export default function IssuancePage() {
                             </td>
                           </tr>
                         </CollapsibleContent>
+                      </React.Fragment>
                     </Collapsible>
                   ))
                 ) : (
