@@ -140,7 +140,7 @@ const createReturnSchema = (issuance: Issuance | null) => z.object({
     }),
 });
 
-type ReturnFormValues = z.infer<ReturnType<typeof createReturnSchema>>;
+type ReturnFormValues = z.infer<typeof createReturnSchema>;
 
 
 // Printable Component
@@ -525,15 +525,15 @@ export default function IssuancePage() {
                             <Button size="sm" onClick={() => handleCreateIssuanceFromOrder(order)}>Create Issuance</Button>
                             <CollapsibleTrigger asChild>
                               <Button variant="ghost" size="icon" className="w-8 h-8">
-                                <span className="sr-only">Toggle Details</span>
                                 <ChevronDown className="h-4 w-4" />
+                                <span className="sr-only">Toggle Details</span>
                               </Button>
                             </CollapsibleTrigger>
                           </TableCell>
                         </TableRow>
                         <CollapsibleContent asChild>
-                          <tr className="bg-muted/50">
-                            <td colSpan={5} className="p-0">
+                           <TableRow className="bg-muted/50">
+                            <TableCell colSpan={5} className="p-0">
                               <div className="p-4">
                                 <h4 className="text-sm font-semibold mb-2">Items for Order {order.id.substring(0, 7)}:</h4>
                                 <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-2">
@@ -545,8 +545,8 @@ export default function IssuancePage() {
                                   ))}
                                 </div>
                               </div>
-                            </td>
-                          </tr>
+                            </TableCell>
+                          </TableRow>
                         </CollapsibleContent>
                       </React.Fragment>
                     </Collapsible>
@@ -1073,3 +1073,5 @@ export default function IssuancePage() {
     </>
   );
 }
+
+    
