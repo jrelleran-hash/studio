@@ -54,7 +54,7 @@ type OrderFormValues = z.infer<typeof orderSchema>;
 const createProductSchema = (isSkuAuto: boolean) => z.object({
   name: z.string().min(1, "Product name is required."),
   sku: z.string().optional(),
-  price: z.coerce.number().nonnegative("Price must be a non-negative number."),
+  price: z.coerce.number().nonnegative("Price must be a non-negative number.").optional(),
   stock: z.coerce.number().int().nonnegative("Stock must be a non-negative integer."),
   reorderLimit: z.coerce.number().int().nonnegative("Reorder limit must be a non-negative integer."),
   location: z.string().optional(),
@@ -90,7 +90,7 @@ export function ActiveOrders() {
   const [deletingOrderId, setDeletingOrderId] = useState<string | null>(null);
   
   const [isClientPopoverOpen, setIsClientPopoverOpen] = useState(false);
-  const [productPopoverOpen, setProductPopoverOpen] = useState<{[key: number]: boolean}>({});
+  const [productPopovers, setProductPopovers] = useState<Record<number, boolean>>({});
 
   const productSchema = useMemo(() => createProductSchema(autoGenerateSku), [autoGenerateSku]);
 
@@ -339,9 +339,9 @@ export function ActiveOrders() {
                                             {clients.map(c => (
                                                 <CommandItem
                                                     key={c.id}
-                                                    value={`${c.clientName} ${c.projectName}`}
-                                                    onSelect={() => {
-                                                        field.onChange(c.id);
+                                                    value={c.id}
+                                                    onSelect={(currentValue) => {
+                                                        field.onChange(currentValue);
                                                         setIsClientPopoverOpen(false);
                                                     }}
                                                 >
@@ -380,7 +380,7 @@ export function ActiveOrders() {
                               control={orderForm.control}
                               name={`items.${index}.productId`}
                               render={({ field: controllerField }) => (
-                                  <Popover open={productPopoverOpen[index]} onOpenChange={(open) => setProductPopoverOpen(prev => ({...prev, [index]: open}))}>
+                                  <Popover open={productPopovers[index]} onOpenChange={(open) => setProductPopovers(prev => ({...prev, [index]: open}))}>
                                       <PopoverTrigger asChild>
                                           <Button
                                               variant="outline"
@@ -400,10 +400,10 @@ export function ActiveOrders() {
                                                       {products.map(p => (
                                                           <CommandItem
                                                               key={p.id}
-                                                              value={p.name}
-                                                              onSelect={() => {
-                                                                  controllerField.onChange(p.id)
-                                                                  setProductPopoverOpen(prev => ({...prev, [index]: false}))
+                                                              value={p.id}
+                                                              onSelect={(currentValue) => {
+                                                                  controllerField.onChange(currentValue);
+                                                                  setProductPopovers(prev => ({...prev, [index]: false}));
                                                               }}
                                                           >
                                                               <Check

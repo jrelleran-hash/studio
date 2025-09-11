@@ -237,7 +237,7 @@ export default function IssuancePage() {
   const [deletingIssuanceId, setDeletingIssuanceId] = useState<string | null>(null);
   
   const [isClientPopoverOpen, setIsClientPopoverOpen] = useState(false);
-  const [productPopoverOpen, setProductPopoverOpen] = useState<{[key: number]: boolean}>({});
+  const [productPopovers, setProductPopovers] = useState<Record<number, boolean>>({});
 
 
   const issuanceQueue = useMemo(() => {
@@ -597,9 +597,9 @@ export default function IssuancePage() {
                                             {clients.map(c => (
                                                 <CommandItem
                                                     key={c.id}
-                                                    value={`${c.clientName} ${c.projectName}`}
-                                                    onSelect={() => {
-                                                        field.onChange(c.id);
+                                                    value={c.id}
+                                                    onSelect={(currentValue) => {
+                                                        field.onChange(currentValue);
                                                         setIsClientPopoverOpen(false);
                                                     }}
                                                 >
@@ -638,7 +638,7 @@ export default function IssuancePage() {
                                 control={form.control}
                                 name={`items.${index}.productId`}
                                 render={({ field: controllerField }) => (
-                                    <Popover open={productPopoverOpen[index]} onOpenChange={(open) => setProductPopoverOpen(prev => ({...prev, [index]: open}))}>
+                                    <Popover open={productPopovers[index]} onOpenChange={(open) => setProductPopovers(prev => ({...prev, [index]: open}))}>
                                         <PopoverTrigger asChild>
                                             <Button
                                                 variant="outline"
@@ -659,10 +659,10 @@ export default function IssuancePage() {
                                                         {products.map(p => (
                                                             <CommandItem
                                                                 key={p.id}
-                                                                value={p.name}
-                                                                onSelect={() => {
-                                                                    controllerField.onChange(p.id)
-                                                                    setProductPopoverOpen(prev => ({...prev, [index]: false}))
+                                                                value={p.id}
+                                                                onSelect={(currentValue) => {
+                                                                    controllerField.onChange(currentValue)
+                                                                    setProductPopovers(prev => ({...prev, [index]: false}))
                                                                 }}
                                                                 disabled={p.stock === 0}
                                                             >

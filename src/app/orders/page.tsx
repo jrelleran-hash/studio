@@ -236,7 +236,13 @@ export default function OrdersAndSuppliersPage() {
   const [emailValidation, setEmailValidation] = useState<{ isValid: boolean; reason?: string; error?: string } | null>(null);
   const [isEmailChecking, setIsEmailChecking] = useState(false);
   const [emailValidationTimeout, setEmailValidationTimeout] = useState<NodeJS.Timeout | null>(null);
-  const [isClientPopoverOpen, setIsClientPopoverOpen] = useState(false);
+  
+  // Popover states
+  const [orderClientPopover, setOrderClientPopover] = useState(false);
+  const [orderProductPopovers, setOrderProductPopovers] = useState<Record<number, boolean>>({});
+  const [poSupplierPopover, setPoSupplierPopover] = useState(false);
+  const [poClientPopover, setPoClientPopover] = useState(false);
+  const [poProductPopovers, setPoProductPopovers] = useState<Record<number, boolean>>({});
 
 
   const productSchema = useMemo(() => createProductSchema(autoGenerateSku), [autoGenerateSku]);
@@ -854,7 +860,7 @@ export default function OrdersAndSuppliersPage() {
                             control={orderForm.control}
                             name="clientId"
                             render={({ field }) => (
-                                <Popover>
+                                <Popover open={orderClientPopover} onOpenChange={setOrderClientPopover}>
                                     <PopoverTrigger asChild>
                                         <Button
                                             variant="outline"
@@ -876,12 +882,10 @@ export default function OrdersAndSuppliersPage() {
                                                     {clients.map(c => (
                                                         <CommandItem
                                                             key={c.id}
-                                                            value={`${c.clientName} ${c.projectName}`}
+                                                            value={c.id}
                                                             onSelect={(currentValue) => {
-                                                                const selectedClient = clients.find(client => `${client.clientName} ${client.projectName}`.toLowerCase() === currentValue.toLowerCase());
-                                                                if (selectedClient) {
-                                                                    orderForm.setValue("clientId", selectedClient.id);
-                                                                }
+                                                                field.onChange(currentValue);
+                                                                setOrderClientPopover(false);
                                                             }}
                                                         >
                                                             <Check
@@ -914,7 +918,7 @@ export default function OrdersAndSuppliersPage() {
                                 control={orderForm.control}
                                 name={`items.${index}.productId`}
                                 render={({ field: controllerField }) => (
-                                    <Popover>
+                                    <Popover open={orderProductPopovers[index]} onOpenChange={(open) => setOrderProductPopovers(prev => ({...prev, [index]: open}))}>
                                         <PopoverTrigger asChild>
                                             <Button
                                                 variant="outline"
@@ -934,12 +938,10 @@ export default function OrdersAndSuppliersPage() {
                                                         {products.map(p => (
                                                             <CommandItem
                                                                 key={p.id}
-                                                                value={p.name}
+                                                                value={p.id}
                                                                 onSelect={(currentValue) => {
-                                                                    const selectedProduct = products.find(product => product.name.toLowerCase() === currentValue.toLowerCase());
-                                                                    if (selectedProduct) {
-                                                                        orderForm.setValue(`items.${index}.productId`, selectedProduct.id);
-                                                                    }
+                                                                    controllerField.onChange(currentValue);
+                                                                    setOrderProductPopovers(prev => ({...prev, [index]: false}));
                                                                 }}
                                                             >
                                                                 <Check
@@ -1006,7 +1008,7 @@ export default function OrdersAndSuppliersPage() {
                             control={poForm.control}
                             name="supplierId"
                             render={({ field }) => (
-                                <Popover>
+                                <Popover open={poSupplierPopover} onOpenChange={setPoSupplierPopover}>
                                     <PopoverTrigger asChild>
                                         <Button
                                             variant="outline"
@@ -1028,12 +1030,10 @@ export default function OrdersAndSuppliersPage() {
                                                     {suppliers.map(s => (
                                                         <CommandItem
                                                             key={s.id}
-                                                            value={s.name}
+                                                            value={s.id}
                                                             onSelect={(currentValue) => {
-                                                                const selectedSupplier = suppliers.find(supplier => supplier.name.toLowerCase() === currentValue.toLowerCase());
-                                                                if (selectedSupplier) {
-                                                                    poForm.setValue("supplierId", selectedSupplier.id);
-                                                                }
+                                                                field.onChange(currentValue)
+                                                                setPoSupplierPopover(false);
                                                             }}
                                                         >
                                                             <Check
@@ -1061,7 +1061,7 @@ export default function OrdersAndSuppliersPage() {
                             control={poForm.control}
                             name="clientId"
                             render={({ field }) => (
-                                <Popover open={isClientPopoverOpen} onOpenChange={setIsClientPopoverOpen}>
+                                <Popover open={poClientPopover} onOpenChange={setPoClientPopover}>
                                     <PopoverTrigger asChild>
                                         <Button
                                             variant="outline"
@@ -1083,10 +1083,10 @@ export default function OrdersAndSuppliersPage() {
                                                     {clients.map(c => (
                                                         <CommandItem
                                                             key={c.id}
-                                                            value={`${c.clientName} ${c.projectName}`}
-                                                            onSelect={() => {
-                                                                poForm.setValue("clientId", c.id);
-                                                                setIsClientPopoverOpen(false);
+                                                            value={c.id}
+                                                            onSelect={(currentValue) => {
+                                                                field.onChange(currentValue);
+                                                                setPoClientPopover(false);
                                                             }}
                                                         >
                                                             <Check
@@ -1118,7 +1118,7 @@ export default function OrdersAndSuppliersPage() {
                                     control={poForm.control}
                                     name={`items.${index}.productId`}
                                     render={({ field: controllerField }) => (
-                                        <Popover>
+                                        <Popover open={poProductPopovers[index]} onOpenChange={(open) => setPoProductPopovers(prev => ({...prev, [index]: open}))}>
                                             <PopoverTrigger asChild>
                                                 <Button
                                                     variant="outline"
@@ -1138,12 +1138,10 @@ export default function OrdersAndSuppliersPage() {
                                                             {products.map(p => (
                                                                 <CommandItem
                                                                     key={p.id}
-                                                                    value={p.name}
+                                                                    value={p.id}
                                                                     onSelect={(currentValue) => {
-                                                                        const selectedProduct = products.find(prod => prod.name.toLowerCase() === currentValue.toLowerCase());
-                                                                        if (selectedProduct) {
-                                                                            poForm.setValue(`items.${index}.productId`, selectedProduct.id)
-                                                                        }
+                                                                        controllerField.onChange(currentValue);
+                                                                        setPoProductPopovers(prev => ({...prev, [index]: false}));
                                                                     }}
                                                                 >
                                                                     <Check
@@ -1968,4 +1966,5 @@ export default function OrdersAndSuppliersPage() {
     </>
   );
 }
+
 
