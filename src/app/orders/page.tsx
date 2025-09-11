@@ -236,6 +236,7 @@ export default function OrdersAndSuppliersPage() {
   const [emailValidation, setEmailValidation] = useState<{ isValid: boolean; reason?: string; error?: string } | null>(null);
   const [isEmailChecking, setIsEmailChecking] = useState(false);
   const [emailValidationTimeout, setEmailValidationTimeout] = useState<NodeJS.Timeout | null>(null);
+  const [isClientPopoverOpen, setIsClientPopoverOpen] = useState(false);
 
 
   const productSchema = useMemo(() => createProductSchema(autoGenerateSku), [autoGenerateSku]);
@@ -876,8 +877,11 @@ export default function OrdersAndSuppliersPage() {
                                                         <CommandItem
                                                             key={c.id}
                                                             value={`${c.clientName} ${c.projectName}`}
-                                                            onSelect={() => {
-                                                                orderForm.setValue("clientId", c.id);
+                                                            onSelect={(currentValue) => {
+                                                                const selectedClient = clients.find(client => `${client.clientName} ${client.projectName}`.toLowerCase() === currentValue.toLowerCase());
+                                                                if (selectedClient) {
+                                                                    orderForm.setValue("clientId", selectedClient.id);
+                                                                }
                                                             }}
                                                         >
                                                             <Check
@@ -931,8 +935,11 @@ export default function OrdersAndSuppliersPage() {
                                                             <CommandItem
                                                                 key={p.id}
                                                                 value={p.name}
-                                                                onSelect={() => {
-                                                                    orderForm.setValue(`items.${index}.productId`, p.id)
+                                                                onSelect={(currentValue) => {
+                                                                    const selectedProduct = products.find(product => product.name.toLowerCase() === currentValue.toLowerCase());
+                                                                    if (selectedProduct) {
+                                                                        orderForm.setValue(`items.${index}.productId`, selectedProduct.id);
+                                                                    }
                                                                 }}
                                                             >
                                                                 <Check
@@ -1022,8 +1029,11 @@ export default function OrdersAndSuppliersPage() {
                                                         <CommandItem
                                                             key={s.id}
                                                             value={s.name}
-                                                            onSelect={() => {
-                                                                poForm.setValue("supplierId", s.id);
+                                                            onSelect={(currentValue) => {
+                                                                const selectedSupplier = suppliers.find(supplier => supplier.name.toLowerCase() === currentValue.toLowerCase());
+                                                                if (selectedSupplier) {
+                                                                    poForm.setValue("supplierId", selectedSupplier.id);
+                                                                }
                                                             }}
                                                         >
                                                             <Check
@@ -1051,7 +1061,7 @@ export default function OrdersAndSuppliersPage() {
                             control={poForm.control}
                             name="clientId"
                             render={({ field }) => (
-                                <Popover>
+                                <Popover open={isClientPopoverOpen} onOpenChange={setIsClientPopoverOpen}>
                                     <PopoverTrigger asChild>
                                         <Button
                                             variant="outline"
@@ -1076,6 +1086,7 @@ export default function OrdersAndSuppliersPage() {
                                                             value={`${c.clientName} ${c.projectName}`}
                                                             onSelect={() => {
                                                                 poForm.setValue("clientId", c.id);
+                                                                setIsClientPopoverOpen(false);
                                                             }}
                                                         >
                                                             <Check
@@ -1128,8 +1139,11 @@ export default function OrdersAndSuppliersPage() {
                                                                 <CommandItem
                                                                     key={p.id}
                                                                     value={p.name}
-                                                                    onSelect={() => {
-                                                                        poForm.setValue(`items.${index}.productId`, p.id)
+                                                                    onSelect={(currentValue) => {
+                                                                        const selectedProduct = products.find(prod => prod.name.toLowerCase() === currentValue.toLowerCase());
+                                                                        if (selectedProduct) {
+                                                                            poForm.setValue(`items.${index}.productId`, selectedProduct.id)
+                                                                        }
                                                                     }}
                                                                 >
                                                                     <Check
@@ -1954,3 +1968,4 @@ export default function OrdersAndSuppliersPage() {
     </>
   );
 }
+
