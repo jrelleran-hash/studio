@@ -2,7 +2,7 @@
 import { db, storage } from "@/lib/firebase";
 import { collection, getDocs, getDoc, doc, orderBy, query, limit, Timestamp, where, DocumentReference, addDoc, updateDoc, deleteDoc, arrayUnion, runTransaction, writeBatch, setDoc } from "firebase/firestore";
 import { ref, uploadBytes, getDownloadURL } from "firebase/storage";
-import type { Activity, Notification, Order, Product, Client, Issuance, Supplier, PurchaseOrder, Shipment, Return, ReturnItem, OutboundReturn, OutboundReturnItem, UserProfile, OrderItem } from "@/types";
+import type { Activity, Notification, Order, Product, Client, Issuance, Supplier, PurchaseOrder, Shipment, Return, ReturnItem, OutboundReturn, OutboundReturnItem, UserProfile, OrderItem, PurchaseOrderItem } from "@/types";
 import { format, subDays } from 'date-fns';
 
 function timeSince(date: Date) {
@@ -747,6 +747,8 @@ export async function getPurchaseOrders(): Promise<PurchaseOrder[]> {
             const supplier = await resolveDoc<Supplier>(poData.supplierRef);
             if (!supplier) return null;
             
+            const client = poData.clientRef ? await resolveDoc<Client>(poData.clientRef) : undefined;
+            
             const items = await Promise.all(poData.items.map(async (item: any) => {
                 const product = await resolveDoc<Product>(item.productRef);
                  if (!product) return null;
@@ -765,6 +767,7 @@ export async function getPurchaseOrders(): Promise<PurchaseOrder[]> {
                 expectedDate: poData.expectedDate ? (poData.expectedDate as Timestamp).toDate() : undefined,
                 receivedDate: poData.receivedDate ? (poData.receivedDate as Timestamp).toDate() : undefined,
                 supplier,
+                client,
                 items: items as PurchaseOrderItem[],
             } as PurchaseOrder;
         }));
@@ -778,6 +781,7 @@ export async function getPurchaseOrders(): Promise<PurchaseOrder[]> {
 
 type NewPurchaseOrderData = {
   supplierId: string;
+  clientId?: string;
   items: { productId: string; quantity: number }[];
 };
 
@@ -794,13 +798,17 @@ export async function addPurchaseOrder(poData: NewPurchaseOrderData): Promise<Do
       })
     );
 
-    const newPurchaseOrder = {
+    const newPurchaseOrder: any = {
       supplierRef: doc(db, "suppliers", poData.supplierId),
       orderDate: Timestamp.now(),
       status: "Pending",
       items: resolvedItems,
       poNumber: `PO-${Date.now()}`,
     };
+
+    if (poData.clientId) {
+        newPurchaseOrder.clientRef = doc(db, "clients", poData.clientId);
+    }
 
     const poCol = collection(db, "purchaseOrders");
     const docRef = await addDoc(poCol, newPurchaseOrder);

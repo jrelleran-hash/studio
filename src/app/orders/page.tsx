@@ -55,7 +55,7 @@ import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useToast } from "@/hooks/use-toast";
 import { updateOrderStatus, addOrder, addProduct, updateSupplier, deleteSupplier, addSupplier, deleteOrder, addPurchaseOrder, updatePurchaseOrderStatus, deletePurchaseOrder, initiateOutboundReturn } from "@/services/data-service";
-import type { Order, Supplier, PurchaseOrder, Product, OutboundReturnItem } from "@/types";
+import type { Order, Supplier, PurchaseOrder, Product, OutboundReturnItem, Client } from "@/types";
 import { formatCurrency } from "@/lib/currency";
 import { CURRENCY_CONFIG } from "@/config/currency";
 import { Separator } from "@/components/ui/separator";
@@ -107,6 +107,7 @@ const poItemSchema = z.object({
 
 const poSchema = z.object({
   supplierId: z.string().min(1, "Supplier is required."),
+  clientId: z.string().optional(),
   items: z.array(poItemSchema).min(1, "At least one item is required."),
 });
 
@@ -254,6 +255,7 @@ export default function OrdersAndSuppliersPage() {
     resolver: zodResolver(poSchema),
     defaultValues: {
       supplierId: "",
+      clientId: "",
       items: [{ productId: "", quantity: 1 }],
     }
   });
@@ -403,6 +405,7 @@ export default function OrdersAndSuppliersPage() {
     if (!isAddPOOpen) {
       poForm.reset({
         supplierId: "",
+        clientId: "",
         items: [{ productId: "", quantity: 1 }],
       });
       // Clear selection after closing PO dialog
@@ -768,6 +771,7 @@ export default function OrdersAndSuppliersPage() {
     }));
     poForm.reset({
       supplierId: "",
+      clientId: "",
       items: itemsForPO,
     });
     setIsAddPOOpen(true);
@@ -780,6 +784,7 @@ export default function OrdersAndSuppliersPage() {
     };
     poForm.reset({
       supplierId: "",
+      clientId: "",
       items: [itemForPO],
     });
     setIsAddPOOpen(true);
@@ -1038,6 +1043,57 @@ export default function OrdersAndSuppliersPage() {
                             )}
                         />
                         {poForm.formState.errors.supplierId && <p className="text-sm text-destructive">{poForm.formState.errors.supplierId.message}</p>}
+                    </div>
+
+                     <div className="space-y-2">
+                        <Label>Client / Project (Optional)</Label>
+                        <Controller
+                            control={poForm.control}
+                            name="clientId"
+                            render={({ field }) => (
+                                <Popover>
+                                    <PopoverTrigger asChild>
+                                        <Button
+                                            variant="outline"
+                                            role="combobox"
+                                            className={cn("w-full justify-between", !field.value && "text-muted-foreground")}
+                                        >
+                                            {field.value
+                                                ? `${clients.find(c => c.id === field.value)?.clientName} - ${clients.find(c => c.id === field.value)?.projectName}`
+                                                : "Select a client or project"}
+                                            <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                                        </Button>
+                                    </PopoverTrigger>
+                                    <PopoverContent className="w-[--radix-popover-trigger-width] p-0">
+                                        <Command>
+                                            <CommandInput placeholder="Search client..." />
+                                            <CommandEmpty>No client found.</CommandEmpty>
+                                            <CommandList>
+                                                <CommandGroup>
+                                                    {clients.map(c => (
+                                                        <CommandItem
+                                                            key={c.id}
+                                                            value={`${c.clientName} ${c.projectName}`}
+                                                            onSelect={() => {
+                                                                poForm.setValue("clientId", c.id);
+                                                            }}
+                                                        >
+                                                            <Check
+                                                                className={cn(
+                                                                    "mr-2 h-4 w-4",
+                                                                    field.value === c.id ? "opacity-100" : "opacity-0"
+                                                                )}
+                                                            />
+                                                            {c.clientName} - {c.projectName}
+                                                        </CommandItem>
+                                                    ))}
+                                                </CommandGroup>
+                                            </CommandList>
+                                        </Command>
+                                    </PopoverContent>
+                                </Popover>
+                            )}
+                        />
                     </div>
 
                     <div className="space-y-2">
@@ -1390,6 +1446,7 @@ export default function OrdersAndSuppliersPage() {
                     <TableRow>
                       <TableHead>PO Number</TableHead>
                       <TableHead>Supplier</TableHead>
+                      <TableHead>Client / Project</TableHead>
                       <TableHead>Order Date</TableHead>
                       <TableHead>Status</TableHead>
                       <TableHead className="text-right">
@@ -1403,6 +1460,7 @@ export default function OrdersAndSuppliersPage() {
                         <TableRow key={i}>
                           <TableCell><Skeleton className="h-4 w-24" /></TableCell>
                           <TableCell><Skeleton className="h-4 w-32" /></TableCell>
+                           <TableCell><Skeleton className="h-4 w-32" /></TableCell>
                           <TableCell><Skeleton className="h-4 w-24" /></TableCell>
                           <TableCell><Skeleton className="h-6 w-20 rounded-full" /></TableCell>
                           <TableCell><Skeleton className="h-8 w-8 ml-auto" /></TableCell>
@@ -1419,6 +1477,7 @@ export default function OrdersAndSuppliersPage() {
                           <TableRow key={po.id} onClick={() => setSelectedPO(po)} className="cursor-pointer">
                             <TableCell className="font-medium">{po.poNumber}</TableCell>
                             <TableCell>{po.supplier.name}</TableCell>
+                            <TableCell>{po.client?.clientName || 'N/A'}</TableCell>
                             <TableCell>{formatDateSimple(po.orderDate)}</TableCell>
                             <TableCell>
                               <Badge variant={finalVariant || "default"}>{displayStatus}</Badge>
@@ -1872,6 +1931,7 @@ export default function OrdersAndSuppliersPage() {
                 <div className="py-4 space-y-4">
                     <p><strong>Order Date:</strong> {formatDateSimple(selectedPO.orderDate)}</p>
                     <p><strong>Expected Date:</strong> {selectedPO.expectedDate ? formatDateSimple(selectedPO.expectedDate) : 'N/A'}</p>
+                     {selectedPO.client && <p><strong>For Client:</strong> {selectedPO.client.clientName}</p>}
                     <p><strong>Status:</strong> <Badge variant={statusVariant[selectedPO.status] || "default"}>{selectedPO.status}</Badge></p>
                     {selectedPO.receivedDate && <p><strong>Date Received:</strong> {formatDateSimple(selectedPO.receivedDate)}</p>}
                     <div>

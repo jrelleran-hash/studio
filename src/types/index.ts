@@ -84,6 +84,7 @@ export interface PurchaseOrderItem {
 export interface PurchaseOrder {
     id: string;
     supplier: Supplier;
+    client?: Client;
     items: PurchaseOrderItem[];
     status: "Pending" | "Shipped" | "Received";
     orderDate: Date;
@@ -91,6 +92,7 @@ export interface PurchaseOrder {
     receivedDate?: Date;
     poNumber: string;
     docRef?: DocumentReference;
+    clientRef?: DocumentReference;
 }
 
 export interface IssuanceItem {
