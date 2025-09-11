@@ -1,4 +1,5 @@
 
+
 import { db, storage } from "@/lib/firebase";
 import { collection, getDocs, getDoc, doc, orderBy, query, limit, Timestamp, where, DocumentReference, addDoc, updateDoc, deleteDoc, arrayUnion, runTransaction, writeBatch, setDoc } from "firebase/firestore";
 import { ref, uploadBytes, getDownloadURL } from "firebase/storage";
@@ -1476,15 +1477,19 @@ export async function getUserProfile(uid: string): Promise<UserProfile | null> {
 export async function getBackorders(): Promise<Backorder[]> {
     try {
         const backordersCol = collection(db, "backorders");
-        const q = query(backordersCol, where("status", "==", "Pending"), orderBy("date", "asc"));
+        const q = query(backordersCol, where("status", "==", "Pending"));
         const snapshot = await getDocs(q);
-        return snapshot.docs.map(doc => {
+        const backorders = snapshot.docs.map(doc => {
             const data = doc.data();
             return {
                 id: doc.id,
                 ...data,
             } as Backorder;
         });
+
+        // Sort manually after fetching
+        return backorders.sort((a, b) => a.date.toMillis() - b.date.toMillis());
+
     } catch (error) {
         console.error("Error fetching backorders:", error);
         return [];
