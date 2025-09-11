@@ -2,7 +2,7 @@
 import { db, storage } from "@/lib/firebase";
 import { collection, getDocs, getDoc, doc, orderBy, query, limit, Timestamp, where, DocumentReference, addDoc, updateDoc, deleteDoc, arrayUnion, runTransaction, writeBatch, setDoc } from "firebase/firestore";
 import { ref, uploadBytes, getDownloadURL } from "firebase/storage";
-import type { Activity, Notification, Order, Product, Client, Issuance, Supplier, PurchaseOrder, Shipment, Return, ReturnItem, OutboundReturn, OutboundReturnItem, UserProfile, OrderItem, PurchaseOrderItem, IssuanceItem } from "@/types";
+import type { Activity, Notification, Order, Product, Client, Issuance, Supplier, PurchaseOrder, Shipment, Return, ReturnItem, OutboundReturn, OutboundReturnItem, UserProfile, OrderItem, PurchaseOrderItem, IssuanceItem, Backorder } from "@/types";
 import { format, subDays } from 'date-fns';
 
 function timeSince(date: Date) {
@@ -50,9 +50,9 @@ async function resolveDoc<T>(docRef: DocumentReference): Promise<T | null> {
 // }
 
 // Centralized function to create notifications
-async function createNotification(notification: Omit<Notification, 'id' | 'timestamp' | 'read' | 'time'>) {
+async function createNotification(notification: Omit<Notification, 'id' | 'timestamp' | 'read' >) {
     try {
-        const notificationWithDefaults = {
+        const notificationWithDefaults: Omit<Notification, 'id'> = {
             ...notification,
             timestamp: Timestamp.now(),
             read: false,
@@ -194,7 +194,6 @@ async function checkStockAndCreateNotification(product: Omit<Product, 'id' | 'hi
       details: `Product "${product.name}" (SKU: ${product.sku}) has a stock level of ${product.stock}, which is at or below the reorder limit of ${product.reorderLimit}. Please reorder soon.`,
       href: `/inventory`,
       icon: "Package",
-      read: false
     };
 
     try {
@@ -460,47 +459,89 @@ type NewOrderData = {
   clientId: string;
   items: { productId: string; quantity: number }[];
   reorderedFrom?: string;
-  status?: Order['status'];
 };
 
 export async function addOrder(orderData: NewOrderData): Promise<DocumentReference> {
-  try {
-    let total = 0;
-    let needsPurchase = false;
+  const orderDate = Timestamp.now();
 
+  return runTransaction(db, async (transaction) => {
     const clientRef = doc(db, "clients", orderData.clientId);
-    const client = await resolveDoc<Client>(clientRef);
-    if (!client) throw new Error("Client not found.");
+    const clientDoc = await transaction.get(clientRef);
+    if (!clientDoc.exists()) throw new Error("Client not found.");
+
+    let total = 0;
+    const itemsForIssuance: { productId: string; quantity: number }[] = [];
+    let hasBackorders = false;
+    let hasIssuances = false;
+
+    // Create the order doc ref first to get its ID
+    const orderRef = doc(collection(db, "orders"));
 
     const resolvedItems = await Promise.all(
       orderData.items.map(async (item) => {
         const productRef = doc(db, "inventory", item.productId);
-        const productDoc = await getDoc(productRef);
+        const productDoc = await transaction.get(productRef);
         if (!productDoc.exists()) {
           throw new Error(`Product with ID ${item.productId} not found.`);
         }
         const productData = productDoc.data() as Product;
-        
-        if (productData.stock < item.quantity) {
-          needsPurchase = true;
-        }
 
         total += productData.price * item.quantity;
+        const availableStock = productData.stock;
+
+        if (availableStock < item.quantity) {
+          hasBackorders = true;
+          const backorderQty = item.quantity - availableStock;
+          
+          if (availableStock > 0) {
+            hasIssuances = true;
+            itemsForIssuance.push({ productId: item.productId, quantity: availableStock });
+          }
+          
+          // Create backorder record
+          const backorderRef = doc(collection(db, 'backorders'));
+          transaction.set(backorderRef, {
+            orderId: orderRef.id,
+            orderRef: orderRef,
+            clientRef: clientRef,
+            productId: productRef.id,
+            productRef: productRef,
+            productName: productData.name,
+            productSku: productData.sku,
+            quantity: backorderQty,
+            date: orderDate,
+            status: 'Pending',
+          });
+
+        } else {
+           hasIssuances = true;
+           itemsForIssuance.push({ productId: item.productId, quantity: item.quantity });
+        }
+        
         return {
           productRef: productRef,
           quantity: item.quantity,
-          price: productData.price, // Store price at time of order
+          price: productData.price,
         };
       })
     );
+
+    // Create immediate issuance for available items
+    if (hasIssuances) {
+        await addIssuance({
+            clientId: orderData.clientId,
+            items: itemsForIssuance,
+            issuedBy: "System",
+            orderId: orderRef.id,
+        }, transaction);
+    }
+
+    // Determine final order status
+    const status = hasBackorders ? (hasIssuances ? "Partially Fulfilled" : "Awaiting Purchase") : "Ready for Issuance";
     
-    // Determine the status based on inventory, unless a status is explicitly passed
-    const status: Order['status'] = orderData.status ?? (needsPurchase ? "Awaiting Purchase" : "Ready for Issuance");
-
-
     const newOrder: any = {
       clientRef: clientRef,
-      date: Timestamp.now(),
+      date: orderDate,
       items: resolvedItems,
       status: status,
       total: total,
@@ -510,23 +551,18 @@ export async function addOrder(orderData: NewOrderData): Promise<DocumentReferen
         newOrder.reorderedFrom = orderData.reorderedFrom;
     }
 
-    const ordersCol = collection(db, "orders");
-    const docRef = await addDoc(ordersCol, newOrder);
-    
+    transaction.set(orderRef, newOrder);
+
     await createNotification({
         title: "New Order Created",
-        description: `Order for ${client.clientName} has been placed.`,
-        details: `A new order (${docRef.id.substring(0, 7)}) for ${client.clientName} has been created with a total of ${resolvedItems.length} item(s). Status: ${status}.`,
+        description: `Order for ${clientDoc.data().clientName} has been placed.`,
+        details: `A new order (${orderRef.id.substring(0, 7)}) for ${clientDoc.data().clientName} has been created. Status: ${status}.`,
         href: "/orders",
         icon: "ShoppingCart",
     });
 
-    return docRef;
-
-  } catch (error) {
-    console.error("Error adding order:", error);
-    throw new Error("Failed to add order.");
-  }
+    return orderRef;
+  });
 }
 
 export async function getIssuances(): Promise<Issuance[]> {
@@ -578,83 +614,77 @@ type NewIssuanceData = {
   orderId?: string;
 };
 
-export async function addIssuance(issuanceData: NewIssuanceData): Promise<DocumentReference> {
+export async function addIssuance(issuanceData: NewIssuanceData, transaction?: any): Promise<DocumentReference> {
   const issuanceNumber = `IS-${Date.now()}`;
   const issuanceDate = Timestamp.now();
 
-  try {
-    const newIssuanceRef = await runTransaction(db, async (transaction) => {
-      // 1. Resolve product references and prepare item data
-      const resolvedItems = await Promise.all(
-        issuanceData.items.map(async (item) => {
-          const productRef = doc(db, "inventory", item.productId);
-          const productDoc = await transaction.get(productRef);
-          if (!productDoc.exists()) {
-            throw new Error(`Product with ID ${item.productId} not found.`);
-          }
-          const productData = productDoc.data() as Product;
+  const run = async (trans: any) => {
+    // 1. Resolve product references and prepare item data
+    const resolvedItems = await Promise.all(
+      issuanceData.items.map(async (item) => {
+        const productRef = doc(db, "inventory", item.productId);
+        const productDoc = await trans.get(productRef);
+        if (!productDoc.exists()) {
+          throw new Error(`Product with ID ${item.productId} not found.`);
+        }
+        const productData = productDoc.data() as Product;
 
-          // Check for sufficient stock
-          if (productData.stock < item.quantity) {
-            throw new Error(`Insufficient stock for ${productData.name}. Available: ${productData.stock}, Requested: ${item.quantity}`);
-          }
+        // Check for sufficient stock
+        if (productData.stock < item.quantity) {
+          throw new Error(`Insufficient stock for ${productData.name}. Available: ${productData.stock}, Requested: ${item.quantity}`);
+        }
 
-          // 2. Update stock in inventory
-          const newStock = productData.stock - item.quantity;
-          const newHistoryEntry = {
-              date: format(issuanceDate.toDate(), 'yyyy-MM-dd'),
-              stock: newStock,
-              dateUpdated: issuanceDate
-          };
-          transaction.update(productRef, { 
-              stock: newStock,
-              lastUpdated: issuanceDate,
-              history: arrayUnion(newHistoryEntry)
-          });
-          
-          // Check for notification after transaction
-          checkStockAndCreateNotification({ ...productData, stock: newStock }, productDoc.id);
+        // 2. Update stock in inventory
+        const newStock = productData.stock - item.quantity;
+        const newHistoryEntry = {
+            date: format(issuanceDate.toDate(), 'yyyy-MM-dd'),
+            stock: newStock,
+            dateUpdated: issuanceDate
+        };
+        trans.update(productRef, { 
+            stock: newStock,
+            lastUpdated: issuanceDate,
+            history: arrayUnion(newHistoryEntry)
+        });
+        
+        checkStockAndCreateNotification({ ...productData, stock: newStock }, productDoc.id);
 
-          return {
-            productRef: productRef,
-            quantity: item.quantity,
-          };
-        })
-      );
+        return {
+          productRef: productRef,
+          quantity: item.quantity,
+        };
+      })
+    );
 
-      // 3. Create the new issuance object
-      const newIssuance: any = {
-        issuanceNumber: issuanceNumber,
-        clientRef: doc(db, "clients", issuanceData.clientId),
-        date: issuanceDate,
-        items: resolvedItems,
-        remarks: issuanceData.remarks || "",
-        issuedBy: issuanceData.issuedBy,
-      };
-      
-      if (issuanceData.orderId) {
-          newIssuance.orderId = issuanceData.orderId;
-      }
-
-      // 4. Add the issuance to Firestore
-      const issuancesCol = collection(db, "issuances");
-      const docRef = doc(issuancesCol); // Create a new doc ref with an auto-generated ID
-      transaction.set(docRef, newIssuance);
-      
-      return docRef;
-    });
+    // 3. Create the new issuance object
+    const newIssuance: any = {
+      issuanceNumber: issuanceNumber,
+      clientRef: doc(db, "clients", issuanceData.clientId),
+      date: issuanceDate,
+      items: resolvedItems,
+      remarks: issuanceData.remarks || "",
+      issuedBy: issuanceData.issuedBy,
+    };
     
-    // 5. Update the original order's status to Fulfilled, if applicable
     if (issuanceData.orderId) {
-        const orderRef = doc(db, "orders", issuanceData.orderId);
-        await updateDoc(orderRef, { status: "Fulfilled" });
+        newIssuance.orderId = issuanceData.orderId;
     }
-    
-    return newIssuanceRef;
 
+    const docRef = doc(collection(db, "issuances"));
+    trans.set(docRef, newIssuance);
+    
+    return docRef;
+  };
+  
+  try {
+      if (transaction) {
+          return await run(transaction);
+      } else {
+          return await runTransaction(db, run);
+      }
   } catch (error) {
-    console.error("Error adding issuance and updating stock:", error);
-    throw new Error("Failed to create issuance. " + (error as Error).message);
+      console.error("Error adding issuance and updating stock:", error);
+      throw new Error("Failed to create issuance. " + (error as Error).message);
   }
 }
 
@@ -826,25 +856,29 @@ export async function getPurchaseOrders(): Promise<PurchaseOrder[]> {
 type NewPurchaseOrderData = {
   supplierId: string;
   clientId?: string;
-  items: { productId: string; quantity: number }[];
+  items: { productId: string; quantity: number, backorderId?: string }[];
 };
 
 export async function addPurchaseOrder(poData: NewPurchaseOrderData): Promise<DocumentReference> {
-  try {
+  return runTransaction(db, async (transaction) => {
     const supplierRef = doc(db, "suppliers", poData.supplierId);
-    const supplier = await resolveDoc<Supplier>(supplierRef);
-    if (!supplier) throw new Error("Supplier not found.");
+    const supplierDoc = await transaction.get(supplierRef);
+    if (!supplierDoc.exists()) throw new Error("Supplier not found.");
 
-    const resolvedItems = await Promise.all(
-      poData.items.map(async (item) => {
-        const productRef = doc(db, "inventory", item.productId);
-        // We don't need the full product data here, just the reference
-        return {
-          productRef: productRef,
-          quantity: item.quantity,
-        };
-      })
-    );
+    const poRef = doc(collection(db, "purchaseOrders"));
+
+    const resolvedItems = poData.items.map(item => ({
+      productRef: doc(db, "inventory", item.productId),
+      quantity: item.quantity,
+    }));
+    
+    // Link backorders to this new PO
+    for (const item of poData.items) {
+      if (item.backorderId) {
+        const backorderRef = doc(db, "backorders", item.backorderId);
+        transaction.update(backorderRef, { purchaseOrderId: poRef.id });
+      }
+    }
 
     const newPurchaseOrder: any = {
       supplierRef: supplierRef,
@@ -855,26 +889,21 @@ export async function addPurchaseOrder(poData: NewPurchaseOrderData): Promise<Do
     };
 
     if (poData.clientId) {
-        newPurchaseOrder.clientRef = doc(db, "clients", poData.clientId);
+      newPurchaseOrder.clientRef = doc(db, "clients", poData.clientId);
     }
-
-    const poCol = collection(db, "purchaseOrders");
-    const docRef = await addDoc(poCol, newPurchaseOrder);
+    
+    transaction.set(poRef, newPurchaseOrder);
 
     await createNotification({
         title: "New Purchase Order",
-        description: `PO for ${supplier.name} has been created.`,
-        details: `A new purchase order (${newPurchaseOrder.poNumber}) has been created for ${supplier.name}.`,
+        description: `PO for ${supplierDoc.data().name} has been created.`,
+        details: `A new purchase order (${newPurchaseOrder.poNumber}) has been created for ${supplierDoc.data().name}.`,
         href: "/orders?tab=purchase-orders",
         icon: "ShoppingCart",
     });
-
-    return docRef;
-
-  } catch (error) {
-    console.error("Error adding purchase order:", error);
-    throw new Error("Failed to add purchase order.");
-  }
+    
+    return poRef;
+  });
 }
 
 export async function deletePurchaseOrder(poId: string): Promise<void> {
@@ -889,11 +918,11 @@ export async function deletePurchaseOrder(poId: string): Promise<void> {
 
 async function checkAndUpdateAwaitingOrders() {
     const ordersCol = collection(db, "orders");
-    const q = query(ordersCol, where("status", "==", "Awaiting Purchase"));
+    const q = query(ordersCol, where("status", "in", ["Awaiting Purchase", "Partially Fulfilled"]));
     const awaitingOrdersSnapshot = await getDocs(q);
 
     if (awaitingOrdersSnapshot.empty) {
-        return; // No orders to check
+        return;
     }
 
     const inventoryCache = new Map<string, Product>();
@@ -922,7 +951,8 @@ async function checkAndUpdateAwaitingOrders() {
         }
 
         if (allItemsAvailable) {
-            batch.update(orderDoc.ref, { status: "Ready for Issuance" });
+            const newStatus = orderData.status === "Awaiting Purchase" ? "Ready for Issuance" : "Fulfilled";
+            batch.update(orderDoc.ref, { status: newStatus });
         }
     }
     
@@ -932,67 +962,59 @@ async function checkAndUpdateAwaitingOrders() {
 
 export async function updatePurchaseOrderStatus(poId: string, status: PurchaseOrder['status']): Promise<void> {
   const poRef = doc(db, "purchaseOrders", poId);
+  const now = Timestamp.now();
 
   try {
     await runTransaction(db, async (transaction) => {
       const poDoc = await transaction.get(poRef);
-      if (!poDoc.exists()) {
-        throw new Error("Purchase Order not found.");
-      }
+      if (!poDoc.exists()) throw new Error("Purchase Order not found.");
       
       const poData = poDoc.data();
       if (poData.status === 'Received') {
-        console.warn(`Purchase Order ${poId} is already marked as Received.`);
-        return;
+        return; // Already received
       }
-
+      
       if (status !== 'Received') {
         transaction.update(poRef, { status });
-        return; // Only update status and exit if not 'Received'
+        return;
       }
       
       // --- Handle 'Received' status ---
-      const productRefs = poData.items.map((item: any) => item.productRef as DocumentReference);
+      transaction.update(poRef, { status: 'Received', receivedDate: now });
+
+      const backordersQuery = query(collection(db, "backorders"), where("purchaseOrderId", "==", poId), where("status", "==", "Pending"));
+      const backordersSnapshot = await getDocs(backordersQuery);
       
-      // 1. READS: Perform all reads first.
-      const productDocs = await Promise.all(
-        productRefs.map((ref: DocumentReference) => transaction.get(ref))
-      );
+      const backorderItemsMap = new Map<string, Backorder>();
+      backordersSnapshot.forEach(doc => {
+          const bo = doc.data() as Backorder;
+          backorderItemsMap.set(bo.productId, { id: doc.id, ...bo });
+      });
 
-
-      // 2. WRITES: Now perform all updates
-      const receivedTimestamp = Timestamp.now();
-      transaction.update(poRef, { status: 'Received', receivedDate: receivedTimestamp });
-
-      for (let i = 0; i < poData.items.length; i++) {
-        const item = poData.items[i];
-        const productDoc = productDocs[i];
-
+      for (const item of poData.items) {
+        const productRef = item.productRef as DocumentReference;
+        const productDoc = await transaction.get(productRef);
+        
         if (productDoc.exists()) {
           const productData = productDoc.data();
           const newStock = productData.stock + item.quantity;
           const newHistoryEntry = {
-            date: format(receivedTimestamp.toDate(), 'yyyy-MM-dd'),
+            date: format(now.toDate(), 'yyyy-MM-dd'),
             stock: newStock,
             changeReason: `Received PO #${poData.poNumber}`,
-            dateUpdated: receivedTimestamp,
+            dateUpdated: now,
           };
-          
-          transaction.update(productDoc.ref, {
-            stock: newStock,
-            lastUpdated: receivedTimestamp,
-            history: arrayUnion(newHistoryEntry)
-          });
-        } else {
-          console.warn(`Product with ID ${item.productRef.id} not found while receiving PO. Stock not updated.`);
+          transaction.update(productDoc.ref, { stock: newStock, lastUpdated: now, history: arrayUnion(newHistoryEntry) });
+
+          const backorderedItem = backorderItemsMap.get(productRef.id);
+          if (backorderedItem) {
+             const issuanceItems = [{ productId: productRef.id, quantity: backorderedItem.quantity }];
+             await addIssuance({ clientId: backorderedItem.clientRef.id, items: issuanceItems, orderId: backorderedItem.orderId, issuedBy: "System (Auto)" }, transaction);
+             transaction.update(doc(db, 'backorders', backorderedItem.id), { status: 'Fulfilled' });
+          }
         }
       }
     });
-
-    // After the transaction completes successfully, check awaiting orders.
-    if (status === 'Received') {
-      await checkAndUpdateAwaitingOrders();
-    }
 
   } catch (error) {
     console.error("Error updating purchase order status:", error);
@@ -1448,5 +1470,23 @@ export async function getUserProfile(uid: string): Promise<UserProfile | null> {
     } catch (error) {
         console.error("Error getting user profile:", error);
         return null;
+    }
+}
+
+export async function getBackorders(): Promise<Backorder[]> {
+    try {
+        const backordersCol = collection(db, "backorders");
+        const q = query(backordersCol, where("status", "==", "Pending"), orderBy("date", "asc"));
+        const snapshot = await getDocs(q);
+        return snapshot.docs.map(doc => {
+            const data = doc.data();
+            return {
+                id: doc.id,
+                ...data,
+            } as Backorder;
+        });
+    } catch (error) {
+        console.error("Error fetching backorders:", error);
+        return [];
     }
 }

@@ -1,11 +1,12 @@
 
+
 "use client";
 
 import { createContext, useContext, useEffect, useState, ReactNode, useCallback, useMemo } from "react";
 import { onAuthStateChanged } from "firebase/auth";
 import { auth } from "@/lib/firebase";
-import { getProducts, getClients, getOrders, getIssuances, getSuppliers, getPurchaseOrders, getShipments, getUnshippedIssuances, getReturns, getOutboundReturns } from "@/services/data-service";
-import type { Product, Client, Order, Issuance, Supplier, PurchaseOrder, Shipment, Return, OutboundReturn } from "@/types";
+import { getProducts, getClients, getOrders, getIssuances, getSuppliers, getPurchaseOrders, getShipments, getUnshippedIssuances, getReturns, getOutboundReturns, getBackorders } from "@/services/data-service";
+import type { Product, Client, Order, Issuance, Supplier, PurchaseOrder, Shipment, Return, OutboundReturn, Backorder } from "@/types";
 
 interface DataContextType {
   products: Product[];
@@ -18,6 +19,7 @@ interface DataContextType {
   unshippedIssuances: Issuance[];
   returns: Return[];
   outboundReturns: OutboundReturn[];
+  backorders: Backorder[];
   loading: boolean;
   refetchData: () => Promise<void>;
 }
@@ -35,6 +37,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
   const [unshippedIssuances, setUnshippedIssuances] = useState<Issuance[]>([]);
   const [returns, setReturns] = useState<Return[]>([]);
   const [outboundReturns, setOutboundReturns] = useState<OutboundReturn[]>([]);
+  const [backorders, setBackorders] = useState<Backorder[]>([]);
   const [loading, setLoading] = useState(true);
   const [isAuthenticated, setIsAuthenticated] = useState(false);
 
@@ -59,6 +62,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
       setUnshippedIssuances([]);
       setReturns([]);
       setOutboundReturns([]);
+      setBackorders([]);
       setLoading(false);
       return;
     };
@@ -76,6 +80,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
         fetchedUnshippedIssuances,
         fetchedReturns,
         fetchedOutboundReturns,
+        fetchedBackorders,
       ] = await Promise.all([
         getProducts(),
         getClients(),
@@ -87,6 +92,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
         getUnshippedIssuances(),
         getReturns(),
         getOutboundReturns(),
+        getBackorders(),
       ]);
       setProducts(fetchedProducts);
       setClients(fetchedClients);
@@ -98,6 +104,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
       setUnshippedIssuances(fetchedUnshippedIssuances);
       setReturns(fetchedReturns);
       setOutboundReturns(fetchedOutboundReturns);
+      setBackorders(fetchedBackorders);
     } catch (error) {
       console.error("Failed to fetch global data", error);
       // Optionally, set an error state here
@@ -121,9 +128,10 @@ export function DataProvider({ children }: { children: ReactNode }) {
     unshippedIssuances,
     returns,
     outboundReturns,
+    backorders,
     loading,
     refetchData: fetchData,
-  }), [products, clients, orders, issuances, suppliers, purchaseOrders, shipments, unshippedIssuances, returns, outboundReturns, loading, fetchData]);
+  }), [products, clients, orders, issuances, suppliers, purchaseOrders, shipments, unshippedIssuances, returns, outboundReturns, backorders, loading, fetchData]);
 
   return <DataContext.Provider value={value}>{children}</DataContext.Provider>;
 }

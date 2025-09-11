@@ -40,13 +40,6 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
 import { Input } from "@/components/ui/input";
@@ -55,10 +48,9 @@ import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useToast } from "@/hooks/use-toast";
 import { updateOrderStatus, addOrder, addProduct, updateSupplier, deleteSupplier, addSupplier, deleteOrder, addPurchaseOrder, updatePurchaseOrderStatus, deletePurchaseOrder, initiateOutboundReturn } from "@/services/data-service";
-import type { Order, Supplier, PurchaseOrder, Product, OutboundReturnItem, Client } from "@/types";
+import type { Order, Supplier, PurchaseOrder, Product, OutboundReturnItem, Client, Backorder } from "@/types";
 import { formatCurrency } from "@/lib/currency";
 import { CURRENCY_CONFIG } from "@/config/currency";
-import { Separator } from "@/components/ui/separator";
 import { cn } from "@/lib/utils";
 import { Switch } from "@/components/ui/switch";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -70,6 +62,7 @@ import { Textarea } from "@/components/ui/textarea";
 
 const statusVariant: { [key: string]: "default" | "secondary" | "destructive" | "outline" } = {
   Fulfilled: "default",
+  "Partially Fulfilled": "default",
   "Ready for Issuance": "default",
   "Awaiting Purchase": "secondary",
   Shipped: "outline",
@@ -103,6 +96,7 @@ type OrderFormValues = z.infer<typeof orderSchema>;
 const poItemSchema = z.object({
   productId: z.string().min(1, "Product is required."),
   quantity: z.coerce.number().min(1, "Quantity must be at least 1."),
+  backorderId: z.string().optional(),
 });
 
 const poSchema = z.object({
@@ -142,14 +136,6 @@ const supplierSchema = z.object({
 });
 
 type SupplierFormValues = z.infer<typeof supplierSchema>;
-
-interface PurchaseQueueItem {
-  productId: string;
-  name: string;
-  sku: string;
-  totalQuantity: number;
-  fromOrders: string[];
-}
 
 const outboundReturnItemSchema = z.object({
     productId: z.string(),
@@ -206,7 +192,7 @@ const toTitleCase = (str: string) => {
 
 
 export default function OrdersAndSuppliersPage() {
-  const { orders, clients, products, suppliers, purchaseOrders, outboundReturns, loading, refetchData } = useData();
+  const { orders, clients, products, suppliers, purchaseOrders, outboundReturns, loading, refetchData, backorders } = useData();
   const [activeTab, setActiveTab] = useState("orders");
   const { toast } = useToast();
 
@@ -310,92 +296,38 @@ export default function OrdersAndSuppliersPage() {
     name: "items",
   });
 
-  const purchaseQueue = useMemo((): PurchaseQueueItem[] => {
-    const neededQuantities: { [productId: string]: { name: string; sku: string; quantity: number; orders: Set<string> } } = {};
-
-    // Calculate total needed quantities from orders awaiting purchase that are not met by current stock
-    orders
-      .filter(order => order.status === 'Awaiting Purchase')
-      .forEach(order => {
-        order.items.forEach(item => {
-          const productInfo = products.find(p => p.id === item.product.id);
-          const stock = productInfo?.stock || 0;
-          const needed = item.quantity - stock;
-          
-          if (needed > 0) {
-              if (!neededQuantities[item.product.id]) {
-                neededQuantities[item.product.id] = {
-                  name: item.product.name,
-                  sku: item.product.sku,
-                  quantity: 0,
-                  orders: new Set(),
-                };
-              }
-              neededQuantities[item.product.id].quantity += needed;
-              neededQuantities[item.product.id].orders.add(order.id.substring(0, 7));
-          }
-        });
-      });
-      
+  const purchaseQueue: Backorder[] = useMemo(() => {
     // Add items that have hit their reorder limit and are not already queued for purchase
+    const reorderItems: Backorder[] = [];
+    const backorderedProductIds = new Set(backorders.map(b => b.productId));
+
     products.forEach(product => {
-      if (product.stock <= product.reorderLimit) {
+      if (product.stock <= product.reorderLimit && !backorderedProductIds.has(product.id)) {
         const reorderQty = (product.maxStockLevel || product.reorderLimit + 20) - product.stock;
         if (reorderQty > 0) {
-          if (!neededQuantities[product.id]) {
-            neededQuantities[product.id] = {
-              name: product.name,
-              sku: product.sku,
-              quantity: 0,
-              orders: new Set(),
-            };
-          }
-          // Use Math.max to not override a larger quantity needed for an order
-          neededQuantities[product.id].quantity = Math.max(neededQuantities[product.id].quantity, reorderQty);
-          if (neededQuantities[product.id].orders.size === 0) {
-             neededQuantities[product.id].orders.add("Reorder");
-          }
+            reorderItems.push({
+                id: `reorder-${product.id}`,
+                orderId: 'REORDER',
+                productName: product.name,
+                productSku: product.sku,
+                quantity: reorderQty,
+                date: Timestamp.now(),
+                status: 'Pending',
+                // Dummy refs, won't be used for reorders
+                orderRef: doc(db, 'orders', 'dummy'),
+                clientRef: doc(db, 'clients', 'dummy'),
+                productId: product.id,
+                productRef: doc(db, 'inventory', product.id),
+            });
         }
       }
     });
-      
-      // Calculate quantities already on purchase orders (not yet received)
-      const onOrderQuantities: { [productId: string]: number } = {};
-       purchaseOrders
-        .filter(po => po.status !== 'Received')
-        .forEach(po => {
-            po.items.forEach(item => {
-                const productId = item.product.id;
-                if (!onOrderQuantities[productId]) {
-                    onOrderQuantities[productId] = 0;
-                }
-                onOrderQuantities[productId] += item.quantity;
-            });
-        });
 
-      // Calculate the final queue by subtracting on-order quantities from needed quantities
-      const queue: PurchaseQueueItem[] = [];
-      Object.keys(neededQuantities).forEach(productId => {
-          const needed = neededQuantities[productId];
-          const onOrder = onOrderQuantities[productId] || 0;
-          const stillNeeded = needed.quantity - onOrder;
-
-          if (stillNeeded > 0) {
-              queue.push({
-                  productId: productId,
-                  name: needed.name,
-                  sku: needed.sku,
-                  totalQuantity: stillNeeded,
-                  fromOrders: Array.from(needed.orders),
-              });
-          }
-      });
-    
-    return queue;
-  }, [orders, purchaseOrders, products]);
+    return [...backorders, ...reorderItems];
+  }, [backorders, products]);
 
   const selectedQueueItems = useMemo(() => {
-    return purchaseQueue.filter(item => purchaseQueueSelection[item.productId]);
+    return purchaseQueue.filter(item => purchaseQueueSelection[item.id]);
   }, [purchaseQueue, purchaseQueueSelection]);
   
   // Reset dialogs
@@ -774,7 +706,8 @@ export default function OrdersAndSuppliersPage() {
   const handleCreatePOFromQueue = () => {
     const itemsForPO = selectedQueueItems.map(item => ({
       productId: item.productId,
-      quantity: item.totalQuantity,
+      quantity: item.quantity,
+      backorderId: item.orderId !== 'REORDER' ? item.id : undefined,
     }));
     poForm.reset({
       supplierId: "",
@@ -784,10 +717,11 @@ export default function OrdersAndSuppliersPage() {
     setIsAddPOOpen(true);
   };
   
-  const handleReorderFromQueue = (item: PurchaseQueueItem) => {
+  const handleReorderFromQueue = (item: Backorder) => {
     const itemForPO = {
       productId: item.productId,
-      quantity: item.totalQuantity,
+      quantity: item.quantity,
+      backorderId: item.orderId !== 'REORDER' ? item.id : undefined,
     };
     poForm.reset({
       supplierId: "",
@@ -797,14 +731,14 @@ export default function OrdersAndSuppliersPage() {
     setIsAddPOOpen(true);
   };
 
-  const handleQueueSelectionChange = (productId: string, checked: boolean) => {
-    setPurchaseQueueSelection(prev => ({...prev, [productId]: checked}));
+  const handleQueueSelectionChange = (id: string, checked: boolean) => {
+    setPurchaseQueueSelection(prev => ({...prev, [id]: checked}));
   }
 
   const handleQueueSelectAll = (checked: boolean) => {
     const newSelection: {[key: string]: boolean} = {};
     if (checked) {
-      purchaseQueue.forEach(item => newSelection[item.productId] = true);
+      purchaseQueue.forEach(item => newSelection[item.id] = true);
     }
     setPurchaseQueueSelection(newSelection);
   }
@@ -816,8 +750,9 @@ export default function OrdersAndSuppliersPage() {
     return format(jsDate, 'PPpp');
   };
   
-  const formatDateSimple = (date: Date) => {
-    return format(date, 'PPP');
+  const formatDateSimple = (date: Date | Timestamp) => {
+    const jsDate = date instanceof Timestamp ? date.toDate() : date;
+    return format(jsDate, 'PPP');
   };
 
   const renderEmailValidation = () => {
@@ -882,9 +817,9 @@ export default function OrdersAndSuppliersPage() {
                                                     {clients.map(c => (
                                                         <CommandItem
                                                             key={c.id}
-                                                            value={c.id}
-                                                            onSelect={(currentValue) => {
-                                                                field.onChange(currentValue)
+                                                            value={c.clientName}
+                                                            onSelect={() => {
+                                                                field.onChange(c.id)
                                                                 setOrderClientPopover(false);
                                                             }}
                                                         >
@@ -939,11 +874,8 @@ export default function OrdersAndSuppliersPage() {
                                                             <CommandItem
                                                                 key={p.id}
                                                                 value={p.name}
-                                                                onSelect={(currentValue) => {
-                                                                    const selected = products.find(prod => prod.name.toLowerCase() === currentValue.toLowerCase());
-                                                                    if(selected) {
-                                                                        controllerField.onChange(selected.id)
-                                                                    }
+                                                                onSelect={() => {
+                                                                    controllerField.onChange(p.id)
                                                                     setOrderProductPopovers(prev => ({...prev, [index]: false}));
                                                                 }}
                                                             >
@@ -1040,9 +972,9 @@ export default function OrdersAndSuppliersPage() {
                                                     {suppliers.map(s => (
                                                         <CommandItem
                                                             key={s.id}
-                                                            value={s.id}
-                                                            onSelect={(currentValue) => {
-                                                                field.onChange(currentValue)
+                                                            value={s.name}
+                                                            onSelect={() => {
+                                                                field.onChange(s.id)
                                                                 setPoSupplierPopover(false);
                                                             }}
                                                         >
@@ -1093,9 +1025,9 @@ export default function OrdersAndSuppliersPage() {
                                                     {clients.map(c => (
                                                         <CommandItem
                                                             key={c.id}
-                                                            value={c.id}
-                                                            onSelect={(currentValue) => {
-                                                                field.onChange(currentValue);
+                                                            value={c.clientName}
+                                                            onSelect={() => {
+                                                                field.onChange(c.id);
                                                                 setPoClientPopover(false);
                                                             }}
                                                         >
@@ -1149,11 +1081,8 @@ export default function OrdersAndSuppliersPage() {
                                                                 <CommandItem
                                                                     key={p.id}
                                                                     value={p.name}
-                                                                    onSelect={(currentValue) => {
-                                                                        const selected = products.find(prod => prod.name.toLowerCase() === currentValue.toLowerCase());
-                                                                        if(selected) {
-                                                                            controllerField.onChange(selected.id)
-                                                                        }
+                                                                    onSelect={() => {
+                                                                        controllerField.onChange(p.id)
                                                                         setPoProductPopovers(prev => ({...prev, [index]: false}));
                                                                     }}
                                                                 >
@@ -1415,7 +1344,7 @@ export default function OrdersAndSuppliersPage() {
                         <TableHead>Product</TableHead>
                         <TableHead>SKU</TableHead>
                         <TableHead className="text-center">Needed</TableHead>
-                        <TableHead>From Orders</TableHead>
+                        <TableHead>From Order</TableHead>
                         </TableRow>
                     </TableHeader>
                     <TableBody>
@@ -1431,24 +1360,23 @@ export default function OrdersAndSuppliersPage() {
                         ))
                         ) : purchaseQueue.length > 0 ? (
                         purchaseQueue.map((item) => (
-                            <TableRow key={item.productId}>
+                            <TableRow key={item.id}>
                             <TableCell>
                                 <Checkbox
-                                    checked={purchaseQueueSelection[item.productId] || false}
-                                    onCheckedChange={(checked) => handleQueueSelectionChange(item.productId, !!checked)}
-                                    aria-label={`Select ${item.name}`}
+                                    checked={purchaseQueueSelection[item.id] || false}
+                                    onCheckedChange={(checked) => handleQueueSelectionChange(item.id, !!checked)}
+                                    aria-label={`Select ${item.productName}`}
                                 />
                             </TableCell>
-                            <TableCell className="font-medium">{item.name}</TableCell>
-                            <TableCell>{item.sku}</TableCell>
-                            <TableCell className="text-center">{item.totalQuantity}</TableCell>
+                            <TableCell className="font-medium">{item.productName}</TableCell>
+                            <TableCell>{item.productSku}</TableCell>
+                            <TableCell className="text-center">{item.quantity}</TableCell>
                             <TableCell>
                                 <div className="flex gap-1 flex-wrap">
-                                    {item.fromOrders.map(orderId => (
-                                        orderId === "Reorder" 
-                                        ? <Button key={orderId} variant="outline" size="sm" className="h-6 px-2 font-mono" onClick={() => handleReorderFromQueue(item)}>Reorder</Button>
-                                        : <Badge key={orderId} variant="secondary" className="font-mono">{orderId}</Badge>
-                                    ))}
+                                    {item.orderId === "REORDER" 
+                                        ? <Button variant="outline" size="sm" className="h-6 px-2 font-mono" onClick={() => handleReorderFromQueue(item)}>Reorder</Button>
+                                        : <Badge variant="secondary" className="font-mono">{item.orderId.substring(0,7)}</Badge>
+                                    }
                                 </div>
                             </TableCell>
                             </TableRow>
@@ -1986,6 +1914,7 @@ export default function OrdersAndSuppliersPage() {
     </>
   );
 }
+
 
 
 

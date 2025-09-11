@@ -1,4 +1,5 @@
 
+
 import { Timestamp, DocumentReference } from "firebase/firestore";
 
 export interface Activity {
@@ -10,7 +11,7 @@ export interface Activity {
 }
 
 export interface Notification {
-  id: string;
+  id:string;
   title: string;
   description: string;
   details: string;
@@ -67,10 +68,26 @@ export interface OrderItem {
     product: Product;
 }
 
+export interface Backorder {
+    id: string;
+    orderId: string;
+    orderRef: DocumentReference;
+    clientRef: DocumentReference;
+    productId: string;
+    productRef: DocumentReference;
+    productName: string;
+    productSku: string;
+    quantity: number;
+    date: Timestamp;
+    status: 'Pending' | 'Fulfilled';
+    purchaseOrderId?: string;
+}
+
+
 export interface Order {
     id: string;
     date: Date;
-    status: "Processing" | "Awaiting Purchase" | "Ready for Issuance" | "Fulfilled" | "Cancelled";
+    status: "Processing" | "Awaiting Purchase" | "Ready for Issuance" | "Fulfilled" | "Cancelled" | "Partially Fulfilled";
     total: number;
     client: Client;
     items: OrderItem[];
@@ -94,6 +111,7 @@ export interface PurchaseOrder {
     poNumber: string;
     docRef?: DocumentReference;
     clientRef?: DocumentReference;
+    backorderRef?: DocumentReference;
 }
 
 export interface IssuanceItem {
