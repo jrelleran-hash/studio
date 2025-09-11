@@ -886,9 +886,9 @@ export default function OrdersAndSuppliersPage() {
                                                         {products.map(p => (
                                                             <CommandItem
                                                                 key={p.id}
-                                                                value={p.id}
-                                                                onSelect={(currentValue) => {
-                                                                    onChange(currentValue === value ? "" : currentValue);
+                                                                value={p.name}
+                                                                onSelect={() => {
+                                                                    onChange(p.id === value ? "" : p.id);
                                                                 }}
                                                             >
                                                                 <Check
@@ -999,9 +999,9 @@ export default function OrdersAndSuppliersPage() {
                                                             {products.map(p => (
                                                                 <CommandItem
                                                                     key={p.id}
-                                                                    value={p.id}
-                                                                    onSelect={(currentValue) => {
-                                                                        onChange(currentValue === value ? "" : currentValue);
+                                                                    value={p.name}
+                                                                    onSelect={() => {
+                                                                        onChange(p.id === value ? "" : p.id);
                                                                     }}
                                                                 >
                                                                     <Check
