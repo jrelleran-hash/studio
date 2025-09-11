@@ -49,7 +49,6 @@ import React from 'react';
 import { useAuth } from "@/hooks/use-auth";
 import { useData } from "@/context/data-context";
 import { Badge } from "@/components/ui/badge";
-import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { cn } from "@/lib/utils";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
@@ -211,6 +210,45 @@ const PrintableIssuanceForm = React.forwardRef<HTMLDivElement, { issuance: Issua
   );
 });
 PrintableIssuanceForm.displayName = "PrintableIssuanceForm";
+
+
+const QueueRow = ({ order, onIssue }: { order: Order; onIssue: (order: Order) => void; }) => {
+    const [isOpen, setIsOpen] = useState(false);
+    return (
+        <>
+            <TableRow>
+                <TableCell className="font-medium">{order.id.substring(0, 7)}</TableCell>
+                <TableCell>{order.client.clientName}</TableCell>
+                <TableCell>{format(order.date, 'PPP')}</TableCell>
+                <TableCell>{order.items.length} types</TableCell>
+                <TableCell className="text-right flex items-center justify-end gap-2">
+                    <Button size="sm" onClick={() => onIssue(order)}>Create Issuance</Button>
+                    <Button variant="ghost" size="icon" className="w-8 h-8" onClick={() => setIsOpen(!isOpen)}>
+                        <ChevronDown className={cn("h-4 w-4 transition-transform", isOpen && "rotate-180")} />
+                        <span className="sr-only">Toggle Details</span>
+                    </Button>
+                </TableCell>
+            </TableRow>
+            {isOpen && (
+                 <TableRow className="bg-muted/50">
+                    <TableCell colSpan={5} className="p-0">
+                    <div className="p-4">
+                        <h4 className="text-sm font-semibold mb-2">Items for Order {order.id.substring(0, 7)}:</h4>
+                        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-2">
+                        {order.items.map(item => (
+                            <div key={item.product.id} className="text-xs flex justify-between items-center bg-background p-2 rounded-md border">
+                            <span>{item.product.name} <span className="text-muted-foreground">({item.product.sku})</span></span>
+                            <Badge variant="outline" className="font-mono ml-2">Qty: {item.quantity}</Badge>
+                            </div>
+                        ))}
+                        </div>
+                    </div>
+                    </TableCell>
+                </TableRow>
+            )}
+        </>
+    );
+};
 
 
 export default function IssuancePage() {
@@ -514,42 +552,7 @@ export default function IssuancePage() {
                     ))
                 ) : issuanceQueue.length > 0 ? (
                   issuanceQueue.map((order) => (
-                    <Collapsible asChild key={order.id}>
-                        <React.Fragment>
-                            <TableRow>
-                            <TableCell className="font-medium">{order.id.substring(0, 7)}</TableCell>
-                            <TableCell>{order.client.clientName}</TableCell>
-                            <TableCell>{format(order.date, 'PPP')}</TableCell>
-                            <TableCell>{order.items.length} types</TableCell>
-                            <TableCell className="text-right flex items-center justify-end gap-2">
-                                <Button size="sm" onClick={() => handleCreateIssuanceFromOrder(order)}>Create Issuance</Button>
-                                <CollapsibleTrigger asChild>
-                                <Button variant="ghost" size="icon" className="w-8 h-8">
-                                    <ChevronDown className="h-4 w-4" />
-                                    <span className="sr-only">Toggle Details</span>
-                                </Button>
-                                </CollapsibleTrigger>
-                            </TableCell>
-                            </TableRow>
-                            <CollapsibleContent asChild>
-                            <TableRow className="bg-muted/50">
-                                <TableCell colSpan={5} className="p-0">
-                                <div className="p-4">
-                                    <h4 className="text-sm font-semibold mb-2">Items for Order {order.id.substring(0, 7)}:</h4>
-                                    <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-2">
-                                    {order.items.map(item => (
-                                        <div key={item.product.id} className="text-xs flex justify-between items-center bg-background p-2 rounded-md border">
-                                        <span>{item.product.name} <span className="text-muted-foreground">({item.product.sku})</span></span>
-                                        <Badge variant="outline" className="font-mono ml-2">Qty: {item.quantity}</Badge>
-                                        </div>
-                                    ))}
-                                    </div>
-                                </div>
-                                </TableCell>
-                            </TableRow>
-                            </CollapsibleContent>
-                        </React.Fragment>
-                    </Collapsible>
+                    <QueueRow key={order.id} order={order} onIssue={handleCreateIssuanceFromOrder} />
                   ))
                 ) : (
                     <TableRow>
