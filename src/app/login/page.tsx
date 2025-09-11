@@ -1,7 +1,7 @@
 
 "use client";
 
-import { useState, useEffect, useRef } from "react";
+import { useState } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
@@ -28,36 +28,21 @@ type LoginFormValues = z.infer<typeof loginSchema>;
 export default function LoginPage() {
   const [isLoading, setIsLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
-  const [lastUserEmail, setLastUserEmail] = useState<string | null>(null);
   const { toast } = useToast();
   const router = useRouter();
-  const passwordRef = useRef<HTMLInputElement>(null);
 
   const {
     register,
     handleSubmit,
-    setValue,
     formState: { errors },
   } = useForm<LoginFormValues>({
     resolver: zodResolver(loginSchema),
   });
 
-  useEffect(() => {
-    const storedEmail = localStorage.getItem('lastUserEmail');
-    if (storedEmail) {
-      setLastUserEmail(storedEmail);
-      setValue('email', storedEmail);
-      // Focus password field if email is pre-filled
-      passwordRef.current?.focus();
-    }
-  }, [setValue]);
-
-
   const onSubmit = async (data: LoginFormValues) => {
     setIsLoading(true);
     try {
       await signInWithEmailAndPassword(auth, data.email, data.password);
-      localStorage.setItem('lastUserEmail', data.email);
       router.push("/");
     } catch (error: any) {
       let errorMessage = "An unexpected error occurred.";
@@ -75,12 +60,6 @@ export default function LoginPage() {
       setIsLoading(false);
     }
   };
-  
-  const handleNotYou = () => {
-    localStorage.removeItem('lastUserEmail');
-    setLastUserEmail(null);
-    setValue('email', '');
-  }
 
   return (
     <div className="flex min-h-screen items-center justify-center bg-background p-4">
@@ -89,30 +68,21 @@ export default function LoginPage() {
           <div className="flex justify-center mb-4">
             <CoreFlowLogo className="h-8 w-8 text-primary" />
           </div>
-          <CardTitle className="text-2xl font-headline">
-            {lastUserEmail ? `Welcome Back` : 'Welcome'}
-          </CardTitle>
+          <CardTitle className="text-2xl font-headline">Welcome</CardTitle>
           <CardDescription>
-            {lastUserEmail ? `Enter your password to sign in.` : 'Enter your credentials to access your account'}
+            Enter your credentials to access your account
           </CardDescription>
         </CardHeader>
         <CardContent>
           <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
             <div className="space-y-2">
-              <div className="flex justify-between items-baseline">
-                <Label htmlFor="email">Email</Label>
-                 {lastUserEmail && (
-                    <Button variant="link" size="sm" type="button" onClick={handleNotYou} className="h-auto p-0 text-xs">
-                        Not you?
-                    </Button>
-                )}
-              </div>
+              <Label htmlFor="email">Email</Label>
               <Input
                 id="email"
                 type="email"
                 placeholder="m@example.com"
                 {...register("email")}
-                disabled={isLoading || !!lastUserEmail}
+                disabled={isLoading}
               />
               {errors.email && <p className="text-sm text-destructive">{errors.email.message}</p>}
             </div>
@@ -123,7 +93,6 @@ export default function LoginPage() {
                   id="password"
                   type={showPassword ? "text" : "password"}
                   {...register("password")}
-                  ref={passwordRef}
                   disabled={isLoading}
                   className="pr-10"
                 />
