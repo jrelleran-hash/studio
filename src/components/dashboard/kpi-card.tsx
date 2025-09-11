@@ -26,7 +26,7 @@ export function KpiCard({ title, value, change, icon, children, footer, loading 
     <>
        <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
         <CardTitle className="text-sm font-medium">{title}</CardTitle>
-        {icon}
+        <span className="animate-bounce-in">{icon}</span>
       </CardHeader>
       <CardContent>
         {loading ? (

@@ -79,6 +79,25 @@
   }
 }
 
+@layer utilities {
+  @keyframes bounce-in {
+    0% { transform: scale(0.9); opacity: 0; }
+    50% { transform: scale(1.05); opacity: 1; }
+    100% { transform: scale(1); opacity: 1; }
+  }
+  .animate-bounce-in {
+    animation: bounce-in 0.5s ease-out;
+  }
+  @keyframes wiggle {
+    0%, 100% { transform: rotate(-3deg); }
+    50% { transform: rotate(3deg); }
+  }
+  .group-hover\:animate-wiggle:hover {
+    animation: wiggle 0.3s ease-in-out;
+  }
+}
+
+
 @layer components {
   .card-gradient {
     @apply bg-card shadow-lg;

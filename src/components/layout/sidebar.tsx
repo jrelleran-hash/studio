@@ -45,11 +45,11 @@ function SidebarLink({ href, label, icon: Icon, pathname, inSheet }: SidebarLink
     <Link
       href={href}
       className={cn(
-        "flex items-center gap-3 rounded-lg px-3 py-2 text-muted-foreground transition-all hover:text-primary hover:bg-muted-foreground/10",
+        "flex items-center gap-3 rounded-lg px-3 py-2 text-muted-foreground transition-all group hover:text-primary hover:bg-muted-foreground/10",
         pathname === href && "bg-muted-foreground/10 text-primary"
       )}
     >
-      <Icon className="h-4 w-4" />
+      <Icon className="h-4 w-4 group-hover:animate-wiggle" />
       {label}
     </Link>
   );
