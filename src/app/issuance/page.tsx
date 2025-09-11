@@ -1,5 +1,4 @@
 
-
 "use client";
 
 import { useState, useEffect, useMemo, useRef } from "react";
@@ -482,9 +481,9 @@ export default function IssuancePage() {
                 </TableRow>
               </TableHeader>
                 
+                <TableBody>
                 {loading ? (
-                  <TableBody>
-                    {Array.from({ length: 3 }).map((_, i) => (
+                    Array.from({ length: 3 }).map((_, i) => (
                       <TableRow key={i}>
                         <TableCell><Skeleton className="h-4 w-24" /></TableCell>
                         <TableCell><Skeleton className="h-4 w-40" /></TableCell>
@@ -492,11 +491,9 @@ export default function IssuancePage() {
                         <TableCell><Skeleton className="h-4 w-16" /></TableCell>
                         <TableCell className="text-right"><Skeleton className="h-8 w-32 ml-auto" /></TableCell>
                       </TableRow>
-                    ))}
-                  </TableBody>
+                    ))
                 ) : issuanceQueue.length > 0 ? (
-                  <TableBody>
-                  {issuanceQueue.map((order) => (
+                  issuanceQueue.map((order) => (
                     <Collapsible asChild key={order.id}>
                       <>
                         <TableRow>
@@ -533,17 +530,15 @@ export default function IssuancePage() {
                         </CollapsibleContent>
                       </>
                     </Collapsible>
-                  ))}
-                  </TableBody>
+                  ))
                 ) : (
-                  <TableBody>
                     <TableRow>
                       <TableCell colSpan={5} className="h-24 text-center">
                         No orders are currently ready for issuance.
                       </TableCell>
                     </TableRow>
-                  </TableBody>
                 )}
+                </TableBody>
             </Table>
         </CardContent>
       </Card>
@@ -964,7 +959,5 @@ export default function IssuancePage() {
     </>
   );
 }
-
-    
 
     
