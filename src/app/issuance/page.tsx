@@ -272,7 +272,7 @@ export default function IssuancePage() {
       const product = products.find(p => p.id === item.productId);
       return total + (product ? product.price * (item.quantity || 0) : 0);
     }, 0);
-  }, [watchedIssuanceItems, products, form.watch()]);
+  }, [watchedIssuanceItems, products]);
   
   const watchedReturnItems = returnForm.watch('items');
   const returnTotal = useMemo(() => {
@@ -515,7 +515,6 @@ export default function IssuancePage() {
                 ) : issuanceQueue.length > 0 ? (
                   issuanceQueue.map((order) => (
                     <Collapsible asChild key={order.id}>
-                      <React.Fragment>
                         <TableRow>
                           <TableCell className="font-medium">{order.id.substring(0, 7)}</TableCell>
                           <TableCell>{order.client.clientName}</TableCell>
@@ -548,7 +547,6 @@ export default function IssuancePage() {
                             </td>
                           </tr>
                         </CollapsibleContent>
-                      </React.Fragment>
                     </Collapsible>
                   ))
                 ) : (
