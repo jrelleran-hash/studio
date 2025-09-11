@@ -109,6 +109,25 @@ export async function getNotifications(): Promise<(Notification & { time: string
   }
 }
 
+export async function markAllNotificationsAsRead(): Promise<void> {
+  try {
+    const notificationsCol = collection(db, "notifications");
+    const q = query(notificationsCol, where("read", "==", false));
+    const querySnapshot = await getDocs(q);
+    
+    const batch = writeBatch(db);
+    querySnapshot.forEach(doc => {
+      batch.update(doc.ref, { read: true });
+    });
+    
+    await batch.commit();
+  } catch (error) {
+    console.error("Error marking all notifications as read:", error);
+    throw new Error("Failed to mark notifications as read.");
+  }
+}
+
+
 export async function getLowStockProducts(): Promise<Product[]> {
     try {
         const productsCol = collection(db, "inventory");

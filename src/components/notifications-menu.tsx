@@ -28,9 +28,10 @@ import {
   DialogDescription,
   DialogFooter,
 } from "@/components/ui/dialog";
-import { getNotifications } from "@/services/data-service";
+import { getNotifications, markAllNotificationsAsRead } from "@/services/data-service";
 import type { Notification } from "@/types";
 import { Skeleton } from "./ui/skeleton";
+import { useToast } from "@/hooks/use-toast";
 
 type NotificationWithTime = Notification & { time: string };
 
@@ -49,14 +50,16 @@ export function NotificationsMenu() {
   const [loading, setLoading] = useState(true);
   const [selectedNotification, setSelectedNotification] = useState<NotificationWithTime | null>(null);
   const router = useRouter();
+  const { toast } = useToast();
+
+  const fetchNotifications = async () => {
+    setLoading(true);
+    const fetchedNotifications = await getNotifications();
+    setNotifications(fetchedNotifications);
+    setLoading(false);
+  }
 
   useEffect(() => {
-    async function fetchNotifications() {
-      setLoading(true);
-      const fetchedNotifications = await getNotifications();
-      setNotifications(fetchedNotifications);
-      setLoading(false);
-    }
     fetchNotifications();
   }, []);
 
@@ -68,6 +71,16 @@ export function NotificationsMenu() {
       setSelectedNotification(null);
     }
   }
+
+  const handleMarkAllAsRead = async () => {
+    try {
+      await markAllNotificationsAsRead();
+      await fetchNotifications(); // Refetch to update the UI
+      toast({ title: "Success", description: "All notifications marked as read." });
+    } catch (error) {
+      toast({ variant: "destructive", title: "Error", description: "Failed to mark notifications as read." });
+    }
+  };
 
   return (
     <>
@@ -119,13 +132,14 @@ export function NotificationsMenu() {
                           {notification.time}
                         </p>
                       </div>
+                       {!notification.read && <div className="size-2 rounded-full bg-primary" />}
                     </div>
                   ))
                 )}
               </div>
             </CardContent>
             <CardFooter className="p-2 border-t">
-              <Button size="sm" className="w-full" disabled={loading || unreadCount === 0}>
+              <Button size="sm" className="w-full" disabled={loading || unreadCount === 0} onClick={handleMarkAllAsRead}>
                 <Check className="mr-2 h-4 w-4" />
                 Mark all as read
               </Button>
