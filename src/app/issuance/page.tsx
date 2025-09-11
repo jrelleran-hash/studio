@@ -215,7 +215,7 @@ PrintableIssuanceForm.displayName = "PrintableIssuanceForm";
 const QueueRow = ({ order, onIssue }: { order: Order; onIssue: (order: Order) => void; }) => {
     const [isOpen, setIsOpen] = useState(false);
     return (
-        <>
+        <React.Fragment>
             <TableRow>
                 <TableCell className="font-medium">{order.id.substring(0, 7)}</TableCell>
                 <TableCell>{order.client.clientName}</TableCell>
@@ -246,7 +246,7 @@ const QueueRow = ({ order, onIssue }: { order: Order; onIssue: (order: Order) =>
                     </TableCell>
                 </TableRow>
             )}
-        </>
+        </React.Fragment>
     );
 };
 
@@ -1039,7 +1039,7 @@ export default function IssuancePage() {
                 </DialogDescription>
             </DialogHeader>
             <div className="max-h-[70vh] overflow-y-auto border rounded-md my-4">
-                {selectedIssuance && <PrintableIssuanceForm issuance={selectedIssuance} />}
+                {selectedIssuance && <PrintableIssuanceForm issuance={selectedIssuance} ref={printableRef} />}
             </div>
             <DialogFooter>
                 <Button variant="outline" onClick={() => setIsPreviewOpen(false)}>Cancel</Button>
@@ -1051,8 +1051,8 @@ export default function IssuancePage() {
         </DialogContent>
     </Dialog>
     
-    {/* This is the hidden, printable version of the form */}
-    <div className="hidden">
+    {/* This is the hidden, printable version of the form. It's only rendered to be available for printing. */}
+    <div className="hidden print:block">
       {selectedIssuance && <PrintableIssuanceForm issuance={selectedIssuance} ref={printableRef} />}
     </div>
 
