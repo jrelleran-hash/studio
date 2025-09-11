@@ -311,14 +311,53 @@ export function ActiveOrders() {
             <form onSubmit={orderForm.handleSubmit(onOrderSubmit)} className="space-y-4">
               <div className="space-y-2">
                 <Label>Client</Label>
-                 <Select onValueChange={(value) => orderForm.setValue('clientId', value)} defaultValue={orderForm.getValues('clientId')}>
-                    <SelectTrigger>
-                        <SelectValue placeholder="Select a client" />
-                    </SelectTrigger>
-                    <SelectContent>
-                        {clients.map(c => <SelectItem key={c.id} value={c.id}>{c.clientName} - {c.projectName}</SelectItem>)}
-                    </SelectContent>
-                </Select>
+                 <Controller
+                    control={orderForm.control}
+                    name="clientId"
+                    render={({ field }) => (
+                        <Popover>
+                            <PopoverTrigger asChild>
+                                <Button
+                                    variant="outline"
+                                    role="combobox"
+                                    className={cn("w-full justify-between", !field.value && "text-muted-foreground")}
+                                >
+                                    {field.value
+                                        ? `${clients.find(c => c.id === field.value)?.clientName} - ${clients.find(c => c.id === field.value)?.projectName}`
+                                        : "Select a client or project"}
+                                    <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                                </Button>
+                            </PopoverTrigger>
+                            <PopoverContent className="w-[--radix-popover-trigger-width] p-0">
+                                <Command>
+                                    <CommandInput placeholder="Search client..." />
+                                    <CommandEmpty>No client found.</CommandEmpty>
+                                    <CommandList>
+                                        <CommandGroup>
+                                            {clients.map(c => (
+                                                <CommandItem
+                                                    key={c.id}
+                                                    value={`${c.clientName} ${c.projectName}`}
+                                                    onSelect={() => {
+                                                        orderForm.setValue("clientId", c.id);
+                                                    }}
+                                                >
+                                                    <Check
+                                                        className={cn(
+                                                            "mr-2 h-4 w-4",
+                                                            field.value === c.id ? "opacity-100" : "opacity-0"
+                                                        )}
+                                                    />
+                                                    {c.clientName} - {c.projectName}
+                                                </CommandItem>
+                                            ))}
+                                        </CommandGroup>
+                                    </CommandList>
+                                </Command>
+                            </PopoverContent>
+                        </Popover>
+                    )}
+                />
                 {orderForm.formState.errors.clientId && <p className="text-sm text-destructive">{orderForm.formState.errors.clientId.message}</p>}
               </div>
 
@@ -337,19 +376,19 @@ export function ActiveOrders() {
                           <Controller
                               control={orderForm.control}
                               name={`items.${index}.productId`}
-                              render={({ field: { onChange, value } }) => (
+                              render={({ field: controllerField }) => (
                                   <Popover>
                                       <PopoverTrigger asChild>
                                           <Button
                                               variant="outline"
                                               role="combobox"
-                                              className="w-full justify-between"
+                                              className={cn("w-full justify-between", !controllerField.value && "text-muted-foreground")}
                                           >
-                                              {value ? products.find(p => p.id === value)?.name : "Select a product"}
+                                              {controllerField.value ? products.find(p => p.id === controllerField.value)?.name : "Select a product"}
                                               <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
                                           </Button>
                                       </PopoverTrigger>
-                                      <PopoverContent className="w-full p-0">
+                                      <PopoverContent className="w-[--radix-popover-trigger-width] p-0">
                                           <Command>
                                               <CommandInput placeholder="Search product..." />
                                               <CommandEmpty>No product found.</CommandEmpty>
@@ -360,13 +399,13 @@ export function ActiveOrders() {
                                                               key={p.id}
                                                               value={p.name}
                                                               onSelect={() => {
-                                                                  onChange(p.id === value ? "" : p.id);
+                                                                  orderForm.setValue(`items.${index}.productId`, p.id);
                                                               }}
                                                           >
                                                               <Check
                                                                   className={cn(
                                                                       "mr-2 h-4 w-4",
-                                                                      value === p.id ? "opacity-100" : "opacity-0"
+                                                                      controllerField.value === p.id ? "opacity-100" : "opacity-0"
                                                                   )}
                                                               />
                                                               {p.name}
