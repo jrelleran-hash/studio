@@ -43,6 +43,7 @@ const inboundStatusVariant: { [key: string]: "default" | "secondary" | "destruct
   Received: "default",
   Shipped: "outline",
   Restocked: "default",
+  Completed: "default",
 };
 
 const outboundReturnStatusVariant: { [key: string]: "default" | "secondary" | "destructive" | "outline" } = {
@@ -65,7 +66,10 @@ const createShipmentSchema = z.object({
 type ShipmentFormValues = z.infer<typeof createShipmentSchema>;
 
 
-type StatusFilter = "all" | Shipment['status'];
+type ShipmentStatusFilter = "all" | Shipment['status'];
+type POReturnStatusFilter = "all" | PurchaseOrder['status'];
+type OutboundReturnStatusFilter = "all" | OutboundReturn['status'];
+type InboundReturnStatusFilter = "all" | Return['status'];
 type ViewMode = "list" | "calendar";
 
 export default function LogisticsPage() {
@@ -73,7 +77,13 @@ export default function LogisticsPage() {
     const [selectedShipment, setSelectedShipment] = useState<Shipment | null>(null);
     const [selectedPO, setSelectedPO] = useState<PurchaseOrder | null>(null);
     const [selectedOutboundReturn, setSelectedOutboundReturn] = useState<OutboundReturn | null>(null);
-    const [statusFilter, setStatusFilter] = useState<StatusFilter>("all");
+    
+    // Filter states
+    const [shipmentStatusFilter, setShipmentStatusFilter] = useState<ShipmentStatusFilter>("all");
+    const [poStatusFilter, setPoStatusFilter] = useState<POReturnStatusFilter>("all");
+    const [outboundReturnStatusFilter, setOutboundReturnStatusFilter] = useState<OutboundReturnStatusFilter>("all");
+    const [inboundReturnStatusFilter, setInboundReturnStatusFilter] = useState<InboundReturnStatusFilter>("all");
+
     const [viewMode, setViewMode] = useState<ViewMode>("list");
     const [isCreateShipmentOpen, setIsCreateShipmentOpen] = useState(false);
     const [activeTab, setActiveTab] = useState("outbound");
@@ -141,9 +151,21 @@ export default function LogisticsPage() {
         }
     };
 
-    const filteredShipments = shipments.filter(shipment => 
-        statusFilter === 'all' || shipment.status === statusFilter
-    );
+    const filteredShipments = useMemo(() => shipments.filter(shipment => 
+        shipmentStatusFilter === 'all' || shipment.status === shipmentStatusFilter
+    ), [shipments, shipmentStatusFilter]);
+
+    const filteredPurchaseOrders = useMemo(() => purchaseOrders.filter(po =>
+        poStatusFilter === 'all' || po.status === poStatusFilter
+    ), [purchaseOrders, poStatusFilter]);
+
+    const filteredOutboundReturns = useMemo(() => outboundReturns.filter(ret =>
+        outboundReturnStatusFilter === 'all' || ret.status === outboundReturnStatusFilter
+    ), [outboundReturns, outboundReturnStatusFilter]);
+
+    const filteredInboundReturns = useMemo(() => returns.filter(ret =>
+        inboundReturnStatusFilter === 'all' || ret.status === inboundReturnStatusFilter
+    ), [returns, inboundReturnStatusFilter]);
     
     const kpiData = {
         totalOutbound: shipments.length + outboundReturns.length,
@@ -314,12 +336,12 @@ export default function LogisticsPage() {
                                 </CardHeader>
                                 <CardContent>
                                         <div className="flex items-center gap-2 mb-4">
-                                            {(["all", "Pending", "In Transit", "Delivered", "Delayed", "Cancelled"] as StatusFilter[]).map((filter) => (
+                                            {(["all", "Pending", "In Transit", "Delivered", "Delayed", "Cancelled"] as ShipmentStatusFilter[]).map((filter) => (
                                                 <Button
                                                 key={filter}
-                                                variant={statusFilter === filter ? "secondary" : "outline"}
+                                                variant={shipmentStatusFilter === filter ? "secondary" : "outline"}
                                                 size="sm"
-                                                onClick={() => setStatusFilter(filter)}
+                                                onClick={() => setShipmentStatusFilter(filter)}
                                                 className="capitalize"
                                                 >
                                                 {filter}
@@ -401,6 +423,19 @@ export default function LogisticsPage() {
                                     <CardDescription>A log of all returns to suppliers.</CardDescription>
                                 </CardHeader>
                                 <CardContent>
+                                    <div className="flex items-center gap-2 mb-4">
+                                        {(["all", "Pending", "Shipped", "Completed", "Cancelled"] as OutboundReturnStatusFilter[]).map((filter) => (
+                                            <Button
+                                            key={filter}
+                                            variant={outboundReturnStatusFilter === filter ? "secondary" : "outline"}
+                                            size="sm"
+                                            onClick={() => setOutboundReturnStatusFilter(filter)}
+                                            className="capitalize"
+                                            >
+                                            {filter}
+                                            </Button>
+                                        ))}
+                                    </div>
                                     <Table>
                                         <TableHeader>
                                             <TableRow>
@@ -424,8 +459,8 @@ export default function LogisticsPage() {
                                                         <TableCell><Skeleton className="h-8 w-8 ml-auto" /></TableCell>
                                                     </TableRow>
                                                 ))
-                                            ) : outboundReturns.length > 0 ? (
-                                                outboundReturns.map((ret) => (
+                                            ) : filteredOutboundReturns.length > 0 ? (
+                                                filteredOutboundReturns.map((ret) => (
                                                     <TableRow key={ret.id} onClick={() => setSelectedOutboundReturn(ret)} className="cursor-pointer">
                                                         <TableCell className="font-medium">{ret.rtsNumber}</TableCell>
                                                         <TableCell>{ret.supplier.name}</TableCell>
@@ -439,7 +474,7 @@ export default function LogisticsPage() {
                                                 ))
                                             ) : (
                                                 <TableRow>
-                                                    <TableCell colSpan={6} className="h-24 text-center">No outbound returns found.</TableCell>
+                                                    <TableCell colSpan={6} className="h-24 text-center">No outbound returns found for this filter.</TableCell>
                                                 </TableRow>
                                             )}
                                         </TableBody>
@@ -462,6 +497,19 @@ export default function LogisticsPage() {
                                     <CardDescription>A log of all purchase orders from suppliers.</CardDescription>
                                 </CardHeader>
                                 <CardContent>
+                                    <div className="flex items-center gap-2 mb-4">
+                                        {(["all", "Pending", "Shipped", "Received"] as POReturnStatusFilter[]).map((filter) => (
+                                            <Button
+                                            key={filter}
+                                            variant={poStatusFilter === filter ? "secondary" : "outline"}
+                                            size="sm"
+                                            onClick={() => setPoStatusFilter(filter)}
+                                            className="capitalize"
+                                            >
+                                            {filter}
+                                            </Button>
+                                        ))}
+                                    </div>
                                     <Table>
                                         <TableHeader>
                                             <TableRow>
@@ -485,8 +533,8 @@ export default function LogisticsPage() {
                                                     <TableCell><Skeleton className="h-8 w-8 ml-auto" /></TableCell>
                                                     </TableRow>
                                                 ))
-                                            ) : purchaseOrders.length > 0 ? (
-                                                purchaseOrders.map((po) => (
+                                            ) : filteredPurchaseOrders.length > 0 ? (
+                                                filteredPurchaseOrders.map((po) => (
                                                     <TableRow key={po.id} onClick={() => setSelectedPO(po)} className="cursor-pointer">
                                                         <TableCell className="font-medium">{po.poNumber}</TableCell>
                                                         <TableCell>{po.supplier.name}</TableCell>
@@ -519,7 +567,7 @@ export default function LogisticsPage() {
                                                 ))
                                             ) : (
                                                 <TableRow>
-                                                    <TableCell colSpan={6} className="h-24 text-center">No purchase orders found.</TableCell>
+                                                    <TableCell colSpan={6} className="h-24 text-center">No purchase orders found for this filter.</TableCell>
                                                 </TableRow>
                                             )}
                                         </TableBody>
@@ -534,6 +582,19 @@ export default function LogisticsPage() {
                                     <CardDescription>A log of all customer returns.</CardDescription>
                                 </CardHeader>
                                 <CardContent>
+                                    <div className="flex items-center gap-2 mb-4">
+                                        {(["all", "Pending", "Received", "Completed", "Cancelled"] as InboundReturnStatusFilter[]).map((filter) => (
+                                            <Button
+                                            key={filter}
+                                            variant={inboundReturnStatusFilter === filter ? "secondary" : "outline"}
+                                            size="sm"
+                                            onClick={() => setInboundReturnStatusFilter(filter)}
+                                            className="capitalize"
+                                            >
+                                            {filter}
+                                            </Button>
+                                        ))}
+                                    </div>
                                     <Table>
                                          <TableHeader>
                                             <TableRow>
@@ -557,8 +618,8 @@ export default function LogisticsPage() {
                                                     <TableCell><Skeleton className="h-8 w-8 ml-auto" /></TableCell>
                                                     </TableRow>
                                                 ))
-                                            ) : returns.length > 0 ? (
-                                                returns.map((ret) => (
+                                            ) : filteredInboundReturns.length > 0 ? (
+                                                filteredInboundReturns.map((ret) => (
                                                     <TableRow key={ret.id}>
                                                         <TableCell className="font-medium">{ret.rmaNumber}</TableCell>
                                                         <TableCell>{ret.client.clientName}</TableCell>
@@ -572,7 +633,7 @@ export default function LogisticsPage() {
                                                 ))
                                             ) : (
                                                  <TableRow>
-                                                    <TableCell colSpan={6} className="h-24 text-center">No returns found.</TableCell>
+                                                    <TableCell colSpan={6} className="h-24 text-center">No returns found for this filter.</TableCell>
                                                 </TableRow>
                                             )}
                                         </TableBody>
