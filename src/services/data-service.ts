@@ -3,10 +3,11 @@
 
 
 
+
 import { db, storage } from "@/lib/firebase";
-import { collection, getDocs, getDoc, doc, orderBy, query, limit, Timestamp, where, DocumentReference, addDoc, updateDoc, deleteDoc, arrayUnion, runTransaction, writeBatch } from "firebase/firestore";
+import { collection, getDocs, getDoc, doc, orderBy, query, limit, Timestamp, where, DocumentReference, addDoc, updateDoc, deleteDoc, arrayUnion, runTransaction, writeBatch, setDoc } from "firebase/firestore";
 import { ref, uploadBytes, getDownloadURL } from "firebase/storage";
-import type { Activity, Notification, Order, Product, Client, Issuance, Supplier, PurchaseOrder, Shipment, Return, ReturnItem, OutboundReturn, OutboundReturnItem } from "@/types";
+import type { Activity, Notification, Order, Product, Client, Issuance, Supplier, PurchaseOrder, Shipment, Return, ReturnItem, OutboundReturn, OutboundReturnItem, UserProfile } from "@/types";
 import { format, subDays } from 'date-fns';
 
 function timeSince(date: Date) {
@@ -1271,4 +1272,28 @@ export async function initiateOutboundReturn(returnData: NewOutboundReturnData):
     console.error("Error initiating outbound return:", error);
     throw new Error("Failed to initiate outbound return. " + (error as Error).message);
   }
+}
+
+export async function createUserProfile(uid: string, data: Omit<UserProfile, 'uid'>) {
+    try {
+        const userRef = doc(db, "users", uid);
+        await setDoc(userRef, data);
+    } catch (error) {
+        console.error("Error creating user profile:", error);
+        throw new Error("Failed to create user profile.");
+    }
+}
+
+export async function getUserProfile(uid: string): Promise<UserProfile | null> {
+    try {
+        const userRef = doc(db, "users", uid);
+        const docSnap = await getDoc(userRef);
+        if (docSnap.exists()) {
+            return { uid, ...docSnap.data() } as UserProfile;
+        }
+        return null;
+    } catch (error) {
+        console.error("Error getting user profile:", error);
+        return null;
+    }
 }

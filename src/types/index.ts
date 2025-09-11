@@ -160,3 +160,13 @@ export interface OutboundReturn {
     dateInitiated: Date;
     dateShipped?: Date;
 }
+
+export type UserRole = "Admin" | "Manager" | "Staff";
+
+export interface UserProfile {
+    uid: string;
+    email: string;
+    firstName: string;
+    lastName: string;
+    role: UserRole;
+}

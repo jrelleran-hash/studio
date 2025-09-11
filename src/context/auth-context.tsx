@@ -2,12 +2,15 @@
 "use client";
 
 import { createContext, useEffect, useState, ReactNode, useCallback, useMemo } from "react";
-import { onAuthStateChanged, User, signOut } from "firebase/auth";
+import { onAuthStateChanged, User as FirebaseUser, signOut } from "firebase/auth";
 import { auth } from "@/lib/firebase";
 import { useRouter, usePathname } from "next/navigation";
+import { getUserProfile } from "@/services/data-service";
+import type { UserProfile } from "@/types";
 
 interface AuthContextType {
-  user: User | null;
+  user: FirebaseUser | null;
+  userProfile: UserProfile | null;
   loading: boolean;
   logout: () => Promise<void>;
 }
@@ -15,14 +18,21 @@ interface AuthContextType {
 export const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 export function AuthProvider({ children }: { children: ReactNode }) {
-  const [user, setUser] = useState<User | null>(null);
+  const [user, setUser] = useState<FirebaseUser | null>(null);
+  const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
   const [loading, setLoading] = useState(true);
   const router = useRouter();
   const pathname = usePathname();
 
   useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, (user) => {
+    const unsubscribe = onAuthStateChanged(auth, async (user) => {
       setUser(user);
+      if (user) {
+        const profile = await getUserProfile(user.uid);
+        setUserProfile(profile);
+      } else {
+        setUserProfile(null);
+      }
       setLoading(false);
     });
 
@@ -45,8 +55,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, [router]);
 
   const value = useMemo(() => ({
-     user, loading, logout
-  }), [user, loading, logout]);
+     user, userProfile, loading, logout
+  }), [user, userProfile, loading, logout]);
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 }
