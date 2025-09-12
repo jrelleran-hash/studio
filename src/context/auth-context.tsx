@@ -40,17 +40,26 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, []);
 
   useEffect(() => {
-    if (!loading && !user && !["/login", "/signup"].includes(pathname)) {
+    if (loading) return;
+
+    const isAuthPage = ["/login", "/signup"].includes(pathname);
+    const isAdminOnSignup = userProfile?.role === "Admin" && pathname === "/signup";
+
+    if (!user && !isAuthPage) {
       router.push("/login");
     }
-    if (!loading && user && ["/login", "/signup"].includes(pathname)) {
+    
+    if (user && isAuthPage && !isAdminOnSignup) {
       router.push("/");
     }
-  }, [user, loading, pathname, router]);
+
+  }, [user, userProfile, loading, pathname, router]);
 
 
   const logout = useCallback(async () => {
     await signOut(auth);
+    setUser(null);
+    setUserProfile(null);
     router.push("/login");
   }, [router]);
 

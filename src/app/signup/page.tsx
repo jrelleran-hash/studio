@@ -20,6 +20,7 @@ import { CoreFlowLogo } from "@/components/icons";
 import { createUserProfile } from "@/services/data-service";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import type { UserRole } from "@/types";
+import { useAuth } from "@/hooks/use-auth";
 
 const signupSchema = z.object({
   firstName: z.string().min(1, "First name is required."),
@@ -45,6 +46,9 @@ export default function SignupPage() {
   const [showPassword, setShowPassword] = useState(false);
   const { toast } = useToast();
   const router = useRouter();
+  const { userProfile } = useAuth();
+  
+  const isAdmin = userProfile?.role === "Admin";
 
   const {
     register,
@@ -61,6 +65,8 @@ export default function SignupPage() {
   const onSubmit = async (data: SignupFormValues) => {
     setIsLoading(true);
     try {
+      // If an admin is creating a user, they remain logged in.
+      // If it's a public signup, the new user is logged in automatically.
       const userCredential = await createUserWithEmailAndPassword(auth, data.email, data.password);
       const user = userCredential.user;
       const displayName = `${data.firstName} ${data.lastName}`.trim();
@@ -76,7 +82,13 @@ export default function SignupPage() {
         role: data.role as UserRole,
       });
 
-      router.push("/");
+      if (isAdmin) {
+        toast({ title: "User Created", description: "New user has been created successfully."});
+        router.push("/settings"); // Redirect admin to a relevant page
+      } else {
+        router.push("/");
+      }
+
     } catch (error: any) {
       let errorMessage = "An unexpected error occurred.";
       if (error.code === 'auth/email-already-in-use') {
@@ -102,7 +114,7 @@ export default function SignupPage() {
             <CoreFlowLogo className="h-8 w-8 text-primary" />
           </div>
           <CardTitle className="text-2xl font-headline">Create an Account</CardTitle>
-          <CardDescription>Enter your details to get started</CardDescription>
+          <CardDescription>Enter the details to get started</CardDescription>
         </CardHeader>
         <CardContent>
           <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
@@ -173,30 +185,34 @@ export default function SignupPage() {
               </div>
               {errors.password && <p className="text-sm text-destructive">{errors.password.message}</p>}
             </div>
-             <div className="space-y-2">
-              <Label htmlFor="role">Role</Label>
-              <Select onValueChange={(value) => setValue('role', value as "Admin" | "Manager" | "Staff")} defaultValue="Staff">
-                <SelectTrigger id="role" disabled={isLoading}>
-                    <SelectValue placeholder="Select a role" />
-                </SelectTrigger>
-                <SelectContent>
-                    <SelectItem value="Admin">Admin</SelectItem>
-                    <SelectItem value="Manager">Manager</SelectItem>
-                    <SelectItem value="Staff">Staff</SelectItem>
-                </SelectContent>
-              </Select>
-              {errors.role && <p className="text-sm text-destructive">{errors.role.message}</p>}
-            </div>
+             {isAdmin && (
+                <div className="space-y-2">
+                    <Label htmlFor="role">Role</Label>
+                    <Select onValueChange={(value) => setValue('role', value as "Admin" | "Manager" | "Staff")} defaultValue="Staff">
+                        <SelectTrigger id="role" disabled={isLoading}>
+                            <SelectValue placeholder="Select a role" />
+                        </SelectTrigger>
+                        <SelectContent>
+                            <SelectItem value="Admin">Admin</SelectItem>
+                            <SelectItem value="Manager">Manager</SelectItem>
+                            <SelectItem value="Staff">Staff</SelectItem>
+                        </SelectContent>
+                    </Select>
+                    {errors.role && <p className="text-sm text-destructive">{errors.role.message}</p>}
+                </div>
+             )}
             <Button type="submit" className="w-full" disabled={isLoading}>
               {isLoading ? "Creating account..." : "Sign Up"}
             </Button>
           </form>
-          <div className="mt-4 text-center text-sm">
-            Already have an account?{" "}
-            <Link href="/login" className="underline">
-              Sign in
-            </Link>
-          </div>
+          {!isAdmin && (
+            <div className="mt-4 text-center text-sm">
+                Already have an account?{" "}
+                <Link href="/login" className="underline">
+                Sign in
+                </Link>
+            </div>
+          )}
         </CardContent>
       </Card>
     </div>
