@@ -130,7 +130,22 @@ export function InventoryStatusChart({ products, filter }: InventoryStatusChartP
             width={80}
            />
           <XAxis type="number" stroke="#888888" fontSize={12} tickLine={false} axisLine={false} />
-          <ChartTooltip cursor={false} content={<ChartTooltipContent indicator="dot" />} />
+          <ChartTooltip cursor={false} content={<ChartTooltipContent indicator="dot" formatter={(value, name, props) => {
+            if (props.payload.status === "Out of Stock") {
+                return (
+                    <div className="flex flex-col gap-1">
+                        <span className="font-medium">{props.payload.status}</span>
+                        <span className="text-muted-foreground">Total Items: {value}</span>
+                    </div>
+                )
+            }
+            return (
+                <div className="flex flex-col gap-1">
+                    <span className="font-medium">{props.payload.status}</span>
+                    <span className="text-muted-foreground">Total Quantity: {value}</span>
+                </div>
+            )
+          }}/>} />
           <Bar dataKey="quantity" radius={[0, 4, 4, 0]} />
         </BarChart>
       )
