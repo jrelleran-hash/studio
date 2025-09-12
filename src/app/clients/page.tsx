@@ -6,7 +6,7 @@ import { useState, useEffect, useMemo } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
-import { PlusCircle, MoreHorizontal, FileUp } from "lucide-react";
+import { PlusCircle, MoreHorizontal } from "lucide-react";
 import { Timestamp } from "firebase/firestore";
 import { format } from "date-fns";
 
@@ -45,7 +45,6 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { useToast } from "@/hooks/use-toast";
 import { addClient, updateClient, deleteClient } from "@/services/data-service";
 import { useData } from "@/context/data-context";
-import { importClientsAction, getGoogleAuthUrlAction } from "./actions";
 
 import type { Client } from "@/types";
 
@@ -107,19 +106,7 @@ export default function ClientsPage() {
   const [editingClient, setEditingClient] = useState<Client | null>(null);
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
   const [deletingClientId, setDeletingClientId] = useState<string | null>(null);
-  const [isImportDialogOpen, setIsImportDialogOpen] = useState(false);
-  const [importUrl, setImportUrl] = useState("");
-  const [isImporting, setIsImporting] = useState(false);
-  const [googleAuthUrl, setGoogleAuthUrl] = useState("");
   const { toast } = useToast();
-
-  useEffect(() => {
-    async function fetchAuthUrl() {
-        const url = await getGoogleAuthUrlAction();
-        setGoogleAuthUrl(url);
-    }
-    fetchAuthUrl();
-  }, []);
 
   // Memoize schemas to avoid re-creating them on every render
   const addClientSchema = useMemo(() => createClientSchema(clients), [clients]);
@@ -211,29 +198,6 @@ export default function ClientsPage() {
     }
   };
   
-  const handleImportSubmit = async () => {
-    if (!importUrl) {
-        toast({ variant: 'destructive', title: 'Error', description: 'Please enter a Google Sheet URL.' });
-        return;
-    }
-    setIsImporting(true);
-    try {
-        const result = await importClientsAction({ sheetUrl: importUrl });
-        if (result.success) {
-            toast({ title: 'Import Successful', description: `Successfully imported ${result.importedCount} clients.` });
-            await refetchData();
-            setIsImportDialogOpen(false);
-            setImportUrl("");
-        } else {
-            toast({ variant: 'destructive', title: 'Import Failed', description: result.error || 'An unknown error occurred.' });
-        }
-    } catch (error) {
-        toast({ variant: 'destructive', title: 'Error', description: 'An unexpected error occurred during import.' });
-    } finally {
-        setIsImporting(false);
-    }
-  };
-
   const formatDate = (timestamp?: Timestamp) => {
     if (!timestamp) return 'N/A';
     return format(timestamp.toDate(), 'PPpp');
@@ -248,43 +212,6 @@ export default function ClientsPage() {
           <CardDescription>Manage your client database.</CardDescription>
         </div>
         <div className="flex gap-2">
-            <Dialog open={isImportDialogOpen} onOpenChange={setIsImportDialogOpen}>
-                <DialogTrigger asChild>
-                    <Button size="sm" variant="outline" className="gap-1">
-                        <FileUp className="h-4 w-4" />
-                        Import Clients
-                    </Button>
-                </DialogTrigger>
-                <DialogContent className="sm:max-w-md">
-                    <DialogHeader>
-                        <DialogTitle>Import Clients from Google Sheet</DialogTitle>
-                        <DialogDescription>
-                            Connect your Google account and paste the URL of your public Google Sheet to import client data.
-                        </DialogDescription>
-                    </DialogHeader>
-                    <div className="space-y-4">
-                        <Button onClick={() => window.location.href = googleAuthUrl} className="w-full" disabled={!googleAuthUrl}>
-                            Connect Google Account
-                        </Button>
-                        <div className="space-y-2">
-                            <Label htmlFor="sheetUrl">Google Sheet URL</Label>
-                            <Input 
-                                id="sheetUrl" 
-                                placeholder="https://docs.google.com/spreadsheets/d/..."
-                                value={importUrl}
-                                onChange={(e) => setImportUrl(e.target.value)}
-                                disabled={isImporting}
-                            />
-                        </div>
-                    </div>
-                    <DialogFooter>
-                        <Button type="button" variant="outline" onClick={() => setIsImportDialogOpen(false)}>Cancel</Button>
-                        <Button onClick={handleImportSubmit} disabled={isImporting}>
-                            {isImporting ? "Importing..." : "Import"}
-                        </Button>
-                    </DialogFooter>
-                </DialogContent>
-            </Dialog>
           <Dialog open={isAddDialogOpen} onOpenChange={(isOpen) => {
             setIsAddDialogOpen(isOpen);
             if(!isOpen) form.reset();
