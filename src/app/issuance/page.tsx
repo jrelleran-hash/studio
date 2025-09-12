@@ -7,6 +7,7 @@ import { useForm, useFieldArray, Controller } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
 import { PlusCircle, MoreHorizontal, X, Printer, ChevronDown, Truck, RefreshCcw, ChevronsUpDown, Check } from "lucide-react";
+import Link from "next/link";
 
 import { Button, buttonVariants } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -572,197 +573,199 @@ export default function IssuancePage() {
           <CardTitle>Material Issuance History</CardTitle>
           <CardDescription>Track all materials issued to clients/projects.</CardDescription>
         </div>
-         <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>
-          <DialogTrigger asChild>
-            <Button size="sm" className="gap-1">
-              <PlusCircle className="h-4 w-4" />
-              Create Issuance
-            </Button>
-          </DialogTrigger>
-          <DialogContent className="sm:max-w-2xl">
-            <DialogHeader>
-              <DialogTitle>New Material Issuance</DialogTitle>
-              <DialogDescription>Select the items to be issued from inventory.</DialogDescription>
-            </DialogHeader>
-            <form onSubmit={form.handleSubmit(onAddSubmit)} className="space-y-4">
-              <div className="space-y-2">
-                <Label>Client / Project</Label>
-                 <Controller
-                    control={form.control}
-                    name="clientId"
-                    render={({ field }) => (
-                         <Popover open={isClientPopoverOpen} onOpenChange={setIsClientPopoverOpen}>
-                            <PopoverTrigger asChild>
-                                <Button
-                                    variant="outline"
-                                    role="combobox"
-                                    className={cn("w-full justify-between", !field.value && "text-muted-foreground")}
-                                    disabled={!!form.getValues('orderId')}
-                                >
-                                    {field.value
-                                        ? clients.find(c => c.id === field.value)?.clientName
-                                        : "Select a client"}
-                                    <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
-                                </Button>
-                            </PopoverTrigger>
-                            <PopoverContent className="w-[--radix-popover-trigger-width] p-0">
-                                <Command>
-                                    <CommandInput placeholder="Search client..." />
-                                    <CommandEmpty>No client found.</CommandEmpty>
-                                    <CommandList>
-                                        <CommandGroup>
-                                            {clients.map(c => (
-                                                <CommandItem
-                                                    key={c.id}
-                                                    value={c.id}
-                                                    onSelect={(currentValue) => {
-                                                        field.onChange(currentValue === field.value ? "" : currentValue)
-                                                        setIsClientPopoverOpen(false);
-                                                    }}
-                                                >
-                                                    <Check
-                                                        className={cn(
-                                                            "mr-2 h-4 w-4",
-                                                            field.value === c.id ? "opacity-100" : "opacity-0"
-                                                        )}
-                                                    />
-                                                    {c.clientName} - {c.projectName}
-                                                </CommandItem>
-                                            ))}
-                                        </CommandGroup>
-                                    </CommandList>
-                                </Command>
-                            </PopoverContent>
-                        </Popover>
-                    )}
-                 />
-                {form.formState.errors.clientId && <p className="text-sm text-destructive">{form.formState.errors.clientId.message}</p>}
-              </div>
-
-              <div className="space-y-2">
-                 <div className="flex justify-between items-center">
-                    <Label>Items to Issue</Label>
-                </div>
-                <div className="space-y-4">
-                  {fields.map((field, index) => {
-                    const selectedProductId = form.watch(`items.${index}.productId`);
-                    const selectedProduct = products.find(p => p.id === selectedProductId);
-                    const lineSubtotal = selectedProduct ? selectedProduct.price * (form.watch(`items.${index}.quantity`) || 0) : 0;
-
-                    return (
-                      <div key={field.id} className="space-y-2">
-                        <div className="grid grid-cols-[1fr_auto_auto] items-start gap-2">
-                            <div className="flex flex-col gap-1">
-                                <Controller
-                                    control={form.control}
-                                    name={`items.${index}.productId`}
-                                    render={({ field: controllerField }) => (
-                                        <Popover open={productPopovers[index]} onOpenChange={(open) => setProductPopovers(prev => ({...prev, [index]: open}))}>
-                                            <PopoverTrigger asChild>
-                                                <Button
-                                                    variant="outline"
-                                                    role="combobox"
-                                                    className={cn("w-full justify-between", !controllerField.value && "text-muted-foreground")}
-                                                    disabled={!!form.getValues('orderId')}
-                                                >
-                                                    {controllerField.value ? products.find(p => p.id === controllerField.value)?.name : "Select a product"}
-                                                    <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
-                                                </Button>
-                                            </PopoverTrigger>
-                                            <PopoverContent className="w-[--radix-popover-trigger-width] p-0">
-                                                <Command>
-                                                    <CommandInput placeholder="Search product..." />
-                                                    <CommandEmpty>No product found.</CommandEmpty>
-                                                    <CommandList>
-                                                        <CommandGroup>
-                                                            {products.map(p => (
-                                                                <CommandItem
-                                                                    key={p.id}
-                                                                    value={p.id}
-                                                                    onSelect={(currentValue) => {
-                                                                        controllerField.onChange(currentValue === controllerField.value ? "" : currentValue)
-                                                                        setProductPopovers(prev => ({...prev, [index]: false}))
-                                                                    }}
-                                                                    disabled={p.stock === 0}
-                                                                >
-                                                                    <div className="flex items-center justify-between w-full">
-                                                                        <div className="flex items-center">
-                                                                            <Check
-                                                                                className={cn(
-                                                                                    "mr-2 h-4 w-4",
-                                                                                    controllerField.value === p.id ? "opacity-100" : "opacity-0"
-                                                                                )}
-                                                                            />
-                                                                            {p.name}
-                                                                        </div>
-                                                                        <span className="ml-auto text-xs text-muted-foreground">
-                                                                            Stock: {p.stock}
-                                                                        </span>
-                                                                    </div>
-                                                                </CommandItem>
-                                                            ))}
-                                                        </CommandGroup>
-                                                    </CommandList>
-                                                </Command>
-                                            </PopoverContent>
-                                        </Popover>
-                                    )}
-                                />
-                                {form.formState.errors.items?.[index]?.productId && <p className="text-sm text-destructive">{form.formState.errors.items?.[index]?.productId?.message}</p>}
-                            </div>
-                            <div className="flex flex-col gap-1">
-                                <Input 
-                                    type="number" 
-                                    placeholder="Qty" 
-                                    className="w-24"
-                                    {...form.register(`items.${index}.quantity`)}
-                                    readOnly={!!form.getValues('orderId')}
-                                />
-                                {form.formState.errors.items?.[index]?.quantity ? (
-                                    <p className="text-sm text-destructive">{form.formState.errors.items?.[index]?.quantity?.message}</p>
-                                ) : selectedProduct ? (
-                                    <span className="text-xs text-muted-foreground pl-1">Available: {selectedProduct.stock}</span>
-                                ) : null
-                            }
-                            </div>
-                            <Button variant="ghost" size="icon" onClick={() => !form.getValues('orderId') && remove(index)} disabled={!!form.getValues('orderId')}>
-                                <X className="h-4 w-4" />
-                            </Button>
-                        </div>
-                        {selectedProduct && (
-                            <div className="flex justify-between items-center text-xs text-muted-foreground pl-1 pr-12">
-                                <span>Value: {formatCurrency(selectedProduct.price)}</span>
-                                <span>Subtotal: {formatCurrency(lineSubtotal)}</span>
-                            </div>
+        <div className="flex items-center gap-2">
+             <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>
+              <DialogTrigger asChild>
+                <Button size="sm" className="gap-1">
+                  <PlusCircle className="h-4 w-4" />
+                  Create Issuance
+                </Button>
+              </DialogTrigger>
+              <DialogContent className="sm:max-w-2xl">
+                <DialogHeader>
+                  <DialogTitle>New Material Issuance</DialogTitle>
+                  <DialogDescription>Select the items to be issued from inventory.</DialogDescription>
+                </DialogHeader>
+                <form onSubmit={form.handleSubmit(onAddSubmit)} className="space-y-4">
+                  <div className="space-y-2">
+                    <Label>Client / Project</Label>
+                     <Controller
+                        control={form.control}
+                        name="clientId"
+                        render={({ field }) => (
+                             <Popover open={isClientPopoverOpen} onOpenChange={setIsClientPopoverOpen}>
+                                <PopoverTrigger asChild>
+                                    <Button
+                                        variant="outline"
+                                        role="combobox"
+                                        className={cn("w-full justify-between", !field.value && "text-muted-foreground")}
+                                        disabled={!!form.getValues('orderId')}
+                                    >
+                                        {field.value
+                                            ? clients.find(c => c.id === field.value)?.clientName
+                                            : "Select a client"}
+                                        <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                                    </Button>
+                                </PopoverTrigger>
+                                <PopoverContent className="w-[--radix-popover-trigger-width] p-0">
+                                    <Command>
+                                        <CommandInput placeholder="Search client..." />
+                                        <CommandEmpty>No client found.</CommandEmpty>
+                                        <CommandList>
+                                            <CommandGroup>
+                                                {clients.map(c => (
+                                                    <CommandItem
+                                                        key={c.id}
+                                                        value={c.id}
+                                                        onSelect={(currentValue) => {
+                                                            field.onChange(currentValue === field.value ? "" : currentValue)
+                                                            setIsClientPopoverOpen(false);
+                                                        }}
+                                                    >
+                                                        <Check
+                                                            className={cn(
+                                                                "mr-2 h-4 w-4",
+                                                                field.value === c.id ? "opacity-100" : "opacity-0"
+                                                            )}
+                                                        />
+                                                        {c.clientName} - {c.projectName}
+                                                    </CommandItem>
+                                                ))}
+                                            </CommandGroup>
+                                        </CommandList>
+                                    </Command>
+                                </PopoverContent>
+                            </Popover>
                         )}
-                        </div>
-                    );
-                   })}
-                </div>
-                 {form.formState.errors.items && typeof form.formState.errors.items === 'object' && !Array.isArray(form.formState.errors.items) && <p className="text-sm text-destructive">{form.formState.errors.items.message}</p>}
-                <Button type="button" variant="outline" size="sm" onClick={() => append({ productId: "", quantity: 1 })} disabled={!!form.getValues('orderId')}>
-                  <PlusCircle className="h-4 w-4 mr-2" /> Add Item
-                </Button>
-              </div>
-               <div className="space-y-2">
-                  <Label htmlFor="remarks">Remarks</Label>
-                  <Textarea id="remarks" {...form.register("remarks")} placeholder="Optional notes about this issuance..." />
-                </div>
-            <Separator />
-            <div className="flex justify-end items-center gap-4 pr-12">
-                <span className="font-semibold">Total Issuance Value:</span>
-                <span className="font-bold text-lg">{formatCurrency(issuanceTotal)}</span>
-            </div>
+                     />
+                    {form.formState.errors.clientId && <p className="text-sm text-destructive">{form.formState.errors.clientId.message}</p>}
+                  </div>
 
-              <DialogFooter>
-                <Button type="button" variant="outline" onClick={() => setIsAddDialogOpen(false)}>Cancel</Button>
-                <Button type="submit" disabled={!form.formState.isValid || form.formState.isSubmitting}>
-                  {form.formState.isSubmitting ? "Issuing..." : "Confirm & Issue"}
-                </Button>
-              </DialogFooter>
-            </form>
-          </DialogContent>
-        </Dialog>
+                  <div className="space-y-2">
+                     <div className="flex justify-between items-center">
+                        <Label>Items to Issue</Label>
+                    </div>
+                    <div className="space-y-4">
+                      {fields.map((field, index) => {
+                        const selectedProductId = form.watch(`items.${index}.productId`);
+                        const selectedProduct = products.find(p => p.id === selectedProductId);
+                        const lineSubtotal = selectedProduct ? selectedProduct.price * (form.watch(`items.${index}.quantity`) || 0) : 0;
+
+                        return (
+                          <div key={field.id} className="space-y-2">
+                            <div className="grid grid-cols-[1fr_auto_auto] items-start gap-2">
+                                <div className="flex flex-col gap-1">
+                                    <Controller
+                                        control={form.control}
+                                        name={`items.${index}.productId`}
+                                        render={({ field: controllerField }) => (
+                                            <Popover open={productPopovers[index]} onOpenChange={(open) => setProductPopovers(prev => ({...prev, [index]: open}))}>
+                                                <PopoverTrigger asChild>
+                                                    <Button
+                                                        variant="outline"
+                                                        role="combobox"
+                                                        className={cn("w-full justify-between", !controllerField.value && "text-muted-foreground")}
+                                                        disabled={!!form.getValues('orderId')}
+                                                    >
+                                                        {controllerField.value ? products.find(p => p.id === controllerField.value)?.name : "Select a product"}
+                                                        <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                                                    </Button>
+                                                </PopoverTrigger>
+                                                <PopoverContent className="w-[--radix-popover-trigger-width] p-0">
+                                                    <Command>
+                                                        <CommandInput placeholder="Search product..." />
+                                                        <CommandEmpty>No product found.</CommandEmpty>
+                                                        <CommandList>
+                                                            <CommandGroup>
+                                                                {products.map(p => (
+                                                                    <CommandItem
+                                                                        key={p.id}
+                                                                        value={p.id}
+                                                                        onSelect={(currentValue) => {
+                                                                            controllerField.onChange(currentValue === controllerField.value ? "" : currentValue)
+                                                                            setProductPopovers(prev => ({...prev, [index]: false}))
+                                                                        }}
+                                                                        disabled={p.stock === 0}
+                                                                    >
+                                                                        <div className="flex items-center justify-between w-full">
+                                                                            <div className="flex items-center">
+                                                                                <Check
+                                                                                    className={cn(
+                                                                                        "mr-2 h-4 w-4",
+                                                                                        controllerField.value === p.id ? "opacity-100" : "opacity-0"
+                                                                                    )}
+                                                                                />
+                                                                                {p.name}
+                                                                            </div>
+                                                                            <span className="ml-auto text-xs text-muted-foreground">
+                                                                                Stock: {p.stock}
+                                                                            </span>
+                                                                        </div>
+                                                                    </CommandItem>
+                                                                ))}
+                                                            </CommandGroup>
+                                                        </CommandList>
+                                                    </Command>
+                                                </PopoverContent>
+                                            </Popover>
+                                        )}
+                                    />
+                                    {form.formState.errors.items?.[index]?.productId && <p className="text-sm text-destructive">{form.formState.errors.items?.[index]?.productId?.message}</p>}
+                                </div>
+                                <div className="flex flex-col gap-1">
+                                    <Input 
+                                        type="number" 
+                                        placeholder="Qty" 
+                                        className="w-24"
+                                        {...form.register(`items.${index}.quantity`)}
+                                        readOnly={!!form.getValues('orderId')}
+                                    />
+                                    {form.formState.errors.items?.[index]?.quantity ? (
+                                        <p className="text-sm text-destructive">{form.formState.errors.items?.[index]?.quantity?.message}</p>
+                                    ) : selectedProduct ? (
+                                        <span className="text-xs text-muted-foreground pl-1">Available: {selectedProduct.stock}</span>
+                                    ) : null
+                                }
+                                </div>
+                                <Button variant="ghost" size="icon" onClick={() => !form.getValues('orderId') && remove(index)} disabled={!!form.getValues('orderId')}>
+                                    <X className="h-4 w-4" />
+                                </Button>
+                            </div>
+                            {selectedProduct && (
+                                <div className="flex justify-between items-center text-xs text-muted-foreground pl-1 pr-12">
+                                    <span>Value: {formatCurrency(selectedProduct.price)}</span>
+                                    <span>Subtotal: {formatCurrency(lineSubtotal)}</span>
+                                </div>
+                            )}
+                            </div>
+                        );
+                       })}
+                    </div>
+                     {form.formState.errors.items && typeof form.formState.errors.items === 'object' && !Array.isArray(form.formState.errors.items) && <p className="text-sm text-destructive">{form.formState.errors.items.message}</p>}
+                    <Button type="button" variant="outline" size="sm" onClick={() => append({ productId: "", quantity: 1 })} disabled={!!form.getValues('orderId')}>
+                      <PlusCircle className="h-4 w-4 mr-2" /> Add Item
+                    </Button>
+                  </div>
+                   <div className="space-y-2">
+                      <Label htmlFor="remarks">Remarks</Label>
+                      <Textarea id="remarks" {...form.register("remarks")} placeholder="Optional notes about this issuance..." />
+                    </div>
+                <Separator />
+                <div className="flex justify-end items-center gap-4 pr-12">
+                    <span className="font-semibold">Total Issuance Value:</span>
+                    <span className="font-bold text-lg">{formatCurrency(issuanceTotal)}</span>
+                </div>
+
+                  <DialogFooter>
+                    <Button type="button" variant="outline" onClick={() => setIsAddDialogOpen(false)}>Cancel</Button>
+                    <Button type="submit" disabled={!form.formState.isValid || form.formState.isSubmitting}>
+                      {form.formState.isSubmitting ? "Issuing..." : "Confirm & Issue"}
+                    </Button>
+                  </DialogFooter>
+                </form>
+              </DialogContent>
+            </Dialog>
+        </div>
       </CardHeader>
       <CardContent>
         <Table>
@@ -1076,5 +1079,3 @@ export default function IssuancePage() {
     </>
   );
 }
-
-    
