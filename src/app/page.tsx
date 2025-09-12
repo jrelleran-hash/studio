@@ -7,7 +7,7 @@ import { KpiCard } from "@/components/dashboard/kpi-card";
 import { RecentActivity } from "@/components/dashboard/recent-activity";
 import { LowStockItems } from "@/components/dashboard/low-stock-items";
 import { ActiveOrders } from "@/components/dashboard/active-orders";
-import { RevenueChart, chartData, type FilterType } from "@/components/dashboard/revenue-chart";
+import { RevenueChart, type FilterType } from "@/components/dashboard/revenue-chart";
 import { InventoryStatusChart, type InventoryFilterType } from "@/components/dashboard/inventory-status-chart";
 import { Package, ShoppingCart, Users } from "lucide-react";
 import { useAuth } from "@/hooks/use-auth";
@@ -16,9 +16,95 @@ import { useEffect, useState, useMemo } from "react";
 import { useData } from "@/context/data-context";
 import { formatCurrency } from "@/lib/currency";
 import { PesoSign } from "@/components/icons";
-import { subDays } from "date-fns";
+import { subDays, subWeeks, subMonths, subYears, startOfDay, endOfDay, startOfWeek, endOfWeek, startOfMonth, endOfMonth, startOfYear, endOfYear, format, isWithinInterval, eachDayOfInterval, eachWeekOfInterval, eachMonthOfInterval } from "date-fns";
 import type { Order } from "@/types";
 import { Button } from "@/components/ui/button";
+
+const getRevenueData = (orders: Order[], filter: FilterType) => {
+    const now = new Date();
+    let interval;
+    let previousInterval;
+    let dataPoints: { name: string, revenue: number, expenses: number }[] = [];
+    let title = "";
+
+    switch (filter) {
+        case "day":
+            interval = { start: startOfDay(now), end: endOfDay(now) };
+            previousInterval = { start: startOfDay(subDays(now, 1)), end: endOfDay(subDays(now, 1)) };
+            const todayHours = Array.from({ length: 24 }, (_, i) => i);
+             dataPoints = todayHours.map(hour => ({
+                name: `${hour}:00`,
+                revenue: 0,
+                expenses: 0, // Placeholder for expenses
+            }));
+            title = "Today's Revenue";
+            break;
+        case "week":
+            interval = { start: startOfWeek(now), end: endOfWeek(now) };
+            previousInterval = { start: startOfWeek(subWeeks(now, 1)), end: endOfWeek(subWeeks(now, 1)) };
+            dataPoints = eachDayOfInterval(interval).map(day => ({
+                name: format(day, 'E'),
+                revenue: 0,
+                expenses: 0,
+            }));
+            title = "This Week's Revenue";
+            break;
+        case "month":
+            interval = { start: startOfMonth(now), end: endOfMonth(now) };
+            previousInterval = { start: startOfMonth(subMonths(now, 1)), end: endOfMonth(subMonths(now, 1)) };
+            dataPoints = eachWeekOfInterval(interval, { weekStartsOn: 1 }).map((week, i) => ({
+                name: `W${i + 1}`,
+                revenue: 0,
+                expenses: 0,
+            }));
+            title = "This Month's Revenue";
+            break;
+        case "year":
+            interval = { start: startOfYear(now), end: endOfYear(now) };
+            previousInterval = { start: startOfYear(subYears(now, 1)), end: endOfYear(subYears(now, 1)) };
+            dataPoints = eachMonthOfInterval(interval).map(month => ({
+                name: format(month, 'MMM'),
+                revenue: 0,
+                expenses: 0,
+            }));
+            title = "This Year's Revenue";
+            break;
+    }
+    
+    let currentTotal = 0;
+    let previousTotal = 0;
+
+    orders.forEach(order => {
+        if (isWithinInterval(order.date, interval)) {
+            currentTotal += order.total;
+            let key;
+            if (filter === 'day') key = `${order.date.getHours()}:00`;
+            else if (filter === 'week') key = format(order.date, 'E');
+            else if (filter === 'month') {
+                const weekIndex = Math.floor((order.date.getDate() - 1) / 7);
+                key = `W${weekIndex + 1}`;
+            }
+            else if (filter === 'year') key = format(order.date, 'MMM');
+            
+            const dataPoint = dataPoints.find(dp => dp.name === key);
+            if (dataPoint) dataPoint.revenue += order.total;
+        } else if (isWithinInterval(order.date, previousInterval)) {
+            previousTotal += order.total;
+        }
+    });
+
+    let changePercentage = 0;
+    if (previousTotal > 0) {
+        changePercentage = ((currentTotal - previousTotal) / previousTotal) * 100;
+    } else if (currentTotal > 0) {
+        changePercentage = 100;
+    }
+
+    const changeText = `${changePercentage >= 0 ? '+' : ''}${changePercentage.toFixed(1)}% from last ${filter}`;
+
+    return { total: currentTotal, changeText, title, chartData: dataPoints };
+}
+
 
 export default function DashboardPage() {
   const { user, loading: authLoading } = useAuth();
@@ -34,27 +120,15 @@ export default function DashboardPage() {
     }
   }, [user, authLoading, router]);
 
-  const { totalRevenue, changeText: revenueChangeText, title: revenueTitle } = useMemo(() => {
-    const data = chartData[revenueFilter];
-    const total = data.reduce((acc, item) => acc + item.revenue, 0);
-    
-    // Note: This is a simplified change calculation. A real app would compare to the previous period.
-    const change = revenueFilter === 'month' ? "+20.1%" : "+10.5%"; 
-    const changeMessage = `from last ${revenueFilter}`;
-
-    const newTitle = {
-      day: "Daily Revenue",
-      week: "Weekly Revenue",
-      month: "Monthly Revenue",
-      year: "Yearly Revenue",
-    }[revenueFilter];
-
+  const { totalRevenue, revenueChangeText, revenueTitle, revenueChartData } = useMemo(() => {
+    const { total, changeText, title, chartData } = getRevenueData(orders, revenueFilter);
     return {
-      totalRevenue: formatCurrency(total),
-      changeText: `${change} ${changeMessage}`,
-      title: newTitle
+        totalRevenue: formatCurrency(total),
+        revenueChangeText: changeText,
+        revenueTitle: title,
+        revenueChartData: chartData
     };
-  }, [revenueFilter]);
+  }, [orders, revenueFilter]);
 
   const { inventoryValue, inventoryChangeText, inventoryTitle } = useMemo(() => {
     const filteredProducts = products.filter(p => {
@@ -140,7 +214,7 @@ export default function DashboardPage() {
           icon={<PesoSign className="size-5 text-primary" />}
           loading={dataLoading}
           href="/analytics"
-          children={<RevenueChart filter={revenueFilter} />}
+          children={<RevenueChart data={revenueChartData} />}
           footer={
              <div className="flex justify-end gap-1 mt-2">
               {(["day", "week", "month", "year"] as FilterType[]).map((f) => (
