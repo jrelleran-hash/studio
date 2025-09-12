@@ -109,6 +109,16 @@ export async function getNotifications(): Promise<(Notification & { time: string
   }
 }
 
+export async function markNotificationAsRead(notificationId: string): Promise<void> {
+  try {
+    const notificationRef = doc(db, "notifications", notificationId);
+    await updateDoc(notificationRef, { read: true });
+  } catch (error) {
+    console.error("Error marking notification as read:", error);
+    throw new Error("Failed to mark notification as read.");
+  }
+}
+
 export async function markAllNotificationsAsRead(): Promise<void> {
   try {
     const notificationsCol = collection(db, "notifications");
@@ -124,6 +134,16 @@ export async function markAllNotificationsAsRead(): Promise<void> {
   } catch (error) {
     console.error("Error marking all notifications as read:", error);
     throw new Error("Failed to mark notifications as read.");
+  }
+}
+
+export async function deleteNotification(notificationId: string): Promise<void> {
+  try {
+    const notificationRef = doc(db, "notifications", notificationId);
+    await deleteDoc(notificationRef);
+  } catch (error) {
+    console.error("Error deleting notification:", error);
+    throw new Error("Failed to delete notification.");
   }
 }
 
