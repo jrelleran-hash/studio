@@ -71,14 +71,14 @@ export async function getRecentActivities(count: number = 4): Promise<(Activity 
     const q = query(activitiesCol, orderBy("timestamp", "desc"), limit(count));
     const activitySnapshot = await getDocs(q);
     const activityList = activitySnapshot.docs.map(doc => {
-      const data = doc.data() as Omit<Activity, 'id'>;
-      const timestamp = (data.timestamp as unknown as Timestamp).toDate();
+      const data = doc.data();
+      const timestamp = (data.timestamp as Timestamp).toDate();
       return { 
         id: doc.id,
         ...data,
         timestamp,
         time: timeSince(timestamp),
-      };
+      } as (Activity & { time: string });
     });
     return activityList;
   } catch (error) {
