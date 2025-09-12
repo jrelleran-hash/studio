@@ -36,9 +36,9 @@ export interface Supplier {
   contactPerson: string;
   email: string;
   phone: string;
-  cellphoneNumber?: string;
   address: string;
   createdAt: Timestamp;
+  cellphoneNumber?: string;
 }
 
 export interface ProductHistory {
@@ -200,3 +200,5 @@ export interface UserProfile {
     lastName: string;
     role: UserRole;
 }
+
+    
