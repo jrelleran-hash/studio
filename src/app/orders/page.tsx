@@ -47,7 +47,7 @@ import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useToast } from "@/hooks/use-toast";
-import { updateOrderStatus, addOrder, addProduct, updateSupplier, deleteSupplier, addSupplier, deleteOrder, addPurchaseOrder, updatePurchaseOrderStatus, deletePurchaseOrder, initiateOutboundReturn } from "@/services/data-service";
+import { updateOrderStatus, addOrder, addProduct, updateSupplier, deleteSupplier, addSupplier, deleteOrder, addPurchaseOrder, updatePurchaseOrderStatus, deletePurchaseOrder, initiateOutboundReturn, addClient } from "@/services/data-service";
 import type { Order, Supplier, PurchaseOrder, Product, OutboundReturnItem, Client, Backorder } from "@/types";
 import { formatCurrency } from "@/lib/currency";
 import { CURRENCY_CONFIG } from "@/config/currency";
@@ -183,6 +183,15 @@ const createOutboundReturnSchema = (po: PurchaseOrder | null) => z.object({
 
 type OutboundReturnFormValues = z.infer<typeof createOutboundReturnSchema>;
 
+// Client Schema from clients/page.tsx for the new client dialog
+const clientSchema = z.object({
+  projectName: z.string().min(1, "Project name is required."),
+  clientName: z.string().min(1, "Client name is required."),
+  boqNumber: z.string().min(1, "BOQ number is required."),
+  address: z.string().min(1, "Address is required."),
+});
+type ClientFormValues = z.infer<typeof clientSchema>;
+
 
 const toTitleCase = (str: string) => {
   if (!str) return "";
@@ -200,6 +209,7 @@ export default function OrdersAndSuppliersPage() {
 
   // Dialog states
   const [isAddOrderOpen, setIsAddOrderOpen] = useState(false);
+  const [isAddClientOpen, setIsAddClientOpen] = useState(false);
   const [isAddPOOpen, setIsAddPOOpen] = useState(false);
   const [isAddProductOpen, setIsAddProductOpen] = useState(false);
   const [isAddSupplierOpen, setIsAddSupplierOpen] = useState(false);
@@ -273,6 +283,10 @@ export default function OrdersAndSuppliersPage() {
   const supplierForm = useForm<SupplierFormValues>({
     resolver: zodResolver(supplierSchema),
     mode: 'onBlur',
+  });
+  
+  const clientForm = useForm<ClientFormValues>({
+    resolver: zodResolver(clientSchema),
   });
 
   const editSupplierForm = useForm<SupplierFormValues>({
@@ -398,6 +412,12 @@ export default function OrdersAndSuppliersPage() {
       setIsEmailChecking(false);
     }
   }, [isAddSupplierOpen, isEditSupplierOpen, supplierForm, editSupplierForm]);
+  
+  useEffect(() => {
+    if (!isAddClientOpen) {
+      clientForm.reset();
+    }
+  }, [isAddClientOpen, clientForm]);
 
   useEffect(() => {
     if (editingSupplier) {
@@ -617,6 +637,23 @@ export default function OrdersAndSuppliersPage() {
       });
     }
   };
+  
+  const onAddClientSubmit = async (data: ClientFormValues) => {
+    try {
+      await addClient(data);
+      toast({ title: "Success", description: "Client added successfully." });
+      setIsAddClientOpen(false);
+      await refetchData();
+    } catch (error) {
+      console.error(error);
+      toast({
+        variant: "destructive",
+        title: "Error",
+        description: "Failed to add client. Please try again.",
+      });
+    }
+  };
+
 
   const handleEditSupplierClick = (supplier: Supplier) => {
     setEditingSupplier(supplier);
@@ -842,7 +879,11 @@ export default function OrdersAndSuppliersPage() {
                                     <PopoverContent className="w-[--radix-popover-trigger-width] p-0">
                                         <Command>
                                             <CommandInput placeholder="Search client..." />
-                                            <CommandEmpty>No client found.</CommandEmpty>
+                                            <CommandEmpty>
+                                                 <Button variant="ghost" className="w-full" onClick={() => { setOrderClientPopover(false); setIsAddClientOpen(true); }}>
+                                                    Add new client
+                                                </Button>
+                                            </CommandEmpty>
                                             <CommandList>
                                                 <CommandGroup>
                                                     {clients.map(c => (
@@ -2037,6 +2078,63 @@ export default function OrdersAndSuppliersPage() {
             </DialogContent>
         </Dialog>
     )}
+    
+    <Dialog open={isAddClientOpen} onOpenChange={setIsAddClientOpen}>
+        <DialogContent className="sm:max-w-md">
+            <DialogHeader>
+                <DialogTitle>Add New Client</DialogTitle>
+                <DialogDescription>Fill in the details for the new client.</DialogDescription>
+            </DialogHeader>
+            <form onSubmit={clientForm.handleSubmit(onAddClientSubmit)} className="space-y-4">
+                <div className="space-y-2">
+                  <Label htmlFor="projectName-order">Project Name</Label>
+                  <Input 
+                    id="projectName-order" 
+                    {...clientForm.register("projectName")} 
+                    onChange={(e) => {
+                      const { value } = e.target;
+                      clientForm.setValue("projectName", toTitleCase(value), { shouldValidate: true });
+                    }}
+                  />
+                  {clientForm.formState.errors.projectName && <p className="text-sm text-destructive">{clientForm.formState.errors.projectName.message}</p>}
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="clientName-order">Client Name</Label>
+                  <Input 
+                    id="clientName-order" 
+                    {...clientForm.register("clientName")} 
+                    onChange={(e) => {
+                      const { value } = e.target;
+                      clientForm.setValue("clientName", toTitleCase(value), { shouldValidate: true });
+                    }}
+                  />
+                  {clientForm.formState.errors.clientName && <p className="text-sm text-destructive">{clientForm.formState.errors.clientName.message}</p>}
+                </div>
+                 <div className="space-y-2">
+                  <Label htmlFor="boqNumber-order">BOQ Number</Label>
+                  <Input 
+                    id="boqNumber-order" 
+                    {...clientForm.register("boqNumber")}
+                  />
+                  {clientForm.formState.errors.boqNumber && <p className="text-sm text-destructive">{clientForm.formState.errors.boqNumber.message}</p>}
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="address-order">Address</Label>
+                  <Input 
+                    id="address-order" 
+                    {...clientForm.register("address")}
+                   />
+                  {clientForm.formState.errors.address && <p className="text-sm text-destructive">{clientForm.formState.errors.address.message}</p>}
+                </div>
+                <DialogFooter>
+                  <Button type="button" variant="outline" onClick={() => setIsAddClientOpen(false)}>Cancel</Button>
+                  <Button type="submit" disabled={clientForm.formState.isSubmitting}>
+                    {clientForm.formState.isSubmitting ? "Adding..." : "Add Client"}
+                  </Button>
+                </DialogFooter>
+              </form>
+        </DialogContent>
+    </Dialog>
     </>
   );
 }

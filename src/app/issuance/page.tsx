@@ -43,8 +43,8 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useToast } from "@/hooks/use-toast";
-import { addIssuance, deleteIssuance, addShipment, initiateReturn, processReturn, updateOrderStatus } from "@/services/data-service";
-import type { Issuance, Product, Order, Return, ReturnItem } from "@/types";
+import { addIssuance, deleteIssuance, addShipment, initiateReturn, processReturn, updateOrderStatus, addClient } from "@/services/data-service";
+import type { Issuance, Product, Order, Return, ReturnItem, Client } from "@/types";
 import { format, addDays } from "date-fns";
 import React from 'react';
 import { useAuth } from "@/hooks/use-auth";
@@ -141,6 +141,23 @@ const createReturnSchema = (issuance: Issuance | null) => z.object({
 });
 
 type ReturnFormValues = z.infer<typeof createReturnSchema>;
+
+// Client Schema from clients/page.tsx for the new client dialog
+const clientSchema = z.object({
+  projectName: z.string().min(1, "Project name is required."),
+  clientName: z.string().min(1, "Client name is required."),
+  boqNumber: z.string().min(1, "BOQ number is required."),
+  address: z.string().min(1, "Address is required."),
+});
+type ClientFormValues = z.infer<typeof clientSchema>;
+
+const toTitleCase = (str: string) => {
+  if (!str) return "";
+  return str.replace(
+    /\w\S*/g,
+    (txt) => txt.charAt(0).toUpperCase() + txt.substring(1).toLowerCase()
+  );
+};
 
 
 // Printable Component
@@ -258,6 +275,7 @@ export default function IssuancePage() {
   const { user } = useAuth();
 
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
+  const [isAddClientOpen, setIsAddClientOpen] = useState(false);
   const [isCreateShipmentOpen, setIsCreateShipmentOpen] = useState(false);
   const [isReturnDialogOpen, setIsReturnDialogOpen] = useState(false);
   
@@ -290,6 +308,10 @@ export default function IssuancePage() {
       orderId: "",
     },
     mode: "onChange",
+  });
+
+  const clientForm = useForm<ClientFormValues>({
+    resolver: zodResolver(clientSchema),
   });
 
   const shipmentForm = useForm<ShipmentFormValues>({
@@ -375,6 +397,12 @@ export default function IssuancePage() {
       setIsReturnDialogOpen(false);
     }
   }, [issuanceForReturn, returnForm]);
+  
+   useEffect(() => {
+    if (!isAddClientOpen) {
+      clientForm.reset();
+    }
+  }, [isAddClientOpen, clientForm]);
 
 
   const onAddSubmit = async (data: IssuanceFormValues) => {
@@ -454,6 +482,23 @@ export default function IssuancePage() {
         });
     }
   };
+
+  const onAddClientSubmit = async (data: ClientFormValues) => {
+    try {
+      await addClient(data);
+      toast({ title: "Success", description: "Client added successfully." });
+      setIsAddClientOpen(false);
+      await refetchData();
+    } catch (error) {
+      console.error(error);
+      toast({
+        variant: "destructive",
+        title: "Error",
+        description: "Failed to add client. Please try again.",
+      });
+    }
+  };
+
 
   const handlePrint = () => {
     window.print();
@@ -610,7 +655,11 @@ export default function IssuancePage() {
                                 <PopoverContent className="w-[--radix-popover-trigger-width] p-0">
                                     <Command>
                                         <CommandInput placeholder="Search client..." />
-                                        <CommandEmpty>No client found.</CommandEmpty>
+                                        <CommandEmpty>
+                                            <Button variant="ghost" className="w-full" onClick={() => { setIsClientPopoverOpen(false); setIsAddClientOpen(true); }}>
+                                                Add new client
+                                            </Button>
+                                        </CommandEmpty>
                                         <CommandList>
                                             <CommandGroup>
                                                 {clients.map(c => (
@@ -1076,6 +1125,64 @@ export default function IssuancePage() {
         </AlertDialogFooter>
       </AlertDialogContent>
     </AlertDialog>
+    
+    <Dialog open={isAddClientOpen} onOpenChange={setIsAddClientOpen}>
+        <DialogContent className="sm:max-w-md">
+            <DialogHeader>
+                <DialogTitle>Add New Client</DialogTitle>
+                <DialogDescription>Fill in the details for the new client.</DialogDescription>
+            </DialogHeader>
+            <form onSubmit={clientForm.handleSubmit(onAddClientSubmit)} className="space-y-4">
+                <div className="space-y-2">
+                  <Label htmlFor="projectName">Project Name</Label>
+                  <Input 
+                    id="projectName" 
+                    {...clientForm.register("projectName")} 
+                    onChange={(e) => {
+                      const { value } = e.target;
+                      clientForm.setValue("projectName", toTitleCase(value), { shouldValidate: true });
+                    }}
+                  />
+                  {clientForm.formState.errors.projectName && <p className="text-sm text-destructive">{clientForm.formState.errors.projectName.message}</p>}
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="clientName">Client Name</Label>
+                  <Input 
+                    id="clientName" 
+                    {...clientForm.register("clientName")} 
+                    onChange={(e) => {
+                      const { value } = e.target;
+                      clientForm.setValue("clientName", toTitleCase(value), { shouldValidate: true });
+                    }}
+                  />
+                  {clientForm.formState.errors.clientName && <p className="text-sm text-destructive">{clientForm.formState.errors.clientName.message}</p>}
+                </div>
+                 <div className="space-y-2">
+                  <Label htmlFor="boqNumber">BOQ Number</Label>
+                  <Input 
+                    id="boqNumber" 
+                    {...clientForm.register("boqNumber")}
+                  />
+                  {clientForm.formState.errors.boqNumber && <p className="text-sm text-destructive">{clientForm.formState.errors.boqNumber.message}</p>}
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="address">Address</Label>
+                  <Input 
+                    id="address" 
+                    {...clientForm.register("address")}
+                   />
+                  {clientForm.formState.errors.address && <p className="text-sm text-destructive">{clientForm.formState.errors.address.message}</p>}
+                </div>
+                <DialogFooter>
+                  <Button type="button" variant="outline" onClick={() => setIsAddClientOpen(false)}>Cancel</Button>
+                  <Button type="submit" disabled={clientForm.formState.isSubmitting}>
+                    {clientForm.formState.isSubmitting ? "Adding..." : "Add Client"}
+                  </Button>
+                </DialogFooter>
+              </form>
+        </DialogContent>
+    </Dialog>
     </>
   );
 }
+
