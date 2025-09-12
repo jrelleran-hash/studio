@@ -11,13 +11,12 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Button, buttonVariants } from "@/components/ui/button";
-import { getRecentOrders, addOrder, addProduct, updateOrderStatus, deleteOrder } from "@/services/data-service";
-import type { Order, Client, Product } from "@/types";
+import { getRecentOrders, addOrder, addProduct, updateOrderStatus, deleteOrder, addSupplier } from "@/services/data-service";
+import type { Order, Client, Product, Supplier } from "@/types";
 import { Skeleton } from "../ui/skeleton";
 import { formatCurrency } from "@/lib/currency";
 import { PlusCircle, X, Plus, ChevronsUpDown, Check } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../ui/select";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
 import { Input } from "../ui/input";
@@ -57,6 +56,7 @@ const createProductSchema = (isSkuAuto: boolean) => z.object({
   price: z.coerce.number().nonnegative("Price must be a non-negative number.").optional(),
   stock: z.coerce.number().int().nonnegative("Stock must be a non-negative integer.").optional(),
   reorderLimit: z.coerce.number().int().nonnegative("Reorder limit must be a non-negative integer."),
+  maxStockLevel: z.coerce.number().int().nonnegative("Max stock must be a non-negative integer."),
   location: z.string().optional(),
   supplier: z.string().optional(),
 }).refine(data => isSkuAuto || (data.sku && data.sku.length > 0), {
@@ -67,6 +67,17 @@ const createProductSchema = (isSkuAuto: boolean) => z.object({
 
 type ProductFormValues = z.infer<ReturnType<typeof createProductSchema>>;
 
+const supplierSchema = z.object({
+  name: z.string().min(1, "Supplier name is required."),
+  contactPerson: z.string().min(1, "Contact person is required."),
+  email: z.string().email("Invalid email address.").optional().or(z.literal('')),
+  phone: z.string().min(1, "Phone number is required."),
+  address: z.string().min(1, "Address is required."),
+});
+
+type SupplierFormValues = z.infer<typeof supplierSchema>;
+
+
 const toTitleCase = (str: string) => {
   if (!str) return "";
   return str.replace(
@@ -76,7 +87,7 @@ const toTitleCase = (str: string) => {
 };
 
 export function ActiveOrders() {
-  const { clients, products, refetchData } = useData();
+  const { clients, products, suppliers, refetchData } = useData();
   const [orders, setOrders] = useState<Order[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedOrder, setSelectedOrder] = useState<Order | null>(null);
@@ -84,6 +95,8 @@ export function ActiveOrders() {
   const [isAddOrderOpen, setIsAddOrderOpen] = useState(false);
   const [isAddProductOpen, setIsAddProductOpen] = useState(false);
   const [isDeleteOrderOpen, setIsDeleteOrderOpen] = useState(false);
+  const [isAddSupplierOpen, setIsAddSupplierOpen] = useState(false);
+
   const { toast } = useToast();
   const [autoGenerateSku, setAutoGenerateSku] = useState(true);
   const [isReordered, setIsReordered] = useState(false);
@@ -91,6 +104,8 @@ export function ActiveOrders() {
   
   const [isClientPopoverOpen, setIsClientPopoverOpen] = useState(false);
   const [productPopovers, setProductPopovers] = useState<Record<number, boolean>>({});
+  const [isSupplierPopoverOpen, setIsSupplierPopoverOpen] = useState(false);
+
 
   const productSchema = useMemo(() => createProductSchema(autoGenerateSku), [autoGenerateSku]);
 
@@ -124,9 +139,14 @@ export function ActiveOrders() {
       price: undefined,
       stock: 0,
       reorderLimit: 10,
+      maxStockLevel: 100,
       location: "",
       supplier: "",
     },
+  });
+
+  const supplierForm = useForm<SupplierFormValues>({
+    resolver: zodResolver(supplierSchema),
   });
 
   const fetchLocalData = useCallback(async () => {
@@ -151,15 +171,7 @@ export function ActiveOrders() {
   
   useEffect(() => {
     if (!isAddProductOpen) {
-      productForm.reset({
-        name: "",
-        sku: "",
-        price: undefined,
-        stock: 0,
-        reorderLimit: 10,
-        location: "",
-        supplier: "",
-      });
+      productForm.reset();
       setAutoGenerateSku(true);
     }
   }, [isAddProductOpen, productForm]);
@@ -172,6 +184,12 @@ export function ActiveOrders() {
       });
     }
   }, [isAddOrderOpen, orderForm]);
+  
+  useEffect(() => {
+    if (!isAddSupplierOpen) {
+      supplierForm.reset();
+    }
+  }, [isAddSupplierOpen, supplierForm]);
 
   useEffect(() => {
     if (selectedOrder && selectedOrder.status === 'Cancelled') {
@@ -212,13 +230,13 @@ export function ActiveOrders() {
 
   const onProductSubmit = async (data: ProductFormValues) => {
     try {
-       const productData = { ...data, stock: 0 };
+       const productData: any = { ...data, stock: 0 };
       if (autoGenerateSku) {
         const namePart = data.name.substring(0, 3).toUpperCase();
         const randomPart = Math.floor(1000 + Math.random() * 9000);
         productData.sku = `${namePart}-${randomPart}`;
       }
-      await addProduct(productData as Product);
+      await addProduct(productData);
       toast({ title: "Success", description: "Product added successfully." });
       setIsAddProductOpen(false);
       await refetchData();
@@ -228,6 +246,23 @@ export function ActiveOrders() {
         variant: "destructive",
         title: "Error",
         description: "Failed to add product. Please try again.",
+      });
+    }
+  };
+  
+   const onAddSupplierSubmit = async (data: SupplierFormValues) => {
+    try {
+      await addSupplier(data);
+      toast({ title: "Success", description: "Supplier added successfully." });
+      setIsAddSupplierOpen(false);
+      supplierForm.reset();
+      await refetchData();
+    } catch (error) {
+      console.error(error);
+      toast({
+        variant: "destructive",
+        title: "Error",
+        description: "Failed to add supplier. Please try again.",
       });
     }
   };
@@ -640,7 +675,51 @@ export function ActiveOrders() {
             </div>
              <div className="space-y-2">
                   <Label htmlFor="supplier-dash">Supplier (Optional)</Label>
-                  <Input id="supplier-dash" placeholder="e.g. 'ACME Inc.'" {...productForm.register("supplier")} />
+                  <Controller
+                    control={productForm.control}
+                    name="supplier"
+                    render={({ field }) => (
+                        <Popover open={isSupplierPopoverOpen} onOpenChange={setIsSupplierPopoverOpen}>
+                            <PopoverTrigger asChild>
+                                <Button
+                                    variant="outline"
+                                    role="combobox"
+                                    className={cn("w-full justify-between", !field.value && "text-muted-foreground")}
+                                >
+                                    {field.value || "Select supplier"}
+                                    <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                                </Button>
+                            </PopoverTrigger>
+                            <PopoverContent className="w-[--radix-popover-trigger-width] p-0">
+                                <Command>
+                                    <CommandInput placeholder="Search supplier..." />
+                                    <CommandList>
+                                        <CommandEmpty>
+                                             <Button variant="ghost" className="w-full" onClick={() => { setIsSupplierPopoverOpen(false); setIsAddSupplierOpen(true); }}>
+                                                Add new supplier
+                                            </Button>
+                                        </CommandEmpty>
+                                        <CommandGroup>
+                                            {suppliers.map(s => (
+                                                <CommandItem
+                                                    key={s.id}
+                                                    value={s.name}
+                                                    onSelect={() => {
+                                                        field.onChange(s.name);
+                                                        setIsSupplierPopoverOpen(false);
+                                                    }}
+                                                >
+                                                    <Check className={cn("mr-2 h-4 w-4", field.value === s.name ? "opacity-100" : "opacity-0")} />
+                                                    {s.name}
+                                                </CommandItem>
+                                            ))}
+                                        </CommandGroup>
+                                    </CommandList>
+                                </Command>
+                            </PopoverContent>
+                        </Popover>
+                    )}
+                />
               </div>
             <DialogFooter>
               <Button type="button" variant="outline" onClick={() => setIsAddProductOpen(false)}>Cancel</Button>
@@ -651,6 +730,48 @@ export function ActiveOrders() {
           </form>
         </DialogContent>
     </Dialog>
+    
+    <Dialog open={isAddSupplierOpen} onOpenChange={setIsAddSupplierOpen}>
+        <DialogContent className="sm:max-w-md">
+            <DialogHeader>
+                <DialogTitle>Add New Supplier</DialogTitle>
+                <DialogDescription>Fill in the details for the new supplier.</DialogDescription>
+            </DialogHeader>
+            <form onSubmit={supplierForm.handleSubmit(onAddSupplierSubmit)} className="space-y-4">
+            <div className="space-y-2">
+                <Label htmlFor="name-dash-sup">Supplier Name</Label>
+                <Input id="name-dash-sup" {...supplierForm.register("name")} />
+                {supplierForm.formState.errors.name && <p className="text-sm text-destructive">{supplierForm.formState.errors.name.message}</p>}
+            </div>
+            <div className="space-y-2">
+                <Label htmlFor="contactPerson-dash-sup">Contact Person</Label>
+                <Input id="contactPerson-dash-sup" {...supplierForm.register("contactPerson")} />
+                {supplierForm.formState.errors.contactPerson && <p className="text-sm text-destructive">{supplierForm.formState.errors.contactPerson.message}</p>}
+            </div>
+            <div className="space-y-2">
+                <Label htmlFor="email-dash-sup">Email</Label>
+                <Input id="email-dash-sup" type="email" {...supplierForm.register("email")} />
+                {supplierForm.formState.errors.email && <p className="text-sm text-destructive">{supplierForm.formState.errors.email.message}</p>}
+            </div>
+            <div className="space-y-2">
+                <Label htmlFor="phone-dash-sup">Phone</Label>
+                <Input id="phone-dash-sup" type="tel" {...supplierForm.register("phone")} />
+                {supplierForm.formState.errors.phone && <p className="text-sm text-destructive">{supplierForm.formState.errors.phone.message}</p>}
+            </div>
+            <div className="space-y-2">
+                <Label htmlFor="address-dash-sup">Address</Label>
+                <Input id="address-dash-sup" {...supplierForm.register("address")} />
+                {supplierForm.formState.errors.address && <p className="text-sm text-destructive">{supplierForm.formState.errors.address.message}</p>}
+            </div>
+            <DialogFooter>
+                <Button type="button" variant="outline" onClick={() => setIsAddSupplierOpen(false)}>Cancel</Button>
+                <Button type="submit" disabled={supplierForm.formState.isSubmitting}>
+                {supplierForm.formState.isSubmitting ? "Adding..." : "Add Supplier"}
+                </Button>
+            </DialogFooter>
+            </form>
+        </DialogContent>
+      </Dialog>
 
     <AlertDialog open={isDeleteOrderOpen} onOpenChange={setIsDeleteOrderOpen}>
       <AlertDialogContent>

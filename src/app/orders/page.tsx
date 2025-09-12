@@ -1,4 +1,5 @@
 
+
 "use client";
 
 import { useState, useEffect, useMemo, useCallback } from "react";
@@ -230,6 +231,7 @@ export default function OrdersAndSuppliersPage() {
   const [poSupplierPopover, setPoSupplierPopover] = useState(false);
   const [poClientPopover, setPoClientPopover] = useState(false);
   const [poProductPopovers, setPoProductPopovers] = useState<Record<number, boolean>>({});
+  const [isSupplierPopoverOpen, setIsSupplierPopoverOpen] = useState(false);
 
 
   const productSchema = useMemo(() => createProductSchema(autoGenerateSku), [autoGenerateSku]);
@@ -533,13 +535,13 @@ export default function OrdersAndSuppliersPage() {
   // Product handler
   const onProductSubmit = async (data: ProductFormValues) => {
     try {
-      const productData = { ...data };
+      const productData: any = { ...data };
       if (autoGenerateSku) {
         const namePart = data.name.substring(0, 3).toUpperCase();
         const randomPart = Math.floor(1000 + Math.random() * 9000);
         productData.sku = `${namePart}-${randomPart}`;
       }
-      await addProduct(productData as any);
+      await addProduct(productData);
       toast({ title: "Success", description: "Product added successfully." });
       setIsAddProductOpen(false);
       await refetchData();
@@ -1684,7 +1686,51 @@ export default function OrdersAndSuppliersPage() {
               </div>
               <div className="space-y-2">
                   <Label htmlFor="supplier-order">Supplier</Label>
-                  <Input id="supplier-order" placeholder="e.g. 'ACME Inc.'" {...productForm.register("supplier")} />
+                    <Controller
+                        control={productForm.control}
+                        name="supplier"
+                        render={({ field }) => (
+                            <Popover open={isSupplierPopoverOpen} onOpenChange={setIsSupplierPopoverOpen}>
+                                <PopoverTrigger asChild>
+                                    <Button
+                                        variant="outline"
+                                        role="combobox"
+                                        className={cn("w-full justify-between", !field.value && "text-muted-foreground")}
+                                    >
+                                        {field.value || "Select supplier"}
+                                        <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                                    </Button>
+                                </PopoverTrigger>
+                                <PopoverContent className="w-[--radix-popover-trigger-width] p-0">
+                                    <Command>
+                                        <CommandInput placeholder="Search supplier..." />
+                                        <CommandList>
+                                            <CommandEmpty>
+                                                 <Button variant="ghost" className="w-full" onClick={() => { setIsSupplierPopoverOpen(false); setIsAddSupplierOpen(true); }}>
+                                                    Add new supplier
+                                                </Button>
+                                            </CommandEmpty>
+                                            <CommandGroup>
+                                                {suppliers.map(s => (
+                                                    <CommandItem
+                                                        key={s.id}
+                                                        value={s.name}
+                                                        onSelect={() => {
+                                                            field.onChange(s.name);
+                                                            setIsSupplierPopoverOpen(false);
+                                                        }}
+                                                    >
+                                                        <Check className={cn("mr-2 h-4 w-4", field.value === s.name ? "opacity-100" : "opacity-0")} />
+                                                        {s.name}
+                                                    </CommandItem>
+                                                ))}
+                                            </CommandGroup>
+                                        </CommandList>
+                                    </Command>
+                                </PopoverContent>
+                            </Popover>
+                        )}
+                    />
               </div>
             </div>
             <DialogFooter>
