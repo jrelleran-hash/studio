@@ -133,12 +133,9 @@ export function InventoryStatusChart({ products, filter }: InventoryStatusChartP
           <ChartTooltip cursor={false} content={<ChartTooltipContent indicator="dot" formatter={(value, name, props) => {
             const label = props.payload.status === "Out of Stock" ? "Total Items" : "Total Quantity";
             return (
-                <div className="flex flex-col gap-1.5">
-                    <div className="font-medium">{props.payload.status}</div>
-                    <div className="flex justify-between">
-                      <span className="text-muted-foreground">{label}:</span>
-                      <span className="font-medium ml-2">{value}</span>
-                    </div>
+                <div className="flex justify-between">
+                    <span className="text-muted-foreground">{label}:</span>
+                    <span className="font-medium ml-2">{value}</span>
                 </div>
             )
           }}/>} />
