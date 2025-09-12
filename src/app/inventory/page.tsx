@@ -3,10 +3,10 @@
 "use client";
 
 import { useState, useEffect, useMemo, useRef } from "react";
-import { useForm } from "react-hook-form";
+import { useForm, Controller } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
-import { PlusCircle, MoreHorizontal, Package } from "lucide-react";
+import { PlusCircle, MoreHorizontal, Package, ChevronsUpDown, Check } from "lucide-react";
 import { Button, buttonVariants } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
@@ -40,8 +40,8 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useToast } from "@/hooks/use-toast";
-import { addProduct, updateProduct, deleteProduct } from "@/services/data-service";
-import type { Product } from "@/types";
+import { addProduct, updateProduct, deleteProduct, addSupplier } from "@/services/data-service";
+import type { Product, Supplier } from "@/types";
 import Image from "next/image";
 import { Badge } from "@/components/ui/badge";
 import { Switch } from "@/components/ui/switch";
@@ -52,6 +52,8 @@ import { Timestamp } from "firebase/firestore";
 import { format } from "date-fns";
 import { useData } from "@/context/data-context";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
 
 const MAX_FILE_SIZE = 5 * 1024 * 1024; // 5MB
 const ACCEPTED_IMAGE_TYPES = ["image/jpeg", "image/jpg", "image/png", "image/webp"];
@@ -64,7 +66,7 @@ const createProductSchema = (isSkuAuto: boolean) => z.object({
   reorderLimit: z.coerce.number().int().nonnegative("Reorder limit must be a non-negative integer."),
   maxStockLevel: z.coerce.number().int().nonnegative("Max stock must be a non-negative integer."),
   location: z.string().optional(),
-  supplier: z.string().optional(),
+  supplierId: z.string().optional(),
   photoFile: z.any().optional(),
 }).refine(data => isSkuAuto || (data.sku && data.sku.length > 0), {
     message: "SKU is required when not auto-generated.",
@@ -79,9 +81,19 @@ const editProductSchema = z.object({
   reorderLimit: z.coerce.number().int().nonnegative("Reorder limit must be a non-negative integer."),
   maxStockLevel: z.coerce.number().int().nonnegative("Max stock must be a non-negative integer."),
   location: z.string().optional(),
-  supplier: z.string().optional(),
+  supplierId: z.string().optional(),
   photoFile: z.any().optional(),
 });
+
+const supplierSchema = z.object({
+  name: z.string().min(1, "Supplier name is required."),
+  contactPerson: z.string().min(1, "Contact person is required."),
+  email: z.string().email("Invalid email address."),
+  phone: z.string().min(1, "Phone number is required."),
+  address: z.string().min(1, "Address is required."),
+});
+
+type SupplierFormValues = z.infer<typeof supplierSchema>;
 
 
 type ProductFormValues = z.infer<ReturnType<typeof createProductSchema>>;
@@ -95,7 +107,7 @@ const toTitleCase = (str: string) => {
 };
 
 export default function InventoryPage() {
-  const { products, loading, refetchData } = useData();
+  const { products, suppliers, loading, refetchData } = useData();
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
   const [editingProduct, setEditingProduct] = useState<Product | null>(null);
@@ -107,6 +119,8 @@ export default function InventoryPage() {
   const [previewImage, setPreviewImage] = useState<string | null>(null);
   const addFileInputRef = useRef<HTMLInputElement>(null);
   const editFileInputRef = useRef<HTMLInputElement>(null);
+  const [isSupplierPopoverOpen, setIsSupplierPopoverOpen] = useState(false);
+  const [isAddSupplierOpen, setIsAddSupplierOpen] = useState(false);
 
   const productSchema = useMemo(() => createProductSchema(autoGenerateSku), [autoGenerateSku]);
 
@@ -120,12 +134,16 @@ export default function InventoryPage() {
       reorderLimit: 10,
       maxStockLevel: 100,
       location: "",
-      supplier: "",
+      supplierId: "",
     },
   });
 
   const editForm = useForm<ProductFormValues>({
     resolver: zodResolver(editProductSchema),
+  });
+
+  const supplierForm = useForm<SupplierFormValues>({
+    resolver: zodResolver(supplierSchema),
   });
 
   useEffect(() => {
@@ -138,12 +156,15 @@ export default function InventoryPage() {
 
   useEffect(() => {
     if (editingProduct) {
-      editForm.reset(editingProduct);
+      editForm.reset({
+        ...editingProduct,
+        supplierId: suppliers.find(s => s.name === editingProduct.supplier)?.id || '',
+      });
       setPreviewImage(editingProduct.photoURL || null);
     } else {
       setPreviewImage(null);
     }
-  }, [editingProduct, editForm]);
+  }, [editingProduct, editForm, suppliers]);
 
    const getStatus = (product: Product): { text: string; variant: "default" | "secondary" | "destructive", className?: string } => {
     if (product.stock === 0) return { text: "Out of Stock", variant: "destructive", className: "font-semibold" };
@@ -167,18 +188,22 @@ export default function InventoryPage() {
   
   const onAddSubmit = async (data: ProductFormValues) => {
     try {
-      const productData: any = { ...data };
+      const { supplierId, ...productData } = data;
+      const supplierName = suppliers.find(s => s.id === supplierId)?.name || '';
+
+      const finalProductData: any = { ...productData, supplier: supplierName };
+
       if (autoGenerateSku) {
         // Simple SKU generation logic: first 3 letters of name + random 4 digits
         const namePart = data.name.substring(0, 3).toUpperCase();
         const randomPart = Math.floor(1000 + Math.random() * 9000);
-        productData.sku = `${namePart}-${randomPart}`;
+        finalProductData.sku = `${namePart}-${randomPart}`;
       }
       if (data.photoFile?.[0]) {
-        productData.photoFile = data.photoFile[0];
+        finalProductData.photoFile = data.photoFile[0];
       }
 
-      await addProduct(productData);
+      await addProduct(finalProductData);
       toast({ title: "Success", description: "Product added successfully." });
       setIsAddDialogOpen(false);
       addForm.reset();
@@ -196,9 +221,9 @@ export default function InventoryPage() {
   const onEditSubmit = async (data: ProductFormValues) => {
     if (!editingProduct) return;
     try {
-      // Exclude SKU from the update data
-      const { sku, ...updateData } = data;
-      const payload: any = updateData;
+      const { sku, supplierId, ...updateData } = data;
+      const supplierName = suppliers.find(s => s.id === supplierId)?.name || '';
+      const payload: any = { ...updateData, supplier: supplierName };
 
       if (data.photoFile?.[0]) {
         payload.photoFile = data.photoFile[0];
@@ -266,6 +291,23 @@ export default function InventoryPage() {
       } else {
         editForm.setValue('photoFile', event.target.files);
       }
+    }
+  };
+
+  const onAddSupplierSubmit = async (data: SupplierFormValues) => {
+    try {
+      await addSupplier(data);
+      toast({ title: "Success", description: "Supplier added successfully." });
+      setIsAddSupplierOpen(false);
+      supplierForm.reset();
+      await refetchData();
+    } catch (error) {
+      console.error(error);
+      toast({
+        variant: "destructive",
+        title: "Error",
+        description: "Failed to add supplier. Please try again.",
+      });
     }
   };
 
@@ -391,8 +433,52 @@ export default function InventoryPage() {
                       <Input id="location" placeholder="e.g. 'Warehouse A'" {...addForm.register("location")} />
                     </div>
                     <div className="space-y-2">
-                      <Label htmlFor="supplier">Supplier</Label>
-                      <Input id="supplier" placeholder="e.g. 'ACME Inc.'" {...addForm.register("supplier")} />
+                       <Label>Supplier</Label>
+                        <Controller
+                            control={addForm.control}
+                            name="supplierId"
+                            render={({ field }) => (
+                                <Popover open={isSupplierPopoverOpen} onOpenChange={setIsSupplierPopoverOpen}>
+                                    <PopoverTrigger asChild>
+                                        <Button
+                                            variant="outline"
+                                            role="combobox"
+                                            className={cn("w-full justify-between", !field.value && "text-muted-foreground")}
+                                        >
+                                            {field.value ? suppliers.find(s => s.id === field.value)?.name : "Select supplier"}
+                                            <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                                        </Button>
+                                    </PopoverTrigger>
+                                    <PopoverContent className="w-[--radix-popover-trigger-width] p-0">
+                                        <Command>
+                                            <CommandInput placeholder="Search supplier..." />
+                                            <CommandList>
+                                                <CommandEmpty>
+                                                     <Button variant="ghost" className="w-full" onClick={() => { setIsSupplierPopoverOpen(false); setIsAddSupplierOpen(true); }}>
+                                                        Add new supplier
+                                                    </Button>
+                                                </CommandEmpty>
+                                                <CommandGroup>
+                                                    {suppliers.map(s => (
+                                                        <CommandItem
+                                                            key={s.id}
+                                                            value={s.name}
+                                                            onSelect={() => {
+                                                                field.onChange(s.id);
+                                                                setIsSupplierPopoverOpen(false);
+                                                            }}
+                                                        >
+                                                            <Check className={cn("mr-2 h-4 w-4", field.value === s.id ? "opacity-100" : "opacity-0")} />
+                                                            {s.name}
+                                                        </CommandItem>
+                                                    ))}
+                                                </CommandGroup>
+                                            </CommandList>
+                                        </Command>
+                                    </PopoverContent>
+                                </Popover>
+                            )}
+                        />
                     </div>
                 </div>
                 <DialogFooter>
@@ -573,8 +659,52 @@ export default function InventoryPage() {
                       <Input id="edit-location" {...editForm.register("location")} />
                     </div>
                     <div className="space-y-2">
-                      <Label htmlFor="edit-supplier">Supplier</Label>
-                      <Input id="edit-supplier" {...editForm.register("supplier")} />
+                       <Label>Supplier</Label>
+                        <Controller
+                            control={editForm.control}
+                            name="supplierId"
+                            render={({ field }) => (
+                                <Popover open={isSupplierPopoverOpen} onOpenChange={setIsSupplierPopoverOpen}>
+                                    <PopoverTrigger asChild>
+                                        <Button
+                                            variant="outline"
+                                            role="combobox"
+                                            className={cn("w-full justify-between", !field.value && "text-muted-foreground")}
+                                        >
+                                            {field.value ? suppliers.find(s => s.id === field.value)?.name : "Select supplier"}
+                                            <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                                        </Button>
+                                    </PopoverTrigger>
+                                    <PopoverContent className="w-[--radix-popover-trigger-width] p-0">
+                                        <Command>
+                                            <CommandInput placeholder="Search supplier..." />
+                                            <CommandList>
+                                                <CommandEmpty>
+                                                    <Button variant="ghost" className="w-full" onClick={() => { setIsSupplierPopoverOpen(false); setIsAddSupplierOpen(true); }}>
+                                                        Add new supplier
+                                                    </Button>
+                                                </CommandEmpty>
+                                                <CommandGroup>
+                                                    {suppliers.map(s => (
+                                                        <CommandItem
+                                                            key={s.id}
+                                                            value={s.name}
+                                                            onSelect={() => {
+                                                                field.onChange(s.id);
+                                                                setIsSupplierPopoverOpen(false);
+                                                            }}
+                                                        >
+                                                            <Check className={cn("mr-2 h-4 w-4", field.value === s.id ? "opacity-100" : "opacity-0")} />
+                                                            {s.name}
+                                                        </CommandItem>
+                                                    ))}
+                                                </CommandGroup>
+                                            </CommandList>
+                                        </Command>
+                                    </PopoverContent>
+                                </Popover>
+                            )}
+                        />
                     </div>
                 </div>
               <DialogFooter>
@@ -605,6 +735,48 @@ export default function InventoryPage() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+      
+       <Dialog open={isAddSupplierOpen} onOpenChange={setIsAddSupplierOpen}>
+        <DialogContent className="sm:max-w-md">
+            <DialogHeader>
+                <DialogTitle>Add New Supplier</DialogTitle>
+                <DialogDescription>Fill in the details for the new supplier.</DialogDescription>
+            </DialogHeader>
+            <form onSubmit={supplierForm.handleSubmit(onAddSupplierSubmit)} className="space-y-4">
+            <div className="space-y-2">
+                <Label htmlFor="name">Supplier Name</Label>
+                <Input id="name" {...supplierForm.register("name")} />
+                {supplierForm.formState.errors.name && <p className="text-sm text-destructive">{supplierForm.formState.errors.name.message}</p>}
+            </div>
+            <div className="space-y-2">
+                <Label htmlFor="contactPerson">Contact Person</Label>
+                <Input id="contactPerson" {...supplierForm.register("contactPerson")} />
+                {supplierForm.formState.errors.contactPerson && <p className="text-sm text-destructive">{supplierForm.formState.errors.contactPerson.message}</p>}
+            </div>
+            <div className="space-y-2">
+                <Label htmlFor="email">Email</Label>
+                <Input id="email" type="email" {...supplierForm.register("email")} />
+                {supplierForm.formState.errors.email && <p className="text-sm text-destructive">{supplierForm.formState.errors.email.message}</p>}
+            </div>
+            <div className="space-y-2">
+                <Label htmlFor="phone">Phone</Label>
+                <Input id="phone" type="tel" {...supplierForm.register("phone")} />
+                {supplierForm.formState.errors.phone && <p className="text-sm text-destructive">{supplierForm.formState.errors.phone.message}</p>}
+            </div>
+            <div className="space-y-2">
+                <Label htmlFor="address">Address</Label>
+                <Input id="address" {...supplierForm.register("address")} />
+                {supplierForm.formState.errors.address && <p className="text-sm text-destructive">{supplierForm.formState.errors.address.message}</p>}
+            </div>
+            <DialogFooter>
+                <Button type="button" variant="outline" onClick={() => setIsAddSupplierOpen(false)}>Cancel</Button>
+                <Button type="submit" disabled={supplierForm.formState.isSubmitting}>
+                {supplierForm.formState.isSubmitting ? "Adding..." : "Add Supplier"}
+                </Button>
+            </DialogFooter>
+            </form>
+        </DialogContent>
+      </Dialog>
     </>
   );
 }
