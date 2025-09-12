@@ -1,5 +1,4 @@
 
-
 "use client";
 
 import { useState, useEffect, useMemo, useCallback } from "react";
@@ -131,7 +130,7 @@ type ProductFormValues = z.infer<ReturnType<typeof createProductSchema>>;
 const supplierSchema = z.object({
   name: z.string().min(1, "Supplier name is required."),
   contactPerson: z.string().min(1, "Contact person is required."),
-  email: z.string().email("Invalid email address."),
+  email: z.string().email("Invalid email address.").optional().or(z.literal('')),
   phone: z.string().min(1, "Phone number is required."),
   cellphoneNumber: z.string().optional(),
   address: z.string().min(1, "Address is required."),
@@ -1245,20 +1244,13 @@ export default function OrdersAndSuppliersPage() {
                     {supplierForm.formState.errors.contactPerson && <p className="text-sm text-destructive">{supplierForm.formState.errors.contactPerson.message}</p>}
                 </div>
                 <div className="space-y-2">
-                    <Label htmlFor="email">Email</Label>
+                    <Label htmlFor="email">Email (Optional)</Label>
                     <Input 
                         id="email" 
                         type="email" 
                         {...supplierForm.register("email")}
-                        onBlur={(e) => handleEmailBlur(e.target.value)}
-                        onChange={(e) => {
-                           supplierForm.setValue("email", e.target.value);
-                           supplierForm.trigger("email");
-                           handleEmailChange(e);
-                        }}
                     />
                     {supplierForm.formState.errors.email && <p className="text-sm text-destructive">{supplierForm.formState.errors.email.message}</p>}
-                    {renderEmailValidation()}
                 </div>
                 <div className="grid grid-cols-2 gap-4">
                     <div className="space-y-2">
@@ -1994,3 +1986,5 @@ export default function OrdersAndSuppliersPage() {
     </>
   );
 }
+
+    
