@@ -28,11 +28,13 @@ const fontCode = Source_Code_Pro({
 export const metadata: Metadata = {
   title: "CoreFlow",
   description: "Unified Business Management Platform",
+  manifest: "/manifest.json",
 };
 
 export const viewport: Viewport = {
   width: "device-width",
   initialScale: 1,
+  themeColor: "#B3FF70",
 };
 
 export default function RootLayout({
