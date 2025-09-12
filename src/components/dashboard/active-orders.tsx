@@ -122,7 +122,7 @@ export function ActiveOrders() {
       name: "",
       sku: "",
       price: undefined,
-      stock: undefined,
+      stock: 0,
       reorderLimit: 10,
       location: "",
       supplier: "",
@@ -151,7 +151,15 @@ export function ActiveOrders() {
   
   useEffect(() => {
     if (!isAddProductOpen) {
-      productForm.reset();
+      productForm.reset({
+        name: "",
+        sku: "",
+        price: undefined,
+        stock: 0,
+        reorderLimit: 10,
+        location: "",
+        supplier: "",
+      });
       setAutoGenerateSku(true);
     }
   }, [isAddProductOpen, productForm]);
@@ -204,7 +212,7 @@ export function ActiveOrders() {
 
   const onProductSubmit = async (data: ProductFormValues) => {
     try {
-       const productData = { ...data };
+       const productData = { ...data, stock: 0 };
       if (autoGenerateSku) {
         const namePart = data.name.substring(0, 3).toUpperCase();
         const randomPart = Math.floor(1000 + Math.random() * 9000);
@@ -213,7 +221,6 @@ export function ActiveOrders() {
       await addProduct(productData as Product);
       toast({ title: "Success", description: "Product added successfully." });
       setIsAddProductOpen(false);
-      productForm.reset();
       await refetchData();
     } catch (error) {
       console.error(error);
@@ -404,7 +411,11 @@ export function ActiveOrders() {
                                                 <PopoverContent className="w-[--radix-popover-trigger-width] p-0">
                                                     <Command>
                                                         <CommandInput placeholder="Search product..." />
-                                                        <CommandEmpty>No product found.</CommandEmpty>
+                                                        <CommandEmpty>
+                                                            <Button variant="ghost" className="w-full" onClick={() => { setProductPopovers(prev => ({...prev, [index]: false})); setIsAddProductOpen(true); }}>
+                                                                Add new product
+                                                            </Button>
+                                                        </CommandEmpty>
                                                         <CommandList>
                                                             <CommandGroup>
                                                                 {products.map(p => (
@@ -583,7 +594,7 @@ export function ActiveOrders() {
         <DialogContent className="sm:max-w-lg">
            <DialogHeader>
             <DialogTitle>Add New Product</DialogTitle>
-            <DialogDescription>Fill in the details for the new product.</DialogDescription>
+            <DialogDescription>Fill in the details for the new product. Stock will be added later via a Purchase Order.</DialogDescription>
           </DialogHeader>
           <form onSubmit={productForm.handleSubmit(onProductSubmit)} className="space-y-4">
             <div className="space-y-2">
@@ -608,7 +619,7 @@ export function ActiveOrders() {
                 {productForm.formState.errors.sku && <p className="text-sm text-destructive">{productForm.formState.errors.sku.message}</p>}
               </div>
                <div className="space-y-2">
-                <Label htmlFor="price-dash">Price</Label>
+                <Label htmlFor="price-dash">Price (Optional)</Label>
                 <div className="relative">
                   <span className="absolute inset-y-0 left-0 flex items-center pl-3 text-muted-foreground">{CURRENCY_CONFIG.symbol}</span>
                   <Input id="price-dash" type="number" step="0.01" className="pl-8" placeholder="0.00" {...productForm.register("price")} />
@@ -617,27 +628,20 @@ export function ActiveOrders() {
               </div>
             </div>
             <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <Label htmlFor="stock-dash">Stock</Label>
-                <Input id="stock-dash" type="number" placeholder="0" {...productForm.register("stock")} />
-                {productForm.formState.errors.stock && <p className="text-sm text-destructive">{productForm.formState.errors.stock.message}</p>}
-              </div>
                <div className="space-y-2">
                 <Label htmlFor="reorderLimit-dash">Reorder Limit</Label>
                 <Input id="reorderLimit-dash" type="number" {...productForm.register("reorderLimit")} />
                 {productForm.formState.errors.reorderLimit && <p className="text-sm text-destructive">{productForm.formState.errors.reorderLimit.message}</p>}
               </div>
-            </div>
-            <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-2">
-                  <Label htmlFor="location-dash">Location</Label>
+               <div className="space-y-2">
+                  <Label htmlFor="location-dash">Location (Optional)</Label>
                   <Input id="location-dash" placeholder="e.g. 'Warehouse A'" {...productForm.register("location")} />
               </div>
-               <div className="space-y-2">
-                  <Label htmlFor="supplier-dash">Supplier</Label>
+            </div>
+             <div className="space-y-2">
+                  <Label htmlFor="supplier-dash">Supplier (Optional)</Label>
                   <Input id="supplier-dash" placeholder="e.g. 'ACME Inc.'" {...productForm.register("supplier")} />
               </div>
-            </div>
             <DialogFooter>
               <Button type="button" variant="outline" onClick={() => setIsAddProductOpen(false)}>Cancel</Button>
               <Button type="submit" disabled={productForm.formState.isSubmitting}>
