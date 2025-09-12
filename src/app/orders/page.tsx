@@ -1131,7 +1131,11 @@ export default function OrdersAndSuppliersPage() {
                                                 <PopoverContent className="w-[--radix-popover-trigger-width] p-0">
                                                     <Command>
                                                         <CommandInput placeholder="Search product..." />
-                                                        <CommandEmpty>No product found.</CommandEmpty>
+                                                        <CommandEmpty>
+                                                          <Button variant="ghost" className="w-full" onClick={() => { setPoProductPopovers(prev => ({...prev, [index]: false})); setIsAddProductOpen(true); }}>
+                                                              Add new product
+                                                          </Button>
+                                                        </CommandEmpty>
                                                         <CommandList>
                                                             <CommandGroup>
                                                                 {products.map(p => (
