@@ -1065,7 +1065,11 @@ export default function OrdersAndSuppliersPage() {
                                     <PopoverContent className="w-[--radix-popover-trigger-width] p-0">
                                         <Command>
                                             <CommandInput placeholder="Search supplier..." />
-                                            <CommandEmpty>No supplier found.</CommandEmpty>
+                                            <CommandEmpty>
+                                                 <Button variant="ghost" className="w-full" onClick={() => { setPoSupplierPopover(false); setIsAddSupplierOpen(true); }}>
+                                                    Add new supplier
+                                                </Button>
+                                            </CommandEmpty>
                                             <CommandList>
                                                 <CommandGroup>
                                                     {suppliers.map(s => (
@@ -2138,5 +2142,7 @@ export default function OrdersAndSuppliersPage() {
     </>
   );
 }
+
+    
 
     
