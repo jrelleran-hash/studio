@@ -242,7 +242,7 @@ export default function SettingsPage() {
                          />
                          {profileForm.formState.errors.photoFile && <p className="text-sm text-destructive">{profileForm.formState.errors.photoFile.message as string}</p>}
                     </div>
-                     <div className="grid grid-cols-2 gap-4">
+                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                         <div className="space-y-2">
                           <Label htmlFor="firstName">First Name</Label>
                           <Input id="firstName" {...profileForm.register("firstName")} onChange={(e) => {

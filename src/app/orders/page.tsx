@@ -11,7 +11,7 @@ import { Timestamp, doc } from "firebase/firestore";
 import { format } from "date-fns";
 
 import { Button, buttonVariants } from "@/components/ui/button";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import {
   DropdownMenu,
@@ -165,13 +165,13 @@ const createOutboundReturnSchema = (po: PurchaseOrder | null) => z.object({
             if (item.selected) {
                 if (!item.returnQuantity || item.returnQuantity <= 0) {
                     ctx.addIssue({
-                        path: [`${index}.returnQuantity`],
+                        path: [`items.${index}.returnQuantity`],
                         message: "Quantity must be greater than 0.",
                         code: z.ZodIssueCode.custom,
                     });
                 } else if (item.returnQuantity > item.receivedQuantity) {
                     ctx.addIssue({
-                        path: [`${index}.returnQuantity`],
+                        path: [`items.${index}.returnQuantity`],
                         message: `Cannot return more than ${item.receivedQuantity} received items.`,
                         code: z.ZodIssueCode.custom,
                     });
@@ -847,7 +847,7 @@ export default function OrdersAndSuppliersPage() {
              <Dialog open={isAddOrderOpen} onOpenChange={setIsAddOrderOpen}>
                 <DialogTrigger asChild>
                     <Button size="sm" className="gap-1">
-                    <PlusCircle className="h-4 w-4" />
+                    <PlusCircle />
                     Add Order
                     </Button>
                 </DialogTrigger>
@@ -993,7 +993,7 @@ export default function OrdersAndSuppliersPage() {
                                             {...orderForm.register(`items.${index}.quantity`)}
                                         />
                                         <Button variant="ghost" size="icon" onClick={() => remove(index)}>
-                                            <X className="h-4 w-4" />
+                                            <X />
                                         </Button>
                                     </div>
                                     {selectedProduct && (
@@ -1008,7 +1008,7 @@ export default function OrdersAndSuppliersPage() {
                         </div>
                         {orderForm.formState.errors.items && <p className="text-sm text-destructive">{typeof orderForm.formState.errors.items === 'object' && 'message' in orderForm.formState.errors.items ? orderForm.formState.errors.items.message : 'Please add at least one item.'}</p>}
                         <Button type="button" variant="outline" size="sm" onClick={() => append({ productId: "", quantity: 1 })}>
-                        <PlusCircle className="h-4 w-4 mr-2" /> Add Item
+                        <PlusCircle className="mr-2" /> Add Item
                         </Button>
                     </div>
 
@@ -1033,7 +1033,7 @@ export default function OrdersAndSuppliersPage() {
              <Dialog open={isAddPOOpen} onOpenChange={setIsAddPOOpen}>
                 <DialogTrigger asChild>
                     <Button size="sm" className="gap-1">
-                    <PlusCircle className="h-4 w-4" />
+                    <PlusCircle />
                     Add Purchase Order
                     </Button>
                 </DialogTrigger>
@@ -1228,7 +1228,7 @@ export default function OrdersAndSuppliersPage() {
                                     {...poForm.register(`items.${index}.quantity`)}
                                 />
                                 <Button variant="ghost" size="icon" onClick={() => poRemove(index)}>
-                                    <X className="h-4 w-4" />
+                                    <X />
                                 </Button>
                                 </div>
                                 {selectedProduct && (
@@ -1243,7 +1243,7 @@ export default function OrdersAndSuppliersPage() {
                         </div>
                         {poForm.formState.errors.items && <p className="text-sm text-destructive">{typeof poForm.formState.errors.items === 'object' && 'message' in poForm.formState.errors.items ? poForm.formState.errors.items.message : 'Please add at least one item.'}</p>}
                         <Button type="button" variant="outline" size="sm" onClick={() => poAppend({ productId: "", quantity: 1 })}>
-                        <PlusCircle className="h-4 w-4 mr-2" /> Add Item
+                        <PlusCircle className="mr-2" /> Add Item
                         </Button>
                     </div>
                      <div className="space-y-2">
@@ -1272,7 +1272,7 @@ export default function OrdersAndSuppliersPage() {
             <Dialog open={isAddSupplierOpen} onOpenChange={setIsAddSupplierOpen}>
               <DialogTrigger asChild>
                 <Button size="sm" className="gap-1">
-                  <PlusCircle className="h-4 w-4" />
+                  <PlusCircle />
                   Add Supplier
                 </Button>
               </DialogTrigger>
@@ -1307,7 +1307,7 @@ export default function OrdersAndSuppliersPage() {
                     />
                     {supplierForm.formState.errors.email && <p className="text-sm text-destructive">{supplierForm.formState.errors.email.message}</p>}
                 </div>
-                <div className="grid grid-cols-2 gap-4">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                     <div className="space-y-2">
                         <Label htmlFor="phone">Phone</Label>
                         <Input id="phone" type="tel" {...supplierForm.register("phone")} />
@@ -1343,77 +1343,106 @@ export default function OrdersAndSuppliersPage() {
             <CardDescription>Manage all internal requisitions.</CardDescription>
           </CardHeader>
           <CardContent>
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Order</TableHead>
-                  <TableHead>Client</TableHead>
-                  <TableHead>Date</TableHead>
-                  <TableHead>Status</TableHead>
-                  <TableHead className="text-right">Total</TableHead>
-                  <TableHead>
-                    <span className="sr-only">Actions</span>
-                  </TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {loading ? (
-                  Array.from({ length: 8 }).map((_, i) => (
-                    <TableRow key={i}>
-                      <TableCell><Skeleton className="h-4 w-24" /></TableCell>
-                      <TableCell><Skeleton className="h-4 w-32" /></TableCell>
-                      <TableCell><Skeleton className="h-4 w-24" /></TableCell>
-                      <TableCell><Skeleton className="h-6 w-20 rounded-full" /></TableCell>
-                      <TableCell className="text-right"><Skeleton className="h-4 w-16 ml-auto" /></TableCell>
-                      <TableCell><Skeleton className="h-8 w-8 ml-auto" /></TableCell>
+            <div className="hidden md:block">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Order</TableHead>
+                      <TableHead>Client</TableHead>
+                      <TableHead>Date</TableHead>
+                      <TableHead>Status</TableHead>
+                      <TableHead className="text-right">Total</TableHead>
+                      <TableHead>
+                        <span className="sr-only">Actions</span>
+                      </TableHead>
                     </TableRow>
-                  ))
-                ) : (
-                  orders.map((order) => (
-                    <TableRow key={order.id} onClick={() => setSelectedOrder(order)} className="cursor-pointer">
-                      <TableCell className="font-medium">{order.id.substring(0, 7)}</TableCell>
-                      <TableCell>{order.client.clientName}</TableCell>
-                      <TableCell>{formatDateSimple(order.date)}</TableCell>
-                      <TableCell>
-                        <Badge variant={statusVariant[order.status] || "default"}>{order.status}</Badge>
-                      </TableCell>
-                      <TableCell className="text-right">{formatCurrency(order.total)}</TableCell>
-                      <TableCell className="text-right">
-                        <DropdownMenu>
-                          <DropdownMenuTrigger asChild>
-                            <Button aria-haspopup="true" size="icon" variant="ghost" onClick={(e) => e.stopPropagation()}>
-                              <MoreHorizontal className="h-4 w-4" />
-                              <span className="sr-only">Toggle menu</span>
-                            </Button>
-                          </DropdownMenuTrigger>
-                          <DropdownMenuContent align="end" onClick={(e) => e.stopPropagation()}>
-                            <DropdownMenuLabel>Actions</DropdownMenuLabel>
-                            <DropdownMenuItem onClick={() => setSelectedOrder(order)}>
-                                View Details
-                            </DropdownMenuItem>
-                            <DropdownMenuSeparator />
-                             {order.status === 'Cancelled' ? (
-                                <DropdownMenuItem 
-                                  onClick={() => handleReorder(order)} 
-                                  disabled={isReordered}
-                                >
-                                  {isReordered ? 'Already Reordered' : 'Reorder'}
+                  </TableHeader>
+                  <TableBody>
+                    {loading ? (
+                      Array.from({ length: 8 }).map((_, i) => (
+                        <TableRow key={i}>
+                          <TableCell><Skeleton className="h-4 w-24" /></TableCell>
+                          <TableCell><Skeleton className="h-4 w-32" /></TableCell>
+                          <TableCell><Skeleton className="h-4 w-24" /></TableCell>
+                          <TableCell><Skeleton className="h-6 w-20 rounded-full" /></TableCell>
+                          <TableCell className="text-right"><Skeleton className="h-4 w-16 ml-auto" /></TableCell>
+                          <TableCell><Skeleton className="h-8 w-8 ml-auto" /></TableCell>
+                        </TableRow>
+                      ))
+                    ) : (
+                      orders.map((order) => (
+                        <TableRow key={order.id} onClick={() => setSelectedOrder(order)} className="cursor-pointer">
+                          <TableCell className="font-medium">{order.id.substring(0, 7)}</TableCell>
+                          <TableCell>{order.client.clientName}</TableCell>
+                          <TableCell>{formatDateSimple(order.date)}</TableCell>
+                          <TableCell>
+                            <Badge variant={statusVariant[order.status] || "default"}>{order.status}</Badge>
+                          </TableCell>
+                          <TableCell className="text-right">{formatCurrency(order.total)}</TableCell>
+                          <TableCell className="text-right">
+                            <DropdownMenu>
+                              <DropdownMenuTrigger asChild>
+                                <Button aria-haspopup="true" size="icon" variant="ghost" onClick={(e) => e.stopPropagation()}>
+                                  <MoreHorizontal />
+                                  <span className="sr-only">Toggle menu</span>
+                                </Button>
+                              </DropdownMenuTrigger>
+                              <DropdownMenuContent align="end" onClick={(e) => e.stopPropagation()}>
+                                <DropdownMenuLabel>Actions</DropdownMenuLabel>
+                                <DropdownMenuItem onClick={() => setSelectedOrder(order)}>
+                                    View Details
                                 </DropdownMenuItem>
-                            ) : (
-                                <></>
-                            )}
-                             <DropdownMenuSeparator />
-                             <DropdownMenuItem onClick={() => handleDeleteOrderClick(order.id)} className="text-destructive">
-                                Delete
-                            </DropdownMenuItem>
-                          </DropdownMenuContent>
-                        </DropdownMenu>
-                      </TableCell>
-                    </TableRow>
-                  ))
+                                <DropdownMenuSeparator />
+                                 {order.status === 'Cancelled' ? (
+                                    <DropdownMenuItem 
+                                      onClick={() => handleReorder(order)} 
+                                      disabled={isReordered}
+                                    >
+                                      {isReordered ? 'Already Reordered' : 'Reorder'}
+                                    </DropdownMenuItem>
+                                ) : (
+                                    <></>
+                                )}
+                                 <DropdownMenuSeparator />
+                                 <DropdownMenuItem onClick={() => handleDeleteOrderClick(order.id)} className="text-destructive">
+                                    Delete
+                                </DropdownMenuItem>
+                              </DropdownMenuContent>
+                            </DropdownMenu>
+                          </TableCell>
+                        </TableRow>
+                      ))
+                    )}
+                  </TableBody>
+                </Table>
+            </div>
+            <div className="grid gap-4 md:hidden">
+                {loading ? (
+                    Array.from({ length: 5 }).map((_, i) => (
+                        <Card key={i}><CardHeader><Skeleton className="h-5 w-3/4" /></CardHeader><CardContent><Skeleton className="h-4 w-full" /></CardContent></Card>
+                    ))
+                ) : (
+                    orders.map((order) => (
+                        <Card key={order.id} onClick={() => setSelectedOrder(order)}>
+                            <CardHeader>
+                                <div className="flex justify-between items-start">
+                                    <div>
+                                        <CardTitle className="text-base">Order {order.id.substring(0, 7)}</CardTitle>
+                                        <CardDescription>{order.client.clientName}</CardDescription>
+                                    </div>
+                                    <Badge variant={statusVariant[order.status] || "default"}>{order.status}</Badge>
+                                </div>
+                            </CardHeader>
+                            <CardContent>
+                                <p className="font-semibold">{formatCurrency(order.total)}</p>
+                            </CardContent>
+                            <CardFooter className="text-xs text-muted-foreground">
+                                {formatDateSimple(order.date)}
+                            </CardFooter>
+                        </Card>
+                    ))
                 )}
-              </TableBody>
-            </Table>
+            </div>
           </CardContent>
         </Card>
       </TabsContent>
@@ -1436,79 +1465,121 @@ export default function OrdersAndSuppliersPage() {
         {poView === 'queue' && (
             <Card>
                 <CardHeader>
-                    <div className="flex items-center justify-between">
+                    <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
                         <div>
                             <CardTitle>Purchase Queue</CardTitle>
                             <CardDescription>Items that require purchasing from a supplier.</CardDescription>
                         </div>
                         {selectedQueueItems.length > 0 && (
                             <Button size="sm" className="gap-1" onClick={handleCreatePOFromQueue}>
-                                <PlusCircle className="h-4 w-4" />
+                                <PlusCircle />
                                 Create Purchase Order ({selectedQueueItems.length})
                             </Button>
                         )}
                     </div>
                 </CardHeader>
                 <CardContent>
-                    <Table>
-                    <TableHeader>
-                        <TableRow>
-                        <TableHead className="w-12">
-                            <Checkbox
-                                checked={isAllQueueSelected}
-                                onCheckedChange={(checked) => handleQueueSelectAll(!!checked)}
-                                aria-label="Select all"
-                            />
-                        </TableHead>
-                        <TableHead>Product</TableHead>
-                        <TableHead>SKU</TableHead>
-                        <TableHead className="text-center">Needed</TableHead>
-                        <TableHead>From Order</TableHead>
-                        </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                        {loading ? (
-                        Array.from({ length: 3 }).map((_, i) => (
-                            <TableRow key={i}>
-                            <TableCell><Skeleton className="h-4 w-4" /></TableCell>
-                            <TableCell><Skeleton className="h-4 w-48" /></TableCell>
-                            <TableCell><Skeleton className="h-4 w-24" /></TableCell>
-                            <TableCell><Skeleton className="h-4 w-16 mx-auto" /></TableCell>
-                            <TableCell><Skeleton className="h-4 w-32" /></TableCell>
-                            </TableRow>
-                        ))
-                        ) : purchaseQueue.length > 0 ? (
-                        purchaseQueue.map((item) => (
-                            <TableRow key={item.id}>
-                            <TableCell>
+                    <div className="hidden md:block">
+                        <Table>
+                        <TableHeader>
+                            <TableRow>
+                            <TableHead className="w-12">
                                 <Checkbox
-                                    checked={purchaseQueueSelection[item.id] || false}
-                                    onCheckedChange={(checked) => handleQueueSelectionChange(item.id, !!checked)}
-                                    aria-label={`Select ${item.productName}`}
+                                    checked={isAllQueueSelected}
+                                    onCheckedChange={(checked) => handleQueueSelectAll(!!checked)}
+                                    aria-label="Select all"
                                 />
-                            </TableCell>
-                            <TableCell className="font-medium">{item.productName}</TableCell>
-                            <TableCell>{item.productSku}</TableCell>
-                            <TableCell className="text-center">{item.quantity}</TableCell>
-                            <TableCell>
-                                <div className="flex gap-1 flex-wrap">
-                                    {item.orderId === "REORDER" 
-                                        ? <Button variant="outline" size="sm" className="h-6 px-2 font-mono" onClick={() => handleReorderFromQueue(item)}>Reorder</Button>
-                                        : <Badge variant="secondary" className="font-mono">{item.orderId.substring(0,7)}</Badge>
-                                    }
-                                </div>
-                            </TableCell>
+                            </TableHead>
+                            <TableHead>Product</TableHead>
+                            <TableHead>SKU</TableHead>
+                            <TableHead className="text-center">Needed</TableHead>
+                            <TableHead>From Order</TableHead>
                             </TableRow>
-                        ))
-                        ) : (
-                        <TableRow>
-                                <TableCell colSpan={5} className="h-24 text-center">
-                                    No items are currently awaiting purchase.
+                        </TableHeader>
+                        <TableBody>
+                            {loading ? (
+                            Array.from({ length: 3 }).map((_, i) => (
+                                <TableRow key={i}>
+                                <TableCell><Skeleton className="h-4 w-4" /></TableCell>
+                                <TableCell><Skeleton className="h-4 w-48" /></TableCell>
+                                <TableCell><Skeleton className="h-4 w-24" /></TableCell>
+                                <TableCell><Skeleton className="h-4 w-16 mx-auto" /></TableCell>
+                                <TableCell><Skeleton className="h-4 w-32" /></TableCell>
+                                </TableRow>
+                            ))
+                            ) : purchaseQueue.length > 0 ? (
+                            purchaseQueue.map((item) => (
+                                <TableRow key={item.id}>
+                                <TableCell>
+                                    <Checkbox
+                                        checked={purchaseQueueSelection[item.id] || false}
+                                        onCheckedChange={(checked) => handleQueueSelectionChange(item.id, !!checked)}
+                                        aria-label={`Select ${item.productName}`}
+                                    />
                                 </TableCell>
-                            </TableRow>
+                                <TableCell className="font-medium">{item.productName}</TableCell>
+                                <TableCell>{item.productSku}</TableCell>
+                                <TableCell className="text-center">{item.quantity}</TableCell>
+                                <TableCell>
+                                    <div className="flex gap-1 flex-wrap">
+                                        {item.orderId === "REORDER" 
+                                            ? <Button variant="outline" size="sm" className="h-6 px-2 font-mono" onClick={() => handleReorderFromQueue(item)}>Reorder</Button>
+                                            : <Badge variant="secondary" className="font-mono">{item.orderId.substring(0,7)}</Badge>
+                                        }
+                                    </div>
+                                </TableCell>
+                                </TableRow>
+                            ))
+                            ) : (
+                            <TableRow>
+                                    <TableCell colSpan={5} className="h-24 text-center">
+                                        No items are currently awaiting purchase.
+                                    </TableCell>
+                                </TableRow>
+                            )}
+                        </TableBody>
+                        </Table>
+                    </div>
+                     <div className="grid gap-4 md:hidden">
+                        {loading ? (
+                             Array.from({ length: 3 }).map((_, i) => (
+                                <Card key={i}><CardHeader><Skeleton className="h-5 w-3/4" /></CardHeader><CardContent><Skeleton className="h-4 w-full" /></CardContent></Card>
+                            ))
+                        ) : purchaseQueue.length > 0 ? (
+                            purchaseQueue.map((item) => (
+                                <Card key={item.id}>
+                                    <CardHeader>
+                                        <div className="flex items-start justify-between">
+                                            <div className="flex items-center gap-3">
+                                                 <Checkbox
+                                                    checked={purchaseQueueSelection[item.id] || false}
+                                                    onCheckedChange={(checked) => handleQueueSelectionChange(item.id, !!checked)}
+                                                    aria-label={`Select ${item.productName}`}
+                                                />
+                                                <div>
+                                                    <CardTitle className="text-base">{item.productName}</CardTitle>
+                                                    <CardDescription>{item.productSku}</CardDescription>
+                                                </div>
+                                            </div>
+                                             <div className="flex gap-1 flex-wrap">
+                                                {item.orderId === "REORDER" 
+                                                    ? <Button variant="outline" size="sm" className="h-6 px-2 font-mono" onClick={() => handleReorderFromQueue(item)}>Reorder</Button>
+                                                    : <Badge variant="secondary" className="font-mono">{item.orderId.substring(0,7)}</Badge>
+                                                }
+                                            </div>
+                                        </div>
+                                    </CardHeader>
+                                    <CardContent>
+                                        <p>Quantity Needed: <span className="font-bold">{item.quantity}</span></p>
+                                    </CardContent>
+                                </Card>
+                            ))
+                        ) : (
+                             <div className="text-sm text-muted-foreground text-center py-10">
+                                No items are currently awaiting purchase.
+                            </div>
                         )}
-                    </TableBody>
-                    </Table>
+                    </div>
                 </CardContent>
             </Card>
         )}
@@ -1520,89 +1591,124 @@ export default function OrdersAndSuppliersPage() {
                 <CardDescription>Manage all purchase orders from suppliers.</CardDescription>
               </CardHeader>
               <CardContent>
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>PO Number</TableHead>
-                      <TableHead>Supplier</TableHead>
-                      <TableHead>Client / Project</TableHead>
-                      <TableHead>Order Date</TableHead>
-                      <TableHead>Status</TableHead>
-                      <TableHead className="text-right">
-                        <span className="sr-only">Actions</span>
-                      </TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {loading ? (
-                      Array.from({ length: 8 }).map((_, i) => (
-                        <TableRow key={i}>
-                          <TableCell><Skeleton className="h-4 w-24" /></TableCell>
-                          <TableCell><Skeleton className="h-4 w-32" /></TableCell>
-                           <TableCell><Skeleton className="h-4 w-32" /></TableCell>
-                          <TableCell><Skeleton className="h-4 w-24" /></TableCell>
-                          <TableCell><Skeleton className="h-6 w-20 rounded-full" /></TableCell>
-                          <TableCell><Skeleton className="h-8 w-8 ml-auto" /></TableCell>
+                 <div className="hidden md:block">
+                    <Table>
+                      <TableHeader>
+                        <TableRow>
+                          <TableHead>PO Number</TableHead>
+                          <TableHead>Supplier</TableHead>
+                          <TableHead>Client / Project</TableHead>
+                          <TableHead>Order Date</TableHead>
+                          <TableHead>Status</TableHead>
+                          <TableHead className="text-right">
+                            <span className="sr-only">Actions</span>
+                          </TableHead>
                         </TableRow>
-                      ))
-                    ) : (
-                      purchaseOrders.map((po) => {
-                        const associatedReturn = outboundReturns.find(r => r.purchaseOrderId === po.id);
-                        const isReturnCompleted = associatedReturn?.status === 'Completed' || associatedReturn?.status === 'Cancelled';
-                        const displayStatus = associatedReturn && !isReturnCompleted ? `Return ${associatedReturn.status}` : po.status;
-                        const finalVariant = associatedReturn && !isReturnCompleted ? outboundReturnStatusVariant[associatedReturn.status] : statusVariant[po.status];
-                        
-                        return (
-                          <TableRow key={po.id} onClick={() => setSelectedPO(po)} className="cursor-pointer">
-                            <TableCell className="font-medium">{po.poNumber}</TableCell>
-                            <TableCell>{po.supplier.name}</TableCell>
-                            <TableCell>{po.client?.clientName || 'N/A'}</TableCell>
-                            <TableCell>{formatDateSimple(po.orderDate)}</TableCell>
-                            <TableCell>
-                              <Badge variant={finalVariant || "default"}>{displayStatus}</Badge>
-                            </TableCell>
-                            <TableCell className="text-right">
-                              <DropdownMenu>
-                                <DropdownMenuTrigger asChild>
-                                  <Button aria-haspopup="true" size="icon" variant="ghost" onClick={(e) => e.stopPropagation()}>
-                                    <MoreHorizontal className="h-4 w-4" />
-                                    <span className="sr-only">Toggle menu</span>
-                                  </Button>
-                                </DropdownMenuTrigger>
-                                <DropdownMenuContent align="end" onClick={(e) => e.stopPropagation()}>
-                                  <DropdownMenuLabel>Actions</DropdownMenuLabel>
-                                  <DropdownMenuItem onClick={() => setSelectedPO(po)}>View Details</DropdownMenuItem>
-                                  <DropdownMenuSeparator />
-                                  {po.status === 'Pending' && (
-                                      <DropdownMenuItem onClick={() => handlePOStatusChange(po.id, 'Shipped')}>
-                                      Mark as Shipped
+                      </TableHeader>
+                      <TableBody>
+                        {loading ? (
+                          Array.from({ length: 8 }).map((_, i) => (
+                            <TableRow key={i}>
+                              <TableCell><Skeleton className="h-4 w-24" /></TableCell>
+                              <TableCell><Skeleton className="h-4 w-32" /></TableCell>
+                               <TableCell><Skeleton className="h-4 w-32" /></TableCell>
+                              <TableCell><Skeleton className="h-4 w-24" /></TableCell>
+                              <TableCell><Skeleton className="h-6 w-20 rounded-full" /></TableCell>
+                              <TableCell><Skeleton className="h-8 w-8 ml-auto" /></TableCell>
+                            </TableRow>
+                          ))
+                        ) : (
+                          purchaseOrders.map((po) => {
+                            const associatedReturn = outboundReturns.find(r => r.purchaseOrderId === po.id);
+                            const isReturnCompleted = associatedReturn?.status === 'Completed' || associatedReturn?.status === 'Cancelled';
+                            const displayStatus = associatedReturn && !isReturnCompleted ? `Return ${associatedReturn.status}` : po.status;
+                            const finalVariant = associatedReturn && !isReturnCompleted ? outboundReturnStatusVariant[associatedReturn.status] : statusVariant[po.status];
+                            
+                            return (
+                              <TableRow key={po.id} onClick={() => setSelectedPO(po)} className="cursor-pointer">
+                                <TableCell className="font-medium">{po.poNumber}</TableCell>
+                                <TableCell>{po.supplier.name}</TableCell>
+                                <TableCell>{po.client?.clientName || 'N/A'}</TableCell>
+                                <TableCell>{formatDateSimple(po.orderDate)}</TableCell>
+                                <TableCell>
+                                  <Badge variant={finalVariant || "default"}>{displayStatus}</Badge>
+                                </TableCell>
+                                <TableCell className="text-right">
+                                  <DropdownMenu>
+                                    <DropdownMenuTrigger asChild>
+                                      <Button aria-haspopup="true" size="icon" variant="ghost" onClick={(e) => e.stopPropagation()}>
+                                        <MoreHorizontal />
+                                        <span className="sr-only">Toggle menu</span>
+                                      </Button>
+                                    </DropdownMenuTrigger>
+                                    <DropdownMenuContent align="end" onClick={(e) => e.stopPropagation()}>
+                                      <DropdownMenuLabel>Actions</DropdownMenuLabel>
+                                      <DropdownMenuItem onClick={() => setSelectedPO(po)}>View Details</DropdownMenuItem>
+                                      <DropdownMenuSeparator />
+                                      {po.status === 'Pending' && (
+                                          <DropdownMenuItem onClick={() => handlePOStatusChange(po.id, 'Shipped')}>
+                                          Mark as Shipped
+                                          </DropdownMenuItem>
+                                      )}
+                                      {po.status === 'Shipped' && (
+                                          <DropdownMenuItem onClick={() => handlePOStatusChange(po.id, 'Received')}>
+                                          Mark as Received
+                                          </DropdownMenuItem>
+                                      )}
+                                      {po.status === 'Received' && <DropdownMenuItem disabled>Order Received</DropdownMenuItem>}
+                                      {po.status === 'Received' && (
+                                          <DropdownMenuItem onClick={() => setPoForReturn(po)}>
+                                            <RefreshCcw className="mr-2" />
+                                            Return Items
+                                          </DropdownMenuItem>
+                                      )}
+                                      <DropdownMenuSeparator />
+                                      <DropdownMenuItem onClick={() => handleDeletePOClick(po.id)} className="text-destructive">
+                                          Delete
                                       </DropdownMenuItem>
-                                  )}
-                                  {po.status === 'Shipped' && (
-                                      <DropdownMenuItem onClick={() => handlePOStatusChange(po.id, 'Received')}>
-                                      Mark as Received
-                                      </DropdownMenuItem>
-                                  )}
-                                  {po.status === 'Received' && <DropdownMenuItem disabled>Order Received</DropdownMenuItem>}
-                                  {po.status === 'Received' && (
-                                      <DropdownMenuItem onClick={() => setPoForReturn(po)}>
-                                        <RefreshCcw className="mr-2 h-4 w-4" />
-                                        Return Items
-                                      </DropdownMenuItem>
-                                  )}
-                                  <DropdownMenuSeparator />
-                                  <DropdownMenuItem onClick={() => handleDeletePOClick(po.id)} className="text-destructive">
-                                      Delete
-                                  </DropdownMenuItem>
-                                </DropdownMenuContent>
-                              </DropdownMenu>
-                            </TableCell>
-                          </TableRow>
-                        )
-                      })
+                                    </DropdownMenuContent>
+                                  </DropdownMenu>
+                                </TableCell>
+                              </TableRow>
+                            )
+                          })
+                        )}
+                      </TableBody>
+                    </Table>
+                 </div>
+                 <div className="grid gap-4 md:hidden">
+                    {loading ? (
+                         Array.from({ length: 5 }).map((_, i) => (
+                            <Card key={i}><CardHeader><Skeleton className="h-5 w-3/4" /></CardHeader><CardContent><Skeleton className="h-4 w-full" /></CardContent></Card>
+                        ))
+                    ): (
+                        purchaseOrders.map((po) => {
+                            const associatedReturn = outboundReturns.find(r => r.purchaseOrderId === po.id);
+                            const isReturnCompleted = associatedReturn?.status === 'Completed' || associatedReturn?.status === 'Cancelled';
+                            const displayStatus = associatedReturn && !isReturnCompleted ? `Return ${associatedReturn.status}` : po.status;
+                            const finalVariant = associatedReturn && !isReturnCompleted ? outboundReturnStatusVariant[associatedReturn.status] : statusVariant[po.status];
+                            return (
+                                <Card key={po.id} onClick={() => setSelectedPO(po)}>
+                                    <CardHeader>
+                                        <div className="flex justify-between items-start">
+                                            <div>
+                                                <CardTitle className="text-base">{po.poNumber}</CardTitle>
+                                                <CardDescription>{po.supplier.name}</CardDescription>
+                                            </div>
+                                             <Badge variant={finalVariant || "default"}>{displayStatus}</Badge>
+                                        </div>
+                                    </CardHeader>
+                                    <CardContent>
+                                        <p className="text-sm">For: {po.client?.clientName || 'Stock'}</p>
+                                    </CardContent>
+                                    <CardFooter className="text-xs text-muted-foreground">
+                                        Ordered: {formatDateSimple(po.orderDate)}
+                                    </CardFooter>
+                                </Card>
+                            )
+                        })
                     )}
-                  </TableBody>
-                </Table>
+                 </div>
               </CardContent>
             </Card>
         )}
@@ -1614,62 +1720,98 @@ export default function OrdersAndSuppliersPage() {
               <CardDescription>Manage your supplier database.</CardDescription>
             </CardHeader>
             <CardContent>
-                <Table>
-                <TableHeader>
-                    <TableRow>
-                    <TableHead>Supplier Name</TableHead>
-                    <TableHead>Contact Person</TableHead>
-                    <TableHead>Email</TableHead>
-                    <TableHead>Phone</TableHead>
-                    <TableHead>Cellphone #</TableHead>
-                    <TableHead>Date Added</TableHead>
-                    <TableHead className="text-right">
-                        <span className="sr-only">Actions</span>
-                    </TableHead>
-                    </TableRow>
-                </TableHeader>
-                <TableBody>
-                    {loading ? (
-                    Array.from({ length: 8 }).map((_, i) => (
-                        <TableRow key={i}>
-                        <TableCell><Skeleton className="h-4 w-48" /></TableCell>
-                        <TableCell><Skeleton className="h-4 w-32" /></TableCell>
-                        <TableCell><Skeleton className="h-4 w-48" /></TableCell>
-                        <TableCell><Skeleton className="h-4 w-24" /></TableCell>
-                        <TableCell><Skeleton className="h-4 w-24" /></TableCell>
-                        <TableCell><Skeleton className="h-4 w-24" /></TableCell>
-                        <TableCell><Skeleton className="h-8 w-8 ml-auto" /></TableCell>
+                <div className="hidden md:block">
+                    <Table>
+                    <TableHeader>
+                        <TableRow>
+                        <TableHead>Supplier Name</TableHead>
+                        <TableHead>Contact Person</TableHead>
+                        <TableHead>Email</TableHead>
+                        <TableHead>Phone</TableHead>
+                        <TableHead>Cellphone #</TableHead>
+                        <TableHead>Date Added</TableHead>
+                        <TableHead className="text-right">
+                            <span className="sr-only">Actions</span>
+                        </TableHead>
                         </TableRow>
-                    ))
+                    </TableHeader>
+                    <TableBody>
+                        {loading ? (
+                        Array.from({ length: 8 }).map((_, i) => (
+                            <TableRow key={i}>
+                            <TableCell><Skeleton className="h-4 w-48" /></TableCell>
+                            <TableCell><Skeleton className="h-4 w-32" /></TableCell>
+                            <TableCell><Skeleton className="h-4 w-48" /></TableCell>
+                            <TableCell><Skeleton className="h-4 w-24" /></TableCell>
+                            <TableCell><Skeleton className="h-4 w-24" /></TableCell>
+                            <TableCell><Skeleton className="h-4 w-24" /></TableCell>
+                            <TableCell><Skeleton className="h-8 w-8 ml-auto" /></TableCell>
+                            </TableRow>
+                        ))
+                        ) : (
+                        suppliers.map((supplier) => (
+                            <TableRow key={supplier.id} onClick={() => handleEditSupplierClick(supplier)} className="cursor-pointer">
+                            <TableCell className="font-medium">{supplier.name}</TableCell>
+                            <TableCell>{supplier.contactPerson}</TableCell>
+                            <TableCell>{supplier.email}</TableCell>
+                            <TableCell>{supplier.phone}</TableCell>
+                            <TableCell>{supplier.cellphoneNumber || 'N/A'}</TableCell>
+                            <TableCell>{formatDate(supplier.createdAt)}</TableCell>
+                            <TableCell className="text-right">
+                                <DropdownMenu>
+                                <DropdownMenuTrigger asChild>
+                                    <Button aria-haspopup="true" size="icon" variant="ghost" onClick={(e) => e.stopPropagation()}>
+                                    <MoreHorizontal />
+                                    <span className="sr-only">Toggle menu</span>
+                                    </Button>
+                                </DropdownMenuTrigger>
+                                <DropdownMenuContent align="end" onClick={(e) => e.stopPropagation()}>
+                                    <DropdownMenuLabel>Actions</DropdownMenuLabel>
+                                    <DropdownMenuItem onClick={() => handleEditSupplierClick(supplier)}>Edit</DropdownMenuItem>
+                                    <DropdownMenuItem onClick={() => handleDeleteSupplierClick(supplier.id)} className="text-destructive">Delete</DropdownMenuItem>
+                                </DropdownMenuContent>
+                                </DropdownMenu>
+                            </TableCell>
+                            </TableRow>
+                        ))
+                        )}
+                    </TableBody>
+                    </Table>
+                </div>
+                 <div className="grid gap-4 md:hidden">
+                     {loading ? (
+                        Array.from({ length: 5 }).map((_, i) => (
+                            <Card key={i}><CardHeader><Skeleton className="h-5 w-3/4" /></CardHeader><CardContent><Skeleton className="h-4 w-full" /></CardContent></Card>
+                        ))
                     ) : (
-                    suppliers.map((supplier) => (
-                        <TableRow key={supplier.id} onClick={() => handleEditSupplierClick(supplier)} className="cursor-pointer">
-                        <TableCell className="font-medium">{supplier.name}</TableCell>
-                        <TableCell>{supplier.contactPerson}</TableCell>
-                        <TableCell>{supplier.email}</TableCell>
-                        <TableCell>{supplier.phone}</TableCell>
-                        <TableCell>{supplier.cellphoneNumber || 'N/A'}</TableCell>
-                        <TableCell>{formatDate(supplier.createdAt)}</TableCell>
-                        <TableCell className="text-right">
-                            <DropdownMenu>
-                            <DropdownMenuTrigger asChild>
-                                <Button aria-haspopup="true" size="icon" variant="ghost" onClick={(e) => e.stopPropagation()}>
-                                <MoreHorizontal className="h-4 w-4" />
-                                <span className="sr-only">Toggle menu</span>
-                                </Button>
-                            </DropdownMenuTrigger>
-                            <DropdownMenuContent align="end" onClick={(e) => e.stopPropagation()}>
-                                <DropdownMenuLabel>Actions</DropdownMenuLabel>
-                                <DropdownMenuItem onClick={() => handleEditSupplierClick(supplier)}>Edit</DropdownMenuItem>
-                                <DropdownMenuItem onClick={() => handleDeleteSupplierClick(supplier.id)} className="text-destructive">Delete</DropdownMenuItem>
-                            </DropdownMenuContent>
-                            </DropdownMenu>
-                        </TableCell>
-                        </TableRow>
-                    ))
+                        suppliers.map((supplier) => (
+                             <Card key={supplier.id} onClick={() => handleEditSupplierClick(supplier)}>
+                                <CardHeader>
+                                    <div className="flex justify-between items-start">
+                                        <div>
+                                            <CardTitle className="text-base">{supplier.name}</CardTitle>
+                                            <CardDescription>{supplier.contactPerson}</CardDescription>
+                                        </div>
+                                         <DropdownMenu>
+                                            <DropdownMenuTrigger asChild>
+                                                <Button size="icon" variant="ghost" onClick={(e) => e.stopPropagation()}><MoreHorizontal /></Button>
+                                            </DropdownMenuTrigger>
+                                            <DropdownMenuContent align="end" onClick={(e) => e.stopPropagation()}>
+                                                <DropdownMenuLabel>Actions</DropdownMenuLabel>
+                                                <DropdownMenuItem onClick={() => handleEditSupplierClick(supplier)}>Edit</DropdownMenuItem>
+                                                <DropdownMenuItem onClick={() => handleDeleteSupplierClick(supplier.id)} className="text-destructive">Delete</DropdownMenuItem>
+                                            </DropdownMenuContent>
+                                        </DropdownMenu>
+                                    </div>
+                                </CardHeader>
+                                <CardContent className="text-sm">
+                                    <p>{supplier.email}</p>
+                                    <p>{supplier.phone}</p>
+                                </CardContent>
+                             </Card>
+                        ))
                     )}
-                </TableBody>
-                </Table>
+                 </div>
             </CardContent>
         </Card>
       </TabsContent>
@@ -1691,7 +1833,7 @@ export default function OrdersAndSuppliersPage() {
               }}/>
               {productForm.formState.errors.name && <p className="text-sm text-destructive">{productForm.formState.errors.name.message}</p>}
             </div>
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div className="space-y-2">
                 <div className="flex items-center justify-between">
                     <Label htmlFor="sku-order">SKU</Label>
@@ -1712,7 +1854,7 @@ export default function OrdersAndSuppliersPage() {
                 {productForm.formState.errors.price && <p className="text-sm text-destructive">{productForm.formState.errors.price.message}</p>}
               </div>
             </div>
-             <div className="grid grid-cols-2 gap-4">
+             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                <div className="space-y-2">
                 <Label htmlFor="reorderLimit-order">Reorder Limit</Label>
                 <Input id="reorderLimit-order" type="number" placeholder="10" {...productForm.register("reorderLimit")} />
@@ -1724,7 +1866,7 @@ export default function OrdersAndSuppliersPage() {
                 {productForm.formState.errors.maxStockLevel && <p className="text-sm text-destructive">{productForm.formState.errors.maxStockLevel.message}</p>}
               </div>
             </div>
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                <div className="space-y-2">
                   <Label htmlFor="location-order">Location</Label>
                   <Input id="location-order" placeholder="e.g. 'Warehouse A'" {...productForm.register("location")} />
@@ -1812,7 +1954,7 @@ export default function OrdersAndSuppliersPage() {
               </ul>
             </div>
           </div>
-          <DialogFooter className="!justify-between">
+          <DialogFooter className="!justify-between flex-col-reverse sm:flex-row gap-2">
              <div>
                 {selectedOrder.status !== 'Cancelled' && (
                     <Button 
@@ -1885,7 +2027,7 @@ export default function OrdersAndSuppliersPage() {
                   {editSupplierForm.formState.errors.email && <p className="text-sm text-destructive">{editSupplierForm.formState.errors.email.message}</p>}
                    {renderEmailValidation()}
                 </div>
-                 <div className="grid grid-cols-2 gap-4">
+                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                     <div className="space-y-2">
                         <Label htmlFor="edit-phone">Phone</Label>
                         <Input id="edit-phone" type="tel" {...editSupplierForm.register("phone")} />

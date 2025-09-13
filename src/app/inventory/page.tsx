@@ -8,7 +8,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
 import { PlusCircle, MoreHorizontal, Package, ChevronsUpDown, Check, Printer } from "lucide-react";
 import { Button, buttonVariants } from "@/components/ui/button";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import {
   DropdownMenu,
@@ -316,11 +316,11 @@ export default function InventoryPage() {
   return (
     <>
       <Card>
-        <CardHeader className="flex flex-row items-start justify-between">
+        <CardHeader className="flex flex-col md:flex-row md:items-start md:justify-between gap-4">
           <div>
             <CardTitle>Inventory</CardTitle>
             <CardDescription>Manage your product inventory.</CardDescription>
-            <div className="flex items-center gap-2 mt-4">
+            <div className="flex items-center gap-2 mt-4 flex-wrap">
               {(["all", "in-stock", "low-stock", "out-of-stock"] as StatusFilter[]).map((filter) => (
                 <Button
                   key={filter}
@@ -336,8 +336,8 @@ export default function InventoryPage() {
           </div>
           <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>
             <DialogTrigger asChild>
-              <Button size="sm" className="gap-1">
-                <PlusCircle className="h-4 w-4" />
+              <Button size="sm" className="gap-1 w-full md:w-auto">
+                <PlusCircle />
                 Add Product
               </Button>
             </DialogTrigger>
@@ -362,7 +362,7 @@ export default function InventoryPage() {
                                 <AvatarImage src={undefined} alt="Product preview" />
                             )}
                             <AvatarFallback className="rounded-md">
-                                {addForm.getValues('name')?.[0]?.toUpperCase() || <Package className="h-8 w-8 text-muted-foreground" />}
+                                {addForm.getValues('name')?.[0]?.toUpperCase() || <Package />}
                             </AvatarFallback>
                         </Avatar>
                     </div>
@@ -388,7 +388,7 @@ export default function InventoryPage() {
                   }}/>
                   {addForm.formState.errors.name && <p className="text-sm text-destructive">{addForm.formState.errors.name.message}</p>}
                 </div>
-                <div className="grid grid-cols-2 gap-4">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <div className="space-y-2">
                     <div className="flex items-center justify-between">
                         <Label htmlFor="sku">SKU</Label>
@@ -409,7 +409,7 @@ export default function InventoryPage() {
                     {addForm.formState.errors.price && <p className="text-sm text-destructive">{addForm.formState.errors.price.message}</p>}
                   </div>
                 </div>
-                <div className="grid grid-cols-2 gap-4">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <div className="space-y-2">
                     <Label htmlFor="stock">Initial Stock (Optional)</Label>
                     <Input id="stock" type="number" placeholder="0" {...addForm.register("stock")} />
@@ -421,14 +421,14 @@ export default function InventoryPage() {
                     {addForm.formState.errors.reorderLimit && <p className="text-sm text-destructive">{addForm.formState.errors.reorderLimit.message}</p>}
                   </div>
                 </div>
-                <div className="grid grid-cols-2 gap-4">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <div className="space-y-2">
                     <Label htmlFor="maxStockLevel">Max Stock Level</Label>
                     <Input id="maxStockLevel" type="number" {...addForm.register("maxStockLevel")} />
                     {addForm.formState.errors.maxStockLevel && <p className="text-sm text-destructive">{addForm.formState.errors.maxStockLevel.message}</p>}
                   </div>
                 </div>
-                <div className="grid grid-cols-2 gap-4">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                     <div className="space-y-2">
                       <Label htmlFor="location">Location</Label>
                       <Input id="location" placeholder="e.g. 'Warehouse A'" {...addForm.register("location")} />
@@ -493,81 +493,158 @@ export default function InventoryPage() {
           </Dialog>
         </CardHeader>
         <CardContent>
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead className="w-16">Image</TableHead>
-                <TableHead>Name</TableHead>
-                <TableHead>SKU</TableHead>
-                <TableHead>Price</TableHead>
-                <TableHead>Stock</TableHead>
-                <TableHead>Status</TableHead>
-                <TableHead>Supplier</TableHead>
-                <TableHead>Last Updated</TableHead>
-                <TableHead>
-                  <span className="sr-only">Actions</span>
-                </TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {loading ? (
-                Array.from({ length: 5 }).map((_, i) => (
-                  <TableRow key={i}>
-                    <TableCell><Skeleton className="h-12 w-12 rounded-md" /></TableCell>
-                    <TableCell><Skeleton className="h-4 w-48" /></TableCell>
-                    <TableCell><Skeleton className="h-4 w-24" /></TableCell>
-                    <TableCell><Skeleton className="h-4 w-16" /></TableCell>
-                    <TableCell><Skeleton className="h-4 w-12" /></TableCell>
-                    <TableCell><Skeleton className="h-6 w-24 rounded-full" /></TableCell>
-                    <TableCell><Skeleton className="h-4 w-24" /></TableCell>
-                    <TableCell><Skeleton className="h-4 w-32" /></TableCell>
-                    <TableCell><Skeleton className="h-8 w-8" /></TableCell>
+           <div className="hidden md:block">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead className="w-16">Image</TableHead>
+                    <TableHead>Name</TableHead>
+                    <TableHead>SKU</TableHead>
+                    <TableHead>Price</TableHead>
+                    <TableHead>Stock</TableHead>
+                    <TableHead>Status</TableHead>
+                    <TableHead>Supplier</TableHead>
+                    <TableHead>Last Updated</TableHead>
+                    <TableHead>
+                      <span className="sr-only">Actions</span>
+                    </TableHead>
                   </TableRow>
-                ))
-              ) : (
-                filteredProducts.map((product) => {
-                  const status = getStatus(product);
-                  return (
-                    <TableRow key={product.id} onClick={() => handleEditClick(product)} className="cursor-pointer">
-                      <TableCell>
-                        <Image
-                          alt={product.name}
-                          className="aspect-square rounded-md object-cover"
-                          height="48"
-                          src={product.photoURL || `https://picsum.photos/seed/${product.id}/48/48`}
-                          width="48"
-                        />
-                      </TableCell>
-                      <TableCell className="font-medium">{product.name}</TableCell>
-                      <TableCell>{product.sku}</TableCell>
-                      <TableCell>{formatCurrency(product.price)}</TableCell>
-                      <TableCell>{product.stock}</TableCell>
-                      <TableCell>
-                        <Badge variant={status.variant} className={status.className}>{status.text}</Badge>
-                      </TableCell>
-                      <TableCell>{product.supplier || 'N/A'}</TableCell>
-                       <TableCell>{formatDate(product.lastUpdated)}</TableCell>
-                      <TableCell>
-                        <DropdownMenu>
-                          <DropdownMenuTrigger asChild>
-                            <Button aria-haspopup="true" size="icon" variant="ghost" onClick={(e) => e.stopPropagation()}>
-                              <MoreHorizontal className="h-4 w-4" />
-                              <span className="sr-only">Toggle menu</span>
-                            </Button>
-                          </DropdownMenuTrigger>
-                          <DropdownMenuContent align="end" onClick={(e) => e.stopPropagation()}>
-                            <DropdownMenuLabel>Actions</DropdownMenuLabel>
-                            <DropdownMenuItem onClick={() => handleEditClick(product)}>Edit</DropdownMenuItem>
-                            <DropdownMenuItem onClick={() => handleDeleteClick(product.id)} className="text-destructive">Delete</DropdownMenuItem>
-                          </DropdownMenuContent>
-                        </DropdownMenu>
-                      </TableCell>
-                    </TableRow>
-                  )
-                })
-              )}
-            </TableBody>
-          </Table>
+                </TableHeader>
+                <TableBody>
+                  {loading ? (
+                    Array.from({ length: 5 }).map((_, i) => (
+                      <TableRow key={i}>
+                        <TableCell><Skeleton className="h-12 w-12 rounded-md" /></TableCell>
+                        <TableCell><Skeleton className="h-4 w-48" /></TableCell>
+                        <TableCell><Skeleton className="h-4 w-24" /></TableCell>
+                        <TableCell><Skeleton className="h-4 w-16" /></TableCell>
+                        <TableCell><Skeleton className="h-4 w-12" /></TableCell>
+                        <TableCell><Skeleton className="h-6 w-24 rounded-full" /></TableCell>
+                        <TableCell><Skeleton className="h-4 w-24" /></TableCell>
+                        <TableCell><Skeleton className="h-4 w-32" /></TableCell>
+                        <TableCell><Skeleton className="h-8 w-8" /></TableCell>
+                      </TableRow>
+                    ))
+                  ) : (
+                    filteredProducts.map((product) => {
+                      const status = getStatus(product);
+                      return (
+                        <TableRow key={product.id}>
+                          <TableCell>
+                            <Image
+                              alt={product.name}
+                              className="aspect-square rounded-md object-cover"
+                              height="48"
+                              src={product.photoURL || `https://picsum.photos/seed/${product.id}/48/48`}
+                              width="48"
+                            />
+                          </TableCell>
+                          <TableCell className="font-medium">{product.name}</TableCell>
+                          <TableCell>{product.sku}</TableCell>
+                          <TableCell>{formatCurrency(product.price)}</TableCell>
+                          <TableCell>{product.stock}</TableCell>
+                          <TableCell>
+                            <Badge variant={status.variant} className={status.className}>{status.text}</Badge>
+                          </TableCell>
+                          <TableCell>{product.supplier || 'N/A'}</TableCell>
+                           <TableCell>{formatDate(product.lastUpdated)}</TableCell>
+                          <TableCell>
+                            <DropdownMenu>
+                              <DropdownMenuTrigger asChild>
+                                <Button aria-haspopup="true" size="icon" variant="ghost" onClick={(e) => e.stopPropagation()}>
+                                  <MoreHorizontal />
+                                  <span className="sr-only">Toggle menu</span>
+                                </Button>
+                              </DropdownMenuTrigger>
+                              <DropdownMenuContent align="end" onClick={(e) => e.stopPropagation()}>
+                                <DropdownMenuLabel>Actions</DropdownMenuLabel>
+                                <DropdownMenuItem onClick={() => handleEditClick(product)}>Edit</DropdownMenuItem>
+                                <DropdownMenuItem onClick={() => handleDeleteClick(product.id)} className="text-destructive">Delete</DropdownMenuItem>
+                              </DropdownMenuContent>
+                            </DropdownMenu>
+                          </TableCell>
+                        </TableRow>
+                      )
+                    })
+                  )}
+                </TableBody>
+              </Table>
+            </div>
+            <div className="grid gap-4 md:hidden">
+                 {loading ? (
+                    Array.from({ length: 5 }).map((_, i) => (
+                        <Card key={i}>
+                            <CardHeader>
+                                 <div className="flex items-center gap-4">
+                                    <Skeleton className="h-12 w-12 rounded-md" />
+                                    <div className="flex-1 space-y-2">
+                                        <Skeleton className="h-5 w-3/4" />
+                                        <Skeleton className="h-4 w-1/4" />
+                                    </div>
+                                </div>
+                            </CardHeader>
+                            <CardContent className="space-y-2">
+                                <Skeleton className="h-4 w-full" />
+                                <Skeleton className="h-4 w-full" />
+                            </CardContent>
+                        </Card>
+                    ))
+                ) : (
+                    filteredProducts.map((product) => {
+                        const status = getStatus(product);
+                        return (
+                            <Card key={product.id}>
+                                <CardHeader className="flex flex-row items-center justify-between">
+                                    <div className="flex items-center gap-4">
+                                        <Image
+                                          alt={product.name}
+                                          className="aspect-square rounded-md object-cover"
+                                          height="48"
+                                          src={product.photoURL || `https://picsum.photos/seed/${product.id}/48/48`}
+                                          width="48"
+                                        />
+                                        <div>
+                                            <CardTitle className="text-base">{product.name}</CardTitle>
+                                            <CardDescription>{product.sku}</CardDescription>
+                                        </div>
+                                    </div>
+                                    <DropdownMenu>
+                                        <DropdownMenuTrigger asChild>
+                                            <Button size="icon" variant="ghost"><MoreHorizontal /></Button>
+                                        </DropdownMenuTrigger>
+                                        <DropdownMenuContent>
+                                            <DropdownMenuLabel>Actions</DropdownMenuLabel>
+                                            <DropdownMenuItem onClick={() => handleEditClick(product)}>Edit</DropdownMenuItem>
+                                            <DropdownMenuItem onClick={() => handleDeleteClick(product.id)} className="text-destructive">Delete</DropdownMenuItem>
+                                        </DropdownMenuContent>
+                                    </DropdownMenu>
+                                </CardHeader>
+                                <CardContent className="grid grid-cols-2 gap-4 text-sm">
+                                    <div>
+                                        <p className="font-medium">Price</p>
+                                        <p>{formatCurrency(product.price)}</p>
+                                    </div>
+                                     <div>
+                                        <p className="font-medium">Stock</p>
+                                        <p>{product.stock}</p>
+                                    </div>
+                                    <div>
+                                        <p className="font-medium">Status</p>
+                                        <p><Badge variant={status.variant} className={status.className}>{status.text}</Badge></p>
+                                    </div>
+                                    <div>
+                                        <p className="font-medium">Supplier</p>
+                                        <p>{product.supplier || 'N/A'}</p>
+                                    </div>
+                                </CardContent>
+                                <CardFooter className="text-xs text-muted-foreground">
+                                    Last Updated: {formatDate(product.lastUpdated)}
+                                </CardFooter>
+                            </Card>
+                        )
+                    })
+                )}
+            </div>
         </CardContent>
       </Card>
       
@@ -594,7 +671,7 @@ export default function InventoryPage() {
                               <AvatarImage src={undefined} alt="Product preview" />
                           )}
                           <AvatarFallback className="rounded-md">
-                              {editForm.getValues('name')?.[0]?.toUpperCase() || <Package className="h-8 w-8 text-muted-foreground" />}
+                              {editForm.getValues('name')?.[0]?.toUpperCase() || <Package />}
                           </AvatarFallback>
                       </Avatar>
                   </div>
@@ -620,7 +697,7 @@ export default function InventoryPage() {
                   }}/>
                   {editForm.formState.errors.name && <p className="text-sm text-destructive">{editForm.formState.errors.name.message}</p>}
                 </div>
-                <div className="grid grid-cols-2 gap-4">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <div className="space-y-2">
                     <Label htmlFor="edit-sku">SKU</Label>
                     <Input id="edit-sku" {...editForm.register("sku")} disabled />
@@ -635,7 +712,7 @@ export default function InventoryPage() {
                     {editForm.formState.errors.price && <p className="text-sm text-destructive">{editForm.formState.errors.price.message}</p>}
                   </div>
                 </div>
-                <div className="grid grid-cols-2 gap-4">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <div className="space-y-2">
                     <Label htmlFor="edit-stock">Stock</Label>
                     <Input id="edit-stock" type="number" {...editForm.register("stock")} />
@@ -647,14 +724,14 @@ export default function InventoryPage() {
                     {editForm.formState.errors.reorderLimit && <p className="text-sm text-destructive">{editForm.formState.errors.reorderLimit.message}</p>}
                   </div>
                 </div>
-                <div className="grid grid-cols-2 gap-4">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                     <div className="space-y-2">
                         <Label htmlFor="edit-maxStockLevel">Max Stock Level</Label>
                         <Input id="edit-maxStockLevel" type="number" {...editForm.register("maxStockLevel")} />
                         {editForm.formState.errors.maxStockLevel && <p className="text-sm text-destructive">{editForm.formState.errors.maxStockLevel.message}</p>}
                     </div>
                 </div>
-                <div className="grid grid-cols-2 gap-4">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                     <div className="space-y-2">
                       <Label htmlFor="edit-location">Location</Label>
                       <Input id="edit-location" {...editForm.register("location")} />

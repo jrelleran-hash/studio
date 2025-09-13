@@ -11,7 +11,7 @@ import { Timestamp } from "firebase/firestore";
 import { format } from "date-fns";
 
 import { Button, buttonVariants } from "@/components/ui/button";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import {
   DropdownMenu,
@@ -206,19 +206,19 @@ export default function ClientsPage() {
   return (
     <>
     <Card>
-      <CardHeader className="flex flex-row items-start justify-between">
+      <CardHeader className="flex flex-col md:flex-row md:items-start md:justify-between">
         <div>
           <CardTitle>Clients</CardTitle>
           <CardDescription>Manage your client database.</CardDescription>
         </div>
-        <div className="flex gap-2">
+        <div className="flex gap-2 mt-4 md:mt-0">
           <Dialog open={isAddDialogOpen} onOpenChange={(isOpen) => {
             setIsAddDialogOpen(isOpen);
             if(!isOpen) form.reset();
           }}>
             <DialogTrigger asChild>
-              <Button size="sm" className="gap-1">
-                <PlusCircle className="h-4 w-4" />
+              <Button size="sm" className="gap-1 w-full md:w-auto">
+                <PlusCircle />
                 Add Client
               </Button>
             </DialogTrigger>
@@ -280,59 +280,107 @@ export default function ClientsPage() {
         </div>
       </CardHeader>
       <CardContent>
-        <Table>
-          <TableHeader>
-            <TableRow>
-              <TableHead>Client Name</TableHead>
-              <TableHead>Project Name</TableHead>
-              <TableHead>BOQ Number</TableHead>
-              <TableHead>Address</TableHead>
-              <TableHead>Date Added</TableHead>
-              <TableHead>
-                <span className="sr-only">Actions</span>
-              </TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
+        <div className="hidden md:block">
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Client Name</TableHead>
+                  <TableHead>Project Name</TableHead>
+                  <TableHead>BOQ Number</TableHead>
+                  <TableHead>Address</TableHead>
+                  <TableHead>Date Added</TableHead>
+                  <TableHead>
+                    <span className="sr-only">Actions</span>
+                  </TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {loading ? (
+                  Array.from({ length: 8 }).map((_, i) => (
+                    <TableRow key={i}>
+                      <TableCell><Skeleton className="h-4 w-48" /></TableCell>
+                      <TableCell><Skeleton className="h-4 w-32" /></TableCell>
+                      <TableCell><Skeleton className="h-4 w-24" /></TableCell>
+                      <TableCell><Skeleton className="h-4 w-48" /></TableCell>
+                      <TableCell><Skeleton className="h-4 w-24" /></TableCell>
+                      <TableCell><Skeleton className="h-8 w-8" /></TableCell>
+                    </TableRow>
+                  ))
+                ) : (
+                  clients.map((client) => (
+                    <TableRow key={client.id}>
+                      <TableCell className="font-medium">{client.clientName}</TableCell>
+                      <TableCell>{client.projectName}</TableCell>
+                      <TableCell>{client.boqNumber}</TableCell>
+                      <TableCell>{client.address}</TableCell>
+                      <TableCell>{formatDate(client.createdAt)}</TableCell>
+                      <TableCell>
+                        <DropdownMenu>
+                          <DropdownMenuTrigger asChild>
+                            <Button aria-haspopup="true" size="icon" variant="ghost" onClick={(e) => e.stopPropagation()}>
+                              <MoreHorizontal />
+                              <span className="sr-only">Toggle menu</span>
+                            </Button>
+                          </DropdownMenuTrigger>
+                          <DropdownMenuContent align="end" onClick={(e) => e.stopPropagation()}>
+                            <DropdownMenuLabel>Actions</DropdownMenuLabel>
+                            <DropdownMenuItem onClick={() => handleEditClick(client)}>Edit</DropdownMenuItem>
+                            <DropdownMenuItem onClick={() => handleDeleteClick(client.id)} className="text-destructive">Delete</DropdownMenuItem>
+                          </DropdownMenuContent>
+                        </DropdownMenu>
+                      </TableCell>
+                    </TableRow>
+                  ))
+                )}
+              </TableBody>
+            </Table>
+        </div>
+        <div className="grid gap-4 md:hidden">
             {loading ? (
-              Array.from({ length: 8 }).map((_, i) => (
-                <TableRow key={i}>
-                  <TableCell><Skeleton className="h-4 w-48" /></TableCell>
-                  <TableCell><Skeleton className="h-4 w-32" /></TableCell>
-                  <TableCell><Skeleton className="h-4 w-24" /></TableCell>
-                  <TableCell><Skeleton className="h-4 w-48" /></TableCell>
-                  <TableCell><Skeleton className="h-4 w-24" /></TableCell>
-                  <TableCell><Skeleton className="h-8 w-8" /></TableCell>
-                </TableRow>
-              ))
+                Array.from({ length: 5 }).map((_, i) => (
+                    <Card key={i}>
+                    <CardHeader>
+                        <Skeleton className="h-5 w-3/4" />
+                        <Skeleton className="h-4 w-1/2" />
+                    </CardHeader>
+                    <CardContent className="space-y-2">
+                        <Skeleton className="h-4 w-full" />
+                        <Skeleton className="h-4 w-full" />
+                    </CardContent>
+                    </Card>
+                ))
             ) : (
-              clients.map((client) => (
-                <TableRow key={client.id} onClick={() => handleEditClick(client)} className="cursor-pointer">
-                  <TableCell className="font-medium">{client.clientName}</TableCell>
-                  <TableCell>{client.projectName}</TableCell>
-                  <TableCell>{client.boqNumber}</TableCell>
-                  <TableCell>{client.address}</TableCell>
-                  <TableCell>{formatDate(client.createdAt)}</TableCell>
-                  <TableCell>
-                    <DropdownMenu>
-                      <DropdownMenuTrigger asChild>
-                        <Button aria-haspopup="true" size="icon" variant="ghost" onClick={(e) => e.stopPropagation()}>
-                          <MoreHorizontal className="h-4 w-4" />
-                          <span className="sr-only">Toggle menu</span>
-                        </Button>
-                      </DropdownMenuTrigger>
-                      <DropdownMenuContent align="end" onClick={(e) => e.stopPropagation()}>
-                        <DropdownMenuLabel>Actions</DropdownMenuLabel>
-                        <DropdownMenuItem onClick={() => handleEditClick(client)}>Edit</DropdownMenuItem>
-                        <DropdownMenuItem onClick={() => handleDeleteClick(client.id)} className="text-destructive">Delete</DropdownMenuItem>
-                      </DropdownMenuContent>
-                    </DropdownMenu>
-                  </TableCell>
-                </TableRow>
-              ))
+                clients.map((client) => (
+                    <Card key={client.id} className="w-full">
+                        <CardHeader className="flex flex-row justify-between items-start">
+                            <div>
+                                <CardTitle className="text-base">{client.clientName}</CardTitle>
+                                <CardDescription>{client.projectName}</CardDescription>
+                            </div>
+                            <DropdownMenu>
+                                <DropdownMenuTrigger asChild>
+                                    <Button size="icon" variant="ghost">
+                                        <MoreHorizontal />
+                                    </Button>
+                                </DropdownMenuTrigger>
+                                <DropdownMenuContent align="end">
+                                    <DropdownMenuLabel>Actions</DropdownMenuLabel>
+                                    <DropdownMenuItem onClick={() => handleEditClick(client)}>Edit</DropdownMenuItem>
+                                    <DropdownMenuItem onClick={() => handleDeleteClick(client.id)} className="text-destructive">Delete</DropdownMenuItem>
+                                </DropdownMenuContent>
+                            </DropdownMenu>
+                        </CardHeader>
+                        <CardContent className="text-sm space-y-1">
+                             <p><span className="font-medium">BOQ:</span> {client.boqNumber}</p>
+                             <p><span className="font-medium">Address:</span> {client.address}</p>
+                        </CardContent>
+                        <CardFooter className="text-xs text-muted-foreground">
+                            Added on {formatDate(client.createdAt)}
+                        </CardFooter>
+                    </Card>
+                ))
             )}
-          </TableBody>
-        </Table>
+        </div>
       </CardContent>
     </Card>
       
