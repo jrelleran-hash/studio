@@ -55,8 +55,8 @@ const createProductSchema = (isSkuAuto: boolean) => z.object({
   sku: z.string().optional(),
   price: z.coerce.number().nonnegative("Price must be a non-negative number.").optional(),
   stock: z.coerce.number().int().nonnegative("Stock must be a non-negative integer.").optional(),
-  reorderLimit: z.coerce.number().int().nonnegative("Reorder limit must be a non-negative integer."),
-  maxStockLevel: z.coerce.number().int().nonnegative("Max stock must be a non-negative integer."),
+  reorderLimit: z.coerce.number().int().nonnegative("Reorder limit must be a non-negative integer.").optional(),
+  maxStockLevel: z.coerce.number().int().nonnegative("Max stock must be a non-negative integer.").optional(),
   location: z.string().optional(),
   supplier: z.string().optional(),
 }).refine(data => isSkuAuto || (data.sku && data.sku.length > 0), {
@@ -127,13 +127,13 @@ export function ActiveOrders() {
     name: "items",
   });
   
-  const watchedOrderItems = orderForm.watch('items');
+  const watchedOrderItems = orderForm.watch();
   const orderTotal = useMemo(() => {
-    return watchedOrderItems.reduce((total, item) => {
+    return watchedOrderItems.items?.reduce((total, item) => {
       const product = products.find(p => p.id === item.productId);
       return total + (product ? product.price * (item.quantity || 0) : 0);
     }, 0);
-  }, [watchedOrderItems, products, orderForm.watch()]);
+  }, [watchedOrderItems, products]);
 
 
    const productForm = useForm<ProductFormValues>({
@@ -399,9 +399,9 @@ export function ActiveOrders() {
                 </div>
                 <div className="space-y-2">
                   {fields.map((field, index) => {
-                     const selectedProductId = watchedOrderItems?.[index]?.productId;
+                     const selectedProductId = orderForm.watch(`items.${index}.productId`);
                      const selectedProduct = products.find(p => p.id === selectedProductId);
-                     const lineSubtotal = selectedProduct ? selectedProduct.price * (watchedOrderItems?.[index]?.quantity || 0) : 0;
+                     const lineSubtotal = selectedProduct ? selectedProduct.price * (orderForm.watch(`items.${index}.quantity`) || 0) : 0;
 
                     return (
                         <div key={field.id} className="space-y-2">
