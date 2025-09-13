@@ -301,7 +301,7 @@ export default function OrdersAndSuppliersPage() {
   const [poForPrint, setPoForPrint] = useState<PurchaseOrder | null>(null);
   const [isPreviewOpen, setIsPreviewOpen] = useState(false);
   
-  const transitionToSupplierDialog = useRef(false);
+  const onProductDialogClose = useRef<(() => void) | null>(null);
 
   // Data states
   const [autoGenerateSku, setAutoGenerateSku] = useState(true);
@@ -328,15 +328,17 @@ export default function OrdersAndSuppliersPage() {
   const productSchema = useMemo(() => createProductSchema(autoGenerateSku), [autoGenerateSku]);
   const outboundReturnSchema = useMemo(() => createOutboundReturnSchema(poForReturn), [poForReturn]);
 
-  const handleOpenAddSupplierFromProductDialog = () => {
+  const handleOpenAddSupplierFromProductDialog = useCallback(() => {
+    onProductDialogClose.current = () => {
+      setIsAddSupplierOpen(true);
+    };
     setIsAddProductOpen(false);
-    transitionToSupplierDialog.current = true;
-  };
+  }, []);
 
   useEffect(() => {
-    if (transitionToSupplierDialog.current && !isAddProductOpen) {
-      setIsAddSupplierOpen(true);
-      transitionToSupplierDialog.current = false;
+    if (!isAddProductOpen && onProductDialogClose.current) {
+      onProductDialogClose.current();
+      onProductDialogClose.current = null;
     }
   }, [isAddProductOpen]);
 
@@ -355,7 +357,7 @@ export default function OrdersAndSuppliersPage() {
     defaultValues: {
       supplierId: "",
       clientId: "",
-      items: [{ productId: "", quantity: 1 }],
+      items: [{ productId: "", quantity: 1, backorderId: "" }],
     }
   });
 
@@ -435,12 +437,21 @@ export default function OrdersAndSuppliersPage() {
 
 
   const purchaseQueue: Backorder[] = useMemo(() => {
-    // Add items that have hit their reorder limit and are not already queued for purchase
+    const productIdsInPOs = new Set(
+      purchaseOrders
+        .filter(po => po.status === 'Pending' || po.status === 'Shipped')
+        .flatMap(po => po.items.map(item => item.product.id))
+    );
+
     const reorderItems: Backorder[] = [];
     const backorderedProductIds = new Set(backorders.map(b => b.productId));
 
     products.forEach(product => {
-      if (product.stock <= product.reorderLimit && !backorderedProductIds.has(product.id)) {
+      if (
+        product.stock <= product.reorderLimit &&
+        !backorderedProductIds.has(product.id) &&
+        !productIdsInPOs.has(product.id)
+      ) {
         const reorderQty = (product.maxStockLevel || product.reorderLimit + 20) - product.stock;
         if (reorderQty > 0) {
             reorderItems.push({
@@ -451,7 +462,6 @@ export default function OrdersAndSuppliersPage() {
                 quantity: reorderQty,
                 date: Timestamp.now(),
                 status: 'Pending',
-                // Dummy refs, won't be used for reorders
                 orderRef: doc(db, 'orders', 'dummy'),
                 clientRef: doc(db, 'clients', 'dummy'),
                 productId: product.id,
@@ -460,9 +470,11 @@ export default function OrdersAndSuppliersPage() {
         }
       }
     });
+    
+    const filteredBackorders = backorders.filter(bo => !bo.purchaseOrderId);
 
-    return [...backorders, ...reorderItems];
-  }, [backorders, products]);
+    return [...filteredBackorders, ...reorderItems];
+  }, [backorders, products, purchaseOrders]);
 
   const selectedQueueItems = useMemo(() => {
     return purchaseQueue.filter(item => purchaseQueueSelection[item.id]);
@@ -2414,13 +2426,4 @@ export default function OrdersAndSuppliersPage() {
 
 
 
-
-
-
-
-
-
-
-
-
-
+    
