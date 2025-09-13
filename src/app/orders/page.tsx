@@ -2,11 +2,11 @@
 
 "use client";
 
-import { useState, useEffect, useMemo, useCallback } from "react";
+import { useState, useEffect, useMemo, useCallback, useRef } from "react";
 import { useForm, useFieldArray, Controller } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
-import { PlusCircle, MoreHorizontal, X, Plus, RefreshCcw, ChevronsUpDown, Check } from "lucide-react";
+import { PlusCircle, MoreHorizontal, X, Plus, RefreshCcw, ChevronsUpDown, Check, Printer } from "lucide-react";
 import { Timestamp, doc } from "firebase/firestore";
 import { format } from "date-fns";
 
@@ -60,6 +60,8 @@ import { validateEmailAction } from "./actions";
 import { Textarea } from "@/components/ui/textarea";
 import { db } from "@/lib/firebase";
 import { Separator } from "@/components/ui/separator";
+import React from 'react';
+import { CoreFlowLogo } from "@/components/icons";
 
 
 const statusVariant: { [key: string]: "default" | "secondary" | "destructive" | "outline" } = {
@@ -202,6 +204,81 @@ const toTitleCase = (str: string) => {
 };
 
 
+const PrintablePurchaseOrder = React.forwardRef<HTMLDivElement, { po: PurchaseOrder }>(({ po }, ref) => {
+  const total = po.items.reduce((acc, item) => acc + item.product.price * item.quantity, 0);
+  return (
+    <div ref={ref} className="printable-content p-8 bg-white text-black">
+      <div className="flex justify-between items-start mb-8 border-b pb-4">
+        <div>
+           <div className="flex items-center gap-2 mb-4">
+              <CoreFlowLogo className="h-8 w-8 text-black" />
+              <h1 className="text-3xl font-bold">Purchase Order</h1>
+           </div>
+           <p className="text-gray-600">PO Number: {po.poNumber}</p>
+        </div>
+        <div className="text-right">
+           <h2 className="text-lg font-semibold">CoreFlow Inc.</h2>
+           <p className="text-sm">123 Innovation Drive, Tech City</p>
+           <p className="text-sm">contact@coreflow.com</p>
+        </div>
+      </div>
+      <div className="grid grid-cols-2 gap-8 mb-8">
+        <div>
+          <h3 className="text-sm text-gray-500 uppercase tracking-wider mb-1">Vendor</h3>
+          <p className="font-bold">{po.supplier.name}</p>
+          <p>{po.supplier.address}</p>
+          <p>{po.supplier.contactPerson}</p>
+          <p>{po.supplier.email}</p>
+        </div>
+        <div className="text-right">
+          <h3 className="text-sm text-gray-500 uppercase tracking-wider mb-1">Details</h3>
+          <p><span className="font-semibold">Order Date:</span> {format(po.orderDate, 'PPP')}</p>
+          <p><span className="font-semibold">Expected Date:</span> {po.expectedDate ? format(po.expectedDate, 'PPP') : 'N/A'}</p>
+        </div>
+      </div>
+      
+      <h2 className="text-lg font-semibold mb-2">Items Ordered</h2>
+      <table className="w-full text-left table-auto border-collapse">
+        <thead>
+          <tr className="bg-gray-100">
+            <th className="p-2 border">#</th>
+            <th className="p-2 border">Product Name</th>
+            <th className="p-2 border">SKU</th>
+            <th className="p-2 border text-center">Quantity</th>
+            <th className="p-2 border text-right">Unit Price</th>
+            <th className="p-2 border text-right">Total</th>
+          </tr>
+        </thead>
+        <tbody>
+          {po.items.map((item, index) => (
+            <tr key={item.product.id}>
+              <td className="p-2 border">{index + 1}</td>
+              <td className="p-2 border">{item.product.name}</td>
+              <td className="p-2 border">{item.product.sku}</td>
+              <td className="p-2 border text-center">{item.quantity}</td>
+              <td className="p-2 border text-right">{formatCurrency(item.product.price)}</td>
+              <td className="p-2 border text-right">{formatCurrency(item.product.price * item.quantity)}</td>
+            </tr>
+          ))}
+        </tbody>
+        <tfoot>
+            <tr className="font-bold">
+                <td colSpan={5} className="p-2 border text-right">Grand Total</td>
+                <td className="p-2 border text-right bg-gray-100">{formatCurrency(total)}</td>
+            </tr>
+        </tfoot>
+      </table>
+
+      <div className="mt-24 pt-8 text-center text-xs text-gray-500">
+        <p>Thank you for your business!</p>
+        <p>Please include the PO number on all related correspondence and packaging.</p>
+      </div>
+    </div>
+  );
+});
+PrintablePurchaseOrder.displayName = "PrintablePurchaseOrder";
+
+
 export default function OrdersAndSuppliersPage() {
   const { orders, clients, products, suppliers, purchaseOrders, outboundReturns, loading, refetchData, backorders } = useData();
   const [activeTab, setActiveTab] = useState("orders");
@@ -222,6 +299,8 @@ export default function OrdersAndSuppliersPage() {
   const [isReordered, setIsReordered] = useState(false);
   const [purchaseQueueSelection, setPurchaseQueueSelection] = useState<{[key: string]: boolean}>({});
   const [poForReturn, setPoForReturn] = useState<PurchaseOrder | null>(null);
+  const [poForPrint, setPoForPrint] = useState<PurchaseOrder | null>(null);
+  const [isPreviewOpen, setIsPreviewOpen] = useState(false);
 
 
   // Data states
@@ -242,6 +321,9 @@ export default function OrdersAndSuppliersPage() {
   const [poClientPopover, setPoClientPopover] = useState(false);
   const [poProductPopovers, setPoProductPopovers] = useState<Record<number, boolean>>({});
   const [isSupplierPopoverOpen, setIsSupplierPopoverOpen] = useState(false);
+  
+  // Refs
+  const printableRef = useRef<HTMLDivElement>(null);
 
 
   const productSchema = useMemo(() => createProductSchema(autoGenerateSku), [autoGenerateSku]);
@@ -453,6 +535,14 @@ export default function OrdersAndSuppliersPage() {
       outboundReturnForm.reset();
     }
   }, [poForReturn, outboundReturnForm]);
+  
+   useEffect(() => {
+    if (isPreviewOpen) {
+        // Find the PO from the main list
+        const poToPrint = purchaseOrders.find(p => p.id === poForPrint?.id);
+        if(poToPrint) setPoForPrint(poToPrint);
+    }
+  }, [isPreviewOpen, poForPrint, purchaseOrders]);
 
 
   // Order handlers
@@ -810,6 +900,15 @@ export default function OrdersAndSuppliersPage() {
     }
     setPurchaseQueueSelection(newSelection);
   }
+
+  const triggerPreview = (po: PurchaseOrder) => {
+    setPoForPrint(po);
+    setIsPreviewOpen(true);
+  }
+
+  const handlePrint = () => {
+    window.print();
+  };
 
   const isAllQueueSelected = purchaseQueue.length > 0 && selectedQueueItems.length === purchaseQueue.length;
 
@@ -1644,6 +1743,10 @@ export default function OrdersAndSuppliersPage() {
                                     <DropdownMenuContent align="end" onClick={(e) => e.stopPropagation()}>
                                       <DropdownMenuLabel>Actions</DropdownMenuLabel>
                                       <DropdownMenuItem onClick={() => setSelectedPO(po)}>View Details</DropdownMenuItem>
+                                      <DropdownMenuItem onClick={() => triggerPreview(po)}>
+                                        <Printer className="mr-2" />
+                                        Print PO
+                                      </DropdownMenuItem>
                                       <DropdownMenuSeparator />
                                       {po.status === 'Pending' && (
                                           <DropdownMenuItem onClick={() => handlePOStatusChange(po.id, 'Shipped')}>
@@ -2218,8 +2321,12 @@ export default function OrdersAndSuppliersPage() {
                         </ul>
                     </div>
                 </div>
-                <DialogFooter>
+                 <DialogFooter>
                     <Button variant="outline" onClick={() => setSelectedPO(null)}>Close</Button>
+                    <Button onClick={() => triggerPreview(selectedPO)}>
+                        <Printer className="mr-2" />
+                        Preview & Print
+                    </Button>
                 </DialogFooter>
             </DialogContent>
         </Dialog>
@@ -2281,10 +2388,31 @@ export default function OrdersAndSuppliersPage() {
               </form>
         </DialogContent>
     </Dialog>
+    
+    <Dialog open={isPreviewOpen} onOpenChange={setIsPreviewOpen}>
+        <DialogContent className="max-w-4xl print-hidden">
+            <DialogHeader>
+                <DialogTitle>Print Preview</DialogTitle>
+                <DialogDescription>
+                    Review the purchase order before printing.
+                </DialogDescription>
+            </DialogHeader>
+            <div className="max-h-[70vh] overflow-y-auto border rounded-md my-4">
+                {poForPrint && <PrintablePurchaseOrder po={poForPrint} ref={printableRef} />}
+            </div>
+            <DialogFooter>
+                <Button variant="outline" onClick={() => setIsPreviewOpen(false)}>Cancel</Button>
+                <Button onClick={handlePrint}>
+                    <Printer className="mr-2" />
+                    Print
+                </Button>
+            </DialogFooter>
+        </DialogContent>
+    </Dialog>
+    
+    <div className="hidden print:block">
+      {poForPrint && <PrintablePurchaseOrder po={poForPrint} ref={printableRef} />}
+    </div>
     </>
   );
 }
-
-    
-
-    
