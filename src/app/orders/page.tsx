@@ -300,8 +300,8 @@ export default function OrdersAndSuppliersPage() {
   const [poForReturn, setPoForReturn] = useState<PurchaseOrder | null>(null);
   const [poForPrint, setPoForPrint] = useState<PurchaseOrder | null>(null);
   const [isPreviewOpen, setIsPreviewOpen] = useState(false);
-  const [onProductDialogClose, setOnProductDialogClose] = useState<(() => void) | null>(null);
-
+  
+  const transitionToSupplierDialog = useRef(false);
 
   // Data states
   const [autoGenerateSku, setAutoGenerateSku] = useState(true);
@@ -329,9 +329,16 @@ export default function OrdersAndSuppliersPage() {
   const outboundReturnSchema = useMemo(() => createOutboundReturnSchema(poForReturn), [poForReturn]);
 
   const handleOpenAddSupplierFromProductDialog = () => {
-    setOnProductDialogClose(() => () => setIsAddSupplierOpen(true));
     setIsAddProductOpen(false);
+    transitionToSupplierDialog.current = true;
   };
+
+  useEffect(() => {
+    if (transitionToSupplierDialog.current && !isAddProductOpen) {
+      setIsAddSupplierOpen(true);
+      transitionToSupplierDialog.current = false;
+    }
+  }, [isAddProductOpen]);
 
 
   // Forms
@@ -487,10 +494,6 @@ export default function OrdersAndSuppliersPage() {
     if(!isAddProductOpen) {
         productForm.reset();
         setAutoGenerateSku(true);
-        if (onProductDialogClose) {
-            onProductDialogClose();
-            setOnProductDialogClose(null);
-        }
     }
   }, [isAddProductOpen]);
 
@@ -2410,6 +2413,7 @@ export default function OrdersAndSuppliersPage() {
     </>
   );
 }
+
 
 
 
