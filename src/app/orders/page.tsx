@@ -2004,9 +2004,7 @@ export default function OrdersAndSuppliersPage() {
                                         <CommandInput placeholder="Search supplier..." />
                                         <CommandList>
                                             <CommandEmpty>
-                                                 <Button variant="ghost" className="w-full" onClick={handleOpenAddSupplierFromProductDialog}>
-                                                    Add new supplier
-                                                </Button>
+                                                 No supplier found.
                                             </CommandEmpty>
                                             <CommandGroup>
                                                 {suppliers.map(s => (
@@ -2413,6 +2411,7 @@ export default function OrdersAndSuppliersPage() {
     </>
   );
 }
+
 
 
 
