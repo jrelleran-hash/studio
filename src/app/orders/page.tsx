@@ -300,6 +300,7 @@ export default function OrdersAndSuppliersPage() {
   const [poForReturn, setPoForReturn] = useState<PurchaseOrder | null>(null);
   const [poForPrint, setPoForPrint] = useState<PurchaseOrder | null>(null);
   const [isPreviewOpen, setIsPreviewOpen] = useState(false);
+  const [onProductDialogClose, setOnProductDialogClose] = useState<(() => void) | null>(null);
 
 
   // Data states
@@ -329,7 +330,7 @@ export default function OrdersAndSuppliersPage() {
 
   const handleOpenAddSupplierFromProductDialog = () => {
     setIsAddProductOpen(false);
-    setIsAddSupplierOpen(true);
+    setOnProductDialogClose(() => () => setIsAddSupplierOpen(true));
   };
 
 
@@ -486,8 +487,12 @@ export default function OrdersAndSuppliersPage() {
     if(!isAddProductOpen) {
         productForm.reset();
         setAutoGenerateSku(true);
+        if (onProductDialogClose) {
+            onProductDialogClose();
+            setOnProductDialogClose(null);
+        }
     }
-  }, [isAddProductOpen, productForm]);
+  }, [isAddProductOpen, productForm, onProductDialogClose]);
 
   useEffect(() => {
     if (!isAddSupplierOpen) {
@@ -2405,6 +2410,7 @@ export default function OrdersAndSuppliersPage() {
     </>
   );
 }
+
 
 
 
