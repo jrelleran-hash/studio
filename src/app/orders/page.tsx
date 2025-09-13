@@ -329,8 +329,8 @@ export default function OrdersAndSuppliersPage() {
   const outboundReturnSchema = useMemo(() => createOutboundReturnSchema(poForReturn), [poForReturn]);
 
   const handleOpenAddSupplierFromProductDialog = () => {
-    setIsAddProductOpen(false);
     setOnProductDialogClose(() => () => setIsAddSupplierOpen(true));
+    setIsAddProductOpen(false);
   };
 
 
@@ -492,7 +492,7 @@ export default function OrdersAndSuppliersPage() {
             setOnProductDialogClose(null);
         }
     }
-  }, [isAddProductOpen, productForm, onProductDialogClose]);
+  }, [isAddProductOpen]);
 
   useEffect(() => {
     if (!isAddSupplierOpen) {
@@ -2410,6 +2410,7 @@ export default function OrdersAndSuppliersPage() {
     </>
   );
 }
+
 
 
 
