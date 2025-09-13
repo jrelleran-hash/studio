@@ -1989,7 +1989,13 @@ export default function OrdersAndSuppliersPage() {
                                         <CommandInput placeholder="Search supplier..." />
                                         <CommandList>
                                             <CommandEmpty>
-                                                 <Button variant="ghost" className="w-full" onClick={() => { setIsSupplierPopoverOpen(false); setIsAddProductOpen(false); setIsAddSupplierOpen(true); }}>
+                                                 <Button variant="ghost" className="w-full" onClick={() => {
+                                                    setIsSupplierPopoverOpen(false);
+                                                    setIsAddProductOpen(false);
+                                                    setTimeout(() => {
+                                                        setIsAddSupplierOpen(true);
+                                                    }, 150);
+                                                 }}>
                                                     Add new supplier
                                                 </Button>
                                             </CommandEmpty>
@@ -2398,5 +2404,6 @@ export default function OrdersAndSuppliersPage() {
     </>
   );
 }
+
 
 
