@@ -11,7 +11,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Button, buttonVariants } from "@/components/ui/button";
-import { getRecentOrders, addOrder, addProduct, updateOrderStatus, deleteOrder, addSupplier } from "@/services/data-service";
+import { addOrder, addProduct, updateOrderStatus, deleteOrder, addSupplier } from "@/services/data-service";
 import type { Order, Client, Product, Supplier } from "@/types";
 import { Skeleton } from "../ui/skeleton";
 import { formatCurrency } from "@/lib/currency";
@@ -87,9 +87,7 @@ const toTitleCase = (str: string) => {
 };
 
 export function ActiveOrders() {
-  const { clients, products, suppliers, refetchData } = useData();
-  const [orders, setOrders] = useState<Order[]>([]);
-  const [loading, setLoading] = useState(true);
+  const { orders, clients, products, suppliers, loading, refetchData } = useData();
   const [selectedOrder, setSelectedOrder] = useState<Order | null>(null);
 
   const [isAddOrderOpen, setIsAddOrderOpen] = useState(false);
@@ -105,6 +103,13 @@ export function ActiveOrders() {
   const [isClientPopoverOpen, setIsClientPopoverOpen] = useState(false);
   const [productPopovers, setProductPopovers] = useState<Record<number, boolean>>({});
   const [isSupplierPopoverOpen, setIsSupplierPopoverOpen] = useState(false);
+
+  const activeOrders = useMemo(() => {
+    const activeStatuses: Order['status'][] = ["Processing", "Awaiting Purchase", "Ready for Issuance"];
+    return orders
+        .filter(o => activeStatuses.includes(o.status))
+        .sort((a, b) => b.date.getTime() - a.date.getTime());
+  }, [orders]);
 
 
   const productSchema = useMemo(() => createProductSchema(autoGenerateSku), [autoGenerateSku]);
@@ -148,26 +153,6 @@ export function ActiveOrders() {
   const supplierForm = useForm<SupplierFormValues>({
     resolver: zodResolver(supplierSchema),
   });
-
-  const fetchLocalData = useCallback(async () => {
-    setLoading(true);
-    try {
-      const fetchedOrders = await getRecentOrders(5);
-      setOrders(fetchedOrders);
-    } catch (error) {
-       toast({
-        variant: "destructive",
-        title: "Error",
-        description: "Failed to fetch recent orders.",
-      });
-    } finally {
-      setLoading(false);
-    }
-  }, [toast]);
-  
-  useEffect(() => {
-    fetchLocalData();
-  }, [fetchLocalData]);
   
   useEffect(() => {
     if (!isAddProductOpen) {
@@ -214,10 +199,7 @@ export function ActiveOrders() {
       toast({ title: "Success", description: "New order created." });
       setIsAddOrderOpen(false);
       orderForm.reset();
-      setLoading(true);
-      await refetchData(); // refetch global data
-      await fetchLocalData(); // refetch local data
-      setLoading(false);
+      await refetchData(); 
     } catch (error) {
        console.error(error);
       toast({
@@ -272,7 +254,6 @@ export function ActiveOrders() {
       await updateOrderStatus(orderId, 'Cancelled');
       toast({ title: "Success", description: "Order has been cancelled." });
       await refetchData();
-      await fetchLocalData();
       setSelectedOrder(null);
     } catch (error) {
         console.error(error);
@@ -297,7 +278,6 @@ export function ActiveOrders() {
         await addOrder(reorderData);
         toast({ title: "Success", description: "Order has been re-created." });
         await refetchData();
-        await fetchLocalData();
         setSelectedOrder(null);
     } catch (error) {
         console.error(error);
@@ -320,7 +300,6 @@ export function ActiveOrders() {
       await deleteOrder(deletingOrderId);
       toast({ title: "Success", description: "Order deleted successfully." });
       await refetchData();
-      await fetchLocalData();
     } catch (error) {
       console.error(error);
       toast({
@@ -342,7 +321,7 @@ export function ActiveOrders() {
         <div>
           <CardTitle>Active Orders</CardTitle>
           <CardDescription>
-            A list of your store's most recent orders.
+            A list of all orders currently in progress.
           </CardDescription>
         </div>
         <Dialog open={isAddOrderOpen} onOpenChange={setIsAddOrderOpen}>
@@ -554,8 +533,8 @@ export function ActiveOrders() {
                   <TableCell className="text-right"><Skeleton className="h-4 w-16 ml-auto" /></TableCell>
                 </TableRow>
               ))
-            ) : (
-              orders.map((order) => (
+            ) : activeOrders.length > 0 ? (
+              activeOrders.map((order) => (
                 <TableRow key={order.id} className="cursor-pointer" onClick={() => setSelectedOrder(order)}>
                   <TableCell className="font-medium">{order.id.substring(0, 7)}</TableCell>
                   <TableCell>{order.client.clientName}</TableCell>
@@ -566,6 +545,12 @@ export function ActiveOrders() {
                   <TableCell className="text-right">{formatCurrency(order.total)}</TableCell>
                 </TableRow>
               ))
+            ) : (
+                 <TableRow>
+                    <TableCell colSpan={5} className="h-24 text-center">
+                        No active orders at the moment.
+                    </TableCell>
+                </TableRow>
             )}
           </TableBody>
         </Table>

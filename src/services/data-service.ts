@@ -165,46 +165,6 @@ export async function getLowStockProducts(): Promise<Product[]> {
     }
 }
 
-export async function getRecentOrders(count: number): Promise<Order[]> {
-    try {
-        const ordersCol = collection(db, "orders");
-        const q = query(ordersCol, orderBy("date", "desc"), limit(count));
-        const orderSnapshot = await getDocs(q);
-        
-        const orders: Order[] = await Promise.all(orderSnapshot.docs.map(async (orderDoc) => {
-            const orderData = orderDoc.data();
-            const client = await resolveDoc<Client>(orderData.clientRef);
-            if (!client) return null;
-            
-            const items = await Promise.all(orderData.items.map(async (item: any) => {
-                const product = await resolveDoc<Product>(item.productRef);
-                if (!product) return null;
-                return {
-                    quantity: item.quantity,
-                    price: item.price,
-                    product: product,
-                };
-            }));
-
-            if (items.some(i => i === null)) return null;
-            
-            return {
-                id: orderDoc.id,
-                ...orderData,
-                date: (orderData.date as Timestamp).toDate(),
-                client,
-                items: items as OrderItem[],
-            } as Order;
-        }));
-
-        return orders.filter(Boolean) as Order[];
-    } catch (error) {
-        console.error("Error fetching recent orders:", error);
-        return [];
-    }
-}
-
-
 export async function getProducts(): Promise<Product[]> {
     try {
         const productsCol = collection(db, "inventory");
@@ -1534,3 +1494,4 @@ export async function getBackorders(): Promise<Backorder[]> {
         return [];
     }
 }
+
