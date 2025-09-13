@@ -327,6 +327,11 @@ export default function OrdersAndSuppliersPage() {
   const productSchema = useMemo(() => createProductSchema(autoGenerateSku), [autoGenerateSku]);
   const outboundReturnSchema = useMemo(() => createOutboundReturnSchema(poForReturn), [poForReturn]);
 
+  const handleOpenAddSupplierFromProductDialog = () => {
+    setIsAddProductOpen(false);
+    setIsAddSupplierOpen(true);
+  };
+
 
   // Forms
   const orderForm = useForm<OrderFormValues>({
@@ -923,13 +928,7 @@ export default function OrdersAndSuppliersPage() {
     return null;
   };
 
-  const handleOpenAddSupplierFromProductDialog = () => {
-    setIsSupplierPopoverOpen(false);
-    setIsAddProductOpen(false); // Close current dialog
-    setTimeout(() => {
-        setIsAddSupplierOpen(true); // Open new dialog
-    }, 150); // Timeout to allow state to update gracefully
-  };
+
 
   return (
     <>
@@ -2406,6 +2405,7 @@ export default function OrdersAndSuppliersPage() {
     </>
   );
 }
+
 
 
 
