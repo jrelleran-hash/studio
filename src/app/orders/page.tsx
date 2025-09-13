@@ -311,7 +311,6 @@ export default function OrdersAndSuppliersPage() {
   const [poView, setPoView] = useState<'queue' | 'list'>('queue');
   const [emailValidation, setEmailValidation] = useState<{ isValid: boolean; reason?: string; error?: string } | null>(null);
   const [isEmailChecking, setIsEmailChecking] = useState(false);
-  const [emailValidationTimeout, setEmailValidationTimeout] = useState<NodeJS.Timeout | null>(null);
   
   // Popover states
   const [orderClientPopover, setOrderClientPopover] = useState(false);
@@ -419,7 +418,7 @@ export default function OrdersAndSuppliersPage() {
         const product = products.find(p => p.id === item.productId);
         return total + (product ? product.price * item.returnQuantity : 0);
     }, 0);
-  }, [watchedReturnItems, products, outboundReturnForm.watch()]);
+  }, [watchedReturnItems, products]);
 
 
   const purchaseQueue: Backorder[] = useMemo(() => {
@@ -503,10 +502,10 @@ export default function OrdersAndSuppliersPage() {
   useEffect(() => {
     if (editingSupplier) {
       editSupplierForm.reset(editingSupplier);
-    } else {
+    } else if (!isEditSupplierOpen) {
       editSupplierForm.reset();
     }
-  }, [editingSupplier, editSupplierForm]);
+  }, [editingSupplier, isEditSupplierOpen, editSupplierForm]);
   
   useEffect(() => {
     if (selectedOrder && selectedOrder.status === 'Cancelled') {
@@ -673,7 +672,7 @@ export default function OrdersAndSuppliersPage() {
         }
 
         setIsEmailChecking(true);
-        setEmailValidation(null);
+        setEmailValidation(null); // Clear previous validation
         const result = await validateEmailAction({ email });
         setIsEmailChecking(false);
 
@@ -682,15 +681,6 @@ export default function OrdersAndSuppliersPage() {
         } else {
             setEmailValidation(result);
         }
-    };
-
-    const handleEmailChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-        if (emailValidationTimeout) {
-            clearTimeout(emailValidationTimeout);
-        }
-        setEmailValidation(null);
-        const newTimeout = setTimeout(() => handleEmailBlur(e.target.value), 1000);
-        setEmailValidationTimeout(newTimeout);
     };
 
   const onAddSupplierSubmit = async (data: SupplierFormValues) => {
@@ -1340,7 +1330,7 @@ export default function OrdersAndSuppliersPage() {
                         })}
                         </div>
                         {poForm.formState.errors.items && <p className="text-sm text-destructive">{typeof poForm.formState.errors.items === 'object' && 'message' in poForm.formState.errors.items ? poForm.formState.errors.items.message : 'Please add at least one item.'}</p>}
-                        <Button type="button" variant="outline" size="sm" onClick={() => poAppend({ productId: "", quantity: 1 })}>
+                        <Button type="button" variant="outline" size="sm" onClick={() => poAppend({ productId: "", quantity: 1, backorderId: "" })}>
                         <PlusCircle className="mr-2" /> Add Item
                         </Button>
                     </div>
@@ -1402,8 +1392,10 @@ export default function OrdersAndSuppliersPage() {
                         id="email" 
                         type="email" 
                         {...supplierForm.register("email")}
+                        onBlur={(e) => handleEmailBlur(e.target.value)}
                     />
                     {supplierForm.formState.errors.email && <p className="text-sm text-destructive">{supplierForm.formState.errors.email.message}</p>}
+                     {renderEmailValidation()}
                 </div>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                     <div className="space-y-2">
@@ -2088,7 +2080,6 @@ export default function OrdersAndSuppliersPage() {
             setIsEditSupplierOpen(isOpen);
             if(!isOpen) {
                setEditingSupplier(null);
-               editSupplierForm.reset();
             }
         }}>
             <DialogContent className="sm:max-w-md">
@@ -2120,14 +2111,9 @@ export default function OrdersAndSuppliersPage() {
                     type="email" 
                     {...editSupplierForm.register("email")}
                     onBlur={(e) => handleEmailBlur(e.target.value)}
-                    onChange={(e) => {
-                        editSupplierForm.setValue("email", e.target.value);
-                        editSupplierForm.trigger("email");
-                        handleEmailChange(e);
-                    }}
                    />
                   {editSupplierForm.formState.errors.email && <p className="text-sm text-destructive">{editSupplierForm.formState.errors.email.message}</p>}
-                   {renderEmailValidation()}
+                  {renderEmailValidation()}
                 </div>
                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                     <div className="space-y-2">
@@ -2415,3 +2401,4 @@ export default function OrdersAndSuppliersPage() {
     </>
   );
 }
+
