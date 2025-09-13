@@ -921,7 +921,17 @@ export default function OrdersAndSuppliersPage() {
         return <p className={`text-xs ${emailValidation.isValid ? 'text-green-500' : 'text-destructive'}`}>{emailValidation.reason}</p>;
     }
     return null;
-};
+  };
+
+  const handleOpenAddSupplierFromProductDialog = useCallback(() => {
+    setIsSupplierPopoverOpen(false);
+    setIsAddProductOpen(false);
+    // Use a short timeout to ensure the product dialog has time to close
+    // before the supplier dialog opens, preventing state conflicts.
+    setTimeout(() => {
+        setIsAddSupplierOpen(true);
+    }, 150);
+  }, []);
 
   return (
     <>
@@ -1989,13 +1999,7 @@ export default function OrdersAndSuppliersPage() {
                                         <CommandInput placeholder="Search supplier..." />
                                         <CommandList>
                                             <CommandEmpty>
-                                                 <Button variant="ghost" className="w-full" onClick={() => {
-                                                    setIsSupplierPopoverOpen(false);
-                                                    setIsAddProductOpen(false);
-                                                    setTimeout(() => {
-                                                        setIsAddSupplierOpen(true);
-                                                    }, 150);
-                                                 }}>
+                                                 <Button variant="ghost" className="w-full" onClick={handleOpenAddSupplierFromProductDialog}>
                                                     Add new supplier
                                                 </Button>
                                             </CommandEmpty>
@@ -2404,6 +2408,7 @@ export default function OrdersAndSuppliersPage() {
     </>
   );
 }
+
 
 
 
