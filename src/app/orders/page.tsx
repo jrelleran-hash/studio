@@ -383,7 +383,7 @@ export default function OrdersAndSuppliersPage() {
     name: "items",
   });
   
-  const { fields: poFields, append: poAppend, remove: poRemove } = useFieldArray({
+  const { fields: poFields, append: poAppend, remove: poRemove, update: poUpdate } = useFieldArray({
     control: poForm.control,
     name: "items",
   });
@@ -470,7 +470,7 @@ export default function OrdersAndSuppliersPage() {
       poForm.reset({
         supplierId: "",
         clientId: "",
-        items: [{ productId: "", quantity: 1 }],
+        items: [{ productId: "", quantity: 1, backorderId: "" }],
       });
       // Clear selection after closing PO dialog
       setPurchaseQueueSelection({});
@@ -485,12 +485,15 @@ export default function OrdersAndSuppliersPage() {
   }, [isAddProductOpen, productForm]);
 
   useEffect(() => {
-    if (!isAddSupplierOpen && !isEditSupplierOpen) {
+    if (!isAddSupplierOpen) {
       supplierForm.reset();
-      editSupplierForm.reset();
-      setEmailValidation(null);
-      setIsEmailChecking(false);
+       setEmailValidation(null);
     }
+     if (!isEditSupplierOpen) {
+        editSupplierForm.reset();
+        setEmailValidation(null);
+        setEditingSupplier(null);
+     }
   }, [isAddSupplierOpen, isEditSupplierOpen, supplierForm, editSupplierForm]);
   
   useEffect(() => {
@@ -502,10 +505,8 @@ export default function OrdersAndSuppliersPage() {
   useEffect(() => {
     if (editingSupplier) {
       editSupplierForm.reset(editingSupplier);
-    } else if (!isEditSupplierOpen) {
-      editSupplierForm.reset();
     }
-  }, [editingSupplier, isEditSupplierOpen, editSupplierForm]);
+  }, [editingSupplier, editSupplierForm]);
   
   useEffect(() => {
     if (selectedOrder && selectedOrder.status === 'Cancelled') {
@@ -664,24 +665,24 @@ export default function OrdersAndSuppliersPage() {
   };
   
   // Supplier handlers
-    const handleEmailBlur = async (email: string) => {
-        const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-        if (!email || !emailRegex.test(email)) {
-            setEmailValidation(null);
-            return;
-        }
-
-        setIsEmailChecking(true);
-        setEmailValidation(null); // Clear previous validation
+  const handleEmailBlur = useCallback(async (email: string) => {
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!email || !emailRegex.test(email)) {
+        setEmailValidation(null);
+        return;
+    }
+    setIsEmailChecking(true);
+    setEmailValidation(null);
+    try {
         const result = await validateEmailAction({ email });
+        setEmailValidation(result);
+    } catch (error) {
+        console.error("Email validation error:", error);
+        setEmailValidation({ isValid: false, error: "Validation failed." });
+    } finally {
         setIsEmailChecking(false);
-
-        if (result.error) {
-            toast({ variant: 'destructive', title: 'Validation Error', description: result.error });
-        } else {
-            setEmailValidation(result);
-        }
-    };
+    }
+  }, []);
 
   const onAddSupplierSubmit = async (data: SupplierFormValues) => {
     try {
@@ -705,7 +706,6 @@ export default function OrdersAndSuppliersPage() {
       await updateSupplier(editingSupplier.id, data);
       toast({ title: "Success", description: "Supplier updated successfully." });
       setIsEditSupplierOpen(false);
-      setEditingSupplier(null);
       await refetchData();
     } catch (error) {
        console.error(error);
@@ -1987,7 +1987,7 @@ export default function OrdersAndSuppliersPage() {
                                         <CommandInput placeholder="Search supplier..." />
                                         <CommandList>
                                             <CommandEmpty>
-                                                 <Button variant="ghost" className="w-full" onClick={() => { setIsSupplierPopoverOpen(false); setIsAddSupplierOpen(true); }}>
+                                                 <Button variant="ghost" className="w-full" onClick={() => { setIsSupplierPopoverOpen(false); setIsAddProductOpen(false); setIsAddSupplierOpen(true); }}>
                                                     Add new supplier
                                                 </Button>
                                             </CommandEmpty>
@@ -2076,12 +2076,7 @@ export default function OrdersAndSuppliersPage() {
     )}
       
     {editingSupplier && (
-        <Dialog open={isEditSupplierOpen} onOpenChange={(isOpen) => {
-            setIsEditSupplierOpen(isOpen);
-            if(!isOpen) {
-               setEditingSupplier(null);
-            }
-        }}>
+        <Dialog open={isEditSupplierOpen} onOpenChange={setIsEditSupplierOpen}>
             <DialogContent className="sm:max-w-md">
               <DialogHeader>
                 <DialogTitle>Edit Supplier</DialogTitle>
@@ -2134,7 +2129,7 @@ export default function OrdersAndSuppliersPage() {
                 </div>
                 <DialogFooter>
                   <Button type="button" variant="outline" onClick={() => setIsEditSupplierOpen(false)}>Cancel</Button>
-                  <Button type="submit" disabled={editSupplierForm.formState.isSubmitting}>
+                  <Button type="submit" disabled={!editSupplierForm.formState.isValid || editSupplierForm.formState.isSubmitting}>
                     {editSupplierForm.formState.isSubmitting ? "Saving..." : "Save Changes"}
                   </Button>
                 </DialogFooter>
@@ -2401,4 +2396,5 @@ export default function OrdersAndSuppliersPage() {
     </>
   );
 }
+
 
