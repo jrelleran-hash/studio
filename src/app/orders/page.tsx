@@ -505,6 +505,8 @@ export default function OrdersAndSuppliersPage() {
   useEffect(() => {
     if (editingSupplier) {
       editSupplierForm.reset(editingSupplier);
+    } else {
+      editSupplierForm.reset();
     }
   }, [editingSupplier, editSupplierForm]);
   
