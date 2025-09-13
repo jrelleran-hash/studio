@@ -217,9 +217,8 @@ const PrintablePurchaseOrder = React.forwardRef<HTMLDivElement, { po: PurchaseOr
            <p className="text-gray-600">PO Number: {po.poNumber}</p>
         </div>
         <div className="text-right">
-           <h2 className="text-lg font-semibold">CoreFlow Inc.</h2>
-           <p className="text-sm">123 Innovation Drive, Tech City</p>
-           <p className="text-sm">contact@coreflow.com</p>
+           <h2 className="text-lg font-semibold">Modular Majestics</h2>
+           <p className="text-sm">27 Morning Glory St. San Isidro, Cainta City Rizal</p>
         </div>
       </div>
       <div className="grid grid-cols-2 gap-8 mb-8">
