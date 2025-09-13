@@ -923,15 +923,13 @@ export default function OrdersAndSuppliersPage() {
     return null;
   };
 
-  const handleOpenAddSupplierFromProductDialog = useCallback(() => {
+  const handleOpenAddSupplierFromProductDialog = () => {
     setIsSupplierPopoverOpen(false);
-    setIsAddProductOpen(false);
-    // Use a short timeout to ensure the product dialog has time to close
-    // before the supplier dialog opens, preventing state conflicts.
+    setIsAddProductOpen(false); // Close current dialog
     setTimeout(() => {
-        setIsAddSupplierOpen(true);
-    }, 150);
-  }, []);
+        setIsAddSupplierOpen(true); // Open new dialog
+    }, 150); // Timeout to allow state to update gracefully
+  };
 
   return (
     <>
@@ -2408,6 +2406,7 @@ export default function OrdersAndSuppliersPage() {
     </>
   );
 }
+
 
 
 
