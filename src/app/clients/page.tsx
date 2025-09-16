@@ -28,6 +28,7 @@ import {
   DialogHeader,
   DialogTitle,
   DialogTrigger,
+  DialogClose,
 } from "@/components/ui/dialog";
 import {
   AlertDialog,
@@ -269,7 +270,9 @@ export default function ClientsPage() {
                   {form.formState.errors.address && <p className="text-sm text-destructive">{form.formState.errors.address.message}</p>}
                 </div>
                 <DialogFooter>
-                  <Button type="button" variant="outline" onClick={() => setIsAddDialogOpen(false)}>Cancel</Button>
+                  <DialogClose asChild>
+                    <Button type="button" variant="outline">Cancel</Button>
+                  </DialogClose>
                   <Button type="submit" disabled={!form.formState.isValid || form.formState.isSubmitting}>
                     {form.formState.isSubmitting ? "Adding..." : "Add Client"}
                   </Button>
@@ -439,7 +442,9 @@ export default function ClientsPage() {
                   {editForm.formState.errors.address && <p className="text-sm text-destructive">{editForm.formState.errors.address.message}</p>}
                 </div>
                 <DialogFooter>
-                  <Button type="button" variant="outline" onClick={() => setIsEditDialogOpen(false)}>Cancel</Button>
+                  <DialogClose asChild>
+                    <Button type="button" variant="outline">Cancel</Button>
+                  </DialogClose>
                   <Button type="submit" disabled={!editForm.formState.isValid || editForm.formState.isSubmitting}>
                     {editForm.formState.isSubmitting ? "Saving..." : "Save Changes"}
                   </Button>

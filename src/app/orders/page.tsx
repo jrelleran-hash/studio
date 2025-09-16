@@ -29,6 +29,7 @@ import {
   DialogHeader,
   DialogTitle,
   DialogTrigger,
+  DialogClose,
 } from "@/components/ui/dialog";
  import {
   AlertDialog,
@@ -2396,7 +2397,9 @@ export default function OrdersAndSuppliersPage() {
                   {clientForm.formState.errors.address && <p className="text-sm text-destructive">{clientForm.formState.errors.address.message}</p>}
                 </div>
                 <DialogFooter>
-                  <Button type="button" variant="outline" onClick={() => setIsAddClientOpen(false)}>Cancel</Button>
+                  <DialogClose asChild>
+                    <Button type="button" variant="outline">Cancel</Button>
+                  </DialogClose>
                   <Button type="submit" disabled={clientForm.formState.isSubmitting}>
                     {clientForm.formState.isSubmitting ? "Adding..." : "Add Client"}
                   </Button>
