@@ -42,7 +42,7 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
+import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/componentsui/command";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
@@ -75,6 +75,9 @@ const statusVariant: { [key: string]: "default" | "secondary" | "destructive" | 
   Processing: "secondary",
   Delivered: "default",
   Completed: "default",
+  "PO Pending": "secondary",
+  "PO Shipped": "outline",
+  "PO Delivered": "outline",
 };
 
 const outboundReturnStatusVariant: { [key: string]: "default" | "secondary" | "destructive" | "outline" } = {
@@ -2112,151 +2115,216 @@ export default function OrdersAndSuppliersPage() {
       </Dialog>
     )}
       
-    {editingSupplier && (
-        <Dialog open={isEditSupplierOpen} onOpenChange={setIsEditSupplierOpen}>
-            <DialogContent className="sm:max-w-md">
-              <DialogHeader>
-                <DialogTitle>Edit Supplier</DialogTitle>
-                <DialogDescription>Update the details for {editingSupplier.name}.</DialogDescription>
-              </DialogHeader>
-              <form onSubmit={editSupplierForm.handleSubmit(onEditSupplierSubmit)} className="space-y-4">
+    <Dialog open={isEditSupplierOpen} onOpenChange={(isOpen) => {
+        setIsEditSupplierOpen(isOpen);
+        if (!isOpen) {
+            setEditingSupplier(null);
+            editSupplierForm.reset();
+        }
+    }}>
+        <DialogContent className="sm:max-w-md">
+            <DialogHeader>
+            <DialogTitle>Edit Supplier</DialogTitle>
+            {editingSupplier && <DialogDescription>Update the details for {editingSupplier.name}.</DialogDescription>}
+            </DialogHeader>
+            <form onSubmit={editSupplierForm.handleSubmit(onEditSupplierSubmit)} className="space-y-4">
+            <div className="space-y-2">
+                <Label htmlFor="edit-name">Supplier Name</Label>
+                <Input id="edit-name" {...editSupplierForm.register("name")} onChange={(e) => {
+                    const { value } = e.target;
+                    editSupplierForm.setValue("name", toTitleCase(value), { shouldValidate: true });
+                }} />
+                {editSupplierForm.formState.errors.name && <p className="text-sm text-destructive">{editSupplierForm.formState.errors.name.message}</p>}
+            </div>
+            <div className="space-y-2">
+                <Label htmlFor="edit-contactPerson">Contact Person</Label>
+                <Input id="edit-contactPerson" {...editSupplierForm.register("contactPerson")} onChange={(e) => {
+                    const { value } = e.target;
+                    editSupplierForm.setValue("contactPerson", toTitleCase(value), { shouldValidate: true });
+                }} />
+                {editSupplierForm.formState.errors.contactPerson && <p className="text-sm text-destructive">{editSupplierForm.formState.errors.contactPerson.message}</p>}
+            </div>
                 <div className="space-y-2">
-                  <Label htmlFor="edit-name">Supplier Name</Label>
-                  <Input id="edit-name" {...editSupplierForm.register("name")} onChange={(e) => {
-                      const { value } = e.target;
-                      editSupplierForm.setValue("name", toTitleCase(value), { shouldValidate: true });
-                  }} />
-                  {editSupplierForm.formState.errors.name && <p className="text-sm text-destructive">{editSupplierForm.formState.errors.name.message}</p>}
+                <Label htmlFor="edit-email">Email</Label>
+                <Input 
+                id="edit-email" 
+                type="email" 
+                {...editSupplierForm.register("email")}
+                onBlur={(e) => handleEmailBlur(e.target.value)}
+                />
+                {editSupplierForm.formState.errors.email && <p className="text-sm text-destructive">{editSupplierForm.formState.errors.email.message}</p>}
+                {renderEmailValidation()}
+            </div>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div className="space-y-2">
+                    <Label htmlFor="edit-phone">Phone</Label>
+                    <Input id="edit-phone" type="tel" {...editSupplierForm.register("phone")} />
+                    {editSupplierForm.formState.errors.phone && <p className="text-sm text-destructive">{editSupplierForm.formState.errors.phone.message}</p>}
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="edit-contactPerson">Contact Person</Label>
-                  <Input id="edit-contactPerson" {...editSupplierForm.register("contactPerson")} onChange={(e) => {
+                    <Label htmlFor="edit-cellphoneNumber">Cellphone #</Label>
+                    <Input id="edit-cellphoneNumber" type="tel" {...editSupplierForm.register("cellphoneNumber")} />
+                    {editSupplierForm.formState.errors.cellphoneNumber && <p className="text-sm text-destructive">{editSupplierForm.formState.errors.cellphoneNumber.message}</p>}
+                </div>
+            </div>
+            <div className="space-y-2">
+                <Label htmlFor="edit-address">Address</Label>
+                <Input id="edit-address" {...editSupplierForm.register("address")} />
+                {editSupplierForm.formState.errors.address && <p className="text-sm text-destructive">{editSupplierForm.formState.errors.address.message}</p>}
+            </div>
+            <DialogFooter>
+                <Button type="button" variant="outline" onClick={() => setIsEditSupplierOpen(false)}>Cancel</Button>
+                <Button type="submit" disabled={!editSupplierForm.formState.isValid || editSupplierForm.formState.isSubmitting}>
+                {editSupplierForm.formState.isSubmitting ? "Saving..." : "Save Changes"}
+                </Button>
+            </DialogFooter>
+            </form>
+        </DialogContent>
+        </Dialog>
+
+    <Dialog open={isAddClientOpen} onOpenChange={(isOpen) => {
+        setIsAddClientOpen(isOpen);
+        if(!isOpen) clientForm.reset();
+    }}>
+        <DialogContent className="sm:max-w-md">
+            <DialogHeader>
+                <DialogTitle>Add New Client</DialogTitle>
+                <DialogDescription>Fill in the details for the new client.</DialogDescription>
+            </DialogHeader>
+            <form onSubmit={clientForm.handleSubmit(onAddClientSubmit)} className="space-y-4">
+                <div className="space-y-2">
+                  <Label htmlFor="projectName-order">Project Name</Label>
+                  <Input 
+                    id="projectName-order" 
+                    {...clientForm.register("projectName")} 
+                    onChange={(e) => {
                       const { value } = e.target;
-                      editSupplierForm.setValue("contactPerson", toTitleCase(value), { shouldValidate: true });
-                  }} />
-                  {editSupplierForm.formState.errors.contactPerson && <p className="text-sm text-destructive">{editSupplierForm.formState.errors.contactPerson.message}</p>}
+                      clientForm.setValue("projectName", toTitleCase(value), { shouldValidate: true });
+                    }}
+                  />
+                  {clientForm.formState.errors.projectName && <p className="text-sm text-destructive">{clientForm.formState.errors.projectName.message}</p>}
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="clientName-order">Client Name</Label>
+                  <Input 
+                    id="clientName-order" 
+                    {...clientForm.register("clientName")} 
+                    onChange={(e) => {
+                      const { value } = e.target;
+                      clientForm.setValue("clientName", toTitleCase(value), { shouldValidate: true });
+                    }}
+                  />
+                  {clientForm.formState.errors.clientName && <p className="text-sm text-destructive">{clientForm.formState.errors.clientName.message}</p>}
                 </div>
                  <div className="space-y-2">
-                  <Label htmlFor="edit-email">Email</Label>
+                  <Label htmlFor="boqNumber-order">BOQ Number</Label>
                   <Input 
-                    id="edit-email" 
-                    type="email" 
-                    {...editSupplierForm.register("email")}
-                    onBlur={(e) => handleEmailBlur(e.target.value)}
-                   />
-                  {editSupplierForm.formState.errors.email && <p className="text-sm text-destructive">{editSupplierForm.formState.errors.email.message}</p>}
-                  {renderEmailValidation()}
-                </div>
-                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                    <div className="space-y-2">
-                        <Label htmlFor="edit-phone">Phone</Label>
-                        <Input id="edit-phone" type="tel" {...editSupplierForm.register("phone")} />
-                        {editSupplierForm.formState.errors.phone && <p className="text-sm text-destructive">{editSupplierForm.formState.errors.phone.message}</p>}
-                    </div>
-                    <div className="space-y-2">
-                        <Label htmlFor="edit-cellphoneNumber">Cellphone #</Label>
-                        <Input id="edit-cellphoneNumber" type="tel" {...editSupplierForm.register("cellphoneNumber")} />
-                        {editSupplierForm.formState.errors.cellphoneNumber && <p className="text-sm text-destructive">{editSupplierForm.formState.errors.cellphoneNumber.message}</p>}
-                    </div>
+                    id="boqNumber-order" 
+                    {...clientForm.register("boqNumber")}
+                  />
+                  {clientForm.formState.errors.boqNumber && <p className="text-sm text-destructive">{clientForm.formState.errors.boqNumber.message}</p>}
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="edit-address">Address</Label>
-                  <Input id="edit-address" {...editSupplierForm.register("address")} />
-                  {editSupplierForm.formState.errors.address && <p className="text-sm text-destructive">{editSupplierForm.formState.errors.address.message}</p>}
+                  <Label htmlFor="address-order">Address</Label>
+                  <Input 
+                    id="address-order" 
+                    {...clientForm.register("address")}
+                   />
+                  {clientForm.formState.errors.address && <p className="text-sm text-destructive">{clientForm.formState.errors.address.message}</p>}
                 </div>
                 <DialogFooter>
-                  <Button type="button" variant="outline" onClick={() => setIsEditSupplierOpen(false)}>Cancel</Button>
-                  <Button type="submit" disabled={!editSupplierForm.formState.isValid || editSupplierForm.formState.isSubmitting}>
-                    {editSupplierForm.formState.isSubmitting ? "Saving..." : "Save Changes"}
+                  <DialogClose asChild>
+                    <Button type="button" variant="outline">Cancel</Button>
+                  </DialogClose>
+                  <Button type="submit" disabled={clientForm.formState.isSubmitting}>
+                    {clientForm.formState.isSubmitting ? "Adding..." : "Add Client"}
                   </Button>
                 </DialogFooter>
               </form>
-            </DialogContent>
-          </Dialog>
-    )}
-
-    {poForReturn && (
-      <Dialog open={!!poForReturn} onOpenChange={(isOpen) => { if (!isOpen) setPoForReturn(null) }}>
-        <DialogContent className="sm:max-w-2xl">
-          <DialogHeader>
-              <DialogTitle>Return to Supplier</DialogTitle>
-              <DialogDescription>
-                  Create a return for items from PO #{poForReturn?.poNumber}.
-              </DialogDescription>
-          </DialogHeader>
-          <form onSubmit={outboundReturnForm.handleSubmit(onOutboundReturnSubmit)} className="space-y-4">
-              <div className="space-y-2">
-                  <Label htmlFor="reason">Reason for Return</Label>
-                  <Textarea id="reason" {...outboundReturnForm.register("reason")} placeholder="e.g., incorrect item, damaged goods, etc." />
-                  {outboundReturnForm.formState.errors.reason && <p className="text-sm text-destructive">{outboundReturnForm.formState.errors.reason.message}</p>}
-              </div>
-              
-              <div className="space-y-2">
-                  <Label>Items to Return</Label>
-                  <div className="border rounded-md max-h-60 overflow-y-auto">
-                      <Table>
-                          <TableHeader>
-                              <TableRow>
-                                  <TableHead className="w-12"></TableHead>
-                                  <TableHead>Product</TableHead>
-                                  <TableHead className="w-24 text-center">Received</TableHead>
-                                  <TableHead className="w-32">Return Qty</TableHead>
-                              </TableRow>
-                          </TableHeader>
-                          <TableBody>
-                              {outboundReturnFields.map((field, index) => (
-                                  <TableRow key={field.id}>
-                                      <TableCell>
-                                          <Controller
-                                              control={outboundReturnForm.control}
-                                              name={`items.${index}.selected`}
-                                              render={({ field: controllerField }) => (
-                                                  <Checkbox
-                                                      checked={controllerField.value}
-                                                      onCheckedChange={controllerField.onChange}
-                                                  />
-                                              )}
-                                          />
-                                      </TableCell>
-                                      <TableCell>
-                                          <p className="font-medium">{field.name}</p>
-                                          <p className="text-xs text-muted-foreground">{field.sku}</p>
-                                      </TableCell>
-                                      <TableCell className="text-center">{field.receivedQuantity}</TableCell>
-                                      <TableCell>
-                                          <Input 
-                                              type="number" 
-                                              {...outboundReturnForm.register(`items.${index}.returnQuantity`)}
-                                              disabled={!outboundReturnForm.watch(`items.${index}.selected`)}
-                                          />
-                                          {outboundReturnForm.formState.errors.items?.[index]?.returnQuantity && <p className="text-xs text-destructive mt-1">{outboundReturnForm.formState.errors.items?.[index]?.returnQuantity?.message}</p>}
-                                      </TableCell>
-                                  </TableRow>
-                              ))}
-                          </TableBody>
-                      </Table>
-                  </div>
-                  {outboundReturnForm.formState.errors.items && typeof outboundReturnForm.formState.errors.items !== 'object' && <p className="text-sm text-destructive">{outboundReturnForm.formState.errors.items.message}</p>}
-              </div>
-            <Separator />
-            <div className="flex justify-between items-center pr-4">
-                <div className="text-sm text-muted-foreground">Select items and quantities to return.</div>
-                <div className="flex items-center gap-4">
-                    <span className="font-semibold">Total Return Value:</span>
-                    <span className="font-bold text-lg">{formatCurrency(returnTotal)}</span>
-                </div>
-            </div>
-
-              <DialogFooter>
-                  <Button type="button" variant="outline" onClick={() => setPoForReturn(null)}>Cancel</Button>
-                  <Button type="submit" disabled={outboundReturnForm.formState.isSubmitting}>
-                      {outboundReturnForm.formState.isSubmitting ? "Initiating..." : "Initiate Return"}
-                  </Button>
-              </DialogFooter>
-          </form>
         </DialogContent>
-      </Dialog>
-    )}
+    </Dialog>
+
+
+    <Dialog open={!!poForReturn} onOpenChange={(isOpen) => { if (!isOpen) setPoForReturn(null) }}>
+      <DialogContent className="sm:max-w-2xl">
+        <DialogHeader>
+            <DialogTitle>Return to Supplier</DialogTitle>
+            <DialogDescription>
+                Create a return for items from PO #{poForReturn?.poNumber}.
+            </DialogDescription>
+        </DialogHeader>
+        <form onSubmit={outboundReturnForm.handleSubmit(onOutboundReturnSubmit)} className="space-y-4">
+            <div className="space-y-2">
+                <Label htmlFor="reason">Reason for Return</Label>
+                <Textarea id="reason" {...outboundReturnForm.register("reason")} placeholder="e.g., incorrect item, damaged goods, etc." />
+                {outboundReturnForm.formState.errors.reason && <p className="text-sm text-destructive">{outboundReturnForm.formState.errors.reason.message}</p>}
+            </div>
+            
+            <div className="space-y-2">
+                <Label>Items to Return</Label>
+                <div className="border rounded-md max-h-60 overflow-y-auto">
+                    <Table>
+                        <TableHeader>
+                            <TableRow>
+                                <TableHead className="w-12"></TableHead>
+                                <TableHead>Product</TableHead>
+                                <TableHead className="w-24 text-center">Received</TableHead>
+                                <TableHead className="w-32">Return Qty</TableHead>
+                            </TableRow>
+                        </TableHeader>
+                        <TableBody>
+                            {outboundReturnFields.map((field, index) => (
+                                <TableRow key={field.id}>
+                                    <TableCell>
+                                        <Controller
+                                            control={outboundReturnForm.control}
+                                            name={`items.${index}.selected`}
+                                            render={({ field: controllerField }) => (
+                                                <Checkbox
+                                                    checked={controllerField.value}
+                                                    onCheckedChange={controllerField.onChange}
+                                                />
+                                            )}
+                                        />
+                                    </TableCell>
+                                    <TableCell>
+                                        <p className="font-medium">{field.name}</p>
+                                        <p className="text-xs text-muted-foreground">{field.sku}</p>
+                                    </TableCell>
+                                    <TableCell className="text-center">{field.receivedQuantity}</TableCell>
+                                    <TableCell>
+                                        <Input 
+                                            type="number" 
+                                            {...outboundReturnForm.register(`items.${index}.returnQuantity`)}
+                                            disabled={!outboundReturnForm.watch(`items.${index}.selected`)}
+                                        />
+                                        {outboundReturnForm.formState.errors.items?.[index]?.returnQuantity && <p className="text-xs text-destructive mt-1">{outboundReturnForm.formState.errors.items?.[index]?.returnQuantity?.message}</p>}
+                                    </TableCell>
+                                </TableRow>
+                            ))}
+                        </TableBody>
+                    </Table>
+                </div>
+                {outboundReturnForm.formState.errors.items && typeof outboundReturnForm.formState.errors.items !== 'object' && <p className="text-sm text-destructive">{outboundReturnForm.formState.errors.items.message}</p>}
+            </div>
+          <Separator />
+          <div className="flex justify-between items-center pr-4">
+              <div className="text-sm text-muted-foreground">Select items and quantities to return.</div>
+              <div className="flex items-center gap-4">
+                  <span className="font-semibold">Total Return Value:</span>
+                  <span className="font-bold text-lg">{formatCurrency(returnTotal)}</span>
+              </div>
+          </div>
+
+            <DialogFooter>
+                <Button type="button" variant="outline" onClick={() => setPoForReturn(null)}>Cancel</Button>
+                <Button type="submit" disabled={outboundReturnForm.formState.isSubmitting}>
+                    {outboundReturnForm.formState.isSubmitting ? "Initiating..." : "Initiate Return"}
+                </Button>
+            </DialogFooter>
+        </form>
+      </DialogContent>
+    </Dialog>
     
     <AlertDialog open={isDeleteSupplierOpen} onOpenChange={setIsDeleteSupplierOpen}>
       <AlertDialogContent>
@@ -2348,65 +2416,6 @@ export default function OrdersAndSuppliersPage() {
             </DialogContent>
         </Dialog>
     )}
-    
-    <Dialog open={isAddClientOpen} onOpenChange={setIsAddClientOpen}>
-        <DialogContent className="sm:max-w-md">
-            <DialogHeader>
-                <DialogTitle>Add New Client</DialogTitle>
-                <DialogDescription>Fill in the details for the new client.</DialogDescription>
-            </DialogHeader>
-            <form onSubmit={clientForm.handleSubmit(onAddClientSubmit)} className="space-y-4">
-                <div className="space-y-2">
-                  <Label htmlFor="projectName-order">Project Name</Label>
-                  <Input 
-                    id="projectName-order" 
-                    {...clientForm.register("projectName")} 
-                    onChange={(e) => {
-                      const { value } = e.target;
-                      clientForm.setValue("projectName", toTitleCase(value), { shouldValidate: true });
-                    }}
-                  />
-                  {clientForm.formState.errors.projectName && <p className="text-sm text-destructive">{clientForm.formState.errors.projectName.message}</p>}
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="clientName-order">Client Name</Label>
-                  <Input 
-                    id="clientName-order" 
-                    {...clientForm.register("clientName")} 
-                    onChange={(e) => {
-                      const { value } = e.target;
-                      clientForm.setValue("clientName", toTitleCase(value), { shouldValidate: true });
-                    }}
-                  />
-                  {clientForm.formState.errors.clientName && <p className="text-sm text-destructive">{clientForm.formState.errors.clientName.message}</p>}
-                </div>
-                 <div className="space-y-2">
-                  <Label htmlFor="boqNumber-order">BOQ Number</Label>
-                  <Input 
-                    id="boqNumber-order" 
-                    {...clientForm.register("boqNumber")}
-                  />
-                  {clientForm.formState.errors.boqNumber && <p className="text-sm text-destructive">{clientForm.formState.errors.boqNumber.message}</p>}
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="address-order">Address</Label>
-                  <Input 
-                    id="address-order" 
-                    {...clientForm.register("address")}
-                   />
-                  {clientForm.formState.errors.address && <p className="text-sm text-destructive">{clientForm.formState.errors.address.message}</p>}
-                </div>
-                <DialogFooter>
-                  <DialogClose asChild>
-                    <Button type="button" variant="outline">Cancel</Button>
-                  </DialogClose>
-                  <Button type="submit" disabled={clientForm.formState.isSubmitting}>
-                    {clientForm.formState.isSubmitting ? "Adding..." : "Add Client"}
-                  </Button>
-                </DialogFooter>
-              </form>
-        </DialogContent>
-    </Dialog>
     
     <Dialog open={isPreviewOpen} onOpenChange={setIsPreviewOpen}>
         <DialogContent className="max-w-4xl print-hidden">

@@ -387,72 +387,70 @@ export default function ClientsPage() {
       </CardContent>
     </Card>
       
-    {editingClient && (
-        <Dialog open={isEditDialogOpen} onOpenChange={(isOpen) => {
-            setIsEditDialogOpen(isOpen);
-            if(!isOpen) {
-               setEditingClient(null);
-               editForm.reset();
-            }
-        }}>
-            <DialogContent className="sm:max-w-md">
-              <DialogHeader>
-                <DialogTitle>Edit Client</DialogTitle>
-                <DialogDescription>Update the details for {editingClient.clientName}.</DialogDescription>
-              </DialogHeader>
-              <form onSubmit={editForm.handleSubmit(onEditSubmit)} className="space-y-4">
+    <Dialog open={isEditDialogOpen} onOpenChange={(isOpen) => {
+        setIsEditDialogOpen(isOpen);
+        if(!isOpen) {
+            setEditingClient(null);
+            editForm.reset();
+        }
+    }}>
+        <DialogContent className="sm:max-w-md">
+            <DialogHeader>
+            <DialogTitle>Edit Client</DialogTitle>
+            {editingClient && <DialogDescription>Update the details for {editingClient.clientName}.</DialogDescription>}
+            </DialogHeader>
+            <form onSubmit={editForm.handleSubmit(onEditSubmit)} className="space-y-4">
+            <div className="space-y-2">
+                <Label htmlFor="edit-projectName">Project Name</Label>
+                <Input 
+                id="edit-projectName" 
+                {...editForm.register("projectName")} 
+                onChange={(e) => {
+                    const { value } = e.target;
+                    editForm.setValue("projectName", toTitleCase(value), { shouldValidate: true });
+                }}
+                />
+                {editForm.formState.errors.projectName && <p className="text-sm text-destructive">{editForm.formState.errors.projectName.message}</p>}
+            </div>
+            <div className="space-y-2">
+                <Label htmlFor="edit-clientName">Client Name</Label>
+                <Input 
+                id="edit-clientName" 
+                {...editForm.register("clientName")} 
+                onChange={(e) => {
+                    const { value } = e.target;
+                    editForm.setValue("clientName", toTitleCase(value), { shouldValidate: true });
+                }} 
+                />
+                {editForm.formState.errors.clientName && <p className="text-sm text-destructive">{editForm.formState.errors.clientName.message}</p>}
+            </div>
                 <div className="space-y-2">
-                  <Label htmlFor="edit-projectName">Project Name</Label>
-                  <Input 
-                    id="edit-projectName" 
-                    {...editForm.register("projectName")} 
-                    onChange={(e) => {
-                        const { value } = e.target;
-                        editForm.setValue("projectName", toTitleCase(value), { shouldValidate: true });
-                    }}
-                   />
-                  {editForm.formState.errors.projectName && <p className="text-sm text-destructive">{editForm.formState.errors.projectName.message}</p>}
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="edit-clientName">Client Name</Label>
-                  <Input 
-                    id="edit-clientName" 
-                    {...editForm.register("clientName")} 
-                    onChange={(e) => {
-                        const { value } = e.target;
-                        editForm.setValue("clientName", toTitleCase(value), { shouldValidate: true });
-                    }} 
-                  />
-                  {editForm.formState.errors.clientName && <p className="text-sm text-destructive">{editForm.formState.errors.clientName.message}</p>}
-                </div>
-                 <div className="space-y-2">
-                  <Label htmlFor="edit-boqNumber">BOQ Number</Label>
-                  <Input 
-                    id="edit-boqNumber" 
-                    {...editForm.register("boqNumber")}
-                  />
-                  {editForm.formState.errors.boqNumber && <p className="text-sm text-destructive">{editForm.formState.errors.boqNumber.message}</p>}
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="edit-address">Address</Label>
-                  <Input 
-                    id="edit-address" 
-                    {...editForm.register("address")}
-                  />
-                  {editForm.formState.errors.address && <p className="text-sm text-destructive">{editForm.formState.errors.address.message}</p>}
-                </div>
-                <DialogFooter>
-                  <DialogClose asChild>
-                    <Button type="button" variant="outline">Cancel</Button>
-                  </DialogClose>
-                  <Button type="submit" disabled={!editForm.formState.isValid || editForm.formState.isSubmitting}>
-                    {editForm.formState.isSubmitting ? "Saving..." : "Save Changes"}
-                  </Button>
-                </DialogFooter>
-              </form>
-            </DialogContent>
-          </Dialog>
-    )}
+                <Label htmlFor="edit-boqNumber">BOQ Number</Label>
+                <Input 
+                id="edit-boqNumber" 
+                {...editForm.register("boqNumber")}
+                />
+                {editForm.formState.errors.boqNumber && <p className="text-sm text-destructive">{editForm.formState.errors.boqNumber.message}</p>}
+            </div>
+            <div className="space-y-2">
+                <Label htmlFor="edit-address">Address</Label>
+                <Input 
+                id="edit-address" 
+                {...editForm.register("address")}
+                />
+                {editForm.formState.errors.address && <p className="text-sm text-destructive">{editForm.formState.errors.address.message}</p>}
+            </div>
+            <DialogFooter>
+                <DialogClose asChild>
+                <Button type="button" variant="outline">Cancel</Button>
+                </DialogClose>
+                <Button type="submit" disabled={!editForm.formState.isValid || editForm.formState.isSubmitting}>
+                {editForm.formState.isSubmitting ? "Saving..." : "Save Changes"}
+                </Button>
+            </DialogFooter>
+            </form>
+        </DialogContent>
+        </Dialog>
     
     <AlertDialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
       <AlertDialogContent>
