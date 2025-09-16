@@ -962,68 +962,35 @@ async function checkAndUpdateAwaitingOrders() {
 
 export async function updatePurchaseOrderStatus(poId: string, status: PurchaseOrder['status']): Promise<void> {
   const poRef = doc(db, "purchaseOrders", poId);
-  const now = Timestamp.now();
-
   try {
-    // Read all backorders associated with this PO first, outside the main transaction,
-    // to avoid mixing reads and writes if we were to query inside.
-    const backordersQuery = query(collection(db, "backorders"), where("purchaseOrderId", "==", poId), where("status", "==", "Pending"));
-    const backordersSnapshot = await getDocs(backordersQuery);
-    const backorderItemsMap = new Map<string, Backorder>();
-    backordersSnapshot.forEach(doc => {
-        const bo = doc.data() as Backorder;
-        backorderItemsMap.set(bo.productId, { id: doc.id, ...bo });
-    });
-
-    await runTransaction(db, async (transaction) => {
-      // READ operations first
-      const poDoc = await transaction.get(poRef);
+      const poDoc = await getDoc(poRef);
       if (!poDoc.exists()) throw new Error("Purchase Order not found.");
-      
-      const poData = poDoc.data();
-      if (poData.status === 'Received') {
-        return; // Already received, no action needed.
-      }
-      
-      if (status !== 'Received') {
-        // This is a simple status update, not a receiving action.
-        transaction.update(poRef, { status });
+      const poData = poDoc.data() as PurchaseOrder;
+
+      // Prevent re-processing
+      const terminalStatuses: PurchaseOrder['status'][] = ["Completed", "Cancelled"];
+      if (terminalStatuses.includes(poData.status)) {
+        console.warn(`PO ${poId} is already in a terminal state (${poData.status}).`);
         return;
       }
       
-      // --- All reads are done. Start WRITE operations for 'Received' status. ---
-      
-      // 1. Update PO status and date
-      transaction.update(poRef, { status: 'Received', receivedDate: now });
+      const payload: Partial<PurchaseOrder> = { status };
 
-      // 2. Update stock for each item in the PO
-      for (const item of poData.items) {
-        const productRef = item.productRef as DocumentReference;
-        const productDoc = await transaction.get(productRef); // This read is fine, it's for a different document
-        
-        if (productDoc.exists()) {
-          const productData = productDoc.data();
-          const newStock = productData.stock + item.quantity;
-          const newHistoryEntry = {
-            date: format(now.toDate(), 'yyyy-MM-dd'),
-            stock: newStock,
-            changeReason: `Received PO #${poData.poNumber}`,
-            dateUpdated: now,
-          };
-          transaction.update(productDoc.ref, { stock: newStock, lastUpdated: now, history: arrayUnion(newHistoryEntry) });
-
-          // 3. If the item was backordered, create an issuance and fulfill the backorder
-          const backorderedItem = backorderItemsMap.get(productRef.id);
-          if (backorderedItem) {
-             const issuanceItems = [{ productId: productRef.id, quantity: backorderedItem.quantity }];
-             // This function is transactional, but we're already in one. We pass the transaction.
-             await addIssuance({ clientId: backorderedItem.clientRef.id, items: issuanceItems, orderId: backorderedItem.orderId, issuedBy: "System (Auto)" }, transaction);
-             transaction.update(doc(db, 'backorders', backorderedItem.id), { status: 'Fulfilled' });
-          }
-        }
+      if(status === 'Delivered') {
+          payload.receivedDate = Timestamp.now().toDate();
       }
-    });
 
+      await updateDoc(poRef, payload);
+      
+      if(status === 'Delivered'){
+          await createNotification({
+            title: "PO Delivered",
+            description: `PO #${poData.poNumber} has been delivered.`,
+            details: `Purchase Order #${poData.poNumber} has been marked as delivered and is now awaiting quality control inspection.`,
+            href: `/quality-control`,
+            icon: "ClipboardCheck",
+        });
+      }
   } catch (error) {
     console.error("Error updating purchase order status:", error);
     throw new Error(`Failed to update purchase order status. ${(error as Error).message}`);
@@ -1356,6 +1323,65 @@ export async function completeInspection(returnId: string, inspectionItems: Insp
   }
 }
 
+type POInspectionItem = {
+    productId: string;
+    receivedQuantity: number;
+}
+
+export async function completePOInspection(poId: string, inspectionItems: POInspectionItem[]): Promise<void> {
+    const poRef = doc(db, "purchaseOrders", poId);
+
+    try {
+        await runTransaction(db, async (transaction) => {
+            const poDoc = await transaction.get(poRef);
+            if (!poDoc.exists()) throw new Error("Purchase order not found.");
+            if (poDoc.data().status !== 'Delivered') throw new Error("Can only inspect 'Delivered' purchase orders.");
+
+            const now = Timestamp.now();
+            const poData = poDoc.data();
+
+            for (const item of inspectionItems) {
+                if (item.receivedQuantity > 0) {
+                    const productRef = doc(db, "inventory", item.productId);
+                    const productDoc = await transaction.get(productRef);
+                    if (productDoc.exists()) {
+                        const productData = productDoc.data();
+                        const newStock = productData.stock + item.receivedQuantity;
+                        const newHistoryEntry = {
+                            date: format(now.toDate(), 'yyyy-MM-dd'),
+                            stock: newStock,
+                            changeReason: `Received PO #${poData.poNumber}`,
+                            dateUpdated: now,
+                        };
+                        transaction.update(productRef, {
+                            stock: newStock,
+                            lastUpdated: now,
+                            history: arrayUnion(newHistoryEntry)
+                        });
+                    }
+                }
+            }
+
+            transaction.update(poRef, { status: "Completed" });
+
+            await createNotification({
+                title: "PO Inspected & Stocked",
+                description: `PO #${poData.poNumber} items have been added to inventory.`,
+                details: `Items from Purchase Order #${poData.poNumber} have passed inspection and are now in stock.`,
+                href: "/inventory",
+                icon: "Package",
+            });
+        });
+
+        // After the main transaction, check if this fulfilled any backorders
+        await checkAndUpdateAwaitingOrders();
+
+    } catch (error) {
+        console.error("Error completing PO inspection:", error);
+        throw error;
+    }
+}
+
 
 export async function getOutboundReturns(): Promise<OutboundReturn[]> {
     try {
@@ -1502,4 +1528,5 @@ export async function getBackorders(): Promise<Backorder[]> {
         return [];
     }
 }
+
 

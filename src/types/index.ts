@@ -104,7 +104,7 @@ export interface PurchaseOrder {
     supplier: Supplier;
     client?: Client;
     items: PurchaseOrderItem[];
-    status: "Pending" | "Shipped" | "Received";
+    status: "Pending" | "Shipped" | "Delivered" | "Completed" | "Cancelled";
     orderDate: Date;
     expectedDate?: Date;
     receivedDate?: Date;

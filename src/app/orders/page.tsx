@@ -74,6 +74,8 @@ const statusVariant: { [key: string]: "default" | "secondary" | "destructive" | 
   Processing: "secondary",
   Received: "default",
   Pending: "secondary",
+  Delivered: "outline",
+  Completed: "default",
 };
 
 const outboundReturnStatusVariant: { [key: string]: "default" | "secondary" | "destructive" | "outline" } = {
@@ -1460,7 +1462,7 @@ export default function OrdersAndSuppliersPage() {
         <Card>
           <CardHeader>
             <CardTitle>All Orders</CardTitle>
-            <CardDescription>Manage all new and in-progress requisitions.</CardDescription>
+            <CardDescription>A complete history of all requisitions, new and old.</CardDescription>
           </CardHeader>
           <CardContent>
             <div className="hidden md:block">
@@ -1775,12 +1777,12 @@ export default function OrdersAndSuppliersPage() {
                                           </DropdownMenuItem>
                                       )}
                                       {po.status === 'Shipped' && (
-                                          <DropdownMenuItem onClick={() => handlePOStatusChange(po.id, 'Received')}>
-                                          Mark as Received
+                                          <DropdownMenuItem onClick={() => handlePOStatusChange(po.id, 'Delivered')}>
+                                          Mark as Delivered
                                           </DropdownMenuItem>
                                       )}
-                                      {po.status === 'Received' && <DropdownMenuItem disabled>Order Received</DropdownMenuItem>}
-                                      {po.status === 'Received' && (
+                                      {po.status === 'Delivered' && <DropdownMenuItem disabled>Awaiting Inspection</DropdownMenuItem>}
+                                      {po.status === 'Completed' && (
                                           <DropdownMenuItem onClick={() => setPoForReturn(po)}>
                                             <RefreshCcw className="mr-2" />
                                             Return Items
@@ -2430,3 +2432,4 @@ export default function OrdersAndSuppliersPage() {
     
 
     
+
