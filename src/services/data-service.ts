@@ -965,35 +965,41 @@ export async function updatePurchaseOrderStatus(poId: string, status: PurchaseOr
   const now = Timestamp.now();
 
   try {
+    // Read all backorders associated with this PO first, outside the main transaction,
+    // to avoid mixing reads and writes if we were to query inside.
+    const backordersQuery = query(collection(db, "backorders"), where("purchaseOrderId", "==", poId), where("status", "==", "Pending"));
+    const backordersSnapshot = await getDocs(backordersQuery);
+    const backorderItemsMap = new Map<string, Backorder>();
+    backordersSnapshot.forEach(doc => {
+        const bo = doc.data() as Backorder;
+        backorderItemsMap.set(bo.productId, { id: doc.id, ...bo });
+    });
+
     await runTransaction(db, async (transaction) => {
+      // READ operations first
       const poDoc = await transaction.get(poRef);
       if (!poDoc.exists()) throw new Error("Purchase Order not found.");
       
       const poData = poDoc.data();
       if (poData.status === 'Received') {
-        return; // Already received
+        return; // Already received, no action needed.
       }
       
       if (status !== 'Received') {
+        // This is a simple status update, not a receiving action.
         transaction.update(poRef, { status });
         return;
       }
       
-      // --- Handle 'Received' status ---
+      // --- All reads are done. Start WRITE operations for 'Received' status. ---
+      
+      // 1. Update PO status and date
       transaction.update(poRef, { status: 'Received', receivedDate: now });
 
-      const backordersQuery = query(collection(db, "backorders"), where("purchaseOrderId", "==", poId), where("status", "==", "Pending"));
-      const backordersSnapshot = await getDocs(backordersQuery);
-      
-      const backorderItemsMap = new Map<string, Backorder>();
-      backordersSnapshot.forEach(doc => {
-          const bo = doc.data() as Backorder;
-          backorderItemsMap.set(bo.productId, { id: doc.id, ...bo });
-      });
-
+      // 2. Update stock for each item in the PO
       for (const item of poData.items) {
         const productRef = item.productRef as DocumentReference;
-        const productDoc = await transaction.get(productRef);
+        const productDoc = await transaction.get(productRef); // This read is fine, it's for a different document
         
         if (productDoc.exists()) {
           const productData = productDoc.data();
@@ -1006,9 +1012,11 @@ export async function updatePurchaseOrderStatus(poId: string, status: PurchaseOr
           };
           transaction.update(productDoc.ref, { stock: newStock, lastUpdated: now, history: arrayUnion(newHistoryEntry) });
 
+          // 3. If the item was backordered, create an issuance and fulfill the backorder
           const backorderedItem = backorderItemsMap.get(productRef.id);
           if (backorderedItem) {
              const issuanceItems = [{ productId: productRef.id, quantity: backorderedItem.quantity }];
+             // This function is transactional, but we're already in one. We pass the transaction.
              await addIssuance({ clientId: backorderedItem.clientRef.id, items: issuanceItems, orderId: backorderedItem.orderId, issuedBy: "System (Auto)" }, transaction);
              transaction.update(doc(db, 'backorders', backorderedItem.id), { status: 'Fulfilled' });
           }
