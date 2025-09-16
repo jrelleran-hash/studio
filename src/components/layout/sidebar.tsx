@@ -25,8 +25,6 @@ const navItems = [
   { href: "/orders", label: "Procurement", icon: ShoppingCart },
   { href: "/clients", label: "Clients", icon: Users },
   { href: "/logistics", label: "Logistics", icon: Truck },
-  { href: "/returns", label: "Returns", icon: RefreshCcw },
-  { href: "/quality-control", label: "Quality Control", icon: ClipboardCheck },
   { href: "/analytics", label: "Analytics", icon: BarChart },
 ];
 
@@ -34,6 +32,12 @@ const inventoryNavItems = [
     { href: "/inventory", label: "Products", icon: Package },
     { href: "/issuance", label: "Issuance", icon: FileText },
 ];
+
+const assuranceNavItems = [
+    { href: "/returns", label: "Returns", icon: RefreshCcw },
+    { href: "/quality-control", label: "Quality Control", icon: ClipboardCheck },
+];
+
 
 interface SidebarLinkProps {
   href: string;
@@ -87,6 +91,12 @@ export function Sidebar({ className, inSheet }: { className?: string, inSheet?: 
             </div>
             {inventoryNavItems.map((item) => (
                <SidebarLink key={item.href} {...item} pathname={pathname} inSheet={inSheet} />
+            ))}
+            <div className="my-2">
+                <span className="px-3 text-xs font-semibold uppercase text-muted-foreground/70">Assurance</span>
+            </div>
+            {assuranceNavItems.map((item) => (
+                <SidebarLink key={item.href} {...item} pathname={pathname} inSheet={inSheet} />
             ))}
           </nav>
         </div>
