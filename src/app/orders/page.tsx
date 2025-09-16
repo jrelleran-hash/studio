@@ -437,20 +437,13 @@ export default function OrdersAndSuppliersPage() {
 
 
   const purchaseQueue: Backorder[] = useMemo(() => {
-    const productIdsInPOs = new Set(
-      purchaseOrders
-        .filter(po => po.status === 'Pending' || po.status === 'Shipped')
-        .flatMap(po => po.items.map(item => item.product.id))
-    );
-
     const reorderItems: Backorder[] = [];
     const backorderedProductIds = new Set(backorders.map(b => b.productId));
 
     products.forEach(product => {
       if (
         product.stock <= product.reorderLimit &&
-        !backorderedProductIds.has(product.id) &&
-        !productIdsInPOs.has(product.id)
+        !backorderedProductIds.has(product.id)
       ) {
         const reorderQty = (product.maxStockLevel || product.reorderLimit + 20) - product.stock;
         if (reorderQty > 0) {
@@ -470,16 +463,18 @@ export default function OrdersAndSuppliersPage() {
         }
       }
     });
-    
-    const filteredBackorders = backorders.filter(bo => !bo.purchaseOrderId);
 
-    return [...filteredBackorders, ...reorderItems];
+    return [...backorders, ...reorderItems];
   }, [backorders, products, purchaseOrders]);
 
   const selectedQueueItems = useMemo(() => {
     return purchaseQueue.filter(item => purchaseQueueSelection[item.id]);
   }, [purchaseQueue, purchaseQueueSelection]);
   
+  const orderBackorders = useMemo(() => {
+    if (!selectedOrder) return [];
+    return backorders.filter(bo => bo.orderId === selectedOrder.id);
+  }, [selectedOrder, backorders]);
   
   // Reset dialogs
   useEffect(() => {
@@ -888,20 +883,6 @@ export default function OrdersAndSuppliersPage() {
       supplierId: "",
       clientId: "",
       items: itemsForPO,
-    });
-    setIsAddPOOpen(true);
-  };
-  
-  const handleReorderFromQueue = (item: Backorder) => {
-    const itemForPO = {
-      productId: item.productId,
-      quantity: item.quantity,
-      backorderId: item.orderId !== 'REORDER' ? item.id : undefined,
-    };
-    poForm.reset({
-      supplierId: "",
-      clientId: "",
-      items: [itemForPO],
     });
     setIsAddPOOpen(true);
   };
@@ -1630,24 +1611,13 @@ export default function OrdersAndSuppliersPage() {
                                 </TableRow>
                             ))
                             ) : purchaseQueue.length > 0 ? (
-                            purchaseQueue.map((item) => {
-                                const po = item.purchaseOrderId ? purchaseOrders.find(p => p.id === item.purchaseOrderId) : null;
-                                let statusElement;
-
-                                if (po) {
-                                    statusElement = <Badge variant={statusVariant[po.status] || "default"}>PO {po.status}</Badge>;
-                                } else {
-                                    statusElement = <Button variant="outline" size="sm" className="h-6 px-2 font-mono" onClick={() => handleReorderFromQueue(item)}>Create PO</Button>
-                                }
-
-                                return (
+                            purchaseQueue.map((item) => (
                                 <TableRow key={item.id}>
                                     <TableCell>
                                         <Checkbox
                                             checked={purchaseQueueSelection[item.id] || false}
                                             onCheckedChange={(checked) => handleQueueSelectionChange(item.id, !!checked)}
                                             aria-label={`Select ${item.productName}`}
-                                            disabled={!!po}
                                         />
                                     </TableCell>
                                     <TableCell className="font-medium">{item.productName}</TableCell>
@@ -1660,11 +1630,10 @@ export default function OrdersAndSuppliersPage() {
                                         }
                                     </TableCell>
                                     <TableCell>
-                                        {statusElement}
+                                        <Badge variant="secondary">Awaiting Purchase</Badge>
                                     </TableCell>
                                 </TableRow>
-                                )
-                            })
+                            ))
                             ) : (
                             <TableRow>
                                     <TableCell colSpan={6} className="h-24 text-center">
@@ -1681,17 +1650,7 @@ export default function OrdersAndSuppliersPage() {
                                 <Card key={i}><CardHeader><Skeleton className="h-5 w-3/4" /></CardHeader><CardContent><Skeleton className="h-4 w-full" /></CardContent></Card>
                             ))
                         ) : purchaseQueue.length > 0 ? (
-                            purchaseQueue.map((item) => {
-                                const po = item.purchaseOrderId ? purchaseOrders.find(p => p.id === item.purchaseOrderId) : null;
-                                let statusElement;
-
-                                if (po) {
-                                    statusElement = <Badge variant={statusVariant[po.status] || "default"}>PO {po.status}</Badge>;
-                                } else {
-                                     statusElement = <Button variant="outline" size="sm" className="h-6 px-2 font-mono" onClick={() => handleReorderFromQueue(item)}>Create PO</Button>
-                                }
-                                
-                                return (
+                            purchaseQueue.map((item) => (
                                 <Card key={item.id}>
                                     <CardHeader>
                                         <div className="flex items-start justify-between">
@@ -1700,7 +1659,6 @@ export default function OrdersAndSuppliersPage() {
                                                     checked={purchaseQueueSelection[item.id] || false}
                                                     onCheckedChange={(checked) => handleQueueSelectionChange(item.id, !!checked)}
                                                     aria-label={`Select ${item.productName}`}
-                                                    disabled={!!po}
                                                 />
                                                 <div>
                                                     <CardTitle className="text-base">{item.productName}</CardTitle>
@@ -1719,11 +1677,10 @@ export default function OrdersAndSuppliersPage() {
                                         <p>Quantity Needed: <span className="font-bold">{item.quantity}</span></p>
                                     </CardContent>
                                     <CardFooter>
-                                        {statusElement}
+                                        <Badge variant="secondary">Awaiting Purchase</Badge>
                                     </CardFooter>
                                 </Card>
-                                )
-                            })
+                            ))
                         ) : (
                              <div className="text-sm text-muted-foreground text-center py-10">
                                 No items are currently awaiting purchase.
@@ -2084,27 +2041,48 @@ export default function OrdersAndSuppliersPage() {
 
     {selectedOrder && (
       <Dialog open={!!selectedOrder} onOpenChange={(open) => !open && setSelectedOrder(null)}>
-        <DialogContent>
+        <DialogContent className="sm:max-w-lg">
           <DialogHeader>
             <DialogTitle>Order Details: {selectedOrder.id.substring(0,7)}</DialogTitle>
             <DialogDescription>
               Client: {selectedOrder.client.clientName} ({selectedOrder.client.projectName})
             </DialogDescription>
           </DialogHeader>
-          <div className="py-4 space-y-2">
-            <p><strong>Date:</strong> {formatDateSimple(selectedOrder.date)}</p>
-            <p><strong>Total:</strong> {formatCurrency(selectedOrder.total)}</p>
-            <p><strong>Status:</strong> <Badge variant={statusVariant[selectedOrder.status] || "default"}>{selectedOrder.status}</Badge></p>
-             <p><strong>BOQ Number:</strong> {selectedOrder.client.boqNumber}</p>
-            <p><strong>Address:</strong> {selectedOrder.client.address}</p>
+          <div className="py-4 space-y-4">
+             <div className="grid grid-cols-2 gap-4">
+                <div><p><strong>Date:</strong></p><p className="text-sm text-muted-foreground">{formatDateSimple(selectedOrder.date)}</p></div>
+                <div><p><strong>Total:</strong></p><p className="text-sm text-muted-foreground">{formatCurrency(selectedOrder.total)}</p></div>
+                <div><p><strong>Status:</strong></p><p><Badge variant={statusVariant[selectedOrder.status] || "default"}>{selectedOrder.status}</Badge></p></div>
+                <div><p><strong>BOQ Number:</strong></p><p className="text-sm text-muted-foreground">{selectedOrder.client.boqNumber}</p></div>
+            </div>
             <div>
-              <h4 className="font-semibold mt-2">Items:</h4>
-              <ul className="list-disc list-inside text-muted-foreground">
+                <p><strong>Address:</strong></p><p className="text-sm text-muted-foreground">{selectedOrder.client.address}</p>
+            </div>
+            <div>
+              <h4 className="font-semibold mt-2">Items Ordered:</h4>
+              <ul className="list-disc list-inside text-muted-foreground mt-1 space-y-1">
                 {selectedOrder.items.map(item => (
                    <li key={item.product.id}>{item.quantity} x {item.product.name}</li>
                 ))}
               </ul>
             </div>
+             {orderBackorders.length > 0 && (
+              <div>
+                <h4 className="font-semibold mt-4">Backorder Status:</h4>
+                <ul className="mt-1 space-y-2">
+                  {orderBackorders.map(bo => {
+                    const po = bo.purchaseOrderId ? purchaseOrders.find(p => p.id === bo.purchaseOrderId) : null;
+                    const status = po ? `PO ${po.status}` : 'Awaiting PO';
+                    return (
+                      <li key={bo.id} className="text-sm text-muted-foreground flex items-center justify-between">
+                        <span>{bo.quantity} x {bo.productName}</span>
+                        <Badge variant={po ? statusVariant[po.status] : "secondary"}>{status}</Badge>
+                      </li>
+                    )
+                  })}
+                </ul>
+              </div>
+            )}
           </div>
           <DialogFooter className="!justify-between flex-col-reverse sm:flex-row gap-2">
              <div>
