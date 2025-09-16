@@ -82,7 +82,9 @@ export function Sidebar({ className, inSheet }: { className?: string, inSheet?: 
             {navItems.map((item) => (
               <SidebarLink key={item.href} {...item} pathname={pathname} inSheet={inSheet} />
             ))}
-            <div className="my-2 border-t -mx-4"></div>
+            <div className="my-2">
+                <span className="px-3 text-xs font-semibold uppercase text-muted-foreground/70">Inventory</span>
+            </div>
             {inventoryNavItems.map((item) => (
                <SidebarLink key={item.href} {...item} pathname={pathname} inSheet={inSheet} />
             ))}
