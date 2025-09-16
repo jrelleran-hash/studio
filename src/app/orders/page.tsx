@@ -42,7 +42,7 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/componentsui/command";
+import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
@@ -441,35 +441,8 @@ export default function OrdersAndSuppliersPage() {
 
 
   const purchaseQueue: Backorder[] = useMemo(() => {
-    const reorderItems: Backorder[] = [];
-    const backorderedProductIds = new Set(backorders.map(b => b.productId));
-
-    products.forEach(product => {
-      if (
-        product.stock <= product.reorderLimit &&
-        !backorderedProductIds.has(product.id)
-      ) {
-        const reorderQty = (product.maxStockLevel || product.reorderLimit + 20) - product.stock;
-        if (reorderQty > 0) {
-            reorderItems.push({
-                id: `reorder-${product.id}`,
-                orderId: 'REORDER',
-                productName: product.name,
-                productSku: product.sku,
-                quantity: reorderQty,
-                date: Timestamp.now(),
-                status: 'Pending',
-                orderRef: doc(db, 'orders', 'dummy'),
-                clientRef: doc(db, 'clients', 'dummy'),
-                productId: product.id,
-                productRef: doc(db, 'inventory', product.id),
-            });
-        }
-      }
-    });
-
-    return [...backorders, ...reorderItems];
-  }, [backorders, products, purchaseOrders]);
+    return backorders;
+  }, [backorders]);
 
   const selectedQueueItems = useMemo(() => {
     return purchaseQueue.filter(item => purchaseQueueSelection[item.id]);
@@ -945,500 +918,500 @@ export default function OrdersAndSuppliersPage() {
             <TabsTrigger value="purchase-orders">Purchase Orders</TabsTrigger>
             <TabsTrigger value="suppliers">Suppliers</TabsTrigger>
         </TabsList>
-        <div>
-        {activeTab === 'orders' && (
-             <Dialog open={isAddOrderOpen} onOpenChange={setIsAddOrderOpen}>
-                <DialogTrigger asChild>
-                    <Button size="sm" className="gap-1">
-                    <PlusCircle />
-                    Add Order
-                    </Button>
-                </DialogTrigger>
-                <DialogContent className="sm:max-w-2xl">
-                    <DialogHeader>
-                    <DialogTitle>Create New Order</DialogTitle>
-                    <DialogDescription>Fill in the details to create a new internal order.</DialogDescription>
-                    </DialogHeader>
-                    <form onSubmit={orderForm.handleSubmit(onOrderSubmit)} className="space-y-4">
-                    <div className="space-y-2">
-                        <Label>Client / Project</Label>
-                        <Controller
-                            control={orderForm.control}
-                            name="clientId"
-                            render={({ field }) => (
-                                <Popover open={orderClientPopover} onOpenChange={setOrderClientPopover}>
-                                    <PopoverTrigger asChild>
-                                        <Button
-                                            variant="outline"
-                                            role="combobox"
-                                            className={cn("w-full justify-between", !field.value && "text-muted-foreground")}
-                                        >
-                                            {field.value
-                                                ? clients.find(c => c.id === field.value)?.clientName
-                                                : "Select a client"}
-                                            <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
-                                        </Button>
-                                    </PopoverTrigger>
-                                    <PopoverContent className="w-[--radix-popover-trigger-width] p-0">
-                                        <Command>
-                                            <CommandInput placeholder="Search client..." />
-                                            <CommandEmpty>
-                                                 <Button variant="ghost" className="w-full" onClick={() => { setOrderClientPopover(false); setIsAddClientOpen(true); }}>
-                                                    Add new client
-                                                </Button>
-                                            </CommandEmpty>
-                                            <CommandList>
-                                                <CommandGroup>
-                                                    {clients.map(c => (
-                                                        <CommandItem
-                                                            key={c.id}
-                                                            value={c.clientName}
-                                                            onSelect={() => {
-                                                                field.onChange(c.id)
-                                                                setOrderClientPopover(false);
-                                                            }}
-                                                        >
-                                                            <Check
-                                                                className={cn(
-                                                                    "mr-2 h-4 w-4",
-                                                                    field.value === c.id ? "opacity-100" : "opacity-0"
-                                                                )}
-                                                            />
-                                                            {c.clientName} - {c.projectName}
-                                                        </CommandItem>
-                                                    ))}
-                                                </CommandGroup>
-                                            </CommandList>
-                                        </Command>
-                                    </PopoverContent>
-                                </Popover>
-                            )}
-                        />
-                        {orderForm.formState.errors.clientId && <p className="text-sm text-destructive">{orderForm.formState.errors.clientId.message}</p>}
-                    </div>
+        <div className="flex items-center gap-2">
+          {activeTab === 'orders' && (
+              <Dialog open={isAddOrderOpen} onOpenChange={setIsAddOrderOpen}>
+                  <DialogTrigger asChild>
+                      <Button size="sm" className="gap-1">
+                      <PlusCircle />
+                      Add Order
+                      </Button>
+                  </DialogTrigger>
+                  <DialogContent className="sm:max-w-2xl">
+                      <DialogHeader>
+                      <DialogTitle>Create New Order</DialogTitle>
+                      <DialogDescription>Fill in the details to create a new internal order.</DialogDescription>
+                      </DialogHeader>
+                      <form onSubmit={orderForm.handleSubmit(onOrderSubmit)} className="space-y-4">
+                      <div className="space-y-2">
+                          <Label>Client / Project</Label>
+                          <Controller
+                              control={orderForm.control}
+                              name="clientId"
+                              render={({ field }) => (
+                                  <Popover open={orderClientPopover} onOpenChange={setOrderClientPopover}>
+                                      <PopoverTrigger asChild>
+                                          <Button
+                                              variant="outline"
+                                              role="combobox"
+                                              className={cn("w-full justify-between", !field.value && "text-muted-foreground")}
+                                          >
+                                              {field.value
+                                                  ? clients.find(c => c.id === field.value)?.clientName
+                                                  : "Select a client"}
+                                              <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                                          </Button>
+                                      </PopoverTrigger>
+                                      <PopoverContent className="w-[--radix-popover-trigger-width] p-0">
+                                          <Command>
+                                              <CommandInput placeholder="Search client..." />
+                                              <CommandEmpty>
+                                                  <Button variant="ghost" className="w-full" onClick={() => { setIsAddClientOpen(true); setOrderClientPopover(false); }}>
+                                                      Add new client
+                                                  </Button>
+                                              </CommandEmpty>
+                                              <CommandList>
+                                                  <CommandGroup>
+                                                      {clients.map(c => (
+                                                          <CommandItem
+                                                              key={c.id}
+                                                              value={c.clientName}
+                                                              onSelect={() => {
+                                                                  field.onChange(c.id)
+                                                                  setOrderClientPopover(false);
+                                                              }}
+                                                          >
+                                                              <Check
+                                                                  className={cn(
+                                                                      "mr-2 h-4 w-4",
+                                                                      field.value === c.id ? "opacity-100" : "opacity-0"
+                                                                  )}
+                                                              />
+                                                              {c.clientName} - {c.projectName}
+                                                          </CommandItem>
+                                                      ))}
+                                                  </CommandGroup>
+                                              </CommandList>
+                                          </Command>
+                                      </PopoverContent>
+                                  </Popover>
+                              )}
+                          />
+                          {orderForm.formState.errors.clientId && <p className="text-sm text-destructive">{orderForm.formState.errors.clientId.message}</p>}
+                      </div>
 
-                    <div className="space-y-2">
-                        <div className="flex justify-between items-center">
-                            <Label>Items Requested</Label>
-                        </div>
-                        <div className="space-y-2">
-                        {fields.map((field, index) => {
-                            const selectedProductId = watchedOrderItems.items?.[index]?.productId;
-                            const selectedProduct = products.find(p => p.id === selectedProductId);
-                            const lineSubtotal = selectedProduct ? selectedProduct.price * (watchedOrderItems.items?.[index]?.quantity || 0) : 0;
-                            
-                            return (
-                                <div key={field.id} className="space-y-2">
-                                    <div className="flex items-start gap-2">
-                                        <div className="flex-grow">
-                                            <Controller
-                                                control={orderForm.control}
-                                                name={`items.${index}.productId`}
-                                                render={({ field: controllerField }) => (
-                                                    <Popover open={orderProductPopovers[index]} onOpenChange={(open) => setOrderProductPopovers(prev => ({...prev, [index]: open}))}>
-                                                        <PopoverTrigger asChild>
-                                                            <Button
-                                                                variant="outline"
-                                                                role="combobox"
-                                                                className={cn("w-full justify-between", !controllerField.value && "text-muted-foreground")}
-                                                            >
-                                                                {controllerField.value ? products.find(p => p.id === controllerField.value)?.name : "Select a product"}
-                                                                <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                      <div className="space-y-2">
+                          <div className="flex justify-between items-center">
+                              <Label>Items Requested</Label>
+                          </div>
+                          <div className="space-y-2">
+                          {fields.map((field, index) => {
+                              const selectedProductId = watchedOrderItems.items?.[index]?.productId;
+                              const selectedProduct = products.find(p => p.id === selectedProductId);
+                              const lineSubtotal = selectedProduct ? selectedProduct.price * (watchedOrderItems.items?.[index]?.quantity || 0) : 0;
+                              
+                              return (
+                                  <div key={field.id} className="space-y-2">
+                                      <div className="flex items-start gap-2">
+                                          <div className="flex-grow">
+                                              <Controller
+                                                  control={orderForm.control}
+                                                  name={`items.${index}.productId`}
+                                                  render={({ field: controllerField }) => (
+                                                      <Popover open={orderProductPopovers[index]} onOpenChange={(open) => setOrderProductPopovers(prev => ({...prev, [index]: open}))}>
+                                                          <PopoverTrigger asChild>
+                                                              <Button
+                                                                  variant="outline"
+                                                                  role="combobox"
+                                                                  className={cn("w-full justify-between", !controllerField.value && "text-muted-foreground")}
+                                                              >
+                                                                  {controllerField.value ? products.find(p => p.id === controllerField.value)?.name : "Select a product"}
+                                                                  <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                                                              </Button>
+                                                          </PopoverTrigger>
+                                                          <PopoverContent className="w-[--radix-popover-trigger-width] p-0">
+                                                              <Command>
+                                                                  <CommandInput placeholder="Search product..." />
+                                                                  <CommandEmpty>
+                                                                      <Button variant="ghost" className="w-full" onClick={handleOpenAddSupplierFromProductDialog}>
+                                                                          Add new product
+                                                                      </Button>
+                                                                  </CommandEmpty>
+                                                                  <CommandList>
+                                                                      <CommandGroup>
+                                                                          {products.map(p => (
+                                                                              <CommandItem
+                                                                                  key={p.id}
+                                                                                  value={p.name}
+                                                                                  onSelect={() => {
+                                                                                      controllerField.onChange(p.id)
+                                                                                      setOrderProductPopovers(prev => ({...prev, [index]: false}));
+                                                                                  }}
+                                                                              >
+                                                                                  <div className="flex items-center justify-between w-full">
+                                                                                      <div className="flex items-center">
+                                                                                          <Check
+                                                                                              className={cn(
+                                                                                                  "mr-2 h-4 w-4",
+                                                                                                  controllerField.value === p.id ? "opacity-100" : "opacity-0"
+                                                                                              )}
+                                                                                          />
+                                                                                          {p.name}
+                                                                                      </div>
+                                                                                      <span className="ml-auto text-xs text-muted-foreground">
+                                                                                          Stock: {p.stock}
+                                                                                      </span>
+                                                                                  </div>
+                                                                              </CommandItem>
+                                                                          ))}
+                                                                      </CommandGroup>
+                                                                  </CommandList>
+                                                              </Command>
+                                                          </PopoverContent>
+                                                      </Popover>
+                                                  )}
+                                              />
+                                          </div>
+                                          <Input 
+                                              type="number" 
+                                              placeholder="Qty" 
+                                              className="w-20"
+                                              {...orderForm.register(`items.${index}.quantity`)}
+                                          />
+                                          <Button variant="ghost" size="icon" onClick={()={() => remove(index)}}>
+                                              <X />
+                                          </Button>
+                                      </div>
+                                      {selectedProduct && (
+                                          <div className="flex justify-between items-center text-xs text-muted-foreground pl-1 pr-12">
+                                              <span>Price: {formatCurrency(selectedProduct.price)}</span>
+                                              <span>Subtotal: {formatCurrency(lineSubtotal)}</span>
+                                          </div>
+                                      )}
+                                  </div>
+                              );
+                          })}
+                          </div>
+                          {orderForm.formState.errors.items && <p className="text-sm text-destructive">{typeof orderForm.formState.errors.items === 'object' && 'message' in orderForm.formState.errors.items ? orderForm.formState.errors.items.message : 'Please add at least one item.'}</p>}
+                          <Button type="button" variant="outline" size="sm" onClick={() => append({ productId: "", quantity: 1 })}>
+                          <PlusCircle className="mr-2" /> Add Item
+                          </Button>
+                      </div>
+
+                      <Separator />
+                      
+                      <div className="flex justify-end items-center gap-4 pr-12">
+                          <span className="font-semibold">Grand Total:</span>
+                          <span className="font-bold text-lg">{formatCurrency(orderTotal || 0)}</span>
+                      </div>
+                      
+                      <DialogFooter>
+                          <Button type="button" variant="outline" onClick={() => setIsAddOrderOpen(false)}>Cancel</Button>
+                          <Button type="submit" disabled={orderForm.formState.isSubmitting}>
+                          {orderForm.formState.isSubmitting ? "Creating..." : "Create Order"}
+                          </Button>
+                      </DialogFooter>
+                      </form>
+                  </DialogContent>
+              </Dialog>
+          )}
+          {activeTab === 'purchase-orders' && (
+              <Dialog open={isAddPOOpen} onOpenChange={setIsAddPOOpen}>
+                  <DialogTrigger asChild>
+                      <Button size="sm" className="gap-1">
+                      <PlusCircle />
+                      Add Purchase Order
+                      </Button>
+                  </DialogTrigger>
+                  <DialogContent className="sm:max-w-2xl">
+                      <DialogHeader>
+                      <DialogTitle>Create New Purchase Order</DialogTitle>
+                      <DialogDescription>Fill in the details to create a new PO for a supplier.</DialogDescription>
+                      </DialogHeader>
+                      <form onSubmit={poForm.handleSubmit(onPOSubmit)} className="space-y-4">
+                      <div className="space-y-2">
+                          <Label>Supplier</Label>
+                          <Controller
+                              control={poForm.control}
+                              name="supplierId"
+                              render={({ field }) => (
+                                  <Popover open={poSupplierPopover} onOpenChange={setPoSupplierPopover}>
+                                      <PopoverTrigger asChild>
+                                          <Button
+                                              variant="outline"
+                                              role="combobox"
+                                              className={cn("w-full justify-between", !field.value && "text-muted-foreground")}
+                                          >
+                                              {field.value
+                                                  ? suppliers.find(s => s.id === field.value)?.name
+                                                  : "Select a supplier"}
+                                              <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                                          </Button>
+                                      </PopoverTrigger>
+                                      <PopoverContent className="w-[--radix-popover-trigger-width] p-0">
+                                          <Command>
+                                              <CommandInput placeholder="Search supplier..." />
+                                              <CommandEmpty>
+                                                  <Button variant="ghost" className="w-full" onClick={() => { setIsAddSupplierOpen(true); setPoSupplierPopover(false); }}>
+                                                      Add new supplier
+                                                  </Button>
+                                              </CommandEmpty>
+                                              <CommandList>
+                                                  <CommandGroup>
+                                                      {suppliers.map(s => (
+                                                          <CommandItem
+                                                              key={s.id}
+                                                              value={s.name}
+                                                              onSelect={() => {
+                                                                  field.onChange(s.id)
+                                                                  setPoSupplierPopover(false);
+                                                              }}
+                                                          >
+                                                              <Check
+                                                                  className={cn(
+                                                                      "mr-2 h-4 w-4",
+                                                                      field.value === s.id ? "opacity-100" : "opacity-0"
+                                                                  )}
+                                                              />
+                                                              {s.name}
+                                                          </CommandItem>
+                                                      ))}
+                                                  </CommandGroup>
+                                              </CommandList>
+                                          </Command>
+                                      </PopoverContent>
+                                  </Popover>
+                              )}
+                          />
+                          {poForm.formState.errors.supplierId && <p className="text-sm text-destructive">{poForm.formState.errors.supplierId.message}</p>}
+                      </div>
+
+                      <div className="space-y-2">
+                          <Label>Client / Project (Optional)</Label>
+                          <Controller
+                              control={poForm.control}
+                              name="clientId"
+                              render={({ field }) => (
+                                  <Popover open={poClientPopover} onOpenChange={setPoClientPopover}>
+                                      <PopoverTrigger asChild>
+                                          <Button
+                                              variant="outline"
+                                              role="combobox"
+                                              className={cn("w-full justify-between", !field.value && "text-muted-foreground")}
+                                          >
+                                              {field.value
+                                                  ? clients.find(c => c.id === field.value)?.clientName
+                                                  : "Select a client"}
+                                              <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                                          </Button>
+                                      </PopoverTrigger>
+                                      <PopoverContent className="w-[--radix-popover-trigger-width] p-0">
+                                          <Command>
+                                              <CommandInput placeholder="Search client..." />
+                                              <CommandEmpty>No client found.</CommandEmpty>
+                                              <CommandList>
+                                                  <CommandGroup>
+                                                      {clients.map(c => (
+                                                          <CommandItem
+                                                              key={c.id}
+                                                              value={c.clientName}
+                                                              onSelect={() => {
+                                                                  field.onChange(c.id)
+                                                                  setPoClientPopover(false);
+                                                              }}
+                                                          >
+                                                              <Check
+                                                                  className={cn(
+                                                                      "mr-2 h-4 w-4",
+                                                                      field.value === c.id ? "opacity-100" : "opacity-0"
+                                                                  )}
+                                                              />
+                                                              {c.clientName} - {c.projectName}
+                                                          </CommandItem>
+                                                      ))}
+                                                  </CommandGroup>
+                                              </CommandList>
+                                          </Command>
+                                      </PopoverContent>
+                                  </Popover>
+                              )}
+                          />
+                      </div>
+
+                      <div className="space-y-2">
+                          <div className="flex justify-between items-center">
+                              <Label>Items</Label>
+                          </div>
+                          <div className="space-y-2">
+                          {poFields.map((field, index) => {
+                              const selectedProductId = watchedPOItems.items?.[index]?.productId;
+                              const selectedProduct = products.find(p => p.id === selectedProductId);
+                              const lineSubtotal = selectedProduct ? selectedProduct.price * (watchedPOItems.items?.[index]?.quantity || 0) : 0;
+                              return (
+                                  <div key={field.id} className="space-y-2">
+                                  <div className="flex items-center gap-2">
+                                  <Controller
+                                          control={poForm.control}
+                                          name={`items.${index}.productId`}
+                                          render={({ field: controllerField }) => (
+                                              <Popover open={poProductPopovers[index]} onOpenChange={(open) => setPoProductPopovers(prev => ({...prev, [index]: open}))}>
+                                                  <PopoverTrigger asChild>
+                                                      <Button
+                                                          variant="outline"
+                                                          role="combobox"
+                                                          className={cn("w-full justify-between", !controllerField.value && "text-muted-foreground")}
+                                                      >
+                                                          {controllerField.value ? products.find(p => p.id === controllerField.value)?.name : "Select a product"}
+                                                          <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                                                      </Button>
+                                                  </PopoverTrigger>
+                                                  <PopoverContent className="w-[--radix-popover-trigger-width] p-0">
+                                                      <Command>
+                                                          <CommandInput placeholder="Search product..." />
+                                                          <CommandEmpty>
+                                                            <Button variant="ghost" className="w-full" onClick={handleOpenAddSupplierFromProductDialog}>
+                                                                Add new product
                                                             </Button>
-                                                        </PopoverTrigger>
-                                                        <PopoverContent className="w-[--radix-popover-trigger-width] p-0">
-                                                            <Command>
-                                                                <CommandInput placeholder="Search product..." />
-                                                                <CommandEmpty>
-                                                                    <Button variant="ghost" className="w-full" onClick={handleOpenAddSupplierFromProductDialog}>
-                                                                        Add new product
-                                                                    </Button>
-                                                                </CommandEmpty>
-                                                                <CommandList>
-                                                                    <CommandGroup>
-                                                                        {products.map(p => (
-                                                                            <CommandItem
-                                                                                key={p.id}
-                                                                                value={p.name}
-                                                                                onSelect={() => {
-                                                                                    controllerField.onChange(p.id)
-                                                                                    setOrderProductPopovers(prev => ({...prev, [index]: false}));
-                                                                                }}
-                                                                            >
-                                                                                <div className="flex items-center justify-between w-full">
-                                                                                    <div className="flex items-center">
-                                                                                        <Check
-                                                                                            className={cn(
-                                                                                                "mr-2 h-4 w-4",
-                                                                                                controllerField.value === p.id ? "opacity-100" : "opacity-0"
-                                                                                            )}
-                                                                                        />
-                                                                                        {p.name}
-                                                                                    </div>
-                                                                                    <span className="ml-auto text-xs text-muted-foreground">
-                                                                                        Stock: {p.stock}
-                                                                                    </span>
-                                                                                </div>
-                                                                            </CommandItem>
-                                                                        ))}
-                                                                    </CommandGroup>
-                                                                </CommandList>
-                                                            </Command>
-                                                        </PopoverContent>
-                                                    </Popover>
-                                                )}
-                                            />
-                                        </div>
-                                        <Input 
-                                            type="number" 
-                                            placeholder="Qty" 
-                                            className="w-20"
-                                            {...orderForm.register(`items.${index}.quantity`)}
-                                        />
-                                        <Button variant="ghost" size="icon" onClick={() => remove(index)}>
-                                            <X />
-                                        </Button>
-                                    </div>
-                                    {selectedProduct && (
-                                        <div className="flex justify-between items-center text-xs text-muted-foreground pl-1 pr-12">
-                                            <span>Price: {formatCurrency(selectedProduct.price)}</span>
-                                            <span>Subtotal: {formatCurrency(lineSubtotal)}</span>
-                                        </div>
-                                    )}
-                                </div>
-                            );
-                        })}
-                        </div>
-                        {orderForm.formState.errors.items && <p className="text-sm text-destructive">{typeof orderForm.formState.errors.items === 'object' && 'message' in orderForm.formState.errors.items ? orderForm.formState.errors.items.message : 'Please add at least one item.'}</p>}
-                        <Button type="button" variant="outline" size="sm" onClick={() => append({ productId: "", quantity: 1 })}>
-                        <PlusCircle className="mr-2" /> Add Item
-                        </Button>
-                    </div>
+                                                          </CommandEmpty>
+                                                          <CommandList>
+                                                              <CommandGroup>
+                                                                  {products.map(p => (
+                                                                      <CommandItem
+                                                                          key={p.id}
+                                                                          value={p.name}
+                                                                          onSelect={() => {
+                                                                              controllerField.onChange(p.id)
+                                                                              setPoProductPopovers(prev => ({...prev, [index]: false}));
+                                                                          }}
+                                                                      >
+                                                                          <div className="flex items-center justify-between w-full">
+                                                                              <div className="flex items-center">
+                                                                                  <Check
+                                                                                      className={cn(
+                                                                                          "mr-2 h-4 w-4",
+                                                                                          controllerField.value === p.id ? "opacity-100" : "opacity-0"
+                                                                                      )}
+                                                                                  />
+                                                                                  {p.name}
+                                                                              </div>
+                                                                              <span className="ml-auto text-xs text-muted-foreground">
+                                                                                  Stock: {p.stock}
+                                                                              </span>
+                                                                          </div>
+                                                                      </CommandItem>
+                                                                  ))}
+                                                              </CommandGroup>
+                                                          </CommandList>
+                                                      </Command>
+                                                  </PopoverContent>
+                                              </Popover>
+                                          )}
+                                      />
+                                  <Input 
+                                      type="number" 
+                                      placeholder="Qty" 
+                                      className="w-20"
+                                      {...poForm.register(`items.${index}.quantity`)}
+                                  />
+                                  <Button variant="ghost" size="icon" onClick={() => poRemove(index)}>
+                                      <X />
+                                  </Button>
+                                  </div>
+                                  {selectedProduct && (
+                                      <div className="flex justify-between items-center text-xs text-muted-foreground pl-1 pr-12">
+                                          <span>Cost: {formatCurrency(selectedProduct.price)}</span>
+                                          <span>Subtotal: {formatCurrency(lineSubtotal)}</span>
+                                      </div>
+                                  )}
+                                  </div>
+                              )
+                          })}
+                          </div>
+                          {poForm.formState.errors.items && <p className="text-sm text-destructive">{typeof poForm.formState.errors.items === 'object' && 'message' in poForm.formState.errors.items ? poForm.formState.errors.items.message : 'Please add at least one item.'}</p>}
+                          <Button type="button" variant="outline" size="sm" onClick={() => poAppend({ productId: "", quantity: 1, backorderId: "" })}>
+                          <PlusCircle className="mr-2" /> Add Item
+                          </Button>
+                      </div>
+                      <div className="space-y-2">
+                          <Label>Status</Label>
+                          <p className="flex h-10 w-full items-center rounded-md border border-input bg-background px-3 py-2 text-sm text-muted-foreground">
+                              Pending
+                          </p>
+                          </div>
+                      <Separator />
+                      <div className="flex justify-end items-center gap-4 pr-12">
+                          <span className="font-semibold">Grand Total:</span>
+                          <span className="font-bold text-lg">{formatCurrency(poTotal || 0)}</span>
+                      </div>
 
-                    <Separator />
-                    
-                    <div className="flex justify-end items-center gap-4 pr-12">
-                        <span className="font-semibold">Grand Total:</span>
-                        <span className="font-bold text-lg">{formatCurrency(orderTotal || 0)}</span>
-                    </div>
-                    
-                    <DialogFooter>
-                        <Button type="button" variant="outline" onClick={() => setIsAddOrderOpen(false)}>Cancel</Button>
-                        <Button type="submit" disabled={orderForm.formState.isSubmitting}>
-                        {orderForm.formState.isSubmitting ? "Creating..." : "Create Order"}
-                        </Button>
-                    </DialogFooter>
-                    </form>
-                </DialogContent>
-            </Dialog>
-        )}
-        {activeTab === 'purchase-orders' && (
-             <Dialog open={isAddPOOpen} onOpenChange={setIsAddPOOpen}>
+                      <DialogFooter>
+                          <Button type="button" variant="outline" onClick={() => setIsAddPOOpen(false)}>Cancel</Button>
+                          <Button type="submit" disabled={poForm.formState.isSubmitting}>
+                          {poForm.formState.isSubmitting ? "Creating..." : "Create Purchase Order"}
+                          </Button>
+                      </DialogFooter>
+                      </form>
+                  </DialogContent>
+              </Dialog>
+          )}
+          {activeTab === 'suppliers' && (
+              <Dialog open={isAddSupplierOpen} onOpenChange={setIsAddSupplierOpen}>
                 <DialogTrigger asChild>
-                    <Button size="sm" className="gap-1">
+                  <Button size="sm" className="gap-1">
                     <PlusCircle />
-                    Add Purchase Order
-                    </Button>
+                    Add Supplier
+                  </Button>
                 </DialogTrigger>
-                <DialogContent className="sm:max-w-2xl">
-                    <DialogHeader>
-                    <DialogTitle>Create New Purchase Order</DialogTitle>
-                    <DialogDescription>Fill in the details to create a new PO for a supplier.</DialogDescription>
-                    </DialogHeader>
-                    <form onSubmit={poForm.handleSubmit(onPOSubmit)} className="space-y-4">
-                    <div className="space-y-2">
-                        <Label>Supplier</Label>
-                        <Controller
-                            control={poForm.control}
-                            name="supplierId"
-                            render={({ field }) => (
-                                <Popover open={poSupplierPopover} onOpenChange={setPoSupplierPopover}>
-                                    <PopoverTrigger asChild>
-                                        <Button
-                                            variant="outline"
-                                            role="combobox"
-                                            className={cn("w-full justify-between", !field.value && "text-muted-foreground")}
-                                        >
-                                            {field.value
-                                                ? suppliers.find(s => s.id === field.value)?.name
-                                                : "Select a supplier"}
-                                            <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
-                                        </Button>
-                                    </PopoverTrigger>
-                                    <PopoverContent className="w-[--radix-popover-trigger-width] p-0">
-                                        <Command>
-                                            <CommandInput placeholder="Search supplier..." />
-                                            <CommandEmpty>
-                                                 <Button variant="ghost" className="w-full" onClick={() => { setPoSupplierPopover(false); setIsAddSupplierOpen(true); }}>
-                                                    Add new supplier
-                                                </Button>
-                                            </CommandEmpty>
-                                            <CommandList>
-                                                <CommandGroup>
-                                                    {suppliers.map(s => (
-                                                        <CommandItem
-                                                            key={s.id}
-                                                            value={s.name}
-                                                            onSelect={() => {
-                                                                field.onChange(s.id)
-                                                                setPoSupplierPopover(false);
-                                                            }}
-                                                        >
-                                                            <Check
-                                                                className={cn(
-                                                                    "mr-2 h-4 w-4",
-                                                                    field.value === s.id ? "opacity-100" : "opacity-0"
-                                                                )}
-                                                            />
-                                                            {s.name}
-                                                        </CommandItem>
-                                                    ))}
-                                                </CommandGroup>
-                                            </CommandList>
-                                        </Command>
-                                    </PopoverContent>
-                                </Popover>
-                            )}
-                        />
-                        {poForm.formState.errors.supplierId && <p className="text-sm text-destructive">{poForm.formState.errors.supplierId.message}</p>}
-                    </div>
-
-                     <div className="space-y-2">
-                        <Label>Client / Project (Optional)</Label>
-                        <Controller
-                            control={poForm.control}
-                            name="clientId"
-                            render={({ field }) => (
-                                <Popover open={poClientPopover} onOpenChange={setPoClientPopover}>
-                                    <PopoverTrigger asChild>
-                                        <Button
-                                            variant="outline"
-                                            role="combobox"
-                                            className={cn("w-full justify-between", !field.value && "text-muted-foreground")}
-                                        >
-                                            {field.value
-                                                ? clients.find(c => c.id === field.value)?.clientName
-                                                : "Select a client"}
-                                            <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
-                                        </Button>
-                                    </PopoverTrigger>
-                                    <PopoverContent className="w-[--radix-popover-trigger-width] p-0">
-                                        <Command>
-                                            <CommandInput placeholder="Search client..." />
-                                            <CommandEmpty>No client found.</CommandEmpty>
-                                            <CommandList>
-                                                <CommandGroup>
-                                                    {clients.map(c => (
-                                                        <CommandItem
-                                                            key={c.id}
-                                                            value={c.clientName}
-                                                            onSelect={() => {
-                                                                field.onChange(c.id)
-                                                                setPoClientPopover(false);
-                                                            }}
-                                                        >
-                                                            <Check
-                                                                className={cn(
-                                                                    "mr-2 h-4 w-4",
-                                                                    field.value === c.id ? "opacity-100" : "opacity-0"
-                                                                )}
-                                                            />
-                                                            {c.clientName} - {c.projectName}
-                                                        </CommandItem>
-                                                    ))}
-                                                </CommandGroup>
-                                            </CommandList>
-                                        </Command>
-                                    </PopoverContent>
-                                </Popover>
-                            )}
-                        />
-                    </div>
-
-                    <div className="space-y-2">
-                        <div className="flex justify-between items-center">
-                            <Label>Items</Label>
-                        </div>
-                        <div className="space-y-2">
-                        {poFields.map((field, index) => {
-                             const selectedProductId = watchedPOItems.items?.[index]?.productId;
-                             const selectedProduct = products.find(p => p.id === selectedProductId);
-                             const lineSubtotal = selectedProduct ? selectedProduct.price * (watchedPOItems.items?.[index]?.quantity || 0) : 0;
-                            return (
-                                <div key={field.id} className="space-y-2">
-                                <div className="flex items-center gap-2">
-                                <Controller
-                                        control={poForm.control}
-                                        name={`items.${index}.productId`}
-                                        render={({ field: controllerField }) => (
-                                            <Popover open={poProductPopovers[index]} onOpenChange={(open) => setPoProductPopovers(prev => ({...prev, [index]: open}))}>
-                                                <PopoverTrigger asChild>
-                                                    <Button
-                                                        variant="outline"
-                                                        role="combobox"
-                                                        className={cn("w-full justify-between", !controllerField.value && "text-muted-foreground")}
-                                                    >
-                                                        {controllerField.value ? products.find(p => p.id === controllerField.value)?.name : "Select a product"}
-                                                        <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
-                                                    </Button>
-                                                </PopoverTrigger>
-                                                <PopoverContent className="w-[--radix-popover-trigger-width] p-0">
-                                                    <Command>
-                                                        <CommandInput placeholder="Search product..." />
-                                                        <CommandEmpty>
-                                                          <Button variant="ghost" className="w-full" onClick={handleOpenAddSupplierFromProductDialog}>
-                                                              Add new product
-                                                          </Button>
-                                                        </CommandEmpty>
-                                                        <CommandList>
-                                                            <CommandGroup>
-                                                                {products.map(p => (
-                                                                    <CommandItem
-                                                                        key={p.id}
-                                                                        value={p.name}
-                                                                        onSelect={() => {
-                                                                            controllerField.onChange(p.id)
-                                                                            setPoProductPopovers(prev => ({...prev, [index]: false}));
-                                                                        }}
-                                                                    >
-                                                                        <div className="flex items-center justify-between w-full">
-                                                                            <div className="flex items-center">
-                                                                                <Check
-                                                                                    className={cn(
-                                                                                        "mr-2 h-4 w-4",
-                                                                                        controllerField.value === p.id ? "opacity-100" : "opacity-0"
-                                                                                    )}
-                                                                                />
-                                                                                {p.name}
-                                                                            </div>
-                                                                            <span className="ml-auto text-xs text-muted-foreground">
-                                                                                Stock: {p.stock}
-                                                                            </span>
-                                                                        </div>
-                                                                    </CommandItem>
-                                                                ))}
-                                                            </CommandGroup>
-                                                        </CommandList>
-                                                    </Command>
-                                                </PopoverContent>
-                                            </Popover>
-                                        )}
-                                    />
-                                <Input 
-                                    type="number" 
-                                    placeholder="Qty" 
-                                    className="w-20"
-                                    {...poForm.register(`items.${index}.quantity`)}
-                                />
-                                <Button variant="ghost" size="icon" onClick={() => poRemove(index)}>
-                                    <X />
-                                </Button>
-                                </div>
-                                {selectedProduct && (
-                                    <div className="flex justify-between items-center text-xs text-muted-foreground pl-1 pr-12">
-                                        <span>Cost: {formatCurrency(selectedProduct.price)}</span>
-                                        <span>Subtotal: {formatCurrency(lineSubtotal)}</span>
-                                    </div>
-                                )}
-                                </div>
-                            )
-                        })}
-                        </div>
-                        {poForm.formState.errors.items && <p className="text-sm text-destructive">{typeof poForm.formState.errors.items === 'object' && 'message' in poForm.formState.errors.items ? poForm.formState.errors.items.message : 'Please add at least one item.'}</p>}
-                        <Button type="button" variant="outline" size="sm" onClick={() => poAppend({ productId: "", quantity: 1, backorderId: "" })}>
-                        <PlusCircle className="mr-2" /> Add Item
-                        </Button>
-                    </div>
-                     <div className="space-y-2">
-                        <Label>Status</Label>
-                        <p className="flex h-10 w-full items-center rounded-md border border-input bg-background px-3 py-2 text-sm text-muted-foreground">
-                            Pending
-                        </p>
-                        </div>
-                    <Separator />
-                    <div className="flex justify-end items-center gap-4 pr-12">
-                        <span className="font-semibold">Grand Total:</span>
-                        <span className="font-bold text-lg">{formatCurrency(poTotal || 0)}</span>
-                    </div>
-
-                    <DialogFooter>
-                        <Button type="button" variant="outline" onClick={() => setIsAddPOOpen(false)}>Cancel</Button>
-                        <Button type="submit" disabled={poForm.formState.isSubmitting}>
-                        {poForm.formState.isSubmitting ? "Creating..." : "Create Purchase Order"}
-                        </Button>
-                    </DialogFooter>
-                    </form>
-                </DialogContent>
-            </Dialog>
-        )}
-        {activeTab === 'suppliers' && (
-            <Dialog open={isAddSupplierOpen} onOpenChange={setIsAddSupplierOpen}>
-              <DialogTrigger asChild>
-                <Button size="sm" className="gap-1">
-                  <PlusCircle />
-                  Add Supplier
-                </Button>
-              </DialogTrigger>
-              <DialogContent className="sm:max-w-md">
-                <DialogHeader>
-                  <DialogTitle>Add New Supplier</DialogTitle>
-                  <DialogDescription>Fill in the details for the new supplier.</DialogDescription>
-                </DialogHeader>
-                <form onSubmit={supplierForm.handleSubmit(onAddSupplierSubmit)} className="space-y-4">
-                <div className="space-y-2">
-                    <Label htmlFor="name">Supplier Name</Label>
-                    <Input id="name" {...supplierForm.register("name")} onChange={(e) => {
-                        const { value } = e.target;
-                        supplierForm.setValue("name", toTitleCase(value), { shouldValidate: true });
-                    }} />
-                    {supplierForm.formState.errors.name && <p className="text-sm text-destructive">{supplierForm.formState.errors.name.message}</p>}
-                </div>
-                <div className="space-y-2">
-                    <Label htmlFor="contactPerson">Contact Person</Label>
-                    <Input id="contactPerson" {...supplierForm.register("contactPerson")} onChange={(e) => {
-                        const { value } = e.target;
-                        supplierForm.setValue("contactPerson", toTitleCase(value), { shouldValidate: true });
-                    }} />
-                    {supplierForm.formState.errors.contactPerson && <p className="text-sm text-destructive">{supplierForm.formState.errors.contactPerson.message}</p>}
-                </div>
-                <div className="space-y-2">
-                    <Label htmlFor="email">Email (Optional)</Label>
-                    <Input 
-                        id="email" 
-                        type="email" 
-                        {...supplierForm.register("email")}
-                        onBlur={(e) => handleEmailBlur(e.target.value)}
-                    />
-                    {supplierForm.formState.errors.email && <p className="text-sm text-destructive">{supplierForm.formState.errors.email.message}</p>}
-                     {renderEmailValidation()}
-                </div>
-                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                    <div className="space-y-2">
-                        <Label htmlFor="phone">Phone</Label>
-                        <Input id="phone" type="tel" {...supplierForm.register("phone")} />
-                        {supplierForm.formState.errors.phone && <p className="text-sm text-destructive">{supplierForm.formState.errors.phone.message}</p>}
-                    </div>
-                    <div className="space-y-2">
-                        <Label htmlFor="cellphoneNumber">Cellphone #</Label>
-                        <Input id="cellphoneNumber" type="tel" {...supplierForm.register("cellphoneNumber")} />
-                        {supplierForm.formState.errors.cellphoneNumber && <p className="text-sm text-destructive">{supplierForm.formState.errors.cellphoneNumber.message}</p>}
-                    </div>
-                </div>
-                <div className="space-y-2">
-                    <Label htmlFor="address">Address</Label>
-                    <Input id="address" {...supplierForm.register("address")} />
-                    {supplierForm.formState.errors.address && <p className="text-sm text-destructive">{supplierForm.formState.errors.address.message}</p>}
-                </div>
-                <DialogFooter>
-                    <Button type="button" variant="outline" onClick={() => setIsAddSupplierOpen(false)}>Cancel</Button>
-                    <Button type="submit" disabled={supplierForm.formState.isSubmitting}>
-                    {supplierForm.formState.isSubmitting ? "Adding..." : "Add Supplier"}
-                    </Button>
-                </DialogFooter>
-                </form>
-            </DialogContent>
-            </Dialog>
-        )}
+                <DialogContent className="sm:max-w-md">
+                  <DialogHeader>
+                    <DialogTitle>Add New Supplier</DialogTitle>
+                    <DialogDescription>Fill in the details for the new supplier.</DialogDescription>
+                  </DialogHeader>
+                  <form onSubmit={supplierForm.handleSubmit(onAddSupplierSubmit)} className="space-y-4">
+                  <div className="space-y-2">
+                      <Label htmlFor="name">Supplier Name</Label>
+                      <Input id="name" {...supplierForm.register("name")} onChange={(e) => {
+                          const { value } = e.target;
+                          supplierForm.setValue("name", toTitleCase(value), { shouldValidate: true });
+                      }} />
+                      {supplierForm.formState.errors.name && <p className="text-sm text-destructive">{supplierForm.formState.errors.name.message}</p>}
+                  </div>
+                  <div className="space-y-2">
+                      <Label htmlFor="contactPerson">Contact Person</Label>
+                      <Input id="contactPerson" {...supplierForm.register("contactPerson")} onChange={(e) => {
+                          const { value } = e.target;
+                          supplierForm.setValue("contactPerson", toTitleCase(value), { shouldValidate: true });
+                      }} />
+                      {supplierForm.formState.errors.contactPerson && <p className="text-sm text-destructive">{supplierForm.formState.errors.contactPerson.message}</p>}
+                  </div>
+                  <div className="space-y-2">
+                      <Label htmlFor="email">Email (Optional)</Label>
+                      <Input 
+                          id="email" 
+                          type="email" 
+                          {...supplierForm.register("email")}
+                          onBlur={(e) => handleEmailBlur(e.target.value)}
+                      />
+                      {supplierForm.formState.errors.email && <p className="text-sm text-destructive">{supplierForm.formState.errors.email.message}</p>}
+                      {renderEmailValidation()}
+                  </div>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                      <div className="space-y-2">
+                          <Label htmlFor="phone">Phone</Label>
+                          <Input id="phone" type="tel" {...supplierForm.register("phone")} />
+                          {supplierForm.formState.errors.phone && <p className="text-sm text-destructive">{supplierForm.formState.errors.phone.message}</p>}
+                      </div>
+                      <div className="space-y-2">
+                          <Label htmlFor="cellphoneNumber">Cellphone #</Label>
+                          <Input id="cellphoneNumber" type="tel" {...supplierForm.register("cellphoneNumber")} />
+                          {supplierForm.formState.errors.cellphoneNumber && <p className="text-sm text-destructive">{supplierForm.formState.errors.cellphoneNumber.message}</p>}
+                      </div>
+                  </div>
+                  <div className="space-y-2">
+                      <Label htmlFor="address">Address</Label>
+                      <Input id="address" {...supplierForm.register("address")} />
+                      {supplierForm.formState.errors.address && <p className="text-sm text-destructive">{supplierForm.formState.errors.address.message}</p>}
+                  </div>
+                  <DialogFooter>
+                      <Button type="button" variant="outline" onClick={() => setIsAddSupplierOpen(false)}>Cancel</Button>
+                      <Button type="submit" disabled={supplierForm.formState.isSubmitting}>
+                      {supplierForm.formState.isSubmitting ? "Adding..." : "Add Supplier"}
+                      </Button>
+                  </DialogFooter>
+                  </form>
+              </DialogContent>
+              </Dialog>
+          )}
         </div>
       </div>
       <TabsContent value="orders" className="space-y-4">
@@ -1599,7 +1572,6 @@ export default function OrdersAndSuppliersPage() {
                             <TableHead>SKU</TableHead>
                             <TableHead className="text-center">Needed</TableHead>
                             <TableHead>Source</TableHead>
-                            <TableHead>Status</TableHead>
                             </TableRow>
                         </TableHeader>
                         <TableBody>
@@ -1611,11 +1583,12 @@ export default function OrdersAndSuppliersPage() {
                                 <TableCell><Skeleton className="h-4 w-24" /></TableCell>
                                 <TableCell><Skeleton className="h-4 w-16 mx-auto" /></TableCell>
                                 <TableCell><Skeleton className="h-4 w-32" /></TableCell>
-                                <TableCell><Skeleton className="h-4 w-24" /></TableCell>
                                 </TableRow>
                             ))
                             ) : purchaseQueue.length > 0 ? (
-                            purchaseQueue.map((item) => (
+                            purchaseQueue.map((item) => {
+                                
+                                return (
                                 <TableRow key={item.id}>
                                     <TableCell>
                                         <Checkbox
@@ -1628,16 +1601,11 @@ export default function OrdersAndSuppliersPage() {
                                     <TableCell>{item.productSku}</TableCell>
                                     <TableCell className="text-center">{item.quantity}</TableCell>
                                     <TableCell>
-                                        {item.orderId === "REORDER" 
-                                            ? <Badge variant="outline">Reorder</Badge>
-                                            : <Badge variant="secondary" className="font-mono">{item.orderId.substring(0,7)}</Badge>
-                                        }
-                                    </TableCell>
-                                    <TableCell>
-                                        <Badge variant="secondary">Awaiting Purchase</Badge>
+                                        <Badge variant="secondary" className="font-mono">{item.orderId.substring(0,7)}</Badge>
                                     </TableCell>
                                 </TableRow>
-                            ))
+                                )
+                            })
                             ) : (
                             <TableRow>
                                     <TableCell colSpan={6} className="h-24 text-center">
@@ -1654,7 +1622,9 @@ export default function OrdersAndSuppliersPage() {
                                 <Card key={i}><CardHeader><Skeleton className="h-5 w-3/4" /></CardHeader><CardContent><Skeleton className="h-4 w-full" /></CardContent></Card>
                             ))
                         ) : purchaseQueue.length > 0 ? (
-                            purchaseQueue.map((item) => (
+                            purchaseQueue.map((item) => {
+
+                                return (
                                 <Card key={item.id}>
                                     <CardHeader>
                                         <div className="flex items-start justify-between">
@@ -1670,21 +1640,15 @@ export default function OrdersAndSuppliersPage() {
                                                 </div>
                                             </div>
                                              <div className="flex gap-1 flex-wrap">
-                                                {item.orderId === "REORDER" 
-                                                    ? <Badge variant="outline">Reorder</Badge>
-                                                    : <Badge variant="secondary" className="font-mono">{item.orderId.substring(0,7)}</Badge>
-                                                }
+                                                <Badge variant="secondary" className="font-mono">{item.orderId.substring(0,7)}</Badge>
                                             </div>
                                         </div>
                                     </CardHeader>
                                     <CardContent>
                                         <p>Quantity Needed: <span className="font-bold">{item.quantity}</span></p>
                                     </CardContent>
-                                    <CardFooter>
-                                        <Badge variant="secondary">Awaiting Purchase</Badge>
-                                    </CardFooter>
                                 </Card>
-                            ))
+                            )})
                         ) : (
                              <div className="text-sm text-muted-foreground text-center py-10">
                                 No items are currently awaiting purchase.
@@ -1900,14 +1864,14 @@ export default function OrdersAndSuppliersPage() {
                         ))
                     ) : (
                         suppliers.map((supplier) => (
-                             <Card key={supplier.id} onClick={() => handleEditSupplierClick(supplier)}>
+                            <Card key={supplier.id} onClick={() => handleEditSupplierClick(supplier)}>
                                 <CardHeader>
                                     <div className="flex justify-between items-start">
                                         <div>
                                             <CardTitle className="text-base">{supplier.name}</CardTitle>
                                             <CardDescription>{supplier.contactPerson}</CardDescription>
                                         </div>
-                                         <DropdownMenu>
+                                        <DropdownMenu>
                                             <DropdownMenuTrigger asChild>
                                                 <Button size="icon" variant="ghost" onClick={(e) => e.stopPropagation()}><MoreHorizontal /></Button>
                                             </DropdownMenuTrigger>
@@ -2115,13 +2079,7 @@ export default function OrdersAndSuppliersPage() {
       </Dialog>
     )}
       
-    <Dialog open={isEditSupplierOpen} onOpenChange={(isOpen) => {
-        setIsEditSupplierOpen(isOpen);
-        if (!isOpen) {
-            setEditingSupplier(null);
-            editSupplierForm.reset();
-        }
-    }}>
+    <Dialog open={isEditSupplierOpen} onOpenChange={setIsEditSupplierOpen}>
         <DialogContent className="sm:max-w-md">
             <DialogHeader>
             <DialogTitle>Edit Supplier</DialogTitle>
@@ -2182,10 +2140,7 @@ export default function OrdersAndSuppliersPage() {
         </DialogContent>
         </Dialog>
 
-    <Dialog open={isAddClientOpen} onOpenChange={(isOpen) => {
-        setIsAddClientOpen(isOpen);
-        if(!isOpen) clientForm.reset();
-    }}>
+    <Dialog open={isAddClientOpen} onOpenChange={setIsAddClientOpen}>
         <DialogContent className="sm:max-w-md">
             <DialogHeader>
                 <DialogTitle>Add New Client</DialogTitle>
@@ -2245,7 +2200,7 @@ export default function OrdersAndSuppliersPage() {
     </Dialog>
 
 
-    <Dialog open={!!poForReturn} onOpenChange={(isOpen) => { if (!isOpen) setPoForReturn(null) }}>
+    <Dialog open={!!poForReturn} onOpenChange={(open) => !open && setPoForReturn(null)}>
       <DialogContent className="sm:max-w-2xl">
         <DialogHeader>
             <DialogTitle>Return to Supplier</DialogTitle>
@@ -2381,7 +2336,7 @@ export default function OrdersAndSuppliersPage() {
     </AlertDialog>
 
     {selectedPO && (
-        <Dialog open={!!selectedPO} onOpenChange={setSelectedPO}>
+        <Dialog open={!!selectedPO} onOpenChange={(open) => !open && setSelectedPO(null)}>
             <DialogContent>
                 <DialogHeader>
                     <DialogTitle>Purchase Order: {selectedPO.poNumber}</DialogTitle>
@@ -2446,3 +2401,6 @@ export default function OrdersAndSuppliersPage() {
 }
 
     
+
+    
+
