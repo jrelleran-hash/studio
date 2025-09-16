@@ -74,7 +74,7 @@ const statusVariant: { [key: string]: "default" | "secondary" | "destructive" | 
   Processing: "secondary",
   Received: "default",
   Pending: "secondary",
-  Delivered: "outline",
+  Delivered: "default",
   Completed: "default",
 };
 
@@ -331,10 +331,10 @@ export default function OrdersAndSuppliersPage() {
   const outboundReturnSchema = useMemo(() => createOutboundReturnSchema(poForReturn), [poForReturn]);
 
   const handleOpenAddSupplierFromProductDialog = useCallback(() => {
-    onProductDialogClose.current = () => {
-      setIsAddSupplierOpen(true);
-    };
     setIsAddProductOpen(false);
+    setTimeout(() => {
+        setIsAddSupplierOpen(true);
+    }, 150);
   }, []);
 
   useEffect(() => {
@@ -1615,7 +1615,8 @@ export default function OrdersAndSuppliersPage() {
                             <TableHead>Product</TableHead>
                             <TableHead>SKU</TableHead>
                             <TableHead className="text-center">Needed</TableHead>
-                            <TableHead>From Order</TableHead>
+                            <TableHead>Source</TableHead>
+                            <TableHead>Status</TableHead>
                             </TableRow>
                         </TableHeader>
                         <TableBody>
@@ -1627,34 +1628,50 @@ export default function OrdersAndSuppliersPage() {
                                 <TableCell><Skeleton className="h-4 w-24" /></TableCell>
                                 <TableCell><Skeleton className="h-4 w-16 mx-auto" /></TableCell>
                                 <TableCell><Skeleton className="h-4 w-32" /></TableCell>
+                                <TableCell><Skeleton className="h-4 w-24" /></TableCell>
                                 </TableRow>
                             ))
                             ) : purchaseQueue.length > 0 ? (
-                            purchaseQueue.map((item) => (
+                            purchaseQueue.map((item) => {
+                                const po = item.purchaseOrderId ? purchaseOrders.find(p => p.id === item.purchaseOrderId) : null;
+                                let statusElement;
+
+                                if (po) {
+                                    statusElement = <Badge variant={statusVariant[po.status] || "default"}>PO {po.status}</Badge>;
+                                } else if (item.orderId === 'REORDER') {
+                                    statusElement = <Button variant="outline" size="sm" className="h-6 px-2 font-mono" onClick={() => handleReorderFromQueue(item)}>Create PO</Button>
+                                } else {
+                                     statusElement = <Badge variant="secondary">Awaiting Purchase</Badge>;
+                                }
+
+                                return (
                                 <TableRow key={item.id}>
-                                <TableCell>
-                                    <Checkbox
-                                        checked={purchaseQueueSelection[item.id] || false}
-                                        onCheckedChange={(checked) => handleQueueSelectionChange(item.id, !!checked)}
-                                        aria-label={`Select ${item.productName}`}
-                                    />
-                                </TableCell>
-                                <TableCell className="font-medium">{item.productName}</TableCell>
-                                <TableCell>{item.productSku}</TableCell>
-                                <TableCell className="text-center">{item.quantity}</TableCell>
-                                <TableCell>
-                                    <div className="flex gap-1 flex-wrap">
+                                    <TableCell>
+                                        <Checkbox
+                                            checked={purchaseQueueSelection[item.id] || false}
+                                            onCheckedChange={(checked) => handleQueueSelectionChange(item.id, !!checked)}
+                                            aria-label={`Select ${item.productName}`}
+                                            disabled={!!po}
+                                        />
+                                    </TableCell>
+                                    <TableCell className="font-medium">{item.productName}</TableCell>
+                                    <TableCell>{item.productSku}</TableCell>
+                                    <TableCell className="text-center">{item.quantity}</TableCell>
+                                    <TableCell>
                                         {item.orderId === "REORDER" 
-                                            ? <Button variant="outline" size="sm" className="h-6 px-2 font-mono" onClick={() => handleReorderFromQueue(item)}>Reorder</Button>
+                                            ? <Badge variant="outline">Reorder</Badge>
                                             : <Badge variant="secondary" className="font-mono">{item.orderId.substring(0,7)}</Badge>
                                         }
-                                    </div>
-                                </TableCell>
+                                    </TableCell>
+                                    <TableCell>
+                                        {statusElement}
+                                    </TableCell>
                                 </TableRow>
-                            ))
+                                )
+                            })
                             ) : (
                             <TableRow>
-                                    <TableCell colSpan={5} className="h-24 text-center">
+                                    <TableCell colSpan={6} className="h-24 text-center">
                                         No items are currently awaiting purchase.
                                     </TableCell>
                                 </TableRow>
@@ -1668,7 +1685,19 @@ export default function OrdersAndSuppliersPage() {
                                 <Card key={i}><CardHeader><Skeleton className="h-5 w-3/4" /></CardHeader><CardContent><Skeleton className="h-4 w-full" /></CardContent></Card>
                             ))
                         ) : purchaseQueue.length > 0 ? (
-                            purchaseQueue.map((item) => (
+                            purchaseQueue.map((item) => {
+                                const po = item.purchaseOrderId ? purchaseOrders.find(p => p.id === item.purchaseOrderId) : null;
+                                let statusElement;
+
+                                if (po) {
+                                    statusElement = <Badge variant={statusVariant[po.status] || "default"}>PO {po.status}</Badge>;
+                                } else if (item.orderId === 'REORDER') {
+                                    statusElement = <Button variant="outline" size="sm" className="h-6 px-2 font-mono" onClick={() => handleReorderFromQueue(item)}>Create PO</Button>
+                                } else {
+                                     statusElement = <Badge variant="secondary">Awaiting Purchase</Badge>;
+                                }
+                                
+                                return (
                                 <Card key={item.id}>
                                     <CardHeader>
                                         <div className="flex items-start justify-between">
@@ -1677,6 +1706,7 @@ export default function OrdersAndSuppliersPage() {
                                                     checked={purchaseQueueSelection[item.id] || false}
                                                     onCheckedChange={(checked) => handleQueueSelectionChange(item.id, !!checked)}
                                                     aria-label={`Select ${item.productName}`}
+                                                    disabled={!!po}
                                                 />
                                                 <div>
                                                     <CardTitle className="text-base">{item.productName}</CardTitle>
@@ -1685,7 +1715,7 @@ export default function OrdersAndSuppliersPage() {
                                             </div>
                                              <div className="flex gap-1 flex-wrap">
                                                 {item.orderId === "REORDER" 
-                                                    ? <Button variant="outline" size="sm" className="h-6 px-2 font-mono" onClick={() => handleReorderFromQueue(item)}>Reorder</Button>
+                                                    ? <Badge variant="outline">Reorder</Badge>
                                                     : <Badge variant="secondary" className="font-mono">{item.orderId.substring(0,7)}</Badge>
                                                 }
                                             </div>
@@ -1694,8 +1724,12 @@ export default function OrdersAndSuppliersPage() {
                                     <CardContent>
                                         <p>Quantity Needed: <span className="font-bold">{item.quantity}</span></p>
                                     </CardContent>
+                                    <CardFooter>
+                                        {statusElement}
+                                    </CardFooter>
                                 </Card>
-                            ))
+                                )
+                            })
                         ) : (
                              <div className="text-sm text-muted-foreground text-center py-10">
                                 No items are currently awaiting purchase.
@@ -2432,4 +2466,5 @@ export default function OrdersAndSuppliersPage() {
     
 
     
+
 
