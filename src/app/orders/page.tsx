@@ -480,10 +480,6 @@ export default function OrdersAndSuppliersPage() {
     return purchaseQueue.filter(item => purchaseQueueSelection[item.id]);
   }, [purchaseQueue, purchaseQueueSelection]);
   
-  const activeOrders = useMemo(() => {
-    const activeStatuses: Order['status'][] = ["Processing", "Awaiting Purchase", "Ready for Issuance", "Partially Fulfilled"];
-    return orders.filter(o => activeStatuses.includes(o.status));
-  }, [orders]);
   
   // Reset dialogs
   useEffect(() => {
@@ -1463,7 +1459,7 @@ export default function OrdersAndSuppliersPage() {
       <TabsContent value="orders" className="space-y-4">
         <Card>
           <CardHeader>
-            <CardTitle>Active Orders</CardTitle>
+            <CardTitle>All Orders</CardTitle>
             <CardDescription>Manage all new and in-progress requisitions.</CardDescription>
           </CardHeader>
           <CardContent>
@@ -1494,7 +1490,7 @@ export default function OrdersAndSuppliersPage() {
                         </TableRow>
                       ))
                     ) : (
-                      activeOrders.map((order) => (
+                      orders.map((order) => (
                         <TableRow key={order.id} onClick={() => setSelectedOrder(order)} className="cursor-pointer">
                           <TableCell className="font-medium">{order.id.substring(0, 7)}</TableCell>
                           <TableCell>{order.client.clientName}</TableCell>
@@ -1546,7 +1542,7 @@ export default function OrdersAndSuppliersPage() {
                         <Card key={i}><CardHeader><Skeleton className="h-5 w-3/4" /></CardHeader><CardContent><Skeleton className="h-4 w-full" /></CardContent></Card>
                     ))
                 ) : (
-                    activeOrders.map((order) => (
+                    orders.map((order) => (
                         <Card key={order.id} onClick={() => setSelectedOrder(order)}>
                             <CardHeader>
                                 <div className="flex justify-between items-start">
