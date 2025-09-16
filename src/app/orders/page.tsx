@@ -72,8 +72,6 @@ const statusVariant: { [key: string]: "default" | "secondary" | "destructive" | 
   Shipped: "outline",
   Cancelled: "destructive",
   Processing: "secondary",
-  Received: "default",
-  Pending: "secondary",
   Delivered: "default",
   Completed: "default",
 };
@@ -332,9 +330,9 @@ export default function OrdersAndSuppliersPage() {
 
   const handleOpenAddSupplierFromProductDialog = useCallback(() => {
     setIsAddProductOpen(false);
-    setTimeout(() => {
-        setIsAddSupplierOpen(true);
-    }, 150);
+    onProductDialogClose.current = () => {
+      setIsAddSupplierOpen(true);
+    };
   }, []);
 
   useEffect(() => {
@@ -1638,10 +1636,8 @@ export default function OrdersAndSuppliersPage() {
 
                                 if (po) {
                                     statusElement = <Badge variant={statusVariant[po.status] || "default"}>PO {po.status}</Badge>;
-                                } else if (item.orderId === 'REORDER') {
-                                    statusElement = <Button variant="outline" size="sm" className="h-6 px-2 font-mono" onClick={() => handleReorderFromQueue(item)}>Create PO</Button>
                                 } else {
-                                     statusElement = <Badge variant="secondary">Awaiting Purchase</Badge>;
+                                    statusElement = <Button variant="outline" size="sm" className="h-6 px-2 font-mono" onClick={() => handleReorderFromQueue(item)}>Create PO</Button>
                                 }
 
                                 return (
@@ -1691,10 +1687,8 @@ export default function OrdersAndSuppliersPage() {
 
                                 if (po) {
                                     statusElement = <Badge variant={statusVariant[po.status] || "default"}>PO {po.status}</Badge>;
-                                } else if (item.orderId === 'REORDER') {
-                                    statusElement = <Button variant="outline" size="sm" className="h-6 px-2 font-mono" onClick={() => handleReorderFromQueue(item)}>Create PO</Button>
                                 } else {
-                                     statusElement = <Badge variant="secondary">Awaiting Purchase</Badge>;
+                                     statusElement = <Button variant="outline" size="sm" className="h-6 px-2 font-mono" onClick={() => handleReorderFromQueue(item)}>Create PO</Button>
                                 }
                                 
                                 return (
@@ -2340,7 +2334,7 @@ export default function OrdersAndSuppliersPage() {
     </AlertDialog>
 
     {selectedPO && (
-        <Dialog open={!!selectedPO} onOpenChange={(open) => !open && setSelectedPO(null)}>
+        <Dialog open={!!selectedPO} onOpenChange={setSelectedPO}>
             <DialogContent>
                 <DialogHeader>
                     <DialogTitle>Purchase Order: {selectedPO.poNumber}</DialogTitle>
@@ -2461,10 +2455,4 @@ export default function OrdersAndSuppliersPage() {
   );
 }
 
-
-
     
-
-    
-
-
