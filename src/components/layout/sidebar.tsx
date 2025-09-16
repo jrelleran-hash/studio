@@ -23,13 +23,16 @@ import { type LucideIcon } from "lucide-react";
 const navItems = [
   { href: "/", label: "Dashboard", icon: Home },
   { href: "/orders", label: "Procurement", icon: ShoppingCart },
-  { href: "/inventory", label: "Inventory", icon: Package },
   { href: "/clients", label: "Clients", icon: Users },
-  { href: "/issuance", label: "Issuance", icon: FileText },
   { href: "/logistics", label: "Logistics", icon: Truck },
   { href: "/returns", label: "Returns", icon: RefreshCcw },
   { href: "/quality-control", label: "Quality Control", icon: ClipboardCheck },
   { href: "/analytics", label: "Analytics", icon: BarChart },
+];
+
+const inventoryNavItems = [
+    { href: "/inventory", label: "Products", icon: Package },
+    { href: "/issuance", label: "Issuance", icon: FileText },
 ];
 
 interface SidebarLinkProps {
@@ -78,6 +81,10 @@ export function Sidebar({ className, inSheet }: { className?: string, inSheet?: 
           <nav className="grid items-start px-4 text-sm font-medium">
             {navItems.map((item) => (
               <SidebarLink key={item.href} {...item} pathname={pathname} inSheet={inSheet} />
+            ))}
+            <div className="my-2 border-t -mx-4"></div>
+            {inventoryNavItems.map((item) => (
+               <SidebarLink key={item.href} {...item} pathname={pathname} inSheet={inSheet} />
             ))}
           </nav>
         </div>
