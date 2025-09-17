@@ -66,6 +66,7 @@ export interface OrderItem {
     quantity: number;
     price: number; // Price at the time of order
     product: Product;
+    status: 'Ready for Issuance' | 'Awaiting Purchase' | 'Fulfilled';
 }
 
 export interface Backorder {
@@ -200,5 +201,3 @@ export interface UserProfile {
     lastName: string;
     role: UserRole;
 }
-
-    

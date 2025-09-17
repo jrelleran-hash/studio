@@ -49,7 +49,7 @@ import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useToast } from "@/hooks/use-toast";
 import { updateOrderStatus, addOrder, addProduct, updateSupplier, deleteSupplier, addSupplier, deleteOrder, addPurchaseOrder, updatePurchaseOrderStatus, deletePurchaseOrder, initiateOutboundReturn, addClient } from "@/services/data-service";
-import type { Order, Supplier, PurchaseOrder, Product, OutboundReturnItem, Client, Backorder } from "@/types";
+import type { Order, Supplier, PurchaseOrder, Product, OutboundReturnItem, Client, Backorder, OrderItem } from "@/types";
 import { formatCurrency } from "@/lib/currency";
 import { CURRENCY_CONFIG } from "@/config/currency";
 import { cn } from "@/lib/utils";
@@ -2038,27 +2038,13 @@ export default function OrdersAndSuppliersPage() {
               <h4 className="font-semibold mt-2">Items Ordered:</h4>
               <ul className="list-disc list-inside text-muted-foreground mt-1 space-y-1">
                 {selectedOrder.items.map(item => (
-                   <li key={item.product.id}>{item.quantity} x {item.product.name}</li>
+                   <li key={item.product.id} className="flex justify-between items-center">
+                       <span>{item.quantity} x {item.product.name}</span>
+                       <Badge variant={statusVariant[item.status] || "secondary"} className="text-xs">{item.status.replace(/Ready for /g, '')}</Badge>
+                   </li>
                 ))}
               </ul>
             </div>
-             {orderBackorders.length > 0 && (
-              <div>
-                <h4 className="font-semibold mt-4">Backorder Status:</h4>
-                <ul className="mt-1 space-y-2">
-                  {orderBackorders.map(bo => {
-                    const po = bo.purchaseOrderId ? purchaseOrders.find(p => p.id === bo.purchaseOrderId) : null;
-                    const status = po ? `PO ${po.status}` : 'Awaiting PO';
-                    return (
-                      <li key={bo.id} className="text-sm text-muted-foreground flex items-center justify-between">
-                        <span>{bo.quantity} x {bo.productName}</span>
-                        <Badge variant={po ? statusVariant[po.status] : "secondary"}>{status}</Badge>
-                      </li>
-                    )
-                  })}
-                </ul>
-              </div>
-            )}
           </div>
           <DialogFooter className="!justify-between flex-col-reverse sm:flex-row gap-2">
              <div>
@@ -2407,5 +2393,3 @@ export default function OrdersAndSuppliersPage() {
     </>
   );
 }
-
-    
