@@ -1020,13 +1020,16 @@ async function checkAndUpdateAwaitingOrders() {
     for (const orderDoc of awaitingOrdersSnapshot.docs) {
         const orderData = orderDoc.data();
         let allItemsReady = true;
+        let needsUpdate = false;
 
-        for (const item of orderData.items) {
-             if (item.status === 'Fulfilled' || item.status === 'Ready for Issuance') continue;
-             if (item.status === 'PO Pending') {
-                 allItemsReady = false;
-                 break;
-             }
+        const updatedItems = [...orderData.items]; // Create a mutable copy
+
+        for (let i = 0; i < updatedItems.length; i++) {
+            const item = updatedItems[i];
+            // Skip items that are already good to go
+            if (item.status === 'Fulfilled' || item.status === 'Ready for Issuance') {
+                continue;
+            }
 
             const productRef = item.productRef as DocumentReference;
             let productData: Product | undefined = inventoryCache.get(productRef.id);
@@ -1039,23 +1042,31 @@ async function checkAndUpdateAwaitingOrders() {
                 }
             }
 
-            if (!productData || productData.stock < item.quantity) {
+            if (productData && productData.stock >= item.quantity) {
+                // If stock is now sufficient, update the item's status
+                if (item.status !== 'Ready for Issuance') {
+                    updatedItems[i] = { ...item, status: 'Ready for Issuance' };
+                    needsUpdate = true;
+                }
+            } else {
+                // If any item is not ready, the whole order is not ready
                 allItemsReady = false;
-                break; 
             }
         }
 
-        if (allItemsReady) {
-            const newStatus = "Ready for Issuance";
-            const updatedItems = orderData.items.map((item: any) => ({ ...item, status: 'Ready for Issuance' }));
-            batch.update(orderDoc.ref, { status: newStatus, items: updatedItems });
-             await createNotification({
-                title: "Order Ready",
-                description: `Order ${orderDoc.id.substring(0,7)} is ready for issuance.`,
-                details: `All items for order ${orderDoc.id.substring(0,7)} are in stock and ready to be issued.`,
-                href: "/issuance",
-                icon: "ShoppingCart",
-            });
+        if (needsUpdate) {
+            const newOverallStatus = allItemsReady ? "Ready for Issuance" : orderData.status; // Keep current status if not all items are ready
+            batch.update(orderDoc.ref, { items: updatedItems, status: newOverallStatus });
+
+            if (newOverallStatus === "Ready for Issuance") {
+                await createNotification({
+                    title: "Order Ready",
+                    description: `Order ${orderDoc.id.substring(0,7)} is ready for issuance.`,
+                    details: `All items for order ${orderDoc.id.substring(0,7)} are in stock and ready to be issued.`,
+                    href: "/issuance",
+                    icon: "ShoppingCart",
+                });
+            }
         }
     }
     
@@ -1213,10 +1224,9 @@ export async function addShipment(shipmentData: NewShipmentData): Promise<Docume
         const issuance = issuanceDoc.data();
 
         let orderRef: DocumentReference | null = null;
-        let orderDoc: any;
         if (issuance.orderId) {
             orderRef = doc(db, "orders", issuance.orderId);
-            orderDoc = await transaction.get(orderRef);
+            const orderDoc = await transaction.get(orderRef);
             if (!orderDoc.exists()) {
                 throw new Error("Original order not found.");
             }
@@ -1268,31 +1278,22 @@ export async function updateShipmentStatus(shipmentId: string, status: Shipment[
         const shipmentData = shipmentDoc.data();
         const issuanceRef = shipmentData.issuanceRef as DocumentReference;
         const issuanceDoc = await transaction.get(issuanceRef);
-        if (!issuanceDoc.exists()) {
-            // If issuance doesn't exist, we might not be able to update the order, but we can still update the shipment.
-            // Log a warning and proceed with shipment update only.
-            console.warn("Issuance not found for shipment. Order status will not be updated.");
-        }
         
         let orderRef: DocumentReference | null = null;
+        let orderDoc;
         if (issuanceDoc.exists() && issuanceDoc.data().orderId) {
              orderRef = doc(db, "orders", issuanceDoc.data().orderId);
-             const orderDoc = await transaction.get(orderRef);
-             if (!orderDoc.exists()) {
-                 console.warn("Original order not found for shipment. Order status will not be updated.");
-                 orderRef = null; // Ensure we don't try to update a non-existent doc
-             }
+             orderDoc = await transaction.get(orderRef);
         }
         
         // --- 2. WRITES ---
         const payload: any = { status };
         if (status === 'Delivered') {
             payload.actualDeliveryDate = Timestamp.now();
-            if (orderRef) {
-                 // Check if the order is 'Shipped', then update to 'Completed'
-                 const orderData = (await transaction.get(orderRef)).data();
+            if (orderRef && orderDoc && orderDoc.exists()) {
+                 const orderData = orderDoc.data();
                  if(orderData?.status === 'Shipped') {
-                    transaction.update(orderRef, { status: "Completed" });
+                    transaction.update(orderRef, { status: "Delivered" });
                  }
             }
         }
