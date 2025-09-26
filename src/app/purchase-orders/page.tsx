@@ -363,7 +363,7 @@ export default function PurchaseOrdersPage() {
 
   const { clientOrderQueue, reorderQueue } = useMemo(() => {
     return {
-      clientOrderQueue: backorders.filter(bo => bo.orderId !== 'REORDER'),
+      clientOrderQueue: backorders.filter(bo => bo.orderId !== 'REORDER' && bo.status === 'Pending'),
       reorderQueue: backorders.filter(bo => bo.orderId === 'REORDER'),
     };
   }, [backorders]);
@@ -606,12 +606,21 @@ export default function PurchaseOrdersPage() {
   const handleQueueSelectAll = (checked: boolean, list: Backorder[]) => {
     const newSelection = { ...purchaseQueueSelection };
     list.forEach(item => {
+        newSelection[item.id] = checked;
+    });
+    setPurchaseQueueSelection(newSelection);
+  }
+  
+  const handleReorderQueueSelectAll = (checked: boolean, list: Backorder[]) => {
+    const newSelection = { ...purchaseQueueSelection };
+    list.forEach(item => {
         if(item.status === 'Pending') { // Only allow selecting pending items
             newSelection[item.id] = checked;
         }
     });
     setPurchaseQueueSelection(newSelection);
   }
+
 
   const triggerPreview = (po: PurchaseOrder) => {
     setPoForPrint(po);
@@ -622,7 +631,7 @@ export default function PurchaseOrdersPage() {
     window.print();
   };
 
-  const isAllClientQueueSelected = clientOrderQueue.length > 0 && clientOrderQueue.filter(i => i.status === 'Pending').every(item => purchaseQueueSelection[item.id]);
+  const isAllClientQueueSelected = clientOrderQueue.length > 0 && clientOrderQueue.every(item => purchaseQueueSelection[item.id]);
   const selectableReorderItems = reorderQueue.filter(i => i.status === 'Pending');
   const isAllReorderQueueSelected = selectableReorderItems.length > 0 && selectableReorderItems.every(item => purchaseQueueSelection[item.id]);
 
@@ -915,8 +924,8 @@ export default function PurchaseOrdersPage() {
               <CardContent>
                  <Tabs defaultValue="client-orders">
                     <TabsList>
-                        <TabsTrigger value="client-orders">Client Orders ({clientOrderQueue.filter(item => item.status === 'Pending').length})</TabsTrigger>
-                        <TabsTrigger value="reorder-items">Reorder Items ({reorderQueue.filter(item => item.status === 'Pending').length})</TabsTrigger>
+                        <TabsTrigger value="client-orders">Client Orders ({clientOrderQueue.length})</TabsTrigger>
+                        <TabsTrigger value="reorder-items">Reorder Items ({reorderQueue.length})</TabsTrigger>
                     </TabsList>
                     <TabsContent value="client-orders">
                         <Table>
@@ -969,7 +978,7 @@ export default function PurchaseOrdersPage() {
                                     <TableHead className="w-12">
                                       <Checkbox
                                         checked={isAllReorderQueueSelected}
-                                        onCheckedChange={(checked) => handleQueueSelectAll(!!checked, reorderQueue)}
+                                        onCheckedChange={(checked) => handleReorderQueueSelectAll(!!checked, selectableReorderItems)}
                                         aria-label="Select all reorder items"
                                       />
                                     </TableHead>
@@ -998,7 +1007,7 @@ export default function PurchaseOrdersPage() {
                                             <TableCell>{item.productSku}</TableCell>
                                             <TableCell className="text-center">{item.quantity}</TableCell>
                                             <TableCell>
-                                                <Badge variant={statusVariant[item.status] || 'default'} className="font-mono">
+                                                <Badge variant={statusVariant[item.status] || 'default'}>
                                                     {item.status}
                                                 </Badge>
                                             </TableCell>
