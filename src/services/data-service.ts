@@ -610,7 +610,12 @@ export async function addIssuance(issuanceData: NewIssuanceData): Promise<Docume
     // --- 1. READS ---
     const productRefs = issuanceData.items.map(item => doc(db, "inventory", item.productId));
     const productDocs = await Promise.all(productRefs.map(ref => transaction.get(ref)));
-    
+
+    const backorderQueries = issuanceData.items.map(item => 
+      query(collection(db, "backorders"), where("status", "==", "Pending"), where("productId", "==", item.productId))
+    );
+    const backorderSnapshots = await Promise.all(backorderQueries.map(q => transaction.get(q)));
+
     let orderDoc: any;
     if (issuanceData.orderId) {
       const orderRef = doc(db, "orders", issuanceData.orderId);
@@ -618,11 +623,17 @@ export async function addIssuance(issuanceData: NewIssuanceData): Promise<Docume
     }
     
     // --- 2. LOGIC & WRITES ---
+    const backordersToCreate: any[] = [];
+    const productsToUpdate: any[] = [];
+    
     for (let i = 0; i < issuanceData.items.length; i++) {
       const item = issuanceData.items[i];
       const productDoc = productDocs[i];
+
       if (!productDoc.exists()) throw new Error(`Product with ID ${item.productId} not found.`);
+      
       const productData = productDoc.data() as Product;
+      
       if (productData.stock < item.quantity) throw new Error(`Insufficient stock for ${productData.name}. Available: ${productData.stock}, Requested: ${item.quantity}`);
       
       const newStock = productData.stock - item.quantity;
@@ -631,40 +642,44 @@ export async function addIssuance(issuanceData: NewIssuanceData): Promise<Docume
         stock: newStock,
         dateUpdated: issuanceDate
       };
-      transaction.update(productDoc.ref, { 
-        stock: newStock,
-        lastUpdated: issuanceDate,
-        history: arrayUnion(newHistoryEntry)
+
+      productsToUpdate.push({
+        ref: productDoc.ref,
+        payload: { 
+          stock: newStock,
+          lastUpdated: issuanceDate,
+          history: arrayUnion(newHistoryEntry)
+        }
       });
         
       checkStockAndCreateNotification({ ...productData, stock: newStock }, productDoc.id);
 
-      // Check if reorder is needed
       if (newStock <= productData.reorderLimit) {
-        const backorderQuery = query(collection(db, "backorders"), where("status", "==", "Pending"), where("productId", "==", productDoc.id));
-        const backorderSnapshot = await transaction.get(backorderQuery);
-
-        if (backorderSnapshot.empty) { // Only create a new backorder if one doesn't already exist for this product
-            const reorderQty = productData.maxStockLevel - newStock;
-            if(reorderQty > 0) {
-              const backorderRef = doc(collection(db, "backorders"));
-              transaction.set(backorderRef, {
-                orderId: "REORDER",
-                orderRef: null, // No specific customer order
-                clientRef: null, // No specific client
-                productId: productDoc.id,
-                productRef: productDoc.ref,
-                productName: productData.name,
-                productSku: productData.sku,
-                quantity: reorderQty,
-                date: issuanceDate,
-                status: 'Pending',
-              });
-            }
+        const backorderSnapshot = backorderSnapshots[i];
+        if (backorderSnapshot.empty) {
+          const reorderQty = productData.maxStockLevel - newStock;
+          if (reorderQty > 0) {
+            backordersToCreate.push({
+              orderId: "REORDER",
+              orderRef: null,
+              clientRef: null,
+              productId: productDoc.id,
+              productRef: productDoc.ref,
+              productName: productData.name,
+              productSku: productData.sku,
+              quantity: reorderQty,
+              date: issuanceDate,
+              status: 'Pending',
+            });
+          }
         }
       }
     }
     
+    // Now perform all the writes
+    productsToUpdate.forEach(p => transaction.update(p.ref, p.payload));
+    backordersToCreate.forEach(b => transaction.set(doc(collection(db, "backorders")), b));
+
     if (orderDoc && orderDoc.exists()) {
       const orderData = orderDoc.data();
       const updatedItems = orderData.items.map((orderItem: any) => {
