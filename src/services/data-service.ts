@@ -612,17 +612,24 @@ export async function addIssuance(issuanceData: NewIssuanceData): Promise<Docume
     const clientRef = doc(db, "clients", issuanceData.clientId);
 
     return runTransaction(db, async (transaction) => {
-        // --- 1. READS ---
-        const productRefs = issuanceData.items.map(item => doc(db, "inventory", item.productId));
-        const productDocs = await Promise.all(productRefs.map(ref => transaction.get(ref)));
-
         const allProductIds = issuanceData.items.map(i => i.productId).filter(Boolean);
-        const backorderQuery = allProductIds.length > 0
-            ? query(collection(db, "backorders"), where("productId", "in", allProductIds), where("orderId", "==", "REORDER"))
-            : null;
 
-        const backorderSnapshot = backorderQuery ? await transaction.get(backorderQuery) : null;
-        const existingReorders = new Map(backorderSnapshot?.docs.map(d => [d.data().productId, d.data() as Backorder]));
+        const productRefs = allProductIds.map(id => doc(db, "inventory", id));
+        const productDocs = allProductIds.length > 0 ? await Promise.all(productRefs.map(ref => transaction.get(ref))) : [];
+        
+        let existingReorders = new Map<string, Backorder>();
+
+        if (allProductIds.length > 0) {
+            const backorderQuery = query(
+                collection(db, "backorders"),
+                where("productId", "in", allProductIds),
+                where("orderId", "==", "REORDER")
+            );
+            const backorderSnapshot = await transaction.get(backorderQuery);
+            backorderSnapshot.docs.forEach(d => {
+                existingReorders.set(d.data().productId, d.data() as Backorder);
+            });
+        }
         
         let orderDoc: any;
         if (issuanceData.orderId) {
@@ -630,14 +637,13 @@ export async function addIssuance(issuanceData: NewIssuanceData): Promise<Docume
             orderDoc = await transaction.get(orderRef);
         }
 
-        // --- 2. LOGIC & WRITES ---
         const backordersToCreate: any[] = [];
         
         for (let i = 0; i < issuanceData.items.length; i++) {
             const item = issuanceData.items[i];
             const productDoc = productDocs[i];
 
-            if (!productDoc.exists()) throw new Error(`Product with ID ${item.productId} not found.`);
+            if (!productDoc?.exists()) throw new Error(`Product with ID ${item.productId} not found.`);
 
             const productData = productDoc.data() as Product;
 
@@ -656,10 +662,8 @@ export async function addIssuance(issuanceData: NewIssuanceData): Promise<Docume
                 history: arrayUnion(newHistoryEntry)
             });
 
-            // Logic to check if a reorder is needed
             if (newStock <= productData.reorderLimit) {
                 const existingReorder = existingReorders.get(productDoc.id);
-                // Check for pending OR already ordered reorders to prevent duplicates.
                 const hasActiveReorder = existingReorder && (existingReorder.status === 'Pending' || existingReorder.status === 'Ordered');
 
                 if (!hasActiveReorder) {
@@ -682,10 +686,8 @@ export async function addIssuance(issuanceData: NewIssuanceData): Promise<Docume
             }
         }
         
-        // Write new backorders to the database
         backordersToCreate.forEach(b => transaction.set(doc(collection(db, "backorders")), b));
         
-        // Update original customer order if it exists
         if (orderDoc && orderDoc.exists()) {
             const orderData = orderDoc.data();
             const updatedItems = orderData.items.map((orderItem: any) => {
@@ -720,14 +722,12 @@ export async function addIssuance(issuanceData: NewIssuanceData): Promise<Docume
         const docRef = doc(collection(db, "issuances"));
         transaction.set(docRef, newIssuance);
 
-        // After transaction, check all products for stock levels
         for (const productDoc of productDocs) {
-            if(productDoc.exists()){
+            if(productDoc?.exists()){
                 const productData = productDoc.data() as Product;
                 const itemData = issuanceData.items.find(i => i.productId === productDoc.id);
                 if(itemData){
                     const newStock = productData.stock - itemData.quantity;
-                    // Pass the updated product state to the notification check
                     checkStockAndCreateNotification({ ...productData, stock: newStock }, productDoc.id);
                 }
             }
@@ -913,15 +913,12 @@ type NewPurchaseOrderData = {
 
 export async function addPurchaseOrder(poData: NewPurchaseOrderData): Promise<DocumentReference> {
     return runTransaction(db, async (transaction) => {
-        // --- 1. READS ---
         const supplierRef = doc(db, "suppliers", poData.supplierId);
         const supplierDoc = await transaction.get(supplierRef);
         if (!supplierDoc.exists()) throw new Error("Supplier not found.");
 
-        const backorderRefs = poData.items
-            .map(item => item.backorderId ? doc(db, 'backorders', item.backorderId) : undefined)
-            .filter(Boolean) as DocumentReference[];
-        
+        const backorderIds = poData.items.map(item => item.backorderId).filter(Boolean) as string[];
+        const backorderRefs = backorderIds.map(id => doc(db, 'backorders', id));
         const backorderDocs = backorderRefs.length > 0 ? await Promise.all(backorderRefs.map(ref => transaction.get(ref))) : [];
         
         const uniqueOrderRefsMap = new Map<string, DocumentReference>();
@@ -937,7 +934,6 @@ export async function addPurchaseOrder(poData: NewPurchaseOrderData): Promise<Do
         const orderDocs = uniqueOrderRefs.length > 0 ? await Promise.all(uniqueOrderRefs.map(ref => transaction.get(ref))) : [];
         const orderDocsMap = new Map(orderDocs.map((doc, i) => [uniqueOrderRefs[i].id, doc]));
 
-        // --- 2. LOGIC & WRITES ---
         const poRef = doc(collection(db, "purchaseOrders"));
         const poDate = Timestamp.now();
 
@@ -960,10 +956,8 @@ export async function addPurchaseOrder(poData: NewPurchaseOrderData): Promise<Do
                     }
                 }
 
-                // Handle backorder splitting
                 const orderedItem = poData.items.find(i => i.backorderId === backorderDoc.id);
                 if (orderedItem && orderedItem.quantity < backorderData.quantity) {
-                    // Ordered less than needed, create a new backorder for the remainder
                     const remainderQty = backorderData.quantity - orderedItem.quantity;
                     const newBackorderRef = doc(collection(db, "backorders"));
                     transaction.set(newBackorderRef, {
@@ -971,18 +965,16 @@ export async function addPurchaseOrder(poData: NewPurchaseOrderData): Promise<Do
                         quantity: remainderQty,
                         date: poDate,
                         status: 'Pending',
-                        parentBackorderId: backorderDoc.id // Link to original backorder
+                        parentBackorderId: backorderDoc.id
                     });
 
-                    // Update the original backorder to reflect the partial order
                     transaction.update(backorderDoc.ref, {
                         status: 'Ordered',
                         purchaseOrderId: poRef.id,
-                        quantity: orderedItem.quantity // Update to the quantity that was actually ordered
+                        quantity: orderedItem.quantity
                     });
 
                 } else {
-                    // Full quantity was ordered
                     transaction.update(backorderDoc.ref, {
                         status: 'Ordered',
                         purchaseOrderId: poRef.id,
@@ -1775,6 +1767,7 @@ export async function getBackorders(): Promise<Backorder[]> {
     
 
     
+
 
 
 
