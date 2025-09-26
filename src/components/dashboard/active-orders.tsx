@@ -471,7 +471,7 @@ export function ActiveOrders() {
                                 <Input 
                                   type="number" 
                                   placeholder="Qty"
-                                  className="w-20"
+                                  className="w-24 caret-transparent"
                                   onKeyDown={(e) => e.preventDefault()}
                                   {...orderForm.register(`items.${index}.quantity`, { valueAsNumber: true })}
                                 />

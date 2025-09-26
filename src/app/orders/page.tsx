@@ -539,7 +539,7 @@ export default function OrdersPage() {
                                   <Input
                                     type="number"
                                     placeholder="Qty"
-                                    className="w-24"
+                                    className="w-24 caret-transparent"
                                     onKeyDown={(e) => e.preventDefault()}
                                     {...orderForm.register(`items.${index}.quantity`, { valueAsNumber: true })}
                                   />
@@ -984,4 +984,3 @@ export default function OrdersPage() {
     </>
   );
 }
-

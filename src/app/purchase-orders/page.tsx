@@ -819,7 +819,7 @@ export default function PurchaseOrdersPage() {
                           <Input
                             type="number"
                             placeholder="Qty"
-                            className="w-24"
+                            className="w-24 caret-transparent"
                             onKeyDown={(e) => e.preventDefault()}
                             {...poForm.register(`items.${index}.quantity`, { valueAsNumber: true })}
                           />
@@ -1466,4 +1466,3 @@ export default function PurchaseOrdersPage() {
     </>
   );
 }
-
