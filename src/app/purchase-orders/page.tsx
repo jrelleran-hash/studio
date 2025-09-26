@@ -362,11 +362,9 @@ export default function PurchaseOrdersPage() {
 
 
   const { clientOrderQueue, reorderQueue } = useMemo(() => {
-    const allClientOrders = backorders.filter(bo => bo.orderId !== 'REORDER');
-    const allReorders = backorders.filter(bo => bo.orderId === 'REORDER');
     return {
-      clientOrderQueue: allClientOrders,
-      reorderQueue: allReorders,
+      clientOrderQueue: backorders.filter(bo => bo.orderId !== 'REORDER'),
+      reorderQueue: backorders.filter(bo => bo.orderId === 'REORDER'),
     };
   }, [backorders]);
 
@@ -625,7 +623,8 @@ export default function PurchaseOrdersPage() {
   };
 
   const isAllClientQueueSelected = clientOrderQueue.length > 0 && clientOrderQueue.filter(i => i.status === 'Pending').every(item => purchaseQueueSelection[item.id]);
-  const isAllReorderQueueSelected = reorderQueue.length > 0 && reorderQueue.filter(i => i.status === 'Pending').every(item => purchaseQueueSelection[item.id]);
+  const selectableReorderItems = reorderQueue.filter(i => i.status === 'Pending');
+  const isAllReorderQueueSelected = selectableReorderItems.length > 0 && selectableReorderItems.every(item => purchaseQueueSelection[item.id]);
 
 
   const formatDateSimple = (date: Date | Timestamp) => {
@@ -967,7 +966,13 @@ export default function PurchaseOrdersPage() {
                          <Table>
                             <TableHeader>
                                 <TableRow>
-                                    <TableHead className="w-12"><Checkbox checked={isAllReorderQueueSelected} onCheckedChange={(checked) => handleQueueSelectAll(!!checked, reorderQueue)} aria-label="Select all reorder items" /></TableHead>
+                                    <TableHead className="w-12">
+                                      <Checkbox
+                                        checked={isAllReorderQueueSelected}
+                                        onCheckedChange={(checked) => handleQueueSelectAll(!!checked, reorderQueue)}
+                                        aria-label="Select all reorder items"
+                                      />
+                                    </TableHead>
                                     <TableHead>Product</TableHead>
                                     <TableHead>SKU</TableHead>
                                     <TableHead className="text-center">Reorder Qty</TableHead>
@@ -1481,3 +1486,4 @@ export default function PurchaseOrdersPage() {
     
 
     
+
