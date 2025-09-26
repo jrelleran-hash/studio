@@ -65,6 +65,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 const statusVariant: { [key: string]: "default" | "secondary" | "destructive" | "outline" } = {
   Completed: "default",
   Pending: "secondary",
+  Ordered: "secondary",
   Shipped: "outline",
   Delivered: "outline",
   "PO Shipped": "outline",
@@ -361,10 +362,9 @@ export default function PurchaseOrdersPage() {
 
 
   const { clientOrderQueue, reorderQueue } = useMemo(() => {
-    const pendingBackorders = backorders.filter(bo => bo.status === 'Pending');
     return {
-      clientOrderQueue: pendingBackorders.filter(bo => bo.orderId !== 'REORDER'),
-      reorderQueue: pendingBackorders.filter(bo => bo.orderId === 'REORDER'),
+      clientOrderQueue: backorders.filter(bo => bo.orderId !== 'REORDER' && bo.status === 'Pending'),
+      reorderQueue: backorders.filter(bo => bo.orderId === 'REORDER'), // Show all statuses to prevent duplicates
     };
   }, [backorders]);
 
@@ -606,7 +606,9 @@ export default function PurchaseOrdersPage() {
   const handleQueueSelectAll = (checked: boolean, list: Backorder[]) => {
     const newSelection = { ...purchaseQueueSelection };
     list.forEach(item => {
-        newSelection[item.id] = checked;
+        if(item.status === 'Pending') { // Only allow selecting pending items
+            newSelection[item.id] = checked;
+        }
     });
     setPurchaseQueueSelection(newSelection);
 }
@@ -621,7 +623,8 @@ export default function PurchaseOrdersPage() {
   };
 
   const isAllClientQueueSelected = clientOrderQueue.length > 0 && clientOrderQueue.every(item => purchaseQueueSelection[item.id]);
-  const isAllReorderQueueSelected = reorderQueue.length > 0 && reorderQueue.every(item => purchaseQueueSelection[item.id]);
+  const isAllReorderQueueSelected = reorderQueue.length > 0 && reorderQueue.every(item => item.status !== 'Pending' || purchaseQueueSelection[item.id]);
+
 
   const formatDateSimple = (date: Date | Timestamp) => {
     const jsDate = date instanceof Timestamp ? date.toDate() : date;
@@ -954,7 +957,7 @@ export default function PurchaseOrdersPage() {
                                     <TableHead>Product</TableHead>
                                     <TableHead>SKU</TableHead>
                                     <TableHead className="text-center">Reorder Qty</TableHead>
-                                    <TableHead>Reason</TableHead>
+                                    <TableHead>Status</TableHead>
                                 </TableRow>
                             </TableHeader>
                              <TableBody>
@@ -964,12 +967,22 @@ export default function PurchaseOrdersPage() {
                                     ))
                                 ) : reorderQueue.length > 0 ? (
                                     reorderQueue.map((item) => (
-                                        <TableRow key={item.id}>
-                                            <TableCell><Checkbox checked={purchaseQueueSelection[item.id] || false} onCheckedChange={(checked) => handleQueueSelectionChange(item.id, !!checked)} /></TableCell>
+                                        <TableRow key={item.id} className={cn(item.status !== 'Pending' && 'text-muted-foreground')}>
+                                            <TableCell>
+                                                <Checkbox
+                                                    checked={purchaseQueueSelection[item.id] || false}
+                                                    onCheckedChange={(checked) => handleQueueSelectionChange(item.id, !!checked)}
+                                                    disabled={item.status !== 'Pending'}
+                                                />
+                                            </TableCell>
                                             <TableCell className="font-medium">{item.productName}</TableCell>
                                             <TableCell>{item.productSku}</TableCell>
                                             <TableCell className="text-center">{item.quantity}</TableCell>
-                                            <TableCell><Badge variant="outline" className="font-mono">Low Stock</Badge></TableCell>
+                                            <TableCell>
+                                                <Badge variant={statusVariant[item.status] || 'default'} className="font-mono">
+                                                    {item.status}
+                                                </Badge>
+                                            </TableCell>
                                         </TableRow>
                                     ))
                                 ) : (
@@ -1450,5 +1463,7 @@ export default function PurchaseOrdersPage() {
   );
 }
 
+
+    
 
     
