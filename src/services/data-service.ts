@@ -861,26 +861,25 @@ export async function addPurchaseOrder(poData: NewPurchaseOrderData): Promise<Do
     if (!supplierDoc.exists()) throw new Error("Supplier not found.");
 
     const backorderItems = poData.items.filter(item => item.backorderId);
-    const backorderDocs = await Promise.all(
-      backorderItems.map(item => transaction.get(doc(db, "backorders", item.backorderId!)))
-    );
-
+    
     // Group backorders by original order to update them efficiently
     const ordersToUpdate: Map<string, { orderRef: DocumentReference; productIds: Set<string> }> = new Map();
-    for (const backorderDoc of backorderDocs) {
-      if (backorderDoc.exists()) {
-        const backorderData = backorderDoc.data();
-        const orderId = backorderData.orderRef.id;
-        if (!ordersToUpdate.has(orderId)) {
-          ordersToUpdate.set(orderId, { orderRef: backorderData.orderRef, productIds: new Set() });
-        }
-        ordersToUpdate.get(orderId)!.productIds.add(backorderData.productId);
-      }
-    }
 
-    const orderDocs = await Promise.all(
-        Array.from(ordersToUpdate.values()).map(group => transaction.get(group.orderRef))
-    );
+    if (backorderItems.length > 0) {
+        const backorderRefs = backorderItems.map(item => doc(db, "backorders", item.backorderId!));
+        const backorderDocs = await Promise.all(backorderRefs.map(ref => transaction.get(ref)));
+        
+        for (const backorderDoc of backorderDocs) {
+            if (backorderDoc.exists()) {
+                const backorderData = backorderDoc.data();
+                const orderId = backorderData.orderRef.id;
+                if (!ordersToUpdate.has(orderId)) {
+                    ordersToUpdate.set(orderId, { orderRef: backorderData.orderRef, productIds: new Set() });
+                }
+                ordersToUpdate.get(orderId)!.productIds.add(backorderData.productId);
+            }
+        }
+    }
     
     // --- 2. WRITES ---
     const poRef = doc(collection(db, "purchaseOrders"));
@@ -902,16 +901,16 @@ export async function addPurchaseOrder(poData: NewPurchaseOrderData): Promise<Do
     transaction.set(poRef, newPurchaseOrder);
 
     // Update backorders status
-    for (const backorderDoc of backorderDocs) {
-      if (backorderDoc.exists()) {
-        transaction.update(backorderDoc.ref, { status: 'Ordered', purchaseOrderId: poRef.id });
-      }
+    for (const item of backorderItems) {
+        if (item.backorderId) {
+            const backorderRef = doc(db, "backorders", item.backorderId);
+            transaction.update(backorderRef, { status: 'Ordered', purchaseOrderId: poRef.id });
+        }
     }
     
     // Update original order item statuses
-    let orderDocIndex = 0;
     for (const [orderId, group] of ordersToUpdate.entries()) {
-        const orderDoc = orderDocs[orderDocIndex++];
+        const orderDoc = await transaction.get(group.orderRef); // Read inside transaction but after other reads
         if (orderDoc.exists()) {
             const orderData = orderDoc.data();
             const updatedItems = orderData.items.map((orderItem: any) => {
@@ -923,9 +922,9 @@ export async function addPurchaseOrder(poData: NewPurchaseOrderData): Promise<Do
 
             // Also check if the overall order status should change
             const allItemsPendingPO = updatedItems.every((item: any) => 
-                item.status === 'Fulfilled' || item.status === 'PO Pending'
+                item.status === 'Fulfilled' || item.status === 'PO Pending' || item.status === 'Ready for Issuance'
             );
-            const newStatus = allItemsPendingPO ? 'Processing' : orderData.status;
+             const newStatus = allItemsPendingPO ? 'Processing' : orderData.status;
 
             transaction.update(group.orderRef, { items: updatedItems, status: newStatus });
         }
@@ -1155,49 +1154,84 @@ type NewShipmentData = {
 }
 
 export async function addShipment(shipmentData: NewShipmentData): Promise<DocumentReference> {
-    try {
+    return runTransaction(db, async (transaction) => {
+        // Reads
+        const issuanceRef = doc(db, "issuances", shipmentData.issuanceId);
+        const issuanceDoc = await transaction.get(issuanceRef);
+        if (!issuanceDoc.exists()) throw new Error("Issuance not found.");
+
+        const issuance = issuanceDoc.data();
+        let orderRef: DocumentReference | null = null;
+        if (issuance.orderId) {
+            orderRef = doc(db, "orders", issuance.orderId);
+            const orderDoc = await transaction.get(orderRef);
+            if (!orderDoc.exists()) throw new Error("Original order not found.");
+        }
+
+        // Writes
         const shipmentNumber = `SH-${Date.now()}`;
         const newShipment = {
             shipmentNumber,
-            issuanceRef: doc(db, "issuances", shipmentData.issuanceId),
-            status: "Pending",
+            issuanceRef: issuanceRef,
+            status: "Shipped",
             shippingProvider: shipmentData.shippingProvider,
             trackingNumber: shipmentData.trackingNumber || "",
             estimatedDeliveryDate: Timestamp.fromDate(shipmentData.estimatedDeliveryDate),
             createdAt: Timestamp.now(),
         };
 
-        const shipmentsCol = collection(db, "shipments");
-        const docRef = await addDoc(shipmentsCol, newShipment);
+        const shipmentRef = doc(collection(db, "shipments"));
+        transaction.set(shipmentRef, newShipment);
         
+        if (orderRef) {
+            transaction.update(orderRef, { status: "Shipped" });
+        }
+        
+        return { shipmentRef, shipmentNumber };
+
+    }).then(async ({ shipmentRef, shipmentNumber }) => {
         await createNotification({
-            title: "New Shipment Created",
-            description: `Shipment ${shipmentNumber} is now pending.`,
-            details: `A new shipment (${shipmentNumber}) has been created and is now pending.`,
+            title: "Order Shipped",
+            description: `Shipment ${shipmentNumber} is on its way.`,
+            details: `A new shipment (${shipmentNumber}) has been created and is now in transit.`,
             href: "/logistics",
             icon: "Truck",
         });
-        
-        return docRef;
-
-    } catch (error) {
-        console.error("Error adding shipment:", error);
-        throw new Error("Failed to add shipment.");
-    }
+        return shipmentRef;
+    });
 }
 
 export async function updateShipmentStatus(shipmentId: string, status: Shipment['status']): Promise<void> {
-    try {
-        const shipmentRef = doc(db, "shipments", shipmentId);
+    const shipmentRef = doc(db, "shipments", shipmentId);
+
+    await runTransaction(db, async (transaction) => {
+        // Reads
+        const shipmentDoc = await transaction.get(shipmentRef);
+        if (!shipmentDoc.exists()) throw new Error("Shipment not found.");
+
+        const shipmentData = shipmentDoc.data();
+        const issuanceRef = shipmentData.issuanceRef as DocumentReference;
+        const issuanceDoc = await transaction.get(issuanceRef);
+        if (!issuanceDoc.exists()) throw new Error("Issuance not found for shipment.");
+        
+        const issuanceData = issuanceDoc.data();
+        let orderRef: DocumentReference | null = null;
+        if (issuanceData.orderId) {
+             orderRef = doc(db, "orders", issuanceData.orderId);
+             const orderDoc = await transaction.get(orderRef); // ensure order exists
+             if (!orderDoc.exists()) throw new Error("Original order not found for shipment.");
+        }
+        
+        // Writes
         const payload: any = { status };
         if (status === 'Delivered') {
             payload.actualDeliveryDate = Timestamp.now();
+            if (orderRef) {
+                 transaction.update(orderRef, { status: "Completed" });
+            }
         }
-        await updateDoc(shipmentRef, payload);
-    } catch (error) {
-        console.error("Error updating shipment status:", error);
-        throw new Error("Failed to update shipment status.");
-    }
+        transaction.update(shipmentRef, payload);
+    });
 }
 
 export async function getReturns(): Promise<Return[]> {
@@ -1601,8 +1635,4 @@ export async function getBackorders(): Promise<Backorder[]> {
 }
 
 
-
-
-
-
-
+    

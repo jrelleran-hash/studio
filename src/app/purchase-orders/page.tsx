@@ -77,7 +77,7 @@ const outboundReturnStatusVariant: { [key: string]: "default" | "secondary" | "d
 // Purchase Order Schema
 const poItemSchema = z.object({
   productId: z.string().min(1, "Product is required."),
-  quantity: z.number({ coerce: true }).min(1, "Quantity must be at least 1."),
+  quantity: z.number().min(1, "Quantity must be at least 1."),
   backorderId: z.string().optional(),
 });
 
@@ -96,8 +96,8 @@ const createProductSchema = (isSkuAuto: boolean) => z.object({
   sku: z.string().optional(),
   price: z.coerce.number().nonnegative("Price must be a non-negative number.").optional(),
   stock: z.coerce.number().int().nonnegative("Stock must be a non-negative integer.").optional(),
-  reorderLimit: z.coerce.number().int().nonnegative("Reorder limit must be a non-negative integer."),
-  maxStockLevel: z.coerce.number().int().nonnegative("Max stock must be a non-negative integer."),
+  reorderLimit: z.coerce.number().int().nonnegative("Reorder limit must be a non-negative integer.").optional(),
+  maxStockLevel: z.coerce.number().int().nonnegative("Max stock must be a non-negative integer.").optional(),
   location: z.string().optional(),
   supplier: z.string().optional(),
 }).refine(data => isSkuAuto || (data.sku && data.sku.length > 0), {
@@ -819,8 +819,9 @@ export default function PurchaseOrdersPage() {
                           <Input
                             type="number"
                             placeholder="Qty"
-                            className="w-24"
-                            {...poForm.register(`items.${index}.quantity`)}
+                            className="w-24 caret-transparent"
+                            onKeyDown={(e) => e.preventDefault()}
+                            {...poForm.register(`items.${index}.quantity`, { valueAsNumber: true })}
                           />
                           <Button variant="ghost" size="icon" onClick={() => poRemove(index)}>
                               <X />
@@ -1466,3 +1467,5 @@ export default function PurchaseOrdersPage() {
   );
 }
 
+
+    

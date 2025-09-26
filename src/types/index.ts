@@ -87,7 +87,7 @@ export interface Backorder {
 export interface Order {
     id: string;
     date: Date;
-    status: "Processing" | "Awaiting Purchase" | "Ready for Issuance" | "Fulfilled" | "Cancelled" | "Partially Fulfilled";
+    status: "Processing" | "Awaiting Purchase" | "Ready for Issuance" | "Fulfilled" | "Cancelled" | "Partially Fulfilled" | "Shipped" | "Completed" | "Delivered";
     total: number;
     client: Client;
     items: OrderItem[];
@@ -200,3 +200,5 @@ export interface UserProfile {
     lastName: string;
     role: UserRole;
 }
+
+    
