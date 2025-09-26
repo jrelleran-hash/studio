@@ -65,6 +65,8 @@ const statusVariant: { [key: string]: "default" | "secondary" | "destructive" | 
   Pending: "secondary",
   Shipped: "outline",
   Delivered: "outline",
+  "PO Shipped": "outline",
+  "PO Delivered": "outline",
 };
 
 const outboundReturnStatusVariant: { [key: string]: "default" | "secondary" | "destructive" | "outline" } = {
@@ -769,6 +771,7 @@ export default function PurchaseOrdersPage() {
                                                   variant="outline"
                                                   role="combobox"
                                                   className={cn("w-full justify-between", !controllerField.value && "text-muted-foreground")}
+                                                  disabled={!!field.backorderId}
                                               >
                                                   {controllerField.value ? products.find(p => p.id === controllerField.value)?.name : "Select a product"}
                                                   <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
@@ -819,8 +822,7 @@ export default function PurchaseOrdersPage() {
                           <Input
                             type="number"
                             placeholder="Qty"
-                            className="w-24 caret-transparent"
-                            onKeyDown={(e) => e.preventDefault()}
+                            className="w-24"
                             {...poForm.register(`items.${index}.quantity`, { valueAsNumber: true })}
                           />
                           <Button variant="ghost" size="icon" onClick={() => poRemove(index)}>

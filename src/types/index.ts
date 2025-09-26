@@ -82,6 +82,7 @@ export interface Backorder {
     date: Timestamp;
     status: 'Pending' | 'Ordered' | 'Fulfilled';
     purchaseOrderId?: string;
+    parentBackorderId?: string;
 }
 
 
@@ -105,7 +106,7 @@ export interface PurchaseOrder {
     supplier: Supplier;
     client?: Client;
     items: PurchaseOrderItem[];
-    status: "Pending" | "Shipped" | "Delivered" | "Completed" | "Cancelled";
+    status: "Pending" | "Shipped" | "Delivered" | "Completed" | "Cancelled" | "PO Shipped" | "PO Delivered";
     orderDate: Date;
     expectedDate?: Date;
     receivedDate?: Date;
