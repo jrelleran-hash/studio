@@ -617,7 +617,7 @@ export async function addIssuance(issuanceData: NewIssuanceData): Promise<Docume
     const productDocs = await Promise.all(productRefs.map(ref => transaction.get(ref)));
 
     const backorderQueries = issuanceData.items
-        .filter(item => item.productId)
+        .filter(item => item.productId) // Ensure productId exists before creating a query
         .map(item => 
             query(collection(db, "backorders"), where("status", "==", "Pending"), where("productId", "==", item.productId))
     );
@@ -1736,7 +1736,7 @@ export async function getUserProfile(uid: string): Promise<UserProfile | null> {
 export async function getBackorders(): Promise<Backorder[]> {
     try {
         const backordersCol = collection(db, "backorders");
-        const q = query(backordersCol, where("status", "==", "Pending"));
+        const q = query(backordersCol);
         const snapshot = await getDocs(q);
         const backorders = await Promise.all(snapshot.docs.map(async (doc) => {
             const data = doc.data();
