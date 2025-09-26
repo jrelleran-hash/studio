@@ -498,7 +498,7 @@ export default function LogisticsPage() {
                                 </CardHeader>
                                 <CardContent>
                                     <div className="flex items-center gap-2 mb-4">
-                                        {(["all", "Pending", "Shipped", "Received"] as POReturnStatusFilter[]).map((filter) => (
+                                        {(["all", "Pending", "Shipped", "Delivered", "Completed", "Cancelled"] as POReturnStatusFilter[]).map((filter) => (
                                             <Button
                                             key={filter}
                                             variant={poStatusFilter === filter ? "secondary" : "outline"}
@@ -557,9 +557,9 @@ export default function LogisticsPage() {
                                                                         <DropdownMenuItem onClick={() => handlePOStatusChange(po.id, 'Shipped')}>Mark as Shipped</DropdownMenuItem>
                                                                     )}
                                                                     {po.status === 'Shipped' && (
-                                                                        <DropdownMenuItem onClick={() => handlePOStatusChange(po.id, 'Received')}>Mark as Received</DropdownMenuItem>
+                                                                        <DropdownMenuItem onClick={() => handlePOStatusChange(po.id, 'Delivered')}>Mark as Delivered</DropdownMenuItem>
                                                                     )}
-                                                                    {po.status === 'Received' && <DropdownMenuItem disabled>Order Received</DropdownMenuItem>}
+                                                                    {po.status === 'Delivered' && <DropdownMenuItem disabled>Awaiting Inspection</DropdownMenuItem>}
                                                                 </DropdownMenuContent>
                                                             </DropdownMenu>
                                                         </TableCell>
@@ -661,7 +661,7 @@ export default function LogisticsPage() {
                             <div className="grid grid-cols-2 gap-4">
                                 <div><p><strong>Client:</strong></p><p className="text-sm text-muted-foreground">{selectedShipment.issuance.client.clientName}</p></div>
                                 <div><p><strong>Address:</strong></p><p className="text-sm text-muted-foreground">{selectedShipment.issuance.client.address}</p></div>
-                                <div><p><strong>Status:</strong></p><p><Badge variant={outboudStatusVariant[selectedShipment.status]}>{selectedShipment.status}</Badge></p></div>
+                                <div><p><strong>Status:</strong></p><p><Badge variant={outboudStatusVariant[shipment.status]}>{shipment.status}</Badge></p></div>
                                 <div><p><strong>Carrier:</strong></p><p className="text-sm text-muted-foreground">{selectedShipment.shippingProvider}</p></div>
                                 <div><p><strong>Est. Delivery:</strong></p><p className="text-sm text-muted-foreground">{formatDate(selectedShipment.estimatedDeliveryDate)}</p></div>
                                 <div><p><strong>Delivered On:</strong></p><p className="text-sm text-muted-foreground">{formatDate(selectedShipment.actualDeliveryDate)}</p></div>
