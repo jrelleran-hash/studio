@@ -858,15 +858,52 @@ type NewPurchaseOrderData = {
 
 export async function addPurchaseOrder(poData: NewPurchaseOrderData): Promise<DocumentReference> {
   return runTransaction(db, async (transaction) => {
-    // --- 1. READS FIRST ---
+    // --- 1. READS ---
     const supplierRef = doc(db, "suppliers", poData.supplierId);
     const supplierDoc = await transaction.get(supplierRef);
-    if (!supplierDoc.exists()) throw new Error("Supplier not found.");
+    if (!supplierDoc.exists()) {
+      throw new Error("Supplier not found.");
+    }
 
-    const ordersToUpdate = new Map<string, { orderRef: DocumentReference; productIds: Set<string>; doc: Order }>();
-
-    // --- 2. NOW WRITES ---
     const poRef = doc(collection(db, "purchaseOrders"));
+
+    const backorderReads: {
+      item: NewPurchaseOrderData['items'][number];
+      backorderRef: DocumentReference;
+      backorderDoc?: any;
+      orderDoc?: any;
+    }[] = [];
+
+    for (const item of poData.items) {
+      if (item.backorderId) {
+        const backorderRef = doc(db, 'backorders', item.backorderId);
+        backorderReads.push({ item, backorderRef });
+      }
+    }
+    
+    const readDocs = await Promise.all(backorderReads.map(b => transaction.get(b.backorderRef)));
+    
+    for(let i=0; i<readDocs.length; i++) {
+        backorderReads[i].backorderDoc = readDocs[i];
+    }
+    
+    const orderRefsToRead = backorderReads
+        .filter(b => b.backorderDoc.exists())
+        .map(b => b.backorderDoc.data().orderRef as DocumentReference);
+        
+    const uniqueOrderRefs = [...new Map(orderRefsToRead.map(ref => [ref.id, ref])).values()];
+    const orderDocsRead = await Promise.all(uniqueOrderRefs.map(ref => transaction.get(ref)));
+    
+    const orderDocsMap = new Map(orderDocsRead.map((doc, i) => [uniqueOrderRefs[i].id, doc]));
+
+    for (let i = 0; i < backorderReads.length; i++) {
+        if (backorderReads[i].backorderDoc.exists()) {
+            const orderRefId = backorderReads[i].backorderDoc.data().orderRef.id;
+            backorderReads[i].orderDoc = orderDocsMap.get(orderRefId);
+        }
+    }
+
+    // --- 2. LOGIC & WRITES ---
     const resolvedItems = poData.items.map(item => ({
       productRef: doc(db, "inventory", item.productId),
       quantity: item.quantity,
@@ -884,54 +921,43 @@ export async function addPurchaseOrder(poData: NewPurchaseOrderData): Promise<Do
     }
     transaction.set(poRef, newPurchaseOrder);
 
-    // Handle backorders
-    for (const item of poData.items) {
-      if (item.backorderId) {
-        const backorderRef = doc(db, 'backorders', item.backorderId);
-        const backorderDoc = await transaction.get(backorderRef);
+    const ordersToUpdate = new Map<string, { orderRef: DocumentReference; productIds: Set<string>; docData: any }>();
 
-        if (backorderDoc.exists()) {
-          const backorderData = backorderDoc.data() as Backorder;
-          
-          if (item.quantity < backorderData.quantity) {
-            // Partial purchase: update original backorder and create a new one for the remainder
-            const remainingQty = backorderData.quantity - item.quantity;
-            transaction.update(backorderRef, { quantity: item.quantity, status: 'Ordered', purchaseOrderId: poRef.id });
+    for (const { item, backorderDoc, orderDoc } of backorderReads) {
+        if (backorderDoc.exists() && orderDoc.exists()) {
+            const backorderRef = backorderDoc.ref;
+            const backorderData = backorderDoc.data() as Backorder;
 
-            const newBackorderRef = doc(collection(db, "backorders"));
-            const newBackorderData = {
-              ...backorderData,
-              quantity: remainingQty,
-              parentBackorderId: backorderRef.id // Link to original backorder
-            };
-            transaction.set(newBackorderRef, newBackorderData);
+            if (item.quantity < backorderData.quantity) {
+                const remainingQty = backorderData.quantity - item.quantity;
+                transaction.update(backorderRef, { quantity: item.quantity, status: 'Ordered', purchaseOrderId: poRef.id });
 
-          } else {
-            // Full or over-purchase: just update the status
-            transaction.update(backorderRef, { status: 'Ordered', purchaseOrderId: poRef.id });
-          }
-
-          // Group order updates
-          const orderId = backorderData.orderRef.id;
-          if (!ordersToUpdate.has(orderId)) {
-            const orderDoc = await transaction.get(backorderData.orderRef);
-            if (orderDoc.exists()) {
-              ordersToUpdate.set(orderId, {
-                orderRef: backorderData.orderRef,
-                productIds: new Set([backorderData.productId]),
-                doc: orderDoc.data() as Order
-              });
+                const newBackorderRef = doc(collection(db, "backorders"));
+                const newBackorderData = {
+                    ...backorderData,
+                    quantity: remainingQty,
+                    parentBackorderId: backorderRef.id
+                };
+                transaction.set(newBackorderRef, newBackorderData);
+            } else {
+                transaction.update(backorderRef, { status: 'Ordered', purchaseOrderId: poRef.id });
             }
-          } else {
-            ordersToUpdate.get(orderId)!.productIds.add(backorderData.productId);
-          }
+
+            const orderId = orderDoc.id;
+            if (!ordersToUpdate.has(orderId)) {
+                ordersToUpdate.set(orderId, {
+                    orderRef: orderDoc.ref,
+                    productIds: new Set([backorderData.productId]),
+                    docData: orderDoc.data()
+                });
+            } else {
+                ordersToUpdate.get(orderId)!.productIds.add(backorderData.productId);
+            }
         }
-      }
     }
     
-    // Update original order item statuses
     for (const [orderId, group] of ordersToUpdate.entries()) {
-        const originalOrderData = group.doc as any; // Cast to any to access items easily
+        const originalOrderData = group.docData;
         const updatedItems = originalOrderData.items.map((orderItem: any) => {
             if (group.productIds.has(orderItem.productRef.id)) {
                 return { ...orderItem, status: 'PO Pending' };
@@ -1042,7 +1068,7 @@ export async function updatePurchaseOrderStatus(poId: string, status: PurchaseOr
   try {
       const poDoc = await getDoc(poRef);
       if (!poDoc.exists()) throw new Error("Purchase Order not found.");
-      const poData = poDoc.data() as PurchaseOrder;
+      const poData = poDoc.data() as any;
 
       // Prevent re-processing
       const terminalStatuses: PurchaseOrder['status'][] = ["Completed", "Cancelled"];
@@ -1051,10 +1077,10 @@ export async function updatePurchaseOrderStatus(poId: string, status: PurchaseOr
         return;
       }
       
-      const payload: Partial<PurchaseOrder> = { status };
+      const payload: Partial<PurchaseOrder> & { [key: string]: any } = { status };
 
       if(status === 'Delivered') {
-          payload.receivedDate = Timestamp.now().toDate();
+          payload.receivedDate = Timestamp.now();
       }
 
       await updateDoc(poRef, payload);
@@ -1089,7 +1115,7 @@ export async function getShipments(): Promise<Shipment[]> {
                 console.warn(`Issuance with ref ${issuanceRef.path} does not exist for shipment ${shipmentDoc.id}`);
                 return null;
             }
-            const issuance = { id: issuanceSnap.id, ...issuanceSnap.data()} as Issuance;
+            const issuance = { id: issuanceSnap.id, ...issuanceSnap.data()} as any;
 
             const client = await resolveDoc<Client>(issuance.clientRef);
             if (!client) return null;
@@ -1187,9 +1213,10 @@ export async function addShipment(shipmentData: NewShipmentData): Promise<Docume
         const issuance = issuanceDoc.data();
 
         let orderRef: DocumentReference | null = null;
+        let orderDoc: any;
         if (issuance.orderId) {
             orderRef = doc(db, "orders", issuance.orderId);
-            const orderDoc = await transaction.get(orderRef);
+            orderDoc = await transaction.get(orderRef);
             if (!orderDoc.exists()) {
                 throw new Error("Original order not found.");
             }
@@ -1200,7 +1227,7 @@ export async function addShipment(shipmentData: NewShipmentData): Promise<Docume
         const newShipment = {
             shipmentNumber,
             issuanceRef: issuanceRef,
-            status: "In Transit", // Changed from "Shipped" for clarity
+            status: "In Transit",
             shippingProvider: shipmentData.shippingProvider,
             trackingNumber: shipmentData.trackingNumber || "",
             estimatedDeliveryDate: Timestamp.fromDate(shipmentData.estimatedDeliveryDate),
@@ -1242,16 +1269,18 @@ export async function updateShipmentStatus(shipmentId: string, status: Shipment[
         const issuanceRef = shipmentData.issuanceRef as DocumentReference;
         const issuanceDoc = await transaction.get(issuanceRef);
         if (!issuanceDoc.exists()) {
-            throw new Error("Issuance not found for shipment.");
+            // If issuance doesn't exist, we might not be able to update the order, but we can still update the shipment.
+            // Log a warning and proceed with shipment update only.
+            console.warn("Issuance not found for shipment. Order status will not be updated.");
         }
         
-        const issuanceData = issuanceDoc.data();
         let orderRef: DocumentReference | null = null;
-        if (issuanceData.orderId) {
-             orderRef = doc(db, "orders", issuanceData.orderId);
+        if (issuanceDoc.exists() && issuanceDoc.data().orderId) {
+             orderRef = doc(db, "orders", issuanceDoc.data().orderId);
              const orderDoc = await transaction.get(orderRef);
              if (!orderDoc.exists()) {
-                 throw new Error("Original order not found for shipment.");
+                 console.warn("Original order not found for shipment. Order status will not be updated.");
+                 orderRef = null; // Ensure we don't try to update a non-existent doc
              }
         }
         
@@ -1260,7 +1289,11 @@ export async function updateShipmentStatus(shipmentId: string, status: Shipment[
         if (status === 'Delivered') {
             payload.actualDeliveryDate = Timestamp.now();
             if (orderRef) {
-                 transaction.update(orderRef, { status: "Completed" });
+                 // Check if the order is 'Shipped', then update to 'Completed'
+                 const orderData = (await transaction.get(orderRef)).data();
+                 if(orderData?.status === 'Shipped') {
+                    transaction.update(orderRef, { status: "Completed" });
+                 }
             }
         }
         transaction.update(shipmentRef, payload);
