@@ -3,6 +3,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { useState } from "react";
 import {
   BarChart,
   Home,
@@ -16,11 +17,14 @@ import {
   ClipboardCheck,
   Building,
   Receipt,
+  ChevronDown,
 } from "lucide-react";
 import { CoreFlowLogo } from "@/components/icons";
 import { cn } from "@/lib/utils";
 import { SheetClose } from "@/components/ui/sheet";
 import { type LucideIcon } from "lucide-react";
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
+import { Button } from "../ui/button";
 
 const navItems = [
   { href: "/", label: "Dashboard", icon: Home },
@@ -75,6 +79,43 @@ function SidebarLink({ href, label, icon: Icon, pathname, inSheet }: SidebarLink
   return linkContent;
 }
 
+interface NavSectionProps {
+    title: string;
+    items: typeof navItems;
+    pathname: string;
+    inSheet?: boolean;
+}
+
+function NavSection({ title, items, pathname, inSheet }: NavSectionProps) {
+    const [isOpen, setIsOpen] = useState(true);
+    
+    // Check if any link in this section is active
+    const isActiveSection = items.some(item => pathname.startsWith(item.href) && item.href !== '/');
+    
+    // Default to open if a link inside is active
+    useState(() => {
+        setIsOpen(isActiveSection);
+    });
+
+    return (
+        <Collapsible open={isOpen} onOpenChange={setIsOpen}>
+            <CollapsibleTrigger asChild>
+                <Button variant="ghost" className="w-full justify-between px-3 h-auto py-2 mb-1 mt-2">
+                    <span className="text-xs font-semibold uppercase text-muted-foreground/70">{title}</span>
+                    <ChevronDown className={cn("h-4 w-4 text-muted-foreground/70 transition-transform", isOpen && "rotate-180")} />
+                </Button>
+            </CollapsibleTrigger>
+            <CollapsibleContent className="data-[state=open]:animate-accordion-down data-[state=closed]:animate-accordion-up overflow-hidden">
+                 <div className="grid items-start text-sm font-medium">
+                    {items.map((item) => (
+                        <SidebarLink key={item.href} {...item} pathname={pathname} inSheet={inSheet} />
+                    ))}
+                 </div>
+            </CollapsibleContent>
+        </Collapsible>
+    )
+}
+
 
 export function Sidebar({ className, inSheet }: { className?: string, inSheet?: boolean }) {
   const pathname = usePathname();
@@ -93,24 +134,11 @@ export function Sidebar({ className, inSheet }: { className?: string, inSheet?: 
             {navItems.map((item) => (
               <SidebarLink key={item.href} {...item} pathname={pathname} inSheet={inSheet} />
             ))}
-            <div className="my-2">
-                <span className="px-3 text-xs font-semibold uppercase text-muted-foreground/70">Procurement</span>
-            </div>
-            {procurementNavItems.map((item) => (
-                <SidebarLink key={item.href} {...item} pathname={pathname} inSheet={inSheet} />
-            ))}
-            <div className="my-2">
-                <span className="px-3 text-xs font-semibold uppercase text-muted-foreground/70">Inventory</span>
-            </div>
-            {inventoryNavItems.map((item) => (
-               <SidebarLink key={item.href} {...item} pathname={pathname} inSheet={inSheet} />
-            ))}
-            <div className="my-2">
-                <span className="px-3 text-xs font-semibold uppercase text-muted-foreground/70">Assurance</span>
-            </div>
-            {assuranceNavItems.map((item) => (
-                <SidebarLink key={item.href} {...item} pathname={pathname} inSheet={inSheet} />
-            ))}
+            
+            <NavSection title="Procurement" items={procurementNavItems} pathname={pathname} inSheet={inSheet} />
+            <NavSection title="Inventory" items={inventoryNavItems} pathname={pathname} inSheet={inSheet} />
+            <NavSection title="Assurance" items={assuranceNavItems} pathname={pathname} inSheet={inSheet} />
+            
           </nav>
         </div>
         <div className="mt-auto p-4">
