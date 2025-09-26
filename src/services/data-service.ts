@@ -198,13 +198,18 @@ async function checkStockAndCreateNotification(product: Omit<Product, 'id' | 'hi
       const existingNotifsSnapshot = await getDocs(q);
       
       const hasRecent = existingNotifsSnapshot.docs.some(doc => {
-          const timestamp = doc.data().timestamp.toMillis();
-          const fiveMinutesAgo = Date.now() - 5 * 60 * 1000;
-          return timestamp > fiveMinutesAgo;
+          const data = doc.data();
+          if (data.timestamp) {
+            const timestamp = (data.timestamp as Timestamp).toMillis();
+            const fiveMinutesAgo = Date.now() - 5 * 60 * 1000;
+            return timestamp > fiveMinutesAgo;
+          }
+          return false;
       });
 
       if (!hasRecent) {
-        await addDoc(notificationsCol, notification);
+        // Use the centralized createNotification function
+        await createNotification(notification);
       }
     } catch (error) {
       console.error("Error creating stock notification:", error);
@@ -612,12 +617,11 @@ export async function addIssuance(issuanceData: NewIssuanceData): Promise<Docume
     const productDocs = await Promise.all(productRefs.map(ref => transaction.get(ref)));
 
     const backorderQueries = issuanceData.items
-        .filter(item => item.productId) // Ensure productId exists
+        .filter(item => item.productId)
         .map(item => 
             query(collection(db, "backorders"), where("status", "==", "Pending"), where("productId", "==", item.productId))
     );
-    const backorderSnapshots = await Promise.all(backorderQueries.map(q => getDocs(q)));
-
+    const backorderSnapshots = await Promise.all(backorderQueries.map(q => transaction.get(q)));
 
     let orderDoc: any;
     if (issuanceData.orderId) {
@@ -1059,7 +1063,7 @@ async function checkAndUpdateAwaitingOrders() {
     const batch = writeBatch(db);
 
     for (const orderDoc of awaitingOrdersSnapshot.docs) {
-        const orderData = orderDoc.data() as Order;
+        const orderData = orderDoc.data() as any;
         let needsUpdate = false;
         
         const updatedItems = await Promise.all(orderData.items.map(async (item: any) => {
