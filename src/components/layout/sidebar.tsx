@@ -14,6 +14,8 @@ import {
   Truck,
   RefreshCcw,
   ClipboardCheck,
+  Building,
+  Receipt,
 } from "lucide-react";
 import { CoreFlowLogo } from "@/components/icons";
 import { cn } from "@/lib/utils";
@@ -22,10 +24,15 @@ import { type LucideIcon } from "lucide-react";
 
 const navItems = [
   { href: "/", label: "Dashboard", icon: Home },
-  { href: "/orders", label: "Procurement", icon: ShoppingCart },
   { href: "/clients", label: "Clients", icon: Users },
   { href: "/logistics", label: "Logistics", icon: Truck },
   { href: "/analytics", label: "Analytics", icon: BarChart },
+];
+
+const procurementNavItems = [
+    { href: "/orders", label: "Orders", icon: ShoppingCart },
+    { href: "/purchase-orders", label: "Purchase Orders", icon: Receipt },
+    { href: "/suppliers", label: "Suppliers", icon: Building },
 ];
 
 const inventoryNavItems = [
@@ -85,6 +92,12 @@ export function Sidebar({ className, inSheet }: { className?: string, inSheet?: 
           <nav className="grid items-start px-4 text-sm font-medium">
             {navItems.map((item) => (
               <SidebarLink key={item.href} {...item} pathname={pathname} inSheet={inSheet} />
+            ))}
+            <div className="my-2">
+                <span className="px-3 text-xs font-semibold uppercase text-muted-foreground/70">Procurement</span>
+            </div>
+            {procurementNavItems.map((item) => (
+                <SidebarLink key={item.href} {...item} pathname={pathname} inSheet={inSheet} />
             ))}
             <div className="my-2">
                 <span className="px-3 text-xs font-semibold uppercase text-muted-foreground/70">Inventory</span>
