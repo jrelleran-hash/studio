@@ -59,6 +59,8 @@ import { validateEmailAction } from "../orders/actions";
 import { Textarea } from "@/components/ui/textarea";
 import { Separator } from "@/components/ui/separator";
 import { CoreFlowLogo } from "@/components/icons";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+
 
 const statusVariant: { [key: string]: "default" | "secondary" | "destructive" | "outline" } = {
   Completed: "default",
@@ -358,13 +360,17 @@ export default function PurchaseOrdersPage() {
   }, [watchedReturnItems, products]);
 
 
-  const purchaseQueue = useMemo(() => {
-    return backorders.filter(bo => bo.status === 'Pending');
+  const { clientOrderQueue, reorderQueue } = useMemo(() => {
+    const pendingBackorders = backorders.filter(bo => bo.status === 'Pending');
+    return {
+      clientOrderQueue: pendingBackorders.filter(bo => bo.orderId !== 'REORDER'),
+      reorderQueue: pendingBackorders.filter(bo => bo.orderId === 'REORDER'),
+    };
   }, [backorders]);
 
   const selectedQueueItems = useMemo(() => {
-    return purchaseQueue.filter(item => purchaseQueueSelection[item.id]);
-  }, [purchaseQueue, purchaseQueueSelection]);
+    return backorders.filter(item => purchaseQueueSelection[item.id]);
+  }, [backorders, purchaseQueueSelection]);
   
   // Reset dialogs
   useEffect(() => {
@@ -580,8 +586,8 @@ export default function PurchaseOrdersPage() {
     // Check if all selected items are for the same client, or for general reorder
     const firstItem = selectedQueueItems[0];
     const isReorder = firstItem.orderId === 'REORDER';
-    const firstClientId = firstItem.clientRef?.id;
-    const allSameClient = selectedQueueItems.every(item => isReorder ? item.orderId === 'REORDER' : item.clientRef?.id === firstClientId);
+    const firstClientId = (firstItem as any).clientRef?.id;
+    const allSameClient = selectedQueueItems.every(item => isReorder ? item.orderId === 'REORDER' : (item as any).clientRef?.id === firstClientId);
     
     const clientId = allSameClient && !isReorder ? firstClientId : "";
 
@@ -597,13 +603,13 @@ export default function PurchaseOrdersPage() {
     setPurchaseQueueSelection(prev => ({...prev, [id]: checked}));
   }
 
-  const handleQueueSelectAll = (checked: boolean) => {
-    const newSelection: {[key: string]: boolean} = {};
-    if (checked) {
-      purchaseQueue.forEach(item => newSelection[item.id] = true);
-    }
+  const handleQueueSelectAll = (checked: boolean, list: Backorder[]) => {
+    const newSelection = { ...purchaseQueueSelection };
+    list.forEach(item => {
+        newSelection[item.id] = checked;
+    });
     setPurchaseQueueSelection(newSelection);
-  }
+}
 
   const triggerPreview = (po: PurchaseOrder) => {
     setPoForPrint(po);
@@ -614,8 +620,9 @@ export default function PurchaseOrdersPage() {
     window.print();
   };
 
-  const isAllQueueSelected = purchaseQueue.length > 0 && selectedQueueItems.length === purchaseQueue.length;
-  
+  const isAllClientQueueSelected = clientOrderQueue.length > 0 && clientOrderQueue.every(item => purchaseQueueSelection[item.id]);
+  const isAllReorderQueueSelected = reorderQueue.length > 0 && reorderQueue.every(item => purchaseQueueSelection[item.id]);
+
   const formatDateSimple = (date: Date | Timestamp) => {
     const jsDate = date instanceof Timestamp ? date.toDate() : date;
     return format(jsDate, 'PPP');
@@ -875,13 +882,13 @@ export default function PurchaseOrdersPage() {
             variant={poView === 'queue' ? 'default' : 'outline'}
             onClick={() => setPoView('queue')}
           >
-            Queue ({purchaseQueue.length})
+            Purchase Queue
           </Button>
           <Button
             variant={poView === 'list' ? 'default' : 'outline'}
             onClick={() => setPoView('list')}
           >
-            Purchase Orders ({purchaseOrders.length})
+            Purchase Orders
           </Button>
       </div>
       
@@ -902,107 +909,76 @@ export default function PurchaseOrdersPage() {
                   </div>
               </CardHeader>
               <CardContent>
-                  <div className="hidden md:block">
-                      <Table>
-                      <TableHeader>
-                          <TableRow>
-                          <TableHead className="w-12">
-                              <Checkbox
-                                  checked={isAllQueueSelected}
-                                  onCheckedChange={(checked) => handleQueueSelectAll(!!checked)}
-                                  aria-label="Select all"
-                              />
-                          </TableHead>
-                          <TableHead>Product</TableHead>
-                          <TableHead>SKU</TableHead>
-                          <TableHead>Client</TableHead>
-                          <TableHead className="text-center">Needed</TableHead>
-                          <TableHead>Source Order</TableHead>
-                          </TableRow>
-                      </TableHeader>
-                      <TableBody>
-                          {loading ? (
-                          Array.from({ length: 3 }).map((_, i) => (
-                              <TableRow key={i}>
-                              <TableCell><Skeleton className="h-4 w-4" /></TableCell>
-                              <TableCell><Skeleton className="h-4 w-48" /></TableCell>
-                              <TableCell><Skeleton className="h-4 w-24" /></TableCell>
-                              <TableCell><Skeleton className="h-4 w-32" /></TableCell>
-                              <TableCell><Skeleton className="h-4 w-16 mx-auto" /></TableCell>
-                              <TableCell><Skeleton className="h-4 w-32" /></TableCell>
-                              </TableRow>
-                          ))
-                          ) : purchaseQueue.length > 0 ? (
-                          purchaseQueue.map((item) => {
-                              
-                              return (
-                              <TableRow key={item.id}>
-                                  <TableCell>
-                                      <Checkbox
-                                          checked={purchaseQueueSelection[item.id] || false}
-                                          onCheckedChange={(checked) => handleQueueSelectionChange(item.id, !!checked)}
-                                          aria-label={`Select ${item.productName}`}
-                                      />
-                                  </TableCell>
-                                  <TableCell className="font-medium">{item.productName}</TableCell>
-                                  <TableCell>{item.productSku}</TableCell>
-                                   <TableCell>{(item as any).client?.clientName || 'For Stock'}</TableCell>
-                                  <TableCell className="text-center">{item.quantity}</TableCell>
-                                  <TableCell>
-                                      <Badge variant="secondary" className="font-mono">{item.orderId.substring(0,7)}</Badge>
-                                  </TableCell>
-                              </TableRow>
-                              )
-                          })
-                          ) : (
-                          <TableRow>
-                                  <TableCell colSpan={6} className="h-24 text-center">
-                                      No items are currently awaiting purchase.
-                                  </TableCell>
-                              </TableRow>
-                          )}
-                      </TableBody>
-                      </Table>
-                  </div>
-                    <div className="grid gap-4 md:hidden">
-                      {loading ? (
-                            Array.from({ length: 3 }).map((_, i) => (
-                              <Card key={i}><CardHeader><Skeleton className="h-5 w-3/4" /></CardHeader><CardContent><Skeleton className="h-4 w-full" /></CardContent></Card>
-                          ))
-                      ) : purchaseQueue.length > 0 ? (
-                          purchaseQueue.map((item) => {
-
-                              return (
-                              <Card key={item.id}>
-                                  <CardHeader>
-                                      <div className="flex items-start justify-between">
-                                          <div className="flex items-center gap-3">
-                                                <Checkbox
-                                                  checked={purchaseQueueSelection[item.id] || false}
-                                                  onCheckedChange={(checked) => handleQueueSelectionChange(item.id, !!checked)}
-                                                  aria-label={`Select ${item.productName}`}
-                                              />
-                                              <div>
-                                                  <CardTitle className="text-base">{item.productName}</CardTitle>
-                                                  <CardDescription>{item.productSku}</CardDescription>
-                                              </div>
-                                          </div>
-                                            <div className="flex gap-1 flex-wrap">
-                                              <Badge variant="secondary" className="font-mono">{item.orderId.substring(0,7)}</Badge>
-                                          </div>
-                                      </div>
-                                  </CardHeader>
-                                  <CardContent>
-                                      <p>Quantity Needed: <span className="font-bold">{item.quantity}</span></p>
-                                  </CardContent>
-                              </Card>
-                          )})
-                      ) : (
-                            <div className="text-sm text-muted-foreground text-center py-10">
-                              No items are currently awaiting purchase.
-                          </div>
-                      )}
-                  </div>
+                 <Tabs defaultValue="client-orders">
+                    <TabsList>
+                        <TabsTrigger value="client-orders">Client Orders ({clientOrderQueue.length})</TabsTrigger>
+                        <TabsTrigger value="reorder-items">Reorder Items ({reorderQueue.length})</TabsTrigger>
+                    </TabsList>
+                    <TabsContent value="client-orders">
+                        <Table>
+                            <TableHeader>
+                                <TableRow>
+                                    <TableHead className="w-12"><Checkbox checked={isAllClientQueueSelected} onCheckedChange={(checked) => handleQueueSelectAll(!!checked, clientOrderQueue)} aria-label="Select all client orders" /></TableHead>
+                                    <TableHead>Product</TableHead>
+                                    <TableHead>Client</TableHead>
+                                    <TableHead className="text-center">Needed</TableHead>
+                                    <TableHead>Source Order</TableHead>
+                                </TableRow>
+                            </TableHeader>
+                            <TableBody>
+                                {loading ? (
+                                    Array.from({ length: 2 }).map((_, i) => (
+                                        <TableRow key={i}><TableCell colSpan={5}><Skeleton className="h-8 w-full" /></TableCell></TableRow>
+                                    ))
+                                ) : clientOrderQueue.length > 0 ? (
+                                    clientOrderQueue.map((item) => (
+                                        <TableRow key={item.id}>
+                                            <TableCell><Checkbox checked={purchaseQueueSelection[item.id] || false} onCheckedChange={(checked) => handleQueueSelectionChange(item.id, !!checked)} /></TableCell>
+                                            <TableCell className="font-medium">{item.productName}</TableCell>
+                                            <TableCell>{(item as any).client?.clientName || 'N/A'}</TableCell>
+                                            <TableCell className="text-center">{item.quantity}</TableCell>
+                                            <TableCell><Badge variant="secondary" className="font-mono">{item.orderId.substring(0,7)}</Badge></TableCell>
+                                        </TableRow>
+                                    ))
+                                ) : (
+                                    <TableRow><TableCell colSpan={5} className="h-24 text-center">No client backorders.</TableCell></TableRow>
+                                )}
+                            </TableBody>
+                        </Table>
+                    </TabsContent>
+                    <TabsContent value="reorder-items">
+                         <Table>
+                            <TableHeader>
+                                <TableRow>
+                                    <TableHead className="w-12"><Checkbox checked={isAllReorderQueueSelected} onCheckedChange={(checked) => handleQueueSelectAll(!!checked, reorderQueue)} aria-label="Select all reorder items" /></TableHead>
+                                    <TableHead>Product</TableHead>
+                                    <TableHead>SKU</TableHead>
+                                    <TableHead className="text-center">Reorder Qty</TableHead>
+                                    <TableHead>Reason</TableHead>
+                                </TableRow>
+                            </TableHeader>
+                             <TableBody>
+                                {loading ? (
+                                    Array.from({ length: 2 }).map((_, i) => (
+                                        <TableRow key={i}><TableCell colSpan={5}><Skeleton className="h-8 w-full" /></TableCell></TableRow>
+                                    ))
+                                ) : reorderQueue.length > 0 ? (
+                                    reorderQueue.map((item) => (
+                                        <TableRow key={item.id}>
+                                            <TableCell><Checkbox checked={purchaseQueueSelection[item.id] || false} onCheckedChange={(checked) => handleQueueSelectionChange(item.id, !!checked)} /></TableCell>
+                                            <TableCell className="font-medium">{item.productName}</TableCell>
+                                            <TableCell>{item.productSku}</TableCell>
+                                            <TableCell className="text-center">{item.quantity}</TableCell>
+                                            <TableCell><Badge variant="outline" className="font-mono">Low Stock</Badge></TableCell>
+                                        </TableRow>
+                                    ))
+                                ) : (
+                                    <TableRow><TableCell colSpan={5} className="h-24 text-center">No items need reordering.</TableCell></TableRow>
+                                )}
+                            </TableBody>
+                        </Table>
+                    </TabsContent>
+                 </Tabs>
               </CardContent>
           </Card>
       )}
