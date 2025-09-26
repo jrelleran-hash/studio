@@ -6,7 +6,7 @@ import { useState, useEffect, useMemo, useCallback } from "react";
 import { useForm, useFieldArray, Controller } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
-import { PlusCircle, MoreHorizontal, X, ChevronsUpDown, Check } from "lucide-react";
+import { PlusCircle, MoreHorizontal, X, ChevronsUpDown, Check, Printer } from "lucide-react";
 import { Timestamp } from "firebase/firestore";
 import { format } from "date-fns";
 import { useRouter } from "next/navigation";
@@ -49,7 +49,7 @@ import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useToast } from "@/hooks/use-toast";
 import { updateOrderStatus, addOrder, addProduct, addSupplier, deleteOrder, addClient } from "@/services/data-service";
-import type { Order, Supplier, Product, Client, Backorder, OrderItem } from "@/types";
+import type { Order, Supplier, Product, Client, Backorder, OrderItem, Issuance } from "@/types";
 import { formatCurrency } from "@/lib/currency";
 import { CURRENCY_CONFIG } from "@/config/currency";
 import { cn } from "@/lib/utils";
@@ -143,6 +143,7 @@ export default function OrdersPage() {
   const [isAddSupplierOpen, setIsAddSupplierOpen] = useState(false);
   const [isDeleteOrderOpen, setIsDeleteOrderOpen] = useState(false);
   const [selectedOrder, setSelectedOrder] = useState<Order | null>(null);
+  const [issuanceToShow, setIssuanceToShow] = useState<Issuance | null>(null);
   const [isReordered, setIsReordered] = useState(false);
   
   // Data states
@@ -382,7 +383,7 @@ export default function OrdersPage() {
   const handleViewIssuance = (order: Order) => {
     const issuance = issuances.find(iss => iss.orderId === order.id);
     if(issuance) {
-      router.push(`/issuance?id=${issuance.id}`);
+      setIssuanceToShow(issuance);
     } else {
       toast({
         variant: "destructive",
@@ -554,7 +555,8 @@ export default function OrdersPage() {
                                   <Input
                                     type="number"
                                     placeholder="Qty"
-                                    className="w-24"
+                                    className="w-24 caret-transparent"
+                                    onKeyDown={(e) => e.preventDefault()}
                                     {...orderForm.register(`items.${index}.quantity`, { valueAsNumber: true })}
                                   />
                                   <Button variant="ghost" size="icon" onClick={() => remove(index)}>
@@ -652,7 +654,7 @@ export default function OrdersPage() {
                             </DropdownMenuItem>
                             <DropdownMenuItem
                               onClick={() => handleViewIssuance(order)}
-                              disabled={!['Fulfilled', 'Partially Fulfilled', 'Shipped', 'Completed'].includes(order.status)}
+                              disabled={!['Fulfilled', 'Partially Fulfilled', 'Shipped', 'Completed', 'Delivered'].includes(order.status)}
                             >
                                 View Issuance Details
                             </DropdownMenuItem>
@@ -1001,6 +1003,61 @@ export default function OrdersPage() {
         </AlertDialogFooter>
       </AlertDialogContent>
     </AlertDialog>
+
+    {issuanceToShow && (
+       <Dialog open={!!issuanceToShow} onOpenChange={(open) => !open && setIssuanceToShow(null)}>
+        <DialogContent className="sm:max-w-lg">
+          <DialogHeader>
+            <DialogTitle>Issuance Details: {issuanceToShow.issuanceNumber}</DialogTitle>
+            <DialogDescription>
+              Issued to: {issuanceToShow.client.clientName} ({issuanceToShow.client.projectName})
+            </DialogDescription>
+          </DialogHeader>
+          <div className="py-4 space-y-4">
+             {issuanceToShow.orderId && (
+              <div>
+                <strong>Original Order:</strong>
+                <p className="text-sm text-primary underline">#{issuanceToShow.orderId.substring(0,7)}</p>
+              </div>
+            )}
+            <div>
+              <strong>Date Issued:</strong>
+              <p className="text-sm text-muted-foreground">{formatDate(issuanceToShow.date)}</p>
+            </div>
+             <div className="grid grid-cols-2 gap-4">
+                <div>
+                    <strong>Issued By:</strong>
+                    <p className="text-sm text-muted-foreground">{issuanceToShow.issuedBy}</p>
+                </div>
+                 <div>
+                    <strong>Received By:</strong>
+                    <p className="text-sm text-muted-foreground">{issuanceToShow.receivedBy || 'N/A'}</p>
+                </div>
+            </div>
+            {issuanceToShow.remarks && (
+              <div>
+                <strong>Remarks:</strong>
+                <p className="text-sm text-muted-foreground bg-muted/50 p-2 rounded-md">{issuanceToShow.remarks}</p>
+              </div>
+            )}
+            <div>
+              <h4 className="font-semibold mb-2">Items Issued:</h4>
+              <div className="max-h-60 overflow-y-auto space-y-2">
+                {issuanceToShow.items.map(item => (
+                   <div key={item.product.id} className="text-sm flex justify-between items-center bg-muted/50 p-2 rounded-md">
+                        <span>{item.product.name} <span className="text-xs text-muted-foreground">({item.product.sku})</span></span>
+                        <span className="font-mono text-xs">Qty: {item.quantity}</span>
+                   </div>
+                ))}
+              </div>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setIssuanceToShow(null)}>Close</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+    )}
     </>
   );
 }
