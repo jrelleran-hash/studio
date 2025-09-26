@@ -72,7 +72,7 @@ const statusVariant: { [key: string]: "default" | "secondary" | "destructive" | 
 // Order Schemas
 const orderItemSchema = z.object({
   productId: z.string().min(1, "Product is required."),
-  quantity: z.coerce.number().min(1, "Quantity must be at least 1."),
+  quantity: z.number().min(1, "Quantity must be at least 1."),
 });
 
 const orderSchema = z.object({
@@ -536,16 +536,17 @@ export default function OrdersPage() {
                                           )}
                                       />
                                   </div>
-                                  <Input 
-                                      type="number" 
-                                      placeholder="Qty" 
-                                      className="w-20"
-                                      {...orderForm.register(`items.${index}.quantity`)}
+                                  <Input
+                                    type="number"
+                                    placeholder="Qty"
+                                    className="w-24"
+                                    {...orderForm.register(`items.${index}.quantity`, { valueAsNumber: true })}
                                   />
                                   <Button variant="ghost" size="icon" onClick={() => remove(index)}>
                                       <X />
                                   </Button>
                               </div>
+                              {orderForm.formState.errors.items?.[index]?.quantity && <p className="text-sm text-destructive">{orderForm.formState.errors.items[index]?.quantity?.message}</p>}
                               {selectedProduct && (
                                   <div className="flex justify-between items-center text-xs text-muted-foreground pl-1 pr-12">
                                       <span>Price: {formatCurrency(selectedProduct.price)}</span>

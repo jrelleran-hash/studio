@@ -77,7 +77,7 @@ const outboundReturnStatusVariant: { [key: string]: "default" | "secondary" | "d
 // Purchase Order Schema
 const poItemSchema = z.object({
   productId: z.string().min(1, "Product is required."),
-  quantity: z.coerce.number().min(1, "Quantity must be at least 1."),
+  quantity: z.number().min(1, "Quantity must be at least 1."),
   backorderId: z.string().optional(),
 });
 
@@ -816,16 +816,17 @@ export default function PurchaseOrdersPage() {
                                       </Popover>
                                   )}
                               />
-                          <Input 
-                              type="number" 
-                              placeholder="Qty" 
-                              className="w-20"
-                              {...poForm.register(`items.${index}.quantity`)}
+                          <Input
+                            type="number"
+                            placeholder="Qty"
+                            className="w-24"
+                            {...poForm.register(`items.${index}.quantity`, { valueAsNumber: true })}
                           />
                           <Button variant="ghost" size="icon" onClick={() => poRemove(index)}>
                               <X />
                           </Button>
                           </div>
+                          {poForm.formState.errors.items?.[index]?.quantity && <p className="text-sm text-destructive">{poForm.formState.errors.items[index]?.quantity?.message}</p>}
                           {selectedProduct && (
                               <div className="flex justify-between items-center text-xs text-muted-foreground pl-1 pr-12">
                                   <span>Cost: {formatCurrency(selectedProduct.price)}</span>
