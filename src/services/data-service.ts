@@ -734,7 +734,7 @@ export async function deleteIssuance(issuanceId: string): Promise<void> {
     await runTransaction(db, async (transaction) => {
       // --- 1. READS ---
       const issuanceDoc = await transaction.get(issuanceRef);
-      if (!issuanceDoc.exists()) {
+       if (!issuanceDoc.exists()) {
         console.warn(`Issuance with ID ${issuanceId} not found. Deletion skipped.`);
         return null; // Return null to indicate no action was taken
       }
@@ -928,7 +928,7 @@ export async function addPurchaseOrder(poData: NewPurchaseOrderData): Promise<Do
         .filter(doc => doc.exists() && doc.data().orderRef)
         .map(doc => (doc.data() as Backorder).orderRef);
 
-    const uniqueOrderRefs = [...new Map(orderRefsToRead.map(ref => [ref.id, ref])).values()];
+    const uniqueOrderRefs = [...new Map(orderRefsToRead.map(ref => [ref?.id, ref])).values()].filter(Boolean) as DocumentReference[];
     const orderDocsPromises = uniqueOrderRefs.map(ref => transaction.get(ref));
     const orderDocs = await Promise.all(orderDocsPromises);
     const orderDocsMap = new Map(orderDocs.map((doc, i) => [uniqueOrderRefs[i].id, doc]));
