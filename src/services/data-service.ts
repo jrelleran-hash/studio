@@ -611,11 +611,6 @@ export async function addIssuance(issuanceData: NewIssuanceData): Promise<Docume
     const productRefs = issuanceData.items.map(item => doc(db, "inventory", item.productId));
     const productDocs = await Promise.all(productRefs.map(ref => transaction.get(ref)));
     
-    const backorderQuery = query(collection(db, 'backorders'), where('status', '==', 'Pending'));
-    const backorderSnapshot = await transaction.get(backorderQuery);
-    const existingBackorders = new Map(backorderSnapshot.docs.map(d => [d.data().productId, d]));
-
-
     let orderDoc: any;
     if (issuanceData.orderId) {
       const orderRef = doc(db, "orders", issuanceData.orderId);
@@ -646,9 +641,10 @@ export async function addIssuance(issuanceData: NewIssuanceData): Promise<Docume
 
       // Check if reorder is needed
       if (newStock <= productData.reorderLimit) {
-        const existingBackorderDoc = existingBackorders.get(productDoc.id);
+        const backorderQuery = query(collection(db, "backorders"), where("status", "==", "Pending"), where("productId", "==", productDoc.id));
+        const backorderSnapshot = await transaction.get(backorderQuery);
 
-        if (!existingBackorderDoc) { // Only create a new backorder if one doesn't already exist
+        if (backorderSnapshot.empty) { // Only create a new backorder if one doesn't already exist for this product
             const reorderQty = productData.maxStockLevel - newStock;
             if(reorderQty > 0) {
               const backorderRef = doc(collection(db, "backorders"));
@@ -1034,7 +1030,7 @@ export async function deletePurchaseOrder(poId: string): Promise<void> {
 
 async function checkAndUpdateAwaitingOrders() {
     const ordersCol = collection(db, "orders");
-    const q = query(ordersCol, where("status", "in", ["Awaiting Purchase", "Partially Fulfilled", "PO Pending", "Processing"]));
+    const q = query(ordersCol, where("status", "in", ["Awaiting Purchase", "Processing", "PO Pending"]));
     const awaitingOrdersSnapshot = await getDocs(q);
 
     if (awaitingOrdersSnapshot.empty) {
@@ -1047,18 +1043,12 @@ async function checkAndUpdateAwaitingOrders() {
     for (const orderDoc of awaitingOrdersSnapshot.docs) {
         const orderData = orderDoc.data() as Order;
         let needsUpdate = false;
-
-        const updatedItems = [...orderData.items]; // Create a mutable copy
-
-        let allItemsReadyOrFulfilled = true;
-
-        for (let i = 0; i < updatedItems.length; i++) {
-            const item = updatedItems[i] as any;
-            
-            if (item.status === 'Fulfilled' || item.status === 'Ready for Issuance') {
-                continue;
+        
+        const updatedItems = await Promise.all(orderData.items.map(async (item: any) => {
+             if (item.status === 'Fulfilled' || item.status === 'Ready for Issuance') {
+                return item;
             }
-
+            
             const productRef = item.productRef as DocumentReference;
             let productData: Product | undefined = inventoryCache.get(productRef.id);
             
@@ -1072,25 +1062,27 @@ async function checkAndUpdateAwaitingOrders() {
 
             if (productData && productData.stock >= item.quantity) {
                 if (item.status !== 'Ready for Issuance') {
-                    updatedItems[i] = { ...item, status: 'Ready for Issuance' };
                     needsUpdate = true;
+                    return { ...item, status: 'Ready for Issuance' };
                 }
-            } else {
-                allItemsReadyOrFulfilled = false;
             }
-        }
+            return item;
+        }));
 
         if (needsUpdate) {
-            const hasPendingItems = updatedItems.some(item => item.status === 'Awaiting Purchase' || item.status === 'PO Pending');
-            let newOverallStatus: Order['status'] = 'Processing'; // Default to processing
+            const allItemsReadyOrFulfilled = updatedItems.every(item => item.status === 'Ready for Issuance' || item.status === 'Fulfilled');
+            
+            let newOverallStatus: Order['status'] = orderData.status;
 
             if(allItemsReadyOrFulfilled){
                 newOverallStatus = 'Ready for Issuance';
-            } else if (!hasPendingItems) {
-                // If there are no items awaiting purchase but not all are ready, it's processing
-                newOverallStatus = 'Processing';
             } else {
-                 newOverallStatus = 'Awaiting Purchase';
+                 const hasPendingPO = updatedItems.some(item => item.status === 'PO Pending');
+                 if(hasPendingPO) {
+                     newOverallStatus = 'Processing';
+                 } else {
+                     newOverallStatus = 'Awaiting Purchase';
+                 }
             }
 
              batch.update(orderDoc.ref, { items: updatedItems, status: newOverallStatus });
