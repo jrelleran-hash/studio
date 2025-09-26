@@ -67,8 +67,6 @@ const statusVariant: { [key: string]: "default" | "secondary" | "destructive" | 
   Delivered: "default",
   Completed: "default",
   "PO Pending": "secondary",
-  "PO Shipped": "outline",
-  "PO Delivered": "outline",
 };
 
 // Order Schemas

@@ -869,11 +869,30 @@ export async function addPurchaseOrder(poData: NewPurchaseOrderData): Promise<Do
       quantity: item.quantity,
     }));
     
-    // Link backorders to this new PO
+    // Link backorders to this new PO and update original order item status
     for (const item of poData.items) {
       if (item.backorderId) {
         const backorderRef = doc(db, "backorders", item.backorderId);
-        transaction.update(backorderRef, { purchaseOrderId: poRef.id });
+        const backorderDoc = await transaction.get(backorderRef);
+        if(backorderDoc.exists()){
+            const backorderData = backorderDoc.data();
+            // Mark backorder as ordered
+            transaction.update(backorderRef, { status: 'Ordered', purchaseOrderId: poRef.id });
+
+            // Update the original order's line item status
+            const orderRef = backorderData.orderRef as DocumentReference;
+            const orderDoc = await transaction.get(orderRef);
+            if(orderDoc.exists()){
+                const orderData = orderDoc.data();
+                const updatedItems = orderData.items.map((oi: any) => {
+                    if (oi.productRef.id === item.productId && oi.status === 'Awaiting Purchase'){
+                        return {...oi, status: 'PO Pending'}
+                    }
+                    return oi;
+                });
+                transaction.update(orderRef, {items: updatedItems});
+            }
+        }
       }
     }
 
@@ -895,7 +914,7 @@ export async function addPurchaseOrder(poData: NewPurchaseOrderData): Promise<Do
         title: "New Purchase Order",
         description: `PO for ${supplierDoc.data().name} has been created.`,
         details: `A new purchase order (${newPurchaseOrder.poNumber}) has been created for ${supplierDoc.data().name}.`,
-        href: "/orders?tab=purchase-orders",
+        href: "/purchase-orders",
         icon: "ShoppingCart",
     });
     
@@ -930,6 +949,8 @@ async function checkAndUpdateAwaitingOrders() {
         let allItemsAvailable = true;
 
         for (const item of orderData.items) {
+             if (item.status !== 'Awaiting Purchase') continue;
+
             const productRef = item.productRef as DocumentReference;
             let productData: Product | undefined = inventoryCache.get(productRef.id);
             
@@ -948,8 +969,11 @@ async function checkAndUpdateAwaitingOrders() {
         }
 
         if (allItemsAvailable) {
-            const newStatus = orderData.status === "Awaiting Purchase" ? "Ready for Issuance" : "Fulfilled";
-            batch.update(orderDoc.ref, { status: newStatus });
+            const newStatus = "Ready for Issuance";
+            const updatedItems = orderData.items.map((item: any) => 
+                item.status === 'Awaiting Purchase' ? { ...item, status: 'Ready for Issuance' } : item
+            );
+            batch.update(orderDoc.ref, { status: newStatus, items: updatedItems });
         }
     }
     
@@ -1525,5 +1549,6 @@ export async function getBackorders(): Promise<Backorder[]> {
         return [];
     }
 }
+
 
 

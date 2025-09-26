@@ -66,7 +66,7 @@ export interface OrderItem {
     quantity: number;
     price: number; // Price at the time of order
     product: Product;
-    status: 'Ready for Issuance' | 'Awaiting Purchase' | 'Fulfilled';
+    status: 'Ready for Issuance' | 'Awaiting Purchase' | 'Fulfilled' | 'PO Pending';
 }
 
 export interface Backorder {
@@ -80,7 +80,7 @@ export interface Backorder {
     productSku: string;
     quantity: number;
     date: Timestamp;
-    status: 'Pending' | 'Fulfilled';
+    status: 'Pending' | 'Ordered' | 'Fulfilled';
     purchaseOrderId?: string;
 }
 
