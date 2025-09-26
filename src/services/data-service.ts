@@ -610,26 +610,25 @@ export async function addIssuance(issuanceData: NewIssuanceData): Promise<Docume
     const issuanceNumber = `IS-${Date.now()}`;
     const issuanceDate = Timestamp.now();
     const clientRef = doc(db, "clients", issuanceData.clientId);
+    const allProductIds = issuanceData.items.map(i => i.productId).filter(Boolean);
+
+    // Fetch existing reorders outside the transaction
+    let existingReorders = new Map<string, Backorder>();
+    if (allProductIds.length > 0) {
+        const backorderQuery = query(
+            collection(db, "backorders"),
+            where("productId", "in", allProductIds),
+            where("orderId", "==", "REORDER")
+        );
+        const backorderSnapshot = await getDocs(backorderQuery);
+        backorderSnapshot.docs.forEach(d => {
+            existingReorders.set(d.data().productId, d.data() as Backorder);
+        });
+    }
 
     return runTransaction(db, async (transaction) => {
-        const allProductIds = issuanceData.items.map(i => i.productId).filter(Boolean);
-
         const productRefs = allProductIds.map(id => doc(db, "inventory", id));
         const productDocs = allProductIds.length > 0 ? await Promise.all(productRefs.map(ref => transaction.get(ref))) : [];
-        
-        let existingReorders = new Map<string, Backorder>();
-
-        if (allProductIds.length > 0) {
-            const backorderQuery = query(
-                collection(db, "backorders"),
-                where("productId", "in", allProductIds),
-                where("orderId", "==", "REORDER")
-            );
-            const backorderSnapshot = await transaction.get(backorderQuery);
-            backorderSnapshot.docs.forEach(d => {
-                existingReorders.set(d.data().productId, d.data() as Backorder);
-            });
-        }
         
         let orderDoc: any;
         if (issuanceData.orderId) {
@@ -1767,6 +1766,7 @@ export async function getBackorders(): Promise<Backorder[]> {
     
 
     
+
 
 
 
