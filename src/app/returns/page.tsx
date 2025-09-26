@@ -20,14 +20,14 @@ import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, 
 import { MoreHorizontal } from "lucide-react";
 import { useAuth } from "@/hooks/use-auth";
 
-const inboundStatusVariant: { [key: string]: "default" | "secondary" | "destructive" } = {
+const inboundStatusVariant: { [key: string]: "default" | "secondary" | "destructive" | "outline" } = {
   Pending: "secondary",
   Received: "outline",
   Completed: "default",
   Cancelled: "destructive",
 };
 
-const outboundStatusVariant: { [key: string]: "default" | "secondary" | "destructive" } = {
+const outboundStatusVariant: { [key: string]: "default" | "secondary" | "destructive" | "outline" } = {
   Pending: "secondary",
   Shipped: "outline",
   Completed: "default",
