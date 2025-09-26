@@ -8,6 +8,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
 import { PlusCircle, MoreHorizontal, X, Printer, ChevronDown, Truck, RefreshCcw, ChevronsUpDown, Check } from "lucide-react";
 import Link from "next/link";
+import { useSearchParams } from "next/navigation";
 
 import { Button, buttonVariants } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -275,6 +276,7 @@ export default function IssuancePage() {
   const { issuances, clients, products, orders, loading, refetchData } = useData();
   const { toast } = useToast();
   const { user } = useAuth();
+  const searchParams = useSearchParams();
 
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
   const [isAddClientOpen, setIsAddClientOpen] = useState(false);
@@ -407,6 +409,16 @@ export default function IssuancePage() {
       clientForm.reset();
     }
   }, [isAddClientOpen, clientForm]);
+
+  useEffect(() => {
+    const issuanceId = searchParams.get('id');
+    if(issuanceId && issuances.length > 0) {
+      const issuance = issuances.find(iss => iss.id === issuanceId);
+      if(issuance) {
+        setSelectedIssuance(issuance);
+      }
+    }
+  }, [searchParams, issuances]);
 
 
   const onAddSubmit = async (data: IssuanceFormValues) => {

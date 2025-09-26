@@ -9,6 +9,7 @@ import * as z from "zod";
 import { PlusCircle, MoreHorizontal, X, ChevronsUpDown, Check } from "lucide-react";
 import { Timestamp } from "firebase/firestore";
 import { format } from "date-fns";
+import { useRouter } from "next/navigation";
 
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
@@ -131,8 +132,9 @@ const toTitleCase = (str: string) => {
 
 
 export default function OrdersPage() {
-  const { orders, clients, products, suppliers, loading, refetchData } = useData();
+  const { orders, clients, products, suppliers, issuances, loading, refetchData } = useData();
   const { toast } = useToast();
+  const router = useRouter();
 
   // Dialog states
   const [isAddOrderOpen, setIsAddOrderOpen] = useState(false);
@@ -377,6 +379,19 @@ export default function OrdersPage() {
     }
   };
 
+  const handleViewIssuance = (order: Order) => {
+    const issuance = issuances.find(iss => iss.orderId === order.id);
+    if(issuance) {
+      router.push(`/issuance?id=${issuance.id}`);
+    } else {
+      toast({
+        variant: "destructive",
+        title: "Not Found",
+        description: "No issuance record found for this order.",
+      })
+    }
+  }
+
   const formatDate = (date: Date | Timestamp) => {
     const jsDate = date instanceof Timestamp ? date.toDate() : date;
     return format(jsDate, 'PPpp');
@@ -539,8 +554,7 @@ export default function OrdersPage() {
                                   <Input
                                     type="number"
                                     placeholder="Qty"
-                                    className="w-24 caret-transparent"
-                                    onKeyDown={(e) => e.preventDefault()}
+                                    className="w-24"
                                     {...orderForm.register(`items.${index}.quantity`, { valueAsNumber: true })}
                                   />
                                   <Button variant="ghost" size="icon" onClick={() => remove(index)}>
@@ -635,6 +649,12 @@ export default function OrdersPage() {
                             <DropdownMenuLabel>Actions</DropdownMenuLabel>
                             <DropdownMenuItem onClick={() => setSelectedOrder(order)}>
                                 View Details
+                            </DropdownMenuItem>
+                            <DropdownMenuItem
+                              onClick={() => handleViewIssuance(order)}
+                              disabled={!['Fulfilled', 'Partially Fulfilled', 'Shipped', 'Completed'].includes(order.status)}
+                            >
+                                View Issuance Details
                             </DropdownMenuItem>
                             <DropdownMenuSeparator />
                               {order.status === 'Cancelled' ? (
