@@ -362,9 +362,11 @@ export default function PurchaseOrdersPage() {
 
 
   const { clientOrderQueue, reorderQueue } = useMemo(() => {
+    const allClientOrders = backorders.filter(bo => bo.orderId !== 'REORDER');
+    const allReorders = backorders.filter(bo => bo.orderId === 'REORDER');
     return {
-      clientOrderQueue: backorders.filter(bo => bo.orderId !== 'REORDER' && bo.status === 'Pending'),
-      reorderQueue: backorders.filter(bo => bo.orderId === 'REORDER'), // Show all statuses to prevent duplicates
+      clientOrderQueue: allClientOrders,
+      reorderQueue: allReorders,
     };
   }, [backorders]);
 
@@ -580,7 +582,7 @@ export default function PurchaseOrdersPage() {
     const itemsForPO = selectedQueueItems.map(item => ({
       productId: item.productId,
       quantity: item.quantity,
-      backorderId: item.orderId !== 'REORDER' ? item.id : undefined,
+      backorderId: item.orderId !== 'REORDER' ? item.id : item.id,
     }));
 
     // Check if all selected items are for the same client, or for general reorder
@@ -611,7 +613,7 @@ export default function PurchaseOrdersPage() {
         }
     });
     setPurchaseQueueSelection(newSelection);
-}
+  }
 
   const triggerPreview = (po: PurchaseOrder) => {
     setPoForPrint(po);
@@ -622,8 +624,8 @@ export default function PurchaseOrdersPage() {
     window.print();
   };
 
-  const isAllClientQueueSelected = clientOrderQueue.length > 0 && clientOrderQueue.every(item => purchaseQueueSelection[item.id]);
-  const isAllReorderQueueSelected = reorderQueue.length > 0 && reorderQueue.every(item => item.status !== 'Pending' || purchaseQueueSelection[item.id]);
+  const isAllClientQueueSelected = clientOrderQueue.length > 0 && clientOrderQueue.filter(i => i.status === 'Pending').every(item => purchaseQueueSelection[item.id]);
+  const isAllReorderQueueSelected = reorderQueue.length > 0 && reorderQueue.filter(i => i.status === 'Pending').every(item => purchaseQueueSelection[item.id]);
 
 
   const formatDateSimple = (date: Date | Timestamp) => {
@@ -914,8 +916,8 @@ export default function PurchaseOrdersPage() {
               <CardContent>
                  <Tabs defaultValue="client-orders">
                     <TabsList>
-                        <TabsTrigger value="client-orders">Client Orders ({clientOrderQueue.length})</TabsTrigger>
-                        <TabsTrigger value="reorder-items">Reorder Items ({reorderQueue.length})</TabsTrigger>
+                        <TabsTrigger value="client-orders">Client Orders ({clientOrderQueue.filter(item => item.status === 'Pending').length})</TabsTrigger>
+                        <TabsTrigger value="reorder-items">Reorder Items ({reorderQueue.filter(item => item.status === 'Pending').length})</TabsTrigger>
                     </TabsList>
                     <TabsContent value="client-orders">
                         <Table>
@@ -926,25 +928,37 @@ export default function PurchaseOrdersPage() {
                                     <TableHead>Client</TableHead>
                                     <TableHead className="text-center">Needed</TableHead>
                                     <TableHead>Source Order</TableHead>
+                                    <TableHead>Status</TableHead>
                                 </TableRow>
                             </TableHeader>
                             <TableBody>
                                 {loading ? (
                                     Array.from({ length: 2 }).map((_, i) => (
-                                        <TableRow key={i}><TableCell colSpan={5}><Skeleton className="h-8 w-full" /></TableCell></TableRow>
+                                        <TableRow key={i}><TableCell colSpan={6}><Skeleton className="h-8 w-full" /></TableCell></TableRow>
                                     ))
                                 ) : clientOrderQueue.length > 0 ? (
                                     clientOrderQueue.map((item) => (
-                                        <TableRow key={item.id}>
-                                            <TableCell><Checkbox checked={purchaseQueueSelection[item.id] || false} onCheckedChange={(checked) => handleQueueSelectionChange(item.id, !!checked)} /></TableCell>
+                                        <TableRow key={item.id} className={cn(item.status !== 'Pending' && 'text-muted-foreground')}>
+                                            <TableCell>
+                                                <Checkbox 
+                                                    checked={purchaseQueueSelection[item.id] || false}
+                                                    onCheckedChange={(checked) => handleQueueSelectionChange(item.id, !!checked)}
+                                                    disabled={item.status !== 'Pending'}
+                                                 />
+                                            </TableCell>
                                             <TableCell className="font-medium">{item.productName}</TableCell>
                                             <TableCell>{(item as any).client?.clientName || 'N/A'}</TableCell>
                                             <TableCell className="text-center">{item.quantity}</TableCell>
                                             <TableCell><Badge variant="secondary" className="font-mono">{item.orderId.substring(0,7)}</Badge></TableCell>
+                                            <TableCell>
+                                                <Badge variant={statusVariant[item.status] || 'default'}>
+                                                    {item.status}
+                                                </Badge>
+                                            </TableCell>
                                         </TableRow>
                                     ))
                                 ) : (
-                                    <TableRow><TableCell colSpan={5} className="h-24 text-center">No client backorders.</TableCell></TableRow>
+                                    <TableRow><TableCell colSpan={6} className="h-24 text-center">No client backorders.</TableCell></TableRow>
                                 )}
                             </TableBody>
                         </Table>
