@@ -40,7 +40,7 @@ const statusVariant: { [key: string]: "default" | "secondary" | "destructive" | 
 
 const orderItemSchema = z.object({
   productId: z.string().min(1, "Product is required."),
-  quantity: z.coerce.number().min(1, "Quantity must be at least 1."),
+  quantity: z.number().min(1, "Quantity must be at least 1."),
 });
 
 const orderSchema = z.object({
@@ -472,7 +472,8 @@ export function ActiveOrders() {
                                   type="number" 
                                   placeholder="Qty"
                                   className="w-20"
-                                  {...orderForm.register(`items.${index}.quantity`)}
+                                  onKeyDown={(e) => e.preventDefault()}
+                                  {...orderForm.register(`items.${index}.quantity`, { valueAsNumber: true })}
                                 />
                                 <Button variant="ghost" size="icon" onClick={() => remove(index)}>
                                   <X className="h-4 w-4" />

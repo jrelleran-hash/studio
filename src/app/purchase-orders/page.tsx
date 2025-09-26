@@ -820,6 +820,7 @@ export default function PurchaseOrdersPage() {
                             type="number"
                             placeholder="Qty"
                             className="w-24"
+                            onKeyDown={(e) => e.preventDefault()}
                             {...poForm.register(`items.${index}.quantity`, { valueAsNumber: true })}
                           />
                           <Button variant="ghost" size="icon" onClick={() => poRemove(index)}>
@@ -1465,3 +1466,4 @@ export default function PurchaseOrdersPage() {
     </>
   );
 }
+

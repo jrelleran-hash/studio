@@ -540,6 +540,7 @@ export default function OrdersPage() {
                                     type="number"
                                     placeholder="Qty"
                                     className="w-24"
+                                    onKeyDown={(e) => e.preventDefault()}
                                     {...orderForm.register(`items.${index}.quantity`, { valueAsNumber: true })}
                                   />
                                   <Button variant="ghost" size="icon" onClick={() => remove(index)}>
@@ -983,3 +984,4 @@ export default function OrdersPage() {
     </>
   );
 }
+
