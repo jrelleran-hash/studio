@@ -358,8 +358,8 @@ export default function PurchaseOrdersPage() {
   }, [watchedReturnItems, products]);
 
 
-  const purchaseQueue: Backorder[] = useMemo(() => {
-    return backorders;
+  const purchaseQueue = useMemo(() => {
+    return backorders.filter(bo => bo.status === 'Pending');
   }, [backorders]);
 
   const selectedQueueItems = useMemo(() => {
