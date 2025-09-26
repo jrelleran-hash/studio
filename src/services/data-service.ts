@@ -617,7 +617,7 @@ export async function addIssuance(issuanceData: NewIssuanceData): Promise<Docume
     const productDocs = await Promise.all(productRefs.map(ref => transaction.get(ref)));
 
     const backorderQueries = issuanceData.items
-        .filter(item => item.productId) // Ensure productId exists before creating a query
+        .filter(item => item.productId)
         .map(item => 
             query(collection(db, "backorders"), where("status", "==", "Pending"), where("productId", "==", item.productId))
     );
@@ -631,7 +631,6 @@ export async function addIssuance(issuanceData: NewIssuanceData): Promise<Docume
     
     // --- 2. LOGIC & WRITES ---
     const backordersToCreate: any[] = [];
-    const productsToUpdate: any[] = [];
     
     for (let i = 0; i < issuanceData.items.length; i++) {
       const item = issuanceData.items[i];
@@ -659,8 +658,11 @@ export async function addIssuance(issuanceData: NewIssuanceData): Promise<Docume
       checkStockAndCreateNotification({ ...productData, stock: newStock }, productDoc.id);
 
       if (newStock <= productData.reorderLimit) {
+        // Check if there is already a PENDING REORDER for this product
         const backorderSnapshot = backorderSnapshots[i];
-        if (backorderSnapshot.empty) {
+        const hasPendingReorder = !backorderSnapshot.empty && backorderSnapshot.docs.some(d => d.data().orderId === 'REORDER');
+
+        if (!hasPendingReorder) {
           const reorderQty = productData.maxStockLevel - newStock;
           if (reorderQty > 0) {
             backordersToCreate.push({
@@ -898,6 +900,7 @@ type NewPurchaseOrderData = {
 
 export async function addPurchaseOrder(poData: NewPurchaseOrderData): Promise<DocumentReference> {
   return runTransaction(db, async (transaction) => {
+    // --- 1. READS ---
     const supplierRef = doc(db, "suppliers", poData.supplierId);
     const supplierDoc = await transaction.get(supplierRef);
     if (!supplierDoc.exists()) throw new Error("Supplier not found.");
@@ -909,44 +912,45 @@ export async function addPurchaseOrder(poData: NewPurchaseOrderData): Promise<Do
       .map(item => ({ item, backorderRef: doc(db, 'backorders', item.backorderId!) }));
 
     const backorderDocs = await Promise.all(backorderReads.map(b => transaction.get(b.backorderRef)));
-    const backorderDocsMap = new Map(backorderDocs.map((doc, i) => [backorderReads[i].backorderRef.id, doc]));
-
+    
     const uniqueOrderRefsMap = new Map<string, DocumentReference>();
-    for (const backorderDoc of backorderDocs) {
-      if (backorderDoc.exists()) {
-        const backorderData = backorderDoc.data() as Backorder;
-        if (backorderData.orderRef) {
-          uniqueOrderRefsMap.set(backorderData.orderRef.id, backorderData.orderRef);
+    for (let i = 0; i < backorderDocs.length; i++) {
+        const backorderDoc = backorderDocs[i];
+        if (backorderDoc.exists()) {
+            const backorderData = backorderDoc.data() as Backorder;
+            if (backorderData.orderRef) {
+                uniqueOrderRefsMap.set(backorderData.orderRef.id, backorderData.orderRef);
+            }
         }
-      }
     }
     const uniqueOrderRefs = Array.from(uniqueOrderRefsMap.values());
     const orderDocs = await Promise.all(uniqueOrderRefs.map(ref => transaction.get(ref)));
     const orderDocsMap = new Map(orderDocs.map((doc, i) => [uniqueOrderRefs[i].id, doc]));
 
+    // --- 2. LOGIC ---
     const ordersToUpdate = new Map<string, { orderRef: DocumentReference; productIds: Set<string>; docData: any }>();
-
-    for (const { item, backorderRef } of backorderReads) {
-      const backorderDoc = backorderDocsMap.get(backorderRef.id);
-      if (backorderDoc && backorderDoc.exists()) {
-        const backorderData = backorderDoc.data() as Backorder;
-        if (backorderData.orderRef) {
-          const orderDoc = orderDocsMap.get(backorderData.orderRef.id);
-          if (orderDoc && orderDoc.exists()) {
-            if (!ordersToUpdate.has(orderDoc.id)) {
-              ordersToUpdate.set(orderDoc.id, {
-                orderRef: orderDoc.ref,
-                productIds: new Set([backorderData.productId]),
-                docData: orderDoc.data(),
-              });
-            } else {
-              ordersToUpdate.get(orderDoc.id)!.productIds.add(backorderData.productId);
+    for (let i = 0; i < backorderDocs.length; i++) {
+        const backorderDoc = backorderDocs[i];
+        if (backorderDoc.exists()) {
+            const backorderData = backorderDoc.data() as Backorder;
+            if (backorderData.orderRef) {
+                const orderDoc = orderDocsMap.get(backorderData.orderRef.id);
+                if (orderDoc && orderDoc.exists()) {
+                    if (!ordersToUpdate.has(orderDoc.id)) {
+                        ordersToUpdate.set(orderDoc.id, {
+                            orderRef: orderDoc.ref,
+                            productIds: new Set([backorderData.productId]),
+                            docData: orderDoc.data(),
+                        });
+                    } else {
+                        ordersToUpdate.get(orderDoc.id)!.productIds.add(backorderData.productId);
+                    }
+                }
             }
-          }
         }
-      }
     }
 
+    // --- 3. WRITES ---
     const resolvedItems = poData.items.map(item => ({
       productRef: doc(db, "inventory", item.productId),
       quantity: item.quantity,
@@ -964,37 +968,42 @@ export async function addPurchaseOrder(poData: NewPurchaseOrderData): Promise<Do
     }
     transaction.set(poRef, newPurchaseOrder);
 
-    for (const { item, backorderRef } of backorderReads) {
-      const backorderDoc = backorderDocsMap.get(backorderRef.id);
-      if (backorderDoc && backorderDoc.exists()) {
-        const backorderData = backorderDoc.data() as Backorder;
-        const orderedQty = item.quantity;
-        const requiredQty = backorderData.quantity;
+    for (let i = 0; i < backorderReads.length; i++) {
+        const { item, backorderRef } = backorderReads[i];
+        const backorderDoc = backorderDocs[i];
+        if (backorderDoc && backorderDoc.exists()) {
+            const backorderData = backorderDoc.data() as Backorder;
+            const orderedQty = item.quantity;
+            const requiredQty = backorderData.quantity;
+            
+            if (orderedQty < requiredQty) {
+                const remainingQty = requiredQty - orderedQty;
+                // Update original backorder to show it was partially ordered
+                transaction.update(backorderRef, { status: 'Ordered', purchaseOrderId: poRef.id, quantity: orderedQty });
+                // Create a new backorder for the remaining amount
+                const newBackorderRef = doc(collection(db, "backorders"));
+                const newBackorderData: Omit<Backorder, 'id' | 'orderRef' | 'clientRef'> & { orderRef: DocumentReference | null, clientRef: DocumentReference | null } = {
+                    ...backorderData,
+                    quantity: remainingQty,
+                    status: 'Pending', // It's still pending purchase
+                    parentBackorderId: backorderRef.id,
+                    orderRef: backorderData.orderRef || null,
+                    clientRef: backorderData.clientRef || null
+                };
+                delete (newBackorderData as any).id;
+                transaction.set(newBackorderRef, newBackorderData);
 
-        if (orderedQty < requiredQty) {
-          const remainingQty = requiredQty - orderedQty;
-          transaction.update(backorderRef, { status: 'Ordered', purchaseOrderId: poRef.id, quantity: orderedQty });
-
-          const newBackorderRef = doc(collection(db, "backorders"));
-          const newBackorderData: Omit<Backorder, 'id' | 'orderRef' | 'clientRef'> & { orderRef: DocumentReference | null, clientRef: DocumentReference | null } = {
-            ...backorderData,
-            quantity: remainingQty,
-            parentBackorderId: backorderRef.id,
-            orderRef: backorderData.orderRef || null,
-            clientRef: backorderData.clientRef || null
-          };
-          delete (newBackorderData as any).id;
-          transaction.set(newBackorderRef, newBackorderData);
-        } else {
-          transaction.update(backorderRef, { status: 'Ordered', purchaseOrderId: poRef.id });
+            } else {
+                // If the full quantity is ordered, just update the status
+                transaction.update(backorderRef, { status: 'Ordered', purchaseOrderId: poRef.id });
+            }
         }
-      }
     }
     
     for (const group of ordersToUpdate.values()) {
       const originalOrderData = group.docData;
       const updatedItems = originalOrderData.items.map((orderItem: any) => {
-        if (group.productIds.has(orderItem.productRef.id)) {
+        if (group.productIds.has(orderItem.productRef.id) && orderItem.status === 'Awaiting Purchase') {
           return { ...orderItem, status: 'PO Pending' };
         }
         return orderItem;
