@@ -763,11 +763,11 @@ export default function IssuancePage() {
                                     {form.formState.errors.items?.[index]?.productId && <p className="text-sm text-destructive">{form.formState.errors.items?.[index]?.productId?.message}</p>}
                                 </div>
                                 <div className="flex flex-col gap-1">
-                                    <Input 
-                                        type="number" 
-                                        placeholder="Qty" 
+                                    <Input
+                                        type="number"
+                                        placeholder="Qty"
                                         className="w-24"
-                                        {...form.register(`items.${index}.quantity`)}
+                                        {...form.register(`items.${index}.quantity`, { valueAsNumber: true })}
                                         readOnly={!!form.getValues('orderId')}
                                     />
                                     {form.formState.errors.items?.[index]?.quantity ? (
