@@ -577,11 +577,13 @@ export default function PurchaseOrdersPage() {
       backorderId: item.orderId !== 'REORDER' ? item.id : undefined,
     }));
 
-    // Check if all selected items are for the same client
-    const firstClientId = selectedQueueItems[0].clientRef.id;
-    const allSameClient = selectedQueueItems.every(item => item.clientRef.id === firstClientId);
+    // Check if all selected items are for the same client, or for general reorder
+    const firstItem = selectedQueueItems[0];
+    const isReorder = firstItem.orderId === 'REORDER';
+    const firstClientId = firstItem.clientRef?.id;
+    const allSameClient = selectedQueueItems.every(item => isReorder ? item.orderId === 'REORDER' : item.clientRef?.id === firstClientId);
     
-    const clientId = allSameClient ? firstClientId : "";
+    const clientId = allSameClient && !isReorder ? firstClientId : "";
 
     poForm.reset({
       supplierId: "",
@@ -913,6 +915,7 @@ export default function PurchaseOrdersPage() {
                           </TableHead>
                           <TableHead>Product</TableHead>
                           <TableHead>SKU</TableHead>
+                          <TableHead>Client</TableHead>
                           <TableHead className="text-center">Needed</TableHead>
                           <TableHead>Source Order</TableHead>
                           </TableRow>
@@ -924,6 +927,7 @@ export default function PurchaseOrdersPage() {
                               <TableCell><Skeleton className="h-4 w-4" /></TableCell>
                               <TableCell><Skeleton className="h-4 w-48" /></TableCell>
                               <TableCell><Skeleton className="h-4 w-24" /></TableCell>
+                              <TableCell><Skeleton className="h-4 w-32" /></TableCell>
                               <TableCell><Skeleton className="h-4 w-16 mx-auto" /></TableCell>
                               <TableCell><Skeleton className="h-4 w-32" /></TableCell>
                               </TableRow>
@@ -942,6 +946,7 @@ export default function PurchaseOrdersPage() {
                                   </TableCell>
                                   <TableCell className="font-medium">{item.productName}</TableCell>
                                   <TableCell>{item.productSku}</TableCell>
+                                   <TableCell>{(item as any).client?.clientName || 'For Stock'}</TableCell>
                                   <TableCell className="text-center">{item.quantity}</TableCell>
                                   <TableCell>
                                       <Badge variant="secondary" className="font-mono">{item.orderId.substring(0,7)}</Badge>

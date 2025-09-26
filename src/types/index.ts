@@ -72,8 +72,8 @@ export interface OrderItem {
 export interface Backorder {
     id: string;
     orderId: string;
-    orderRef: DocumentReference;
-    clientRef: DocumentReference;
+    orderRef: DocumentReference | null;
+    clientRef: DocumentReference | null;
     productId: string;
     productRef: DocumentReference;
     productName: string;
