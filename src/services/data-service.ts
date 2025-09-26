@@ -41,15 +41,6 @@ async function resolveDoc<T>(docRef: DocumentReference): Promise<T | null> {
     return { id: docSnap.id, ...docSnap.data() } as T;
 }
 
-// Not used in transactions, but could be useful if needed.
-// async function resolveDocFromTransaction<T>(transaction: any, docRef: DocumentReference): Promise<T> {
-//     const docSnap = await transaction.get(docRef);
-//     if (!docSnap.exists()) {
-//         throw new Error(`Document with ref ${docRef.path} does not exist.`);
-//     }
-//     return { id: docSnap.id, ...docSnap.data() } as T;
-// }
-
 // Centralized function to create notifications
 async function createNotification(notification: Omit<Notification, 'id' | 'timestamp' | 'read' >) {
     try {
@@ -466,62 +457,66 @@ export async function addOrder(orderData: NewOrderData): Promise<DocumentReferen
   const orderDate = Timestamp.now();
 
   return runTransaction(db, async (transaction) => {
+    // --- 1. READS ---
     const clientRef = doc(db, "clients", orderData.clientId);
     const clientDoc = await transaction.get(clientRef);
     if (!clientDoc.exists()) throw new Error("Client not found.");
 
+    const productRefs = orderData.items.map(item => doc(db, "inventory", item.productId));
+    const productDocs = await Promise.all(productRefs.map(ref => transaction.get(ref)));
+
+    // --- 2. LOGIC ---
+    const orderRef = doc(collection(db, "orders")); // This is okay, it's just a ref creation
     let total = 0;
     const orderItems: Omit<OrderItem, 'product'>[] = [];
     let hasBackorders = false;
-    
-    const orderRef = doc(collection(db, "orders"));
+    const backorderItems: any[] = [];
 
-    for (const item of orderData.items) {
-      const productRef = doc(db, "inventory", item.productId);
-      const productDoc = await transaction.get(productRef);
-      if (!productDoc.exists()) throw new Error(`Product with ID ${item.productId} not found.`);
-      
-      const productData = productDoc.data() as Product;
-      total += productData.price * item.quantity;
-      const availableStock = productData.stock;
+    for (let i = 0; i < orderData.items.length; i++) {
+        const item = orderData.items[i];
+        const productDoc = productDocs[i];
+        if (!productDoc.exists()) throw new Error(`Product with ID ${item.productId} not found.`);
+        
+        const productData = productDoc.data() as Product;
+        total += productData.price * item.quantity;
+        const availableStock = productData.stock;
 
-      let itemStatus: OrderItem['status'];
+        let itemStatus: OrderItem['status'];
 
-      if (availableStock < item.quantity) {
-        hasBackorders = true;
-        itemStatus = 'Awaiting Purchase';
+        if (availableStock < item.quantity) {
+            hasBackorders = true;
+            itemStatus = 'Awaiting Purchase';
 
-        const backorderQty = item.quantity - availableStock;
+            const backorderQty = item.quantity - availableStock;
+            
+            backorderItems.push({
+                orderId: orderRef.id,
+                orderRef: orderRef,
+                clientRef: clientRef,
+                productId: productDoc.ref.id,
+                productRef: productDoc.ref,
+                productName: productData.name,
+                productSku: productData.sku,
+                quantity: backorderQty,
+                date: orderDate,
+                status: 'Pending',
+            });
 
-        // Create backorder record for the quantity needed
-        const backorderRef = doc(collection(db, 'backorders'));
-        transaction.set(backorderRef, {
-          orderId: orderRef.id,
-          orderRef: orderRef,
-          clientRef: clientRef,
-          productId: productRef.id,
-          productRef: productRef,
-          productName: productData.name,
-          productSku: productData.sku,
-          quantity: backorderQty,
-          date: orderDate,
-          status: 'Pending',
+        } else {
+            itemStatus = 'Ready for Issuance';
+        }
+
+        orderItems.push({
+            productRef: productDoc.ref,
+            quantity: item.quantity,
+            price: productData.price,
+            status: itemStatus,
         });
-      } else {
-        itemStatus = 'Ready for Issuance';
-      }
-
-      orderItems.push({
-        productRef: productRef,
-        quantity: item.quantity,
-        price: productData.price,
-        status: itemStatus,
-      });
     }
 
-    // Determine final order status
     const overallStatus = hasBackorders ? "Awaiting Purchase" : "Ready for Issuance";
     
+    // --- 3. WRITES ---
     const newOrder: any = {
       clientRef: clientRef,
       date: orderDate,
@@ -529,21 +524,28 @@ export async function addOrder(orderData: NewOrderData): Promise<DocumentReferen
       status: overallStatus,
       total: total,
     };
-    
     if (orderData.reorderedFrom) {
       newOrder.reorderedFrom = orderData.reorderedFrom;
     }
-
     transaction.set(orderRef, newOrder);
 
+    // Create backorder records
+    for (const backorderItem of backorderItems) {
+        const backorderRef = doc(collection(db, 'backorders'));
+        transaction.set(backorderRef, backorderItem);
+    }
+    
+    // Defer notification creation until after the transaction
+    return { orderRef, clientName: clientDoc.data().clientName, overallStatus };
+  }).then(async ({ orderRef, clientName, overallStatus }) => {
+    // This runs AFTER the transaction is successful
     await createNotification({
         title: "New Order Created",
-        description: `Order for ${clientDoc.data().clientName} has been placed.`,
-        details: `A new order (${orderRef.id.substring(0, 7)}) for ${clientDoc.data().clientName} has been created. Status: ${overallStatus}.`,
+        description: `Order for ${clientName} has been placed.`,
+        details: `A new order (${orderRef.id.substring(0, 7)}) for ${clientName} has been created. Status: ${overallStatus}.`,
         href: "/orders",
         icon: "ShoppingCart",
     });
-
     return orderRef;
   });
 }
@@ -603,33 +605,26 @@ export async function addIssuance(issuanceData: NewIssuanceData): Promise<Docume
 
   return runTransaction(db, async (transaction) => {
     // --- 1. READS ---
-    const readPromises = [];
     const productRefs = issuanceData.items.map(item => doc(db, "inventory", item.productId));
-    readPromises.push(...productRefs.map(ref => transaction.get(ref)));
+    const productDocs = await Promise.all(productRefs.map(ref => transaction.get(ref)));
 
-    let orderRef: DocumentReference | undefined;
+    let orderDoc: any;
     if (issuanceData.orderId) {
-      orderRef = doc(db, "orders", issuanceData.orderId);
-      readPromises.push(transaction.get(orderRef));
+      const orderRef = doc(db, "orders", issuanceData.orderId);
+      orderDoc = await transaction.get(orderRef);
     }
     
-    const docs = await Promise.all(readPromises);
-    const productDocs = docs.slice(0, productRefs.length);
-    const orderDoc = issuanceData.orderId ? docs[docs.length - 1] : undefined;
-
     // --- 2. LOGIC ---
-    const resolvedItems = [];
-    
     for (let i = 0; i < issuanceData.items.length; i++) {
       const item = issuanceData.items[i];
       const productDoc = productDocs[i];
       if (!productDoc.exists()) throw new Error(`Product with ID ${item.productId} not found.`);
-      
       const productData = productDoc.data() as Product;
       if (productData.stock < item.quantity) throw new Error(`Insufficient stock for ${productData.name}. Available: ${productData.stock}, Requested: ${item.quantity}`);
     }
 
     // --- 3. WRITES ---
+    const resolvedItems = [];
     for (let i = 0; i < issuanceData.items.length; i++) {
       const item = issuanceData.items[i];
       const productDoc = productDocs[i];
@@ -866,19 +861,10 @@ export async function addPurchaseOrder(poData: NewPurchaseOrderData): Promise<Do
     const supplierDoc = await transaction.get(supplierRef);
     if (!supplierDoc.exists()) throw new Error("Supplier not found.");
 
-    const backorderReads = [];
-    if (poData.items.some(item => item.backorderId)) {
-        for (const item of poData.items) {
-            if (item.backorderId) {
-                const backorderRef = doc(db, "backorders", item.backorderId);
-                backorderReads.push(transaction.get(backorderRef));
-            }
-        }
-    }
-    const backorderDocs = await Promise.all(backorderReads);
+    const backorderRefs = poData.items.filter(item => item.backorderId).map(item => doc(db, "backorders", item.backorderId!));
+    const backorderDocs = await Promise.all(backorderRefs.map(ref => transaction.get(ref)));
 
     const orderRefsToUpdate: { [orderId: string]: { ref: DocumentReference, itemsToUpdate: string[] } } = {};
-
     for (const backorderDoc of backorderDocs) {
         if (backorderDoc.exists()) {
             const backorderData = backorderDoc.data();
@@ -889,15 +875,26 @@ export async function addPurchaseOrder(poData: NewPurchaseOrderData): Promise<Do
             orderRefsToUpdate[orderRef.id].itemsToUpdate.push(backorderData.productId);
         }
     }
-
     const orderDocs = await Promise.all(Object.values(orderRefsToUpdate).map(o => transaction.get(o.ref)));
-
+    
     // --- 2. WRITES ---
     const resolvedItems = poData.items.map(item => ({
       productRef: doc(db, "inventory", item.productId),
       quantity: item.quantity,
     }));
     
+    const newPurchaseOrder: any = {
+      supplierRef: supplierRef,
+      orderDate: Timestamp.now(),
+      status: "Pending",
+      items: resolvedItems,
+      poNumber: `PO-${Date.now()}`,
+    };
+    if (poData.clientId) {
+      newPurchaseOrder.clientRef = doc(db, "clients", poData.clientId);
+    }
+    transaction.set(poRef, newPurchaseOrder);
+
     for (const backorderDoc of backorderDocs) {
       if (backorderDoc.exists()) {
         transaction.update(backorderDoc.ref, { status: 'Ordered', purchaseOrderId: poRef.id });
@@ -919,31 +916,19 @@ export async function addPurchaseOrder(poData: NewPurchaseOrderData): Promise<Do
         }
     }
     
-    const newPurchaseOrder: any = {
-      supplierRef: supplierRef,
-      orderDate: Timestamp.now(),
-      status: "Pending",
-      items: resolvedItems,
-      poNumber: `PO-${Date.now()}`,
-    };
-
-    if (poData.clientId) {
-      newPurchaseOrder.clientRef = doc(db, "clients", poData.clientId);
-    }
-    
-    transaction.set(poRef, newPurchaseOrder);
-
+    return { poRef, supplierName: supplierDoc.data()?.name, poNumber: newPurchaseOrder.poNumber };
+  }).then(async ({ poRef, supplierName, poNumber }) => {
     await createNotification({
         title: "New Purchase Order",
-        description: `PO for ${supplierDoc.data()?.name} has been created.`,
-        details: `A new purchase order (${newPurchaseOrder.poNumber}) has been created for ${supplierDoc.data()?.name}.`,
+        description: `PO for ${supplierName} has been created.`,
+        details: `A new purchase order (${poNumber}) has been created for ${supplierName}.`,
         href: "/purchase-orders",
         icon: "ShoppingCart",
     });
-    
     return poRef;
   });
 }
+
 
 
 export async function deletePurchaseOrder(poId: string): Promise<void> {
@@ -1359,7 +1344,11 @@ export async function completeInspection(returnId: string, inspectionItems: Insp
           items: inspectionItems,
         }
       });
-
+    });
+    
+    // --- 3. POST-TRANSACTION NOTIFICATION ---
+    const returnDoc = await getDoc(returnRef);
+    if(returnDoc.exists()){
       await createNotification({
           title: "Inspection Completed",
           description: `Return ${returnDoc.data().rmaNumber} has been inspected.`,
@@ -1367,7 +1356,8 @@ export async function completeInspection(returnId: string, inspectionItems: Insp
           href: "/quality-control",
           icon: "ClipboardCheck",
       });
-    });
+    }
+
   } catch (error) {
     console.error("Error completing inspection:", error);
     throw error;
@@ -1418,19 +1408,21 @@ export async function completePOInspection(poId: string, inspectionItems: POInsp
             }
 
             transaction.update(poRef, { status: "Completed" });
-
-            await createNotification({
-                title: "PO Inspected & Stocked",
-                description: `PO #${poData.poNumber} items have been added to inventory.`,
-                details: `Items from Purchase Order #${poData.poNumber} have passed inspection and are now in stock.`,
-                href: "/inventory",
-                icon: "Package",
-            });
         });
 
         // After the main transaction, check if this fulfilled any backorders
         await checkAndUpdateAwaitingOrders();
 
+        const poDoc = await getDoc(poRef);
+        if (poDoc.exists()) {
+            await createNotification({
+                title: "PO Inspected & Stocked",
+                description: `PO #${poDoc.data().poNumber} items have been added to inventory.`,
+                details: `Items from Purchase Order #${poDoc.data().poNumber} have passed inspection and are now in stock.`,
+                href: "/inventory",
+                icon: "Package",
+            });
+        }
     } catch (error) {
         console.error("Error completing PO inspection:", error);
         throw error;
@@ -1582,6 +1574,7 @@ export async function getBackorders(): Promise<Backorder[]> {
         return [];
     }
 }
+
 
 
 
