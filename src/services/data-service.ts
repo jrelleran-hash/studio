@@ -580,6 +580,7 @@ export async function getIssuances(): Promise<Issuance[]> {
                 items: items as IssuanceItem[],
                 remarks: issuanceData.remarks,
                 issuedBy: issuanceData.issuedBy,
+                receivedBy: issuanceData.receivedBy,
                 orderId: issuanceData.orderId,
             };
         }));
@@ -596,6 +597,7 @@ type NewIssuanceData = {
   items: { productId: string; quantity: number }[];
   remarks?: string;
   issuedBy: string;
+  receivedBy: string;
   orderId?: string;
 };
 
@@ -668,6 +670,7 @@ export async function addIssuance(issuanceData: NewIssuanceData): Promise<Docume
       items: resolvedItems,
       remarks: issuanceData.remarks || "",
       issuedBy: issuanceData.issuedBy,
+      receivedBy: issuanceData.receivedBy,
     };
     if (issuanceData.orderId) {
       newIssuance.orderId = issuanceData.orderId;

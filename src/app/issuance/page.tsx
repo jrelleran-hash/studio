@@ -70,6 +70,7 @@ const issuanceItemSchema = z.object({
 const createIssuanceSchema = (products: Product[]) => z.object({
   clientId: z.string().min(1, "Client is required."),
   orderId: z.string().optional(), // Track the order this issuance is for
+  receivedBy: z.string().min(1, "Receiver's name is required."),
   items: z.array(issuanceItemSchema)
     .min(1, "At least one item is required.")
     .superRefine((items, ctx) => {
@@ -307,6 +308,7 @@ export default function IssuancePage() {
       items: [{ productId: "", quantity: 1 }],
       remarks: "",
       orderId: "",
+      receivedBy: "",
     },
     mode: "onChange",
   });
@@ -363,6 +365,7 @@ export default function IssuancePage() {
         items: [{ productId: "", quantity: 1 }],
         remarks: "",
         orderId: "",
+        receivedBy: "",
       });
     }
   }, [isAddDialogOpen, form]);
@@ -559,6 +562,7 @@ export default function IssuancePage() {
         quantity: item.quantity,
       })),
       remarks: `For Order #${order.id.substring(0, 7)}`,
+      receivedBy: "",
     });
     setIsAddDialogOpen(true);
   };
@@ -689,6 +693,12 @@ export default function IssuancePage() {
                         )}
                      />
                     {form.formState.errors.clientId && <p className="text-sm text-destructive">{form.formState.errors.clientId.message}</p>}
+                  </div>
+                  
+                  <div className="space-y-2">
+                      <Label htmlFor="receivedBy">Received By</Label>
+                      <Input id="receivedBy" {...form.register("receivedBy")} placeholder="Enter the full name of the recipient" />
+                      {form.formState.errors.receivedBy && <p className="text-sm text-destructive">{form.formState.errors.receivedBy.message}</p>}
                   </div>
 
                   <div className="space-y-2">
@@ -910,9 +920,15 @@ export default function IssuancePage() {
               <strong>Date Issued:</strong>
               <p className="text-sm text-muted-foreground">{formatDate(selectedIssuance.date)}</p>
             </div>
-            <div>
-              <strong>Issued By:</strong>
-              <p className="text-sm text-muted-foreground">{selectedIssuance.issuedBy}</p>
+             <div className="grid grid-cols-2 gap-4">
+                <div>
+                    <strong>Issued By:</strong>
+                    <p className="text-sm text-muted-foreground">{selectedIssuance.issuedBy}</p>
+                </div>
+                 <div>
+                    <strong>Received By:</strong>
+                    <p className="text-sm text-muted-foreground">{selectedIssuance.receivedBy || 'N/A'}</p>
+                </div>
             </div>
             {selectedIssuance.remarks && (
               <div>

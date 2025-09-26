@@ -1,4 +1,5 @@
 
+
 import { Timestamp, DocumentReference } from "firebase/firestore";
 
 export interface Activity {
@@ -127,6 +128,7 @@ export interface Issuance {
     items: IssuanceItem[];
     remarks?: string;
     issuedBy: string;
+    receivedBy?: string;
     orderId?: string;
 }
 
