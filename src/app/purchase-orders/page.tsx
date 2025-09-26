@@ -62,9 +62,9 @@ import { CoreFlowLogo } from "@/components/icons";
 
 const statusVariant: { [key: string]: "default" | "secondary" | "destructive" | "outline" } = {
   Completed: "default",
-  "PO Pending": "secondary",
-  "PO Shipped": "outline",
-  "PO Delivered": "outline",
+  Pending: "secondary",
+  Shipped: "outline",
+  Delivered: "outline",
 };
 
 const outboundReturnStatusVariant: { [key: string]: "default" | "secondary" | "destructive" | "outline" } = {
@@ -77,7 +77,7 @@ const outboundReturnStatusVariant: { [key: string]: "default" | "secondary" | "d
 // Purchase Order Schema
 const poItemSchema = z.object({
   productId: z.string().min(1, "Product is required."),
-  quantity: z.number().min(1, "Quantity must be at least 1."),
+  quantity: z.number({ coerce: true }).min(1, "Quantity must be at least 1."),
   backorderId: z.string().optional(),
 });
 
@@ -819,9 +819,8 @@ export default function PurchaseOrdersPage() {
                           <Input
                             type="number"
                             placeholder="Qty"
-                            className="w-24 caret-transparent"
-                            onKeyDown={(e) => e.preventDefault()}
-                            {...poForm.register(`items.${index}.quantity`, { valueAsNumber: true })}
+                            className="w-24"
+                            {...poForm.register(`items.${index}.quantity`)}
                           />
                           <Button variant="ghost" size="icon" onClick={() => poRemove(index)}>
                               <X />
@@ -1466,3 +1465,4 @@ export default function PurchaseOrdersPage() {
     </>
   );
 }
+
