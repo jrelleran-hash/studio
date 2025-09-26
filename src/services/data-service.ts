@@ -611,10 +611,13 @@ export async function addIssuance(issuanceData: NewIssuanceData): Promise<Docume
     const productRefs = issuanceData.items.map(item => doc(db, "inventory", item.productId));
     const productDocs = await Promise.all(productRefs.map(ref => transaction.get(ref)));
 
-    const backorderQueries = issuanceData.items.map(item => 
-      query(collection(db, "backorders"), where("status", "==", "Pending"), where("productId", "==", item.productId))
+    const backorderQueries = issuanceData.items
+        .filter(item => item.productId) // Ensure productId exists
+        .map(item => 
+            query(collection(db, "backorders"), where("status", "==", "Pending"), where("productId", "==", item.productId))
     );
-    const backorderSnapshots = await Promise.all(backorderQueries.map(q => transaction.get(q)));
+    const backorderSnapshots = await Promise.all(backorderQueries.map(q => getDocs(q)));
+
 
     let orderDoc: any;
     if (issuanceData.orderId) {
