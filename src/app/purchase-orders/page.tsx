@@ -1,4 +1,5 @@
 
+
 "use client";
 
 import React, { useState, useEffect, useMemo, useCallback, useRef } from "react";
@@ -566,14 +567,23 @@ export default function PurchaseOrdersPage() {
   };
 
   const handleCreatePOFromQueue = () => {
+    if (selectedQueueItems.length === 0) return;
+
     const itemsForPO = selectedQueueItems.map(item => ({
       productId: item.productId,
       quantity: item.quantity,
       backorderId: item.orderId !== 'REORDER' ? item.id : undefined,
     }));
+
+    // Check if all selected items are for the same client
+    const firstClientId = selectedQueueItems[0].clientRef.id;
+    const allSameClient = selectedQueueItems.every(item => item.clientRef.id === firstClientId);
+    
+    const clientId = allSameClient ? firstClientId : "";
+
     poForm.reset({
       supplierId: "",
-      clientId: "",
+      clientId: clientId,
       items: itemsForPO,
     });
     setIsAddPOOpen(true);
@@ -696,6 +706,7 @@ export default function PurchaseOrdersPage() {
                                       variant="outline"
                                       role="combobox"
                                       className={cn("w-full justify-between", !field.value && "text-muted-foreground")}
+                                      disabled={!!poForm.getValues('items')?.[0]?.backorderId}
                                   >
                                       {field.value
                                           ? clients.find(c => c.id === field.value)?.clientName
