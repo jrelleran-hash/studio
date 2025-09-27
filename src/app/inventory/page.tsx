@@ -315,12 +315,12 @@ export default function InventoryPage() {
 
   return (
     <>
-      <Card>
+      <Card className="printable-content">
         <CardHeader className="flex flex-col md:flex-row md:items-start md:justify-between gap-4">
           <div>
             <CardTitle>Inventory</CardTitle>
             <CardDescription>Manage your product inventory.</CardDescription>
-            <div className="flex items-center gap-2 mt-4 flex-wrap">
+            <div className="flex items-center gap-2 mt-4 flex-wrap print-hidden">
               {(["all", "in-stock", "low-stock", "out-of-stock"] as StatusFilter[]).map((filter) => (
                 <Button
                   key={filter}
@@ -334,163 +334,169 @@ export default function InventoryPage() {
               ))}
             </div>
           </div>
-          <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>
-            <DialogTrigger asChild>
-              <Button size="sm" className="gap-1 w-full md:w-auto">
-                <PlusCircle />
-                Add Product
-              </Button>
-            </DialogTrigger>
-            <DialogContent className="sm:max-w-lg">
-              <DialogHeader>
-                <DialogTitle>Add New Product</DialogTitle>
-                <DialogDescription>Fill in the details for the new product.</DialogDescription>
-              </DialogHeader>
-              <form onSubmit={addForm.handleSubmit(onAddSubmit)} className="space-y-4">
-                <div className="space-y-2 text-center">
-                    <div className="relative w-24 h-24 mx-auto">
-                        <Avatar className="w-24 h-24 text-4xl rounded-md">
-                            {previewImage ? (
-                                <Image
-                                    src={previewImage}
-                                    alt="Product preview"
-                                    width={96}
-                                    height={96}
-                                    className="rounded-md object-cover aspect-square"
-                                />
-                            ) : (
-                                <AvatarImage src={undefined} alt="Product preview" />
-                            )}
-                            <AvatarFallback className="rounded-md">
-                                {addForm.getValues('name')?.[0]?.toUpperCase() || <Package />}
-                            </AvatarFallback>
-                        </Avatar>
-                    </div>
-                      <Button type="button" variant="link" onClick={() => addFileInputRef.current?.click()}>
-                        Upload Photo
-                      </Button>
-                      <Input
-                        type="file"
-                        className="hidden"
-                        {...addForm.register("photoFile")}
-                        ref={addFileInputRef}
-                        onChange={(e) => handleFileChange(e, 'add')}
-                        accept="image/png, image/jpeg, image/webp"
-                      />
-                      {addForm.formState.errors.photoFile && <p className="text-sm text-destructive">{addForm.formState.errors.photoFile.message as string}</p>}
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="name">Product Name</Label>
-                  <Input id="name" {...addForm.register("name")} onChange={(e) => {
-                    const { value } = e.target;
-                    e.target.value = toTitleCase(value);
-                    addForm.setValue("name", e.target.value);
-                  }}/>
-                  {addForm.formState.errors.name && <p className="text-sm text-destructive">{addForm.formState.errors.name.message}</p>}
-                </div>
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                  <div className="space-y-2">
-                    <div className="flex items-center justify-between">
-                        <Label htmlFor="sku">SKU</Label>
-                        <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                            <Switch id="auto-generate-sku-add" checked={autoGenerateSku} onCheckedChange={setAutoGenerateSku} />
-                            <Label htmlFor="auto-generate-sku-add">Auto-generate</Label>
-                        </div>
-                    </div>
-                    <Input id="sku" {...addForm.register("sku")} disabled={autoGenerateSku} placeholder={autoGenerateSku ? "Will be generated" : "Manual SKU"} />
-                    {addForm.formState.errors.sku && <p className="text-sm text-destructive">{addForm.formState.errors.sku.message}</p>}
-                  </div>
-                   <div className="space-y-2">
-                    <Label htmlFor="price">Price (Optional)</Label>
-                    <div className="relative">
-                      <span className="absolute inset-y-0 left-0 flex items-center pl-3 text-muted-foreground">{CURRENCY_CONFIG.symbol}</span>
-                      <Input id="price" type="number" step="0.01" className="pl-8" placeholder="0.00" {...addForm.register("price")} />
-                    </div>
-                    {addForm.formState.errors.price && <p className="text-sm text-destructive">{addForm.formState.errors.price.message}</p>}
-                  </div>
-                </div>
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                  <div className="space-y-2">
-                    <Label htmlFor="stock">Initial Stock (Optional)</Label>
-                    <Input id="stock" type="number" placeholder="0" {...addForm.register("stock")} />
-                    {addForm.formState.errors.stock && <p className="text-sm text-destructive">{addForm.formState.errors.stock.message}</p>}
-                  </div>
-                   <div className="space-y-2">
-                    <Label htmlFor="reorderLimit">Reorder Limit</Label>
-                    <Input id="reorderLimit" type="number" {...addForm.register("reorderLimit")} />
-                    {addForm.formState.errors.reorderLimit && <p className="text-sm text-destructive">{addForm.formState.errors.reorderLimit.message}</p>}
-                  </div>
-                </div>
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                  <div className="space-y-2">
-                    <Label htmlFor="maxStockLevel">Max Stock Level</Label>
-                    <Input id="maxStockLevel" type="number" {...addForm.register("maxStockLevel")} />
-                    {addForm.formState.errors.maxStockLevel && <p className="text-sm text-destructive">{addForm.formState.errors.maxStockLevel.message}</p>}
-                  </div>
-                </div>
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                    <div className="space-y-2">
-                      <Label htmlFor="location">Location</Label>
-                      <Input id="location" placeholder="e.g. 'Warehouse A'" {...addForm.register("location")} />
-                    </div>
-                    <div className="space-y-2">
-                       <Label>Supplier</Label>
-                        <Controller
-                            control={addForm.control}
-                            name="supplierId"
-                            render={({ field }) => (
-                                <Popover open={isSupplierPopoverOpen} onOpenChange={setIsSupplierPopoverOpen}>
-                                    <PopoverTrigger asChild>
-                                        <Button
-                                            variant="outline"
-                                            role="combobox"
-                                            className={cn("w-full justify-between", !field.value && "text-muted-foreground")}
-                                        >
-                                            {field.value ? suppliers.find(s => s.id === field.value)?.name : "Select supplier"}
-                                            <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
-                                        </Button>
-                                    </PopoverTrigger>
-                                    <PopoverContent className="w-[--radix-popover-trigger-width] p-0">
-                                        <Command>
-                                            <CommandInput placeholder="Search supplier..." />
-                                            <CommandList>
-                                                <CommandEmpty>
-                                                     <Button variant="ghost" className="w-full" onClick={() => { setIsSupplierPopoverOpen(false); setIsAddSupplierOpen(true); }}>
-                                                        Add new supplier
-                                                    </Button>
-                                                </CommandEmpty>
-                                                <CommandGroup>
-                                                    {suppliers.map(s => (
-                                                        <CommandItem
-                                                            key={s.id}
-                                                            value={s.name}
-                                                            onSelect={() => {
-                                                                field.onChange(s.id);
-                                                                setIsSupplierPopoverOpen(false);
-                                                            }}
-                                                        >
-                                                            <Check className={cn("mr-2 h-4 w-4", field.value === s.id ? "opacity-100" : "opacity-0")} />
-                                                            {s.name}
-                                                        </CommandItem>
-                                                    ))}
-                                                </CommandGroup>
-                                            </CommandList>
-                                        </Command>
-                                    </PopoverContent>
-                                </Popover>
-                            )}
+          <div className="flex items-center gap-2 print-hidden">
+            <Button size="sm" variant="outline" className="gap-1" onClick={() => window.print()}>
+              <Printer />
+              Print Report
+            </Button>
+            <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>
+              <DialogTrigger asChild>
+                <Button size="sm" className="gap-1 w-full md:w-auto">
+                  <PlusCircle />
+                  Add Product
+                </Button>
+              </DialogTrigger>
+              <DialogContent className="sm:max-w-lg">
+                <DialogHeader>
+                  <DialogTitle>Add New Product</DialogTitle>
+                  <DialogDescription>Fill in the details for the new product.</DialogDescription>
+                </DialogHeader>
+                <form onSubmit={addForm.handleSubmit(onAddSubmit)} className="space-y-4">
+                  <div className="space-y-2 text-center">
+                      <div className="relative w-24 h-24 mx-auto">
+                          <Avatar className="w-24 h-24 text-4xl rounded-md">
+                              {previewImage ? (
+                                  <Image
+                                      src={previewImage}
+                                      alt="Product preview"
+                                      width={96}
+                                      height={96}
+                                      className="rounded-md object-cover aspect-square"
+                                  />
+                              ) : (
+                                  <AvatarImage src={undefined} alt="Product preview" />
+                              )}
+                              <AvatarFallback className="rounded-md">
+                                  {addForm.getValues('name')?.[0]?.toUpperCase() || <Package />}
+                              </AvatarFallback>
+                          </Avatar>
+                      </div>
+                        <Button type="button" variant="link" onClick={() => addFileInputRef.current?.click()}>
+                          Upload Photo
+                        </Button>
+                        <Input
+                          type="file"
+                          className="hidden"
+                          {...addForm.register("photoFile")}
+                          ref={addFileInputRef}
+                          onChange={(e) => handleFileChange(e, 'add')}
+                          accept="image/png, image/jpeg, image/webp"
                         />
+                        {addForm.formState.errors.photoFile && <p className="text-sm text-destructive">{addForm.formState.errors.photoFile.message as string}</p>}
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="name">Product Name</Label>
+                    <Input id="name" {...addForm.register("name")} onChange={(e) => {
+                      const { value } = e.target;
+                      e.target.value = toTitleCase(value);
+                      addForm.setValue("name", e.target.value);
+                    }}/>
+                    {addForm.formState.errors.name && <p className="text-sm text-destructive">{addForm.formState.errors.name.message}</p>}
+                  </div>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                      <div className="flex items-center justify-between">
+                          <Label htmlFor="sku">SKU</Label>
+                          <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                              <Switch id="auto-generate-sku-add" checked={autoGenerateSku} onCheckedChange={setAutoGenerateSku} />
+                              <Label htmlFor="auto-generate-sku-add">Auto-generate</Label>
+                          </div>
+                      </div>
+                      <Input id="sku" {...addForm.register("sku")} disabled={autoGenerateSku} placeholder={autoGenerateSku ? "Will be generated" : "Manual SKU"} />
+                      {addForm.formState.errors.sku && <p className="text-sm text-destructive">{addForm.formState.errors.sku.message}</p>}
                     </div>
-                </div>
-                <DialogFooter>
-                  <Button type="button" variant="outline" onClick={() => setIsAddDialogOpen(false)}>Cancel</Button>
-                  <Button type="submit" disabled={addForm.formState.isSubmitting}>
-                    {addForm.formState.isSubmitting ? "Adding..." : "Add Product"}
-                  </Button>
-                </DialogFooter>
-              </form>
-            </DialogContent>
-          </Dialog>
+                     <div className="space-y-2">
+                      <Label htmlFor="price">Price (Optional)</Label>
+                      <div className="relative">
+                        <span className="absolute inset-y-0 left-0 flex items-center pl-3 text-muted-foreground">{CURRENCY_CONFIG.symbol}</span>
+                        <Input id="price" type="number" step="0.01" className="pl-8" placeholder="0.00" {...addForm.register("price")} />
+                      </div>
+                      {addForm.formState.errors.price && <p className="text-sm text-destructive">{addForm.formState.errors.price.message}</p>}
+                    </div>
+                  </div>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                      <Label htmlFor="stock">Initial Stock (Optional)</Label>
+                      <Input id="stock" type="number" placeholder="0" {...addForm.register("stock")} />
+                      {addForm.formState.errors.stock && <p className="text-sm text-destructive">{addForm.formState.errors.stock.message}</p>}
+                    </div>
+                     <div className="space-y-2">
+                      <Label htmlFor="reorderLimit">Reorder Limit</Label>
+                      <Input id="reorderLimit" type="number" {...addForm.register("reorderLimit")} />
+                      {addForm.formState.errors.reorderLimit && <p className="text-sm text-destructive">{addForm.formState.errors.reorderLimit.message}</p>}
+                    </div>
+                  </div>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                      <Label htmlFor="maxStockLevel">Max Stock Level</Label>
+                      <Input id="maxStockLevel" type="number" {...addForm.register("maxStockLevel")} />
+                      {addForm.formState.errors.maxStockLevel && <p className="text-sm text-destructive">{addForm.formState.errors.maxStockLevel.message}</p>}
+                    </div>
+                  </div>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                      <div className="space-y-2">
+                        <Label htmlFor="location">Location</Label>
+                        <Input id="location" placeholder="e.g. 'Warehouse A'" {...addForm.register("location")} />
+                      </div>
+                      <div className="space-y-2">
+                         <Label>Supplier</Label>
+                          <Controller
+                              control={addForm.control}
+                              name="supplierId"
+                              render={({ field }) => (
+                                  <Popover open={isSupplierPopoverOpen} onOpenChange={setIsSupplierPopoverOpen}>
+                                      <PopoverTrigger asChild>
+                                          <Button
+                                              variant="outline"
+                                              role="combobox"
+                                              className={cn("w-full justify-between", !field.value && "text-muted-foreground")}
+                                          >
+                                              {field.value ? suppliers.find(s => s.id === field.value)?.name : "Select supplier"}
+                                              <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                                          </Button>
+                                      </PopoverTrigger>
+                                      <PopoverContent className="w-[--radix-popover-trigger-width] p-0">
+                                          <Command>
+                                              <CommandInput placeholder="Search supplier..." />
+                                              <CommandList>
+                                                  <CommandEmpty>
+                                                       <Button variant="ghost" className="w-full" onClick={() => { setIsSupplierPopoverOpen(false); setIsAddSupplierOpen(true); }}>
+                                                          Add new supplier
+                                                      </Button>
+                                                  </CommandEmpty>
+                                                  <CommandGroup>
+                                                      {suppliers.map(s => (
+                                                          <CommandItem
+                                                              key={s.id}
+                                                              value={s.name}
+                                                              onSelect={() => {
+                                                                  field.onChange(s.id);
+                                                                  setIsSupplierPopoverOpen(false);
+                                                              }}
+                                                          >
+                                                              <Check className={cn("mr-2 h-4 w-4", field.value === s.id ? "opacity-100" : "opacity-0")} />
+                                                              {s.name}
+                                                          </CommandItem>
+                                                      ))}
+                                                  </CommandGroup>
+                                              </CommandList>
+                                          </Command>
+                                      </PopoverContent>
+                                  </Popover>
+                              )}
+                          />
+                      </div>
+                  </div>
+                  <DialogFooter>
+                    <Button type="button" variant="outline" onClick={() => setIsAddDialogOpen(false)}>Cancel</Button>
+                    <Button type="submit" disabled={addForm.formState.isSubmitting}>
+                      {addForm.formState.isSubmitting ? "Adding..." : "Add Product"}
+                    </Button>
+                  </DialogFooter>
+                </form>
+              </DialogContent>
+            </Dialog>
+          </div>
         </CardHeader>
         <CardContent>
            <div className="hidden md:block">
@@ -505,7 +511,7 @@ export default function InventoryPage() {
                     <TableHead>Status</TableHead>
                     <TableHead>Supplier</TableHead>
                     <TableHead>Last Updated</TableHead>
-                    <TableHead>
+                    <TableHead className="print-hidden">
                       <span className="sr-only">Actions</span>
                     </TableHead>
                   </TableRow>
@@ -522,7 +528,7 @@ export default function InventoryPage() {
                         <TableCell><Skeleton className="h-6 w-24 rounded-full" /></TableCell>
                         <TableCell><Skeleton className="h-4 w-24" /></TableCell>
                         <TableCell><Skeleton className="h-4 w-32" /></TableCell>
-                        <TableCell><Skeleton className="h-8 w-8" /></TableCell>
+                        <TableCell className="print-hidden"><Skeleton className="h-8 w-8" /></TableCell>
                       </TableRow>
                     ))
                   ) : (
@@ -548,7 +554,7 @@ export default function InventoryPage() {
                           </TableCell>
                           <TableCell>{product.supplier || 'N/A'}</TableCell>
                            <TableCell>{formatDate(product.lastUpdated)}</TableCell>
-                          <TableCell>
+                          <TableCell className="print-hidden">
                             <DropdownMenu>
                               <DropdownMenuTrigger asChild>
                                 <Button aria-haspopup="true" size="icon" variant="ghost" onClick={(e) => e.stopPropagation()}>
@@ -860,3 +866,4 @@ export default function InventoryPage() {
 }
 
     
+
