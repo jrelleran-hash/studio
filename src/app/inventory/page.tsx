@@ -335,13 +335,13 @@ export default function InventoryPage() {
             </div>
           </div>
           <div className="flex items-center gap-2">
-            <Button size="sm" variant="outline" className="gap-1 print-hidden" onClick={() => window.print()}>
+            <Button size="sm" variant="outline" className="gap-1" onClick={() => window.print()}>
                 <Printer />
                 Print Report
             </Button>
             <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>
               <DialogTrigger asChild>
-                <Button size="sm" className="gap-1 w-full md:w-auto print-hidden">
+                <Button size="sm" className="gap-1 w-full md:w-auto">
                   <PlusCircle />
                   Add Product
                 </Button>
@@ -503,7 +503,7 @@ export default function InventoryPage() {
               <Table>
                 <TableHeader>
                   <TableRow>
-                    <TableHead className="w-16">Image</TableHead>
+                    <TableHead className="w-16 print-hidden">Image</TableHead>
                     <TableHead>Name</TableHead>
                     <TableHead>SKU</TableHead>
                     <TableHead>Price</TableHead>
@@ -520,7 +520,7 @@ export default function InventoryPage() {
                   {loading ? (
                     Array.from({ length: 5 }).map((_, i) => (
                       <TableRow key={i}>
-                        <TableCell><Skeleton className="h-12 w-12 rounded-md" /></TableCell>
+                        <TableCell className="print-hidden"><Skeleton className="h-12 w-12 rounded-md" /></TableCell>
                         <TableCell><Skeleton className="h-4 w-48" /></TableCell>
                         <TableCell><Skeleton className="h-4 w-24" /></TableCell>
                         <TableCell><Skeleton className="h-4 w-16" /></TableCell>
@@ -536,7 +536,7 @@ export default function InventoryPage() {
                       const status = getStatus(product);
                       return (
                         <TableRow key={product.id}>
-                          <TableCell>
+                          <TableCell className="print-hidden">
                             <Image
                               alt={product.name}
                               className="aspect-square rounded-md object-cover"
@@ -869,3 +869,6 @@ export default function InventoryPage() {
 
 
 
+
+
+    
