@@ -6,7 +6,7 @@ import { useState, useEffect, useMemo, useRef } from "react";
 import { useForm, Controller } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
-import { PlusCircle, MoreHorizontal, Package, ChevronsUpDown, Check, Printer, FileDown, SlidersHorizontal } from "lucide-react";
+import { PlusCircle, MoreHorizontal, Package, ChevronsUpDown, Check, Printer, FileDown, SlidersHorizontal, QrCode } from "lucide-react";
 import { Button, buttonVariants } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
@@ -59,6 +59,7 @@ import React from 'react';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
+import QRCode from "react-qr-code";
 
 const MAX_FILE_SIZE = 5 * 1024 * 1024; // 5MB
 const ACCEPTED_IMAGE_TYPES = ["image/jpeg", "image/jpg", "image/png", "image/webp"];
@@ -142,6 +143,7 @@ export default function InventoryPage() {
   const editFileInputRef = useRef<HTMLInputElement>(null);
   const [isSupplierPopoverOpen, setIsSupplierPopoverOpen] = useState(false);
   const [isAddSupplierOpen, setIsAddSupplierOpen] = useState(false);
+  const [qrCodeProduct, setQrCodeProduct] = useState<Product | null>(null);
 
   const productSchema = useMemo(() => createProductSchema(autoGenerateSku), [autoGenerateSku]);
 
@@ -691,6 +693,10 @@ export default function InventoryPage() {
                                     <SlidersHorizontal className="mr-2 h-4 w-4" />
                                     <span>Adjust Stock</span>
                                 </DropdownMenuItem>
+                                <DropdownMenuItem onClick={() => setQrCodeProduct(product)}>
+                                    <QrCode className="mr-2 h-4 w-4" />
+                                    <span>View QR Code</span>
+                                </DropdownMenuItem>
                                 <DropdownMenuSeparator />
                                 <DropdownMenuItem onClick={() => handleDeleteClick(product.id)} className="text-destructive">Delete</DropdownMenuItem>
                               </DropdownMenuContent>
@@ -751,6 +757,10 @@ export default function InventoryPage() {
                                              <DropdownMenuItem onClick={() => setAdjustmentProduct(product)}>
                                                 <SlidersHorizontal className="mr-2 h-4 w-4" />
                                                 <span>Adjust Stock</span>
+                                            </DropdownMenuItem>
+                                            <DropdownMenuItem onClick={() => setQrCodeProduct(product)}>
+                                                <QrCode className="mr-2 h-4 w-4" />
+                                                <span>View QR Code</span>
                                             </DropdownMenuItem>
                                             <DropdownMenuSeparator />
                                             <DropdownMenuItem onClick={() => handleDeleteClick(product.id)} className="text-destructive">Delete</DropdownMenuItem>
@@ -1061,6 +1071,27 @@ export default function InventoryPage() {
                     </Button>
                 </DialogFooter>
             </form>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={!!qrCodeProduct} onOpenChange={(open) => !open && setQrCodeProduct(null)}>
+        <DialogContent>
+            <DialogHeader>
+                <DialogTitle>{qrCodeProduct?.name}</DialogTitle>
+                <DialogDescription>SKU: {qrCodeProduct?.sku}</DialogDescription>
+            </DialogHeader>
+            <div className="py-4 flex items-center justify-center printable-content">
+                <div className="bg-white p-4 inline-block">
+                    <QRCode value={qrCodeProduct?.id || ""} size={256} />
+                </div>
+            </div>
+            <DialogFooter className="print-hidden">
+                <Button variant="outline" onClick={() => setQrCodeProduct(null)}>Close</Button>
+                <Button onClick={() => window.print()}>
+                    <Printer className="mr-2 h-4 w-4" />
+                    Print
+                </Button>
+            </DialogFooter>
         </DialogContent>
       </Dialog>
     </>
