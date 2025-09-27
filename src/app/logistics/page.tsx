@@ -1,4 +1,5 @@
 
+
 "use client";
 
 import { useState, useEffect, useMemo } from "react";
@@ -15,7 +16,7 @@ import { useToast } from "@/hooks/use-toast";
 import { updateShipmentStatus, addShipment, updatePurchaseOrderStatus } from "@/services/data-service";
 import { useData } from "@/context/data-context";
 import type { Shipment, Issuance, PurchaseOrder, Return, OutboundReturn } from "@/types";
-import { MoreHorizontal, Package, Truck, CheckCircle, Hourglass, CalendarDays, List, PlusCircle, ArrowDown, ArrowUp, RefreshCcw } from "lucide-react";
+import { MoreHorizontal, Package, Truck, CheckCircle, Hourglass, CalendarDays, List, PlusCircle, ArrowDown, ArrowUp, RefreshCcw, FileDown } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuTrigger, DropdownMenuSeparator } from "@/components/ui/dropdown-menu";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogFooter, DialogTrigger } from "@/components/ui/dialog";
@@ -151,6 +152,40 @@ export default function LogisticsPage() {
         }
     };
 
+    const handleExport = (type: 'outbound-deliveries' | 'inbound-po' | 'outbound-returns' | 'inbound-returns') => {
+        let headers: string[] = [];
+        let rows: string[] = [];
+        let filename = 'report.csv';
+
+        switch (type) {
+            case 'outbound-deliveries':
+                headers = ["Shipment #", "Client", "Issuance #", "Date Created", "Status", "Carrier", "Est. Delivery"];
+                rows = filteredShipments.map(s => [s.shipmentNumber, `"${s.issuance.client.clientName}"`, s.issuance.issuanceNumber, formatDate(s.createdAt), s.status, s.shippingProvider, formatDate(s.estimatedDeliveryDate)].join(','));
+                filename = 'outbound-deliveries.csv';
+                break;
+            case 'inbound-po':
+                headers = ["PO Number", "Supplier", "Order Date", "Expected Date", "Status"];
+                rows = filteredPurchaseOrders.map(po => [po.poNumber, `"${po.supplier.name}"`, formatDate(po.orderDate), formatDate(po.expectedDate), po.status].join(','));
+                filename = 'inbound-purchase-orders.csv';
+                break;
+            // Additional cases can be added here
+        }
+
+        if(headers.length === 0) return;
+
+        const csvContent = "data:text/csv;charset=utf-8," 
+            + headers.join(',') + "\n" 
+            + rows.join('\n');
+
+        const encodedUri = encodeURI(csvContent);
+        const link = document.createElement("a");
+        link.setAttribute("href", encodedUri);
+        link.setAttribute("download", filename);
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+    };
+
     const filteredShipments = useMemo(() => shipments.filter(shipment => 
         shipmentStatusFilter === 'all' || shipment.status === shipmentStatusFilter
     ), [shipments, shipmentStatusFilter]);
@@ -246,92 +281,98 @@ export default function LogisticsPage() {
                                             <CardTitle>Site Deliveries</CardTitle>
                                             <CardDescription>A log of all shipments to clients.</CardDescription>
                                         </div>
-                                        <Dialog open={isCreateShipmentOpen} onOpenChange={setIsCreateShipmentOpen}>
-                                        <DialogTrigger asChild>
-                                            <Button size="sm" variant="outline" className="gap-1">
-                                                <PlusCircle className="h-4 w-4" />
-                                                Create Shipment
+                                        <div className="flex items-center gap-2">
+                                            <Button size="sm" variant="outline" className="gap-1" onClick={() => handleExport('outbound-deliveries')}>
+                                                <FileDown />
+                                                Export to CSV
                                             </Button>
-                                        </DialogTrigger>
-                                        <DialogContent>
-                                            <DialogHeader>
-                                                <DialogTitle>Create Shipment</DialogTitle>
-                                                <DialogDescription>
-                                                    Select an issuance to create a new shipment.
-                                                </DialogDescription>
-                                            </DialogHeader>
-                                            <form onSubmit={shipmentForm.handleSubmit(onShipmentSubmit)} className="space-y-4">
-                                                <div className="space-y-2">
-                                                    <Label htmlFor="issuanceId">Issuance to Ship</Label>
-                                                    <Controller
-                                                        control={shipmentForm.control}
-                                                        name="issuanceId"
-                                                        render={({ field }) => (
-                                                            <Select onValueChange={field.onChange} value={field.value}>
-                                                                <SelectTrigger>
-                                                                    <SelectValue placeholder="Select an issuance..." />
-                                                                </SelectTrigger>
-                                                                <SelectContent>
-                                                                    {unshippedIssuances.map(iss => (
-                                                                        <SelectItem key={iss.id} value={iss.id}>
-                                                                            {iss.issuanceNumber} - {iss.client.clientName}
-                                                                        </SelectItem>
-                                                                    ))}
-                                                                </SelectContent>
-                                                            </Select>
-                                                        )}
-                                                    />
-                                                    {shipmentForm.formState.errors.issuanceId && <p className="text-sm text-destructive">{shipmentForm.formState.errors.issuanceId.message}</p>}
-                                                </div>
-                                                <div className="space-y-2">
-                                                    <Label htmlFor="shippingProvider">Shipping Provider</Label>
-                                                    <Input id="shippingProvider" {...shipmentForm.register("shippingProvider")} />
-                                                    {shipmentForm.formState.errors.shippingProvider && <p className="text-sm text-destructive">{shipmentForm.formState.errors.shippingProvider.message}</p>}
-                                                </div>
-                                                <div className="space-y-2">
-                                                    <Label htmlFor="trackingNumber">Tracking Number (Optional)</Label>
-                                                    <Input id="trackingNumber" {...shipmentForm.register("trackingNumber")} />
-                                                </div>
-                                                <div className="space-y-2">
-                                                    <Label>Estimated Delivery Date</Label>
-                                                    <Controller
-                                                        control={shipmentForm.control}
-                                                        name="estimatedDeliveryDate"
-                                                        render={({ field }) => (
-                                                        <Popover>
-                                                            <PopoverTrigger asChild>
-                                                                <Button
-                                                                variant={"outline"}
-                                                                className={cn(
-                                                                    "w-full justify-start text-left font-normal",
-                                                                    !field.value && "text-muted-foreground"
-                                                                )}
-                                                                >
-                                                                {field.value ? format(field.value, "PPP") : <span>Pick a date</span>}
-                                                                </Button>
-                                                            </PopoverTrigger>
-                                                            <PopoverContent className="w-auto p-0">
-                                                                <Calendar
-                                                                mode="single"
-                                                                selected={field.value}
-                                                                onSelect={field.onChange}
-                                                                initialFocus
-                                                                />
-                                                            </PopoverContent>
-                                                            </Popover>
-                                                        )}
-                                                    />
-                                                    {shipmentForm.formState.errors.estimatedDeliveryDate && <p className="text-sm text-destructive">{shipmentForm.formState.errors.estimatedDeliveryDate.message}</p>}
-                                                </div>
-                                                <DialogFooter>
-                                                    <Button type="button" variant="outline" onClick={() => setIsCreateShipmentOpen(false)}>Cancel</Button>
-                                                    <Button type="submit" disabled={shipmentForm.formState.isSubmitting}>
-                                                        {shipmentForm.formState.isSubmitting ? "Creating..." : "Create Shipment"}
-                                                    </Button>
-                                                </DialogFooter>
-                                            </form>
-                                        </DialogContent>
-                                    </Dialog>
+                                            <Dialog open={isCreateShipmentOpen} onOpenChange={setIsCreateShipmentOpen}>
+                                            <DialogTrigger asChild>
+                                                <Button size="sm" variant="outline" className="gap-1">
+                                                    <PlusCircle className="h-4 w-4" />
+                                                    Create Shipment
+                                                </Button>
+                                            </DialogTrigger>
+                                            <DialogContent>
+                                                <DialogHeader>
+                                                    <DialogTitle>Create Shipment</DialogTitle>
+                                                    <DialogDescription>
+                                                        Select an issuance to create a new shipment.
+                                                    </DialogDescription>
+                                                </DialogHeader>
+                                                <form onSubmit={shipmentForm.handleSubmit(onShipmentSubmit)} className="space-y-4">
+                                                    <div className="space-y-2">
+                                                        <Label htmlFor="issuanceId">Issuance to Ship</Label>
+                                                        <Controller
+                                                            control={shipmentForm.control}
+                                                            name="issuanceId"
+                                                            render={({ field }) => (
+                                                                <Select onValueChange={field.onChange} value={field.value}>
+                                                                    <SelectTrigger>
+                                                                        <SelectValue placeholder="Select an issuance..." />
+                                                                    </SelectTrigger>
+                                                                    <SelectContent>
+                                                                        {unshippedIssuances.map(iss => (
+                                                                            <SelectItem key={iss.id} value={iss.id}>
+                                                                                {iss.issuanceNumber} - {iss.client.clientName}
+                                                                            </SelectItem>
+                                                                        ))}
+                                                                    </SelectContent>
+                                                                </Select>
+                                                            )}
+                                                        />
+                                                        {shipmentForm.formState.errors.issuanceId && <p className="text-sm text-destructive">{shipmentForm.formState.errors.issuanceId.message}</p>}
+                                                    </div>
+                                                    <div className="space-y-2">
+                                                        <Label htmlFor="shippingProvider">Shipping Provider</Label>
+                                                        <Input id="shippingProvider" {...shipmentForm.register("shippingProvider")} />
+                                                        {shipmentForm.formState.errors.shippingProvider && <p className="text-sm text-destructive">{shipmentForm.formState.errors.shippingProvider.message}</p>}
+                                                    </div>
+                                                    <div className="space-y-2">
+                                                        <Label htmlFor="trackingNumber">Tracking Number (Optional)</Label>
+                                                        <Input id="trackingNumber" {...shipmentForm.register("trackingNumber")} />
+                                                    </div>
+                                                    <div className="space-y-2">
+                                                        <Label>Estimated Delivery Date</Label>
+                                                        <Controller
+                                                            control={shipmentForm.control}
+                                                            name="estimatedDeliveryDate"
+                                                            render={({ field }) => (
+                                                            <Popover>
+                                                                <PopoverTrigger asChild>
+                                                                    <Button
+                                                                    variant={"outline"}
+                                                                    className={cn(
+                                                                        "w-full justify-start text-left font-normal",
+                                                                        !field.value && "text-muted-foreground"
+                                                                    )}
+                                                                    >
+                                                                    {field.value ? format(field.value, "PPP") : <span>Pick a date</span>}
+                                                                    </Button>
+                                                                </PopoverTrigger>
+                                                                <PopoverContent className="w-auto p-0">
+                                                                    <Calendar
+                                                                    mode="single"
+                                                                    selected={field.value}
+                                                                    onSelect={field.onChange}
+                                                                    initialFocus
+                                                                    />
+                                                                </PopoverContent>
+                                                                </Popover>
+                                                            )}
+                                                        />
+                                                        {shipmentForm.formState.errors.estimatedDeliveryDate && <p className="text-sm text-destructive">{shipmentForm.formState.errors.estimatedDeliveryDate.message}</p>}
+                                                    </div>
+                                                    <DialogFooter>
+                                                        <Button type="button" variant="outline" onClick={() => setIsCreateShipmentOpen(false)}>Cancel</Button>
+                                                        <Button type="submit" disabled={shipmentForm.formState.isSubmitting}>
+                                                            {shipmentForm.formState.isSubmitting ? "Creating..." : "Create Shipment"}
+                                                        </Button>
+                                                    </DialogFooter>
+                                                </form>
+                                            </DialogContent>
+                                        </Dialog>
+                                        </div>
                                     </div>
                                 </CardHeader>
                                 <CardContent>
@@ -493,8 +534,16 @@ export default function LogisticsPage() {
                         <TabsContent value="po">
                             <Card>
                                 <CardHeader>
-                                    <CardTitle>Inbound Shipments (POs)</CardTitle>
-                                    <CardDescription>A log of all purchase orders from suppliers.</CardDescription>
+                                    <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+                                        <div>
+                                            <CardTitle>Inbound Shipments (POs)</CardTitle>
+                                            <CardDescription>A log of all purchase orders from suppliers.</CardDescription>
+                                        </div>
+                                         <Button size="sm" variant="outline" className="gap-1" onClick={() => handleExport('inbound-po')}>
+                                            <FileDown />
+                                            Export to CSV
+                                        </Button>
+                                    </div>
                                 </CardHeader>
                                 <CardContent>
                                     <div className="flex items-center gap-2 mb-4">

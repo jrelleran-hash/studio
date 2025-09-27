@@ -6,7 +6,7 @@ import { useState, useEffect, useMemo, useRef } from "react";
 import { useForm, useFieldArray, Controller } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
-import { PlusCircle, MoreHorizontal, X, Printer, ChevronDown, Truck, RefreshCcw, ChevronsUpDown, Check } from "lucide-react";
+import { PlusCircle, MoreHorizontal, X, Printer, ChevronDown, Truck, RefreshCcw, ChevronsUpDown, Check, FileDown } from "lucide-react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 
@@ -520,6 +520,36 @@ export default function IssuancePage() {
     window.print();
   };
 
+  const handleExport = () => {
+    const headers = ["Issuance #", "Client", "Project", "Date", "Issued By", "Received By", "Items", "Total Value"];
+    const rows = issuances.map(iss => {
+        const itemsSummary = iss.items.map(i => `${i.quantity}x ${i.product.name}`).join('; ');
+        const totalValue = iss.items.reduce((acc, item) => acc + (item.product.price * item.quantity), 0);
+        return [
+            iss.issuanceNumber,
+            `"${iss.client.clientName.replace(/"/g, '""')}"`,
+            `"${iss.client.projectName.replace(/"/g, '""')}"`,
+            format(iss.date, 'yyyy-MM-dd'),
+            iss.issuedBy,
+            iss.receivedBy || 'N/A',
+            `"${itemsSummary}"`,
+            totalValue
+        ].join(',');
+    });
+
+    const csvContent = "data:text/csv;charset=utf-8," 
+        + headers.join(',') + "\n" 
+        + rows.join('\n');
+
+    const encodedUri = encodeURI(csvContent);
+    const link = document.createElement("a");
+    link.setAttribute("href", encodedUri);
+    link.setAttribute("download", "issuance-report.csv");
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  }
+
   const triggerPreview = (issuance: Issuance) => {
     setSelectedIssuance(issuance);
     setIsPreviewOpen(true);
@@ -629,15 +659,23 @@ export default function IssuancePage() {
         </CardContent>
       </Card>
       
-      <Card>
-      <CardHeader className="flex flex-row items-start justify-between">
+      <Card className="printable-content">
+      <CardHeader className="flex flex-col md:flex-row md:items-start md:justify-between">
         <div>
           <CardTitle>Material Issuance History</CardTitle>
           <CardDescription>Track all materials issued to clients/projects.</CardDescription>
         </div>
         <div className="flex items-center gap-2">
+            <Button size="sm" variant="outline" className="gap-1 print-hidden" onClick={handleExport}>
+                <FileDown />
+                Export to CSV
+            </Button>
+            <Button size="sm" variant="outline" className="gap-1 print-hidden" onClick={() => window.print()}>
+                <Printer />
+                Print Report
+            </Button>
              <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>
-              <DialogTrigger asChild>
+              <DialogTrigger asChild className="print-hidden">
                 <Button size="sm" className="gap-1">
                   <PlusCircle className="h-4 w-4" />
                   Create Issuance
@@ -848,7 +886,7 @@ export default function IssuancePage() {
               <TableHead>Date</TableHead>
               <TableHead>Items Issued</TableHead>
               <TableHead>Issued By</TableHead>
-              <TableHead>
+              <TableHead className="print-hidden">
                 <span className="sr-only">Actions</span>
               </TableHead>
             </TableRow>
@@ -862,7 +900,7 @@ export default function IssuancePage() {
                   <TableCell><Skeleton className="h-4 w-32" /></TableCell>
                   <TableCell><Skeleton className="h-4 w-16" /></TableCell>
                   <TableCell><Skeleton className="h-4 w-24" /></TableCell>
-                  <TableCell><Skeleton className="h-8 w-8 ml-auto" /></TableCell>
+                  <TableCell className="print-hidden"><Skeleton className="h-8 w-8 ml-auto" /></TableCell>
                 </TableRow>
               ))
             ) : (
@@ -873,7 +911,7 @@ export default function IssuancePage() {
                   <TableCell>{formatDate(issuance.date)}</TableCell>
                   <TableCell>{issuance.items.reduce((total, item) => total + item.quantity, 0)}</TableCell>
                   <TableCell>{issuance.issuedBy}</TableCell>
-                   <TableCell className="text-right">
+                   <TableCell className="text-right print-hidden">
                     <DropdownMenu>
                       <DropdownMenuTrigger asChild>
                         <Button aria-haspopup="true" size="icon" variant="ghost" onClick={(e) => e.stopPropagation()}>

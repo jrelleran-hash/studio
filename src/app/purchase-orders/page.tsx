@@ -6,7 +6,7 @@ import React, { useState, useEffect, useMemo, useCallback, useRef } from "react"
 import { useForm, useFieldArray, Controller } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
-import { PlusCircle, MoreHorizontal, X, RefreshCcw, ChevronsUpDown, Check, Printer, Trash2 } from "lucide-react";
+import { PlusCircle, MoreHorizontal, X, RefreshCcw, ChevronsUpDown, Check, Printer, Trash2, FileDown } from "lucide-react";
 import { Timestamp } from "firebase/firestore";
 import { format } from "date-fns";
 
@@ -658,6 +658,30 @@ export default function PurchaseOrdersPage() {
     window.print();
   };
 
+  const handleExport = () => {
+    const headers = ["PO Number", "Supplier", "Client", "Order Date", "Status", "Total"];
+    const rows = purchaseOrders.map(po => {
+        const total = po.items.reduce((acc, item) => acc + item.product.price * item.quantity, 0);
+        return [
+            po.poNumber,
+            `"${po.supplier.name}"`,
+            `"${po.client?.clientName || 'N/A'}"`,
+            formatDateSimple(po.orderDate),
+            po.status,
+            total,
+        ].join(',');
+    });
+
+    const csvContent = "data:text/csv;charset=utf-8," + headers.join(',') + "\n" + rows.join('\n');
+    const encodedUri = encodeURI(csvContent);
+    const link = document.createElement("a");
+    link.setAttribute("href", encodedUri);
+    link.setAttribute("download", "purchase-orders.csv");
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
+
   const isAllClientQueueSelected = clientOrderQueue.length > 0 && clientOrderQueue.every(item => purchaseQueueSelection[item.id]);
   const selectableReorderItems = reorderQueue.filter(i => i.status === 'Pending');
   const isAllReorderQueueSelected = selectableReorderItems.length > 0 && selectableReorderItems.every(item => purchaseQueueSelection[item.id]);
@@ -1062,10 +1086,22 @@ export default function PurchaseOrdersPage() {
       )}
       
       {poView === 'list' && (
-          <Card>
-            <CardHeader>
-              <CardTitle>Purchase Orders</CardTitle>
-              <CardDescription>Manage all purchase orders from suppliers.</CardDescription>
+          <Card className="printable-content">
+            <CardHeader className="flex flex-col md:flex-row md:items-start md:justify-between">
+              <div>
+                <CardTitle>Purchase Orders</CardTitle>
+                <CardDescription>Manage all purchase orders from suppliers.</CardDescription>
+              </div>
+               <div className="flex items-center gap-2 print-hidden">
+                    <Button size="sm" variant="outline" className="gap-1" onClick={handleExport}>
+                        <FileDown />
+                        Export to CSV
+                    </Button>
+                    <Button size="sm" variant="outline" className="gap-1" onClick={() => window.print()}>
+                        <Printer />
+                        Print Report
+                    </Button>
+                </div>
             </CardHeader>
             <CardContent>
                 <div className="hidden md:block">
@@ -1077,7 +1113,7 @@ export default function PurchaseOrdersPage() {
                         <TableHead>Client / Project</TableHead>
                         <TableHead>Order Date</TableHead>
                         <TableHead>Status</TableHead>
-                        <TableHead className="text-right">
+                        <TableHead className="text-right print-hidden">
                           <span className="sr-only">Actions</span>
                         </TableHead>
                       </TableRow>
@@ -1091,7 +1127,7 @@ export default function PurchaseOrdersPage() {
                               <TableCell><Skeleton className="h-4 w-32" /></TableCell>
                             <TableCell><Skeleton className="h-4 w-24" /></TableCell>
                             <TableCell><Skeleton className="h-6 w-20 rounded-full" /></TableCell>
-                            <TableCell><Skeleton className="h-8 w-8 ml-auto" /></TableCell>
+                            <TableCell className="text-right print-hidden"><Skeleton className="h-8 w-8 ml-auto" /></TableCell>
                           </TableRow>
                         ))
                       ) : (
@@ -1110,7 +1146,7 @@ export default function PurchaseOrdersPage() {
                               <TableCell>
                                 <Badge variant={finalVariant || "default"}>{displayStatus}</Badge>
                               </TableCell>
-                              <TableCell className="text-right">
+                              <TableCell className="text-right print-hidden">
                                 <DropdownMenu>
                                   <DropdownMenuTrigger asChild>
                                     <Button aria-haspopup="true" size="icon" variant="ghost" onClick={(e) => e.stopPropagation()}>
