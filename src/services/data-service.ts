@@ -1726,27 +1726,7 @@ export async function getAllUsers(): Promise<UserProfile[]> {
   try {
     const usersCol = collection(db, "users");
     const userSnapshot = await getDocs(usersCol);
-    // Note: In a real-world app, you'd want to paginate this or have a better
-    // way of syncing with Firebase Auth, as this could get large.
-    // For this app's scale, fetching all profiles is acceptable.
-    const userList = userSnapshot.docs.map(doc => ({ uid: doc.id, ...doc.data() } as UserProfile));
-
-    // This is a client-side filter. For a large number of users,
-    // a server-side function to prune Firestore profiles would be better.
-    const verifiedUsers = [];
-    for (const user of userList) {
-        try {
-            // A simple getDoc acts as a check for existence.
-            // In a real app with an Admin SDK, you could use getAuth().getUser(uid).
-            // For client-side, we can only rely on what's in our DB or simple checks.
-            // Let's assume for now if they have a profile, they are a valid user unless deleted.
-            // This logic is flawed but is a placeholder for a more robust server-side check.
-            verifiedUsers.push(user);
-        } catch (error) {
-            console.log(`User with UID ${user.uid} likely deleted from Auth. Skipping.`);
-        }
-    }
-    return verifiedUsers;
+    return userSnapshot.docs.map(doc => ({ uid: doc.id, ...doc.data() } as UserProfile));
   } catch (error) {
     console.error("Error fetching all users:", error);
     return [];
