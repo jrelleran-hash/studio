@@ -51,7 +51,7 @@ import { useAuth } from "@/hooks/use-auth";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { Switch } from "@/components/ui/switch";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { uploadProfilePicture, type UserProfile, getAllUsers, updateUserProfile, deleteUser } from "@/services/data-service";
+import { uploadProfilePicture, type UserProfile, updateUserProfile, deleteUser } from "@/services/data-service";
 import Image from "next/image";
 import { useSearchParams, useRouter } from "next/navigation";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -61,6 +61,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import type { UserRole, Department } from "@/types";
 import { cn } from "@/lib/utils";
 import { Check, MoreHorizontal } from "lucide-react";
+import { useData } from "@/context/data-context";
 
 
 const MAX_FILE_SIZE = 5 * 1024 * 1024; // 5MB
@@ -102,35 +103,16 @@ const getInitialNames = (displayName: string | null | undefined) => {
 }
 
 function UserManagementTable({ isAdmin }: { isAdmin: boolean }) {
-    const [users, setUsers] = useState<UserProfile[]>([]);
-    const [loading, setLoading] = useState(true);
+    const { users, loading, refetchData } = useData();
     const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
     const [deletingUser, setDeletingUser] = useState<UserProfile | null>(null);
     const { toast } = useToast();
-
-    const fetchUsers = useCallback(async () => {
-        setLoading(true);
-        try {
-            const userList = await getAllUsers();
-            setUsers(userList);
-        } catch (error) {
-            toast({ variant: "destructive", title: "Error", description: "Could not fetch user list." });
-        } finally {
-            setLoading(false);
-        }
-    }, [toast]);
-
-    useEffect(() => {
-        if (isAdmin) {
-            fetchUsers();
-        }
-    }, [isAdmin, fetchUsers]);
 
     const handleProfileUpdate = async (uid: string, data: Partial<UserProfile>) => {
         try {
             await updateUserProfile(uid, data);
             toast({ title: "Success", description: "User profile updated." });
-            fetchUsers(); // Refresh the list
+            await refetchData(); // Refresh the list
         } catch (error) {
             toast({ variant: "destructive", title: "Error", description: "Failed to update user profile." });
         }
@@ -146,7 +128,7 @@ function UserManagementTable({ isAdmin }: { isAdmin: boolean }) {
         try {
             await deleteUser(deletingUser.uid);
             toast({ title: "Success", description: "User profile deleted. The user's login must be deleted from the Firebase Authentication console manually." });
-            fetchUsers(); // Refresh the list
+            await refetchData(); // Refresh the list
         } catch (error) {
             toast({ variant: "destructive", title: "Error", description: "Failed to delete user profile." });
         } finally {
@@ -656,6 +638,7 @@ export default function SettingsPage() {
     </div>
   );
 }
+
 
 
 

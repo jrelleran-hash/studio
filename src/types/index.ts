@@ -1,6 +1,7 @@
 
 
 
+
 import { Timestamp, DocumentReference } from "firebase/firestore";
 
 export interface Activity {
