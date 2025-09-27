@@ -51,7 +51,7 @@ import { useAuth } from "@/hooks/use-auth";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { Switch } from "@/components/ui/switch";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { uploadProfilePicture, type UserProfile, updateUserProfile, deleteUser } from "@/services/data-service";
+import { uploadProfilePicture, type UserProfile, updateUserProfile, deleteUser, changePassword } from "@/services/data-service";
 import Image from "next/image";
 import { useSearchParams, useRouter } from "next/navigation";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -83,6 +83,18 @@ const profileFormSchema = z.object({
 });
 
 type ProfileFormValues = z.infer<typeof profileFormSchema>;
+
+const passwordFormSchema = z.object({
+    currentPassword: z.string().min(1, "Current password is required."),
+    newPassword: z.string().min(6, "New password must be at least 6 characters."),
+    confirmPassword: z.string(),
+}).refine(data => data.newPassword === data.confirmPassword, {
+    message: "New passwords do not match.",
+    path: ["confirmPassword"],
+});
+
+type PasswordFormValues = z.infer<typeof passwordFormSchema>;
+
 
 const toTitleCase = (str: string) => {
   if (!str) return "";
@@ -256,48 +268,48 @@ function UserManagementTable({ isAdmin }: { isAdmin: boolean }) {
     )
 }
 
-// Function to convert HEX to HSL
-const hexToHsl = (hex: string): string => {
-  let r = 0, g = 0, b = 0;
-  if (hex.length === 4) {
-    r = parseInt(hex[1] + hex[1], 16);
-    g = parseInt(hex[2] + hex[2], 16);
-    b = parseInt(hex[3] + hex[3], 16);
-  } else if (hex.length === 7) {
-    r = parseInt(hex[1] + hex[2], 16);
-    g = parseInt(hex[3] + hex[4], 16);
-    b = parseInt(hex[5] + hex[6], 16);
-  }
-  r /= 255; g /= 255; b /= 255;
-  let cmin = Math.min(r,g,b),
-      cmax = Math.max(r,g,b),
-      delta = cmax - cmin,
-      h = 0, s = 0, l = 0;
-
-  if (delta === 0) h = 0;
-  else if (cmax === r) h = ((g - b) / delta) % 6;
-  else if (cmax === g) h = (b - r) / delta + 2;
-  else h = (r - g) / delta + 4;
-
-  h = Math.round(h * 60);
-  if (h < 0) h += 360;
-
-  l = (cmax + cmin) / 2;
-  s = delta === 0 ? 0 : delta / (1 - Math.abs(2 * l - 1));
-  s = +(s * 100).toFixed(1);
-  l = +(l * 100).toFixed(1);
-
-  return `${h} ${s}% ${l}%`;
-}
-
-
 function AppearanceTab() {
   const [selectedColor, setSelectedColor] = useState('#B3FF70'); // Default to green in hex
 
+  const hexToHsl = (hex: string): string => {
+    let r = 0, g = 0, b = 0;
+    if (hex.length === 4) {
+      r = parseInt(hex[1] + hex[1], 16);
+      g = parseInt(hex[2] + hex[2], 16);
+      b = parseInt(hex[3] + hex[3], 16);
+    } else if (hex.length === 7) {
+      r = parseInt(hex[1] + hex[2], 16);
+      g = parseInt(hex[3] + hex[4], 16);
+      b = parseInt(hex[5] + hex[6], 16);
+    }
+    r /= 255; g /= 255; b /= 255;
+    let cmin = Math.min(r,g,b),
+        cmax = Math.max(r,g,b),
+        delta = cmax - cmin,
+        h = 0, s = 0, l = 0;
+
+    if (delta === 0) h = 0;
+    else if (cmax === r) h = ((g - b) / delta) % 6;
+    else if (cmax === g) h = (b - r) / delta + 2;
+    else h = (r - g) / delta + 4;
+
+    h = Math.round(h * 60);
+    if (h < 0) h += 360;
+
+    l = (cmax + cmin) / 2;
+    s = delta === 0 ? 0 : delta / (1 - Math.abs(2 * l - 1));
+    s = +(s * 100).toFixed(1);
+    l = +(l * 100).toFixed(1);
+
+    return `${h} ${s}% ${l}%`;
+  }
+  
   useEffect(() => {
-    const storedColor = localStorage.getItem('app-accent-color') || '#B3FF70';
-    setSelectedColor(storedColor);
-    document.documentElement.style.setProperty('--primary', hexToHsl(storedColor));
+    const storedColor = localStorage.getItem('app-accent-color');
+    if (storedColor) {
+        setSelectedColor(storedColor);
+        document.documentElement.style.setProperty('--primary', hexToHsl(storedColor));
+    }
   }, []);
 
   const handleColorChange = (hex: string) => {
@@ -307,9 +319,12 @@ function AppearanceTab() {
   };
 
   const resetColor = () => {
-    handleColorChange('#B3FF70'); // Default color
+    const defaultColor = '#B3FF70';
+    setSelectedColor(defaultColor);
+    localStorage.removeItem('app-accent-color');
+    document.documentElement.style.setProperty('--primary', hexToHsl(defaultColor));
   };
-
+  
   return (
     <Card>
       <CardHeader>
@@ -348,6 +363,82 @@ function AppearanceTab() {
                 <Button variant="ghost" size="sm" onClick={resetColor}>Reset</Button>
               </div>
           </div>
+      </CardContent>
+    </Card>
+  )
+}
+
+function SecurityTab() {
+  const [isChangePasswordOpen, setIsChangePasswordOpen] = useState(false);
+  const { toast } = useToast();
+  
+  const passwordForm = useForm<PasswordFormValues>({
+    resolver: zodResolver(passwordFormSchema),
+  });
+
+  const onPasswordSubmit = async (data: PasswordFormValues) => {
+    try {
+      await changePassword(data.currentPassword, data.newPassword);
+      toast({
+        title: "Password Changed",
+        description: "Your password has been updated successfully.",
+      });
+      setIsChangePasswordOpen(false);
+    } catch (error) {
+       const errorMessage = error instanceof Error ? error.message : "An unexpected error occurred.";
+      toast({
+        variant: "destructive",
+        title: "Error Changing Password",
+        description: errorMessage,
+      });
+    } finally {
+        passwordForm.reset();
+    }
+  };
+
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle>Security</CardTitle>
+        <CardDescription>Manage your account's security settings.</CardDescription>
+      </CardHeader>
+      <CardContent>
+        <Dialog open={isChangePasswordOpen} onOpenChange={setIsChangePasswordOpen}>
+          <DialogTrigger asChild>
+            <Button variant="outline">Change Password</Button>
+          </DialogTrigger>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>Change Your Password</DialogTitle>
+              <DialogDescription>
+                Enter your current password and a new password.
+              </DialogDescription>
+            </DialogHeader>
+            <form onSubmit={passwordForm.handleSubmit(onPasswordSubmit)} className="space-y-4">
+              <div className="space-y-2">
+                <Label htmlFor="currentPassword">Current Password</Label>
+                <Input id="currentPassword" type="password" {...passwordForm.register("currentPassword")} />
+                {passwordForm.formState.errors.currentPassword && <p className="text-sm text-destructive">{passwordForm.formState.errors.currentPassword.message}</p>}
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="newPassword">New Password</Label>
+                <Input id="newPassword" type="password" {...passwordForm.register("newPassword")} />
+                {passwordForm.formState.errors.newPassword && <p className="text-sm text-destructive">{passwordForm.formState.errors.newPassword.message}</p>}
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="confirmPassword">Confirm New Password</Label>
+                <Input id="confirmPassword" type="password" {...passwordForm.register("confirmPassword")} />
+                {passwordForm.formState.errors.confirmPassword && <p className="text-sm text-destructive">{passwordForm.formState.errors.confirmPassword.message}</p>}
+              </div>
+              <DialogFooter>
+                <Button type="button" variant="ghost" onClick={() => setIsChangePasswordOpen(false)}>Cancel</Button>
+                <Button type="submit" disabled={passwordForm.formState.isSubmitting}>
+                    {passwordForm.formState.isSubmitting ? "Changing..." : "Change Password"}
+                </Button>
+              </DialogFooter>
+            </form>
+          </DialogContent>
+        </Dialog>
       </CardContent>
     </Card>
   )
@@ -473,6 +564,7 @@ export default function SettingsPage() {
         <TabsList>
           <TabsTrigger value="profile">My Profile</TabsTrigger>
           <TabsTrigger value="appearance">Appearance</TabsTrigger>
+          <TabsTrigger value="security">Security</TabsTrigger>
           <TabsTrigger value="notifications">Notifications</TabsTrigger>
           {isAdmin && <TabsTrigger value="users">Users</TabsTrigger>}
         </TabsList>
@@ -593,6 +685,10 @@ export default function SettingsPage() {
         <TabsContent value="appearance" className="space-y-4">
           <AppearanceTab />
         </TabsContent>
+        
+        <TabsContent value="security" className="space-y-4">
+          <SecurityTab />
+        </TabsContent>
 
         <TabsContent value="notifications" className="space-y-4">
            <Card>
@@ -638,6 +734,7 @@ export default function SettingsPage() {
     </div>
   );
 }
+
 
 
 
