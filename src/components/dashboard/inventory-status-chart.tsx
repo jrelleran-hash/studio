@@ -10,14 +10,8 @@ import {
   ChartTooltipContent,
 } from "@/components/ui/chart";
 import type { Product } from "@/types";
-import { subDays, format, parseISO, startOfDay } from 'date-fns';
+import { subDays, format, parseISO, startOfDay, endOfDay } from 'date-fns';
 
-// Helper function to get the end of a day
-const endOfDay = (date: Date) => {
-  const end = new Date(date);
-  end.setHours(23, 59, 59, 999);
-  return end;
-}
 
 const chartConfig = {
   quantity: {
@@ -47,7 +41,7 @@ interface InventoryStatusChartProps {
 
 const getStatusForProduct = (product: Product, stockLevel?: number) => {
     const stock = stockLevel ?? product.stock;
-    if (stock === 0) return "out-of-stock";
+    if (stock <= 0) return "out-of-stock";
     if (stock <= product.reorderLimit) return "low-stock";
     return "in-stock";
 };
@@ -56,7 +50,7 @@ export function InventoryStatusChart({ products, filter }: InventoryStatusChartP
   
   const { summaryData, historicalData } = useMemo(() => {
     const today = startOfDay(new Date());
-    const last7Days = Array.from({ length: 7 }).map((_, i) => format(subDays(today, i), 'yyyy-MM-dd')).reverse();
+    const last7Days = Array.from({ length: 7 }).map((_, i) => startOfDay(subDays(today, i))).reverse();
 
     // Summary data for 'all' view
     const summary = {
@@ -72,18 +66,17 @@ export function InventoryStatusChart({ products, filter }: InventoryStatusChartP
     ];
 
     // Historical data for filtered views
-    const historical = last7Days.map(dateStr => {
+    const historical = last7Days.map(date => {
         const dailyTotals = { "in-stock": 0, "low-stock": 0, "out-of-stock": 0 };
         
         products.forEach(p => {
-            // Find the most recent history entry for this product on or before the given date
             const relevantHistory = p.history
                 ?.map(h => ({...h, dateUpdated: h.dateUpdated.toDate()}))
-                .filter(h => h.dateUpdated <= endOfDay(parseISO(dateStr)))
+                .filter(h => h.dateUpdated <= endOfDay(date))
                 .sort((a, b) => b.dateUpdated.getTime() - a.dateUpdated.getTime());
             
-            // If no relevant history, assume 0 stock for that day
-            const stockOnDate = relevantHistory && relevantHistory.length > 0 ? relevantHistory[0].stock : 0; 
+            // If no history before this date, use the initial stock (or 0 if not available)
+            const stockOnDate = relevantHistory && relevantHistory.length > 0 ? relevantHistory[0].stock : p.stock; 
             
             const status = getStatusForProduct(p, stockOnDate);
 
@@ -99,7 +92,7 @@ export function InventoryStatusChart({ products, filter }: InventoryStatusChartP
         });
 
         return {
-            date: format(parseISO(dateStr), 'MMM d'),
+            date: format(date, 'MMM d'),
             "in-stock": dailyTotals["in-stock"],
             "low-stock": dailyTotals["low-stock"],
             "out-of-stock": dailyTotals["out-of-stock"],
