@@ -237,9 +237,8 @@ export async function addProduct(product: Partial<Omit<Product, 'id' | 'lastUpda
   try {
     const now = Timestamp.now();
     
-    const productsCol = collection(db, "inventory");
     // Create doc ref first to get an ID for the image path
-    const docRef = doc(productsCol); 
+    const docRef = doc(collection(db, "inventory")); 
     
     let photoURL = "";
     if (product.photoFile) {
