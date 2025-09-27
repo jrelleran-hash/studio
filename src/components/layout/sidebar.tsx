@@ -3,7 +3,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { useState, useMemo } from "react";
+import { useMemo, useState } from "react";
 import {
   BarChart,
   Home,
@@ -33,6 +33,7 @@ const navItems = [
   { href: "/clients", label: "Clients", icon: Users },
   { href: "/logistics", label: "Logistics", icon: Truck },
   { href: "/analytics", label: "Analytics", icon: BarChart },
+  { href: "/reports", label: "Reports", icon: BarChart },
 ];
 
 const procurementNavItems = [
@@ -135,6 +136,7 @@ export function Sidebar({ className, inSheet }: { className?: string, inSheet?: 
             ...procurementNavItems.map(i => i.href),
             ...inventoryNavItems.map(i => i.href),
             ...assuranceNavItems.map(i => i.href),
+            '/reports',
         ] as PagePermission[];
     }
     return userProfile.permissions || [];
