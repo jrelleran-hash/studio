@@ -1,7 +1,7 @@
 
 "use client";
 
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
@@ -39,9 +39,15 @@ import { useAuth } from "@/hooks/use-auth";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { Switch } from "@/components/ui/switch";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { uploadProfilePicture, type UserProfile } from "@/services/data-service";
+import { uploadProfilePicture, type UserProfile, getAllUsers, updateUserRole } from "@/services/data-service";
 import Image from "next/image";
 import { useSearchParams, useRouter } from "next/navigation";
+import { Skeleton } from "@/components/ui/skeleton";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { MoreHorizontal } from "lucide-react";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import type { UserRole } from "@/types";
 
 
 const MAX_FILE_SIZE = 5 * 1024 * 1024; // 5MB
@@ -82,8 +88,113 @@ const getInitialNames = (displayName: string | null | undefined) => {
     return { firstName, lastName };
 }
 
+function UserManagementTable({ isAdmin }: { isAdmin: boolean }) {
+    const [users, setUsers] = useState<UserProfile[]>([]);
+    const [loading, setLoading] = useState(true);
+    const { toast } = useToast();
+
+    const fetchUsers = useCallback(async () => {
+        setLoading(true);
+        try {
+            const userList = await getAllUsers();
+            setUsers(userList);
+        } catch (error) {
+            toast({ variant: "destructive", title: "Error", description: "Could not fetch user list." });
+        } finally {
+            setLoading(false);
+        }
+    }, [toast]);
+
+    useEffect(() => {
+        if (isAdmin) {
+            fetchUsers();
+        }
+    }, [isAdmin, fetchUsers]);
+
+    const handleRoleChange = async (uid: string, role: UserRole) => {
+        try {
+            await updateUserRole(uid, role);
+            toast({ title: "Success", description: "User role updated." });
+            fetchUsers(); // Refresh the list
+        } catch (error) {
+            toast({ variant: "destructive", title: "Error", description: "Failed to update user role." });
+        }
+    };
+    
+    if (!isAdmin) {
+        return null;
+    }
+
+    return (
+        <Card>
+            <CardHeader className="flex flex-row items-start justify-between">
+                <div>
+                    <CardTitle>User Management</CardTitle>
+                    <CardDescription>Manage user roles and access.</CardDescription>
+                </div>
+                 <Button asChild size="sm">
+                    <Link href="/signup">Add User</Link>
+                </Button>
+            </CardHeader>
+            <CardContent>
+                <Table>
+                    <TableHeader>
+                        <TableRow>
+                            <TableHead>User</TableHead>
+                            <TableHead>Email</TableHead>
+                            <TableHead>Role</TableHead>
+                            <TableHead className="text-right">Actions</TableHead>
+                        </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                        {loading ? (
+                            Array.from({ length: 3 }).map((_, i) => (
+                                <TableRow key={i}>
+                                    <TableCell><Skeleton className="h-4 w-32" /></TableCell>
+                                    <TableCell><Skeleton className="h-4 w-48" /></TableCell>
+                                    <TableCell><Skeleton className="h-4 w-16" /></TableCell>
+                                    <TableCell className="text-right"><Skeleton className="h-8 w-8 ml-auto" /></TableCell>
+                                </TableRow>
+                            ))
+                        ) : (
+                            users.map((u) => (
+                                <TableRow key={u.uid}>
+                                    <TableCell className="font-medium">{u.firstName} {u.lastName}</TableCell>
+                                    <TableCell>{u.email}</TableCell>
+                                    <TableCell>{u.role}</TableCell>
+                                    <TableCell className="text-right">
+                                        <DropdownMenu>
+                                            <DropdownMenuTrigger asChild>
+                                                <Button variant="ghost" size="icon">
+                                                    <MoreHorizontal />
+                                                </Button>
+                                            </DropdownMenuTrigger>
+                                            <DropdownMenuContent align="end">
+                                                <DropdownMenuLabel>Change Role</DropdownMenuLabel>
+                                                {(["Admin", "Manager", "Staff"] as UserRole[]).map(role => (
+                                                    <DropdownMenuItem 
+                                                        key={role}
+                                                        disabled={u.role === role}
+                                                        onSelect={() => handleRoleChange(u.uid, role)}
+                                                    >
+                                                        {role}
+                                                    </DropdownMenuItem>
+                                                ))}
+                                            </DropdownMenuContent>
+                                        </DropdownMenu>
+                                    </TableCell>
+                                </TableRow>
+                            ))
+                        )}
+                    </TableBody>
+                </Table>
+            </CardContent>
+        </Card>
+    )
+}
+
 export default function SettingsPage() {
-  const { user } = useAuth();
+  const { user, userProfile } = useAuth();
   const { toast } = useToast();
   const searchParams = useSearchParams();
   const router = useRouter();
@@ -93,6 +204,8 @@ export default function SettingsPage() {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [previewImage, setPreviewImage] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState(searchParams.get("tab") || "profile");
+
+  const isAdmin = userProfile?.role === 'Admin';
 
   const profileForm = useForm<ProfileFormValues>({
     resolver: zodResolver(profileFormSchema),
@@ -196,6 +309,7 @@ export default function SettingsPage() {
           <TabsTrigger value="profile">My Profile</TabsTrigger>
           <TabsTrigger value="appearance">Appearance</TabsTrigger>
           <TabsTrigger value="notifications">Notifications</TabsTrigger>
+          {isAdmin && <TabsTrigger value="users">Users</TabsTrigger>}
         </TabsList>
 
         <TabsContent value="profile" className="space-y-4">
@@ -367,9 +481,11 @@ export default function SettingsPage() {
             </CardContent>
           </Card>
         </TabsContent>
+
+        <TabsContent value="users" className="space-y-4">
+            <UserManagementTable isAdmin={isAdmin} />
+        </TabsContent>
       </Tabs>
     </div>
   );
 }
-
-    
