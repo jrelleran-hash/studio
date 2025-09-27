@@ -7,6 +7,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
 import { updateProfile } from "firebase/auth";
 import { auth } from "@/lib/firebase";
+import Link from "next/link";
 
 
 import { Button } from "@/components/ui/button";
