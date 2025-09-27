@@ -1,5 +1,4 @@
 
-
 "use client";
 
 import Link from "next/link";
@@ -27,13 +26,13 @@ import { type LucideIcon } from "lucide-react";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { Button } from "../ui/button";
 import { useAuth } from "@/hooks/use-auth";
-import type { Department, UserRole } from "@/types";
+import type { PagePermission } from "@/types";
 
 const navItems = [
-  { href: "/", label: "Dashboard", icon: Home, department: "All" },
-  { href: "/clients", label: "Clients", icon: Users, department: "Clients" },
-  { href: "/logistics", label: "Logistics", icon: Truck, department: "Logistics" },
-  { href: "/analytics", label: "Analytics", icon: BarChart, department: "Analytics" },
+  { href: "/", label: "Dashboard", icon: Home },
+  { href: "/clients", label: "Clients", icon: Users },
+  { href: "/logistics", label: "Logistics", icon: Truck },
+  { href: "/analytics", label: "Analytics", icon: BarChart },
 ];
 
 const procurementNavItems = [
@@ -84,15 +83,20 @@ function SidebarLink({ href, label, icon: Icon, pathname, inSheet }: SidebarLink
 
 interface NavSectionProps {
     title: string;
-    items: Omit<typeof navItems, 'department'>;
+    items: { href: PagePermission; label: string; icon: LucideIcon }[];
     pathname: string;
     inSheet?: boolean;
+    userPermissions: PagePermission[];
 }
 
-function NavSection({ title, items, pathname, inSheet }: NavSectionProps) {
+function NavSection({ title, items, pathname, inSheet, userPermissions }: NavSectionProps) {
     const [isOpen, setIsOpen] = useState(true);
     
-    const isActiveSection = items.some(item => pathname.startsWith(item.href) && item.href !== '/');
+    const visibleItems = items.filter(item => userPermissions.includes(item.href));
+
+    if (visibleItems.length === 0) return null;
+    
+    const isActiveSection = visibleItems.some(item => pathname.startsWith(item.href) && item.href !== '/');
     
     useState(() => {
         setIsOpen(isActiveSection);
@@ -108,7 +112,7 @@ function NavSection({ title, items, pathname, inSheet }: NavSectionProps) {
             </CollapsibleTrigger>
             <CollapsibleContent className="data-[state=open]:animate-accordion-down data-[state=closed]:animate-accordion-up overflow-hidden">
                  <div className="grid items-start text-sm font-medium">
-                    {items.map((item) => (
+                    {visibleItems.map((item) => (
                         <SidebarLink key={item.href} {...item} pathname={pathname} inSheet={inSheet} />
                     ))}
                  </div>
@@ -122,14 +126,22 @@ export function Sidebar({ className, inSheet }: { className?: string, inSheet?: 
   const pathname = usePathname();
   const { userProfile } = useAuth();
   
-  const canAccess = (department: Department) => {
-    if (!userProfile) return false;
-    const { role, departments } = userProfile;
-    if (role === "Admin" || role === "Manager" || departments.includes("All")) {
-      return true;
+  const userPermissions = useMemo(() => {
+    if (!userProfile) return [];
+    if (userProfile.role === 'Admin' || userProfile.role === 'Manager') {
+        // Admins and Managers get all permissions
+        return [
+            ...navItems.map(i => i.href),
+            ...procurementNavItems.map(i => i.href),
+            ...inventoryNavItems.map(i => i.href),
+            ...assuranceNavItems.map(i => i.href),
+        ] as PagePermission[];
     }
-    return departments.includes(department);
-  }
+    return userProfile.permissions || [];
+  }, [userProfile]);
+
+  const canAccess = (path: PagePermission) => userPermissions.includes(path);
+
 
   return (
     <aside className={cn("flex-col border-r bg-card", className)}>
@@ -142,13 +154,13 @@ export function Sidebar({ className, inSheet }: { className?: string, inSheet?: 
         </div>
         <div className="flex-1 overflow-auto py-2">
           <nav className="grid items-start px-4 text-sm font-medium">
-            {navItems.filter(item => canAccess(item.department as Department)).map((item) => (
+            {navItems.filter(item => canAccess(item.href as PagePermission)).map((item) => (
               <SidebarLink key={item.href} {...item} pathname={pathname} inSheet={inSheet} />
             ))}
             
-            {canAccess("Procurement") && <NavSection title="Procurement" items={procurementNavItems} pathname={pathname} inSheet={inSheet} />}
-            {canAccess("Inventory") && <NavSection title="Inventory" items={inventoryNavItems} pathname={pathname} inSheet={inSheet} />}
-            {canAccess("Assurance") && <NavSection title="Assurance" items={assuranceNavItems} pathname={pathname} inSheet={inSheet} />}
+            <NavSection title="Procurement" items={procurementNavItems as any} pathname={pathname} inSheet={inSheet} userPermissions={userPermissions} />
+            <NavSection title="Inventory" items={inventoryNavItems as any} pathname={pathname} inSheet={inSheet} userPermissions={userPermissions} />
+            <NavSection title="Assurance" items={assuranceNavItems as any} pathname={pathname} inSheet={inSheet} userPermissions={userPermissions} />
             
           </nav>
         </div>

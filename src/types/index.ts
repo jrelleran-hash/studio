@@ -1,8 +1,3 @@
-
-
-
-
-
 import { Timestamp, DocumentReference } from "firebase/firestore";
 
 export interface Activity {
@@ -198,7 +193,7 @@ export interface OutboundReturn {
 }
 
 export type UserRole = "Admin" | "Manager" | "Staff";
-export type Department = "Procurement" | "Inventory" | "Assurance" | "Logistics" | "Analytics" | "Clients" | "All";
+export type PagePermission = "/" | "/clients" | "/logistics" | "/analytics" | "/orders" | "/purchase-orders" | "/suppliers" | "/inventory" | "/issuance" | "/returns" | "/quality-control";
 
 export interface UserProfile {
     uid: string;
@@ -206,5 +201,5 @@ export interface UserProfile {
     firstName: string;
     lastName: string;
     role: UserRole;
-    departments: Department[];
+    permissions: PagePermission[];
 }

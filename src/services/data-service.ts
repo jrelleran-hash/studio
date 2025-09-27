@@ -1,10 +1,9 @@
 
-
 import { db, storage, auth } from "@/lib/firebase";
 import { collection, getDocs, getDoc, doc, orderBy, query, limit, Timestamp, where, DocumentReference, addDoc, updateDoc, deleteDoc, arrayUnion, runTransaction, writeBatch, setDoc } from "firebase/firestore";
 import { ref, uploadBytes, getDownloadURL } from "firebase/storage";
 import { EmailAuthProvider, reauthenticateWithCredential, updatePassword } from "firebase/auth";
-import type { Activity, Notification, Order, Product, Client, Issuance, Supplier, PurchaseOrder, Shipment, Return, ReturnItem, OutboundReturn, OutboundReturnItem, UserProfile, OrderItem, PurchaseOrderItem, IssuanceItem, Backorder, UserRole, Department } from "@/types";
+import type { Activity, Notification, Order, Product, Client, Issuance, Supplier, PurchaseOrder, Shipment, Return, ReturnItem, OutboundReturn, OutboundReturnItem, UserProfile, OrderItem, PurchaseOrderItem, IssuanceItem, Backorder, UserRole, PagePermission } from "@/types";
 import { format, subDays } from 'date-fns';
 
 function timeSince(date: Date) {
@@ -238,7 +237,6 @@ export async function addProduct(product: Partial<Omit<Product, 'id' | 'lastUpda
   try {
     const now = Timestamp.now();
     
-    // Create doc ref first to get an ID for the image path
     const docRef = doc(collection(db, "inventory")); 
     
     let photoURL = "";
@@ -296,7 +294,6 @@ export async function updateProduct(productId: string, productData: Partial<Omit
         updatePayload.photoURL = await uploadProductPicture(photoFile, productId);
     }
 
-    // If stock is being updated, add a new history entry
     if (productData.stock !== undefined && productData.stock !== originalData?.stock) {
         const newHistoryEntry = {
             date: format(now.toDate(), 'yyyy-MM-dd'),
@@ -309,7 +306,6 @@ export async function updateProduct(productId: string, productData: Partial<Omit
 
     await updateDoc(productRef, updatePayload);
 
-    // Re-fetch the full product to pass to notification check
     const updatedDoc = await getDoc(productRef);
     if(updatedDoc.exists()) {
         const fullProduct = updatedDoc.data() as Product;

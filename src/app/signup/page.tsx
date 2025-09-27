@@ -1,5 +1,4 @@
 
-
 "use client";
 
 import { useState } from "react";
@@ -20,7 +19,7 @@ import { useToast } from "@/hooks/use-toast";
 import { CoreFlowLogo } from "@/components/icons";
 import { createUserProfile } from "@/services/data-service";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import type { UserRole, Department } from "@/types";
+import type { UserRole, PagePermission } from "@/types";
 import { useAuth } from "@/hooks/use-auth";
 import { FirebaseError } from "firebase/app";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
@@ -28,7 +27,27 @@ import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, Command
 import { cn } from "@/lib/utils";
 import { Badge } from "@/components/ui/badge";
 
-const departments: Department[] = ["Procurement", "Inventory", "Assurance", "Logistics", "Analytics", "Clients", "All"];
+const allPermissions: { group: string; permissions: { value: PagePermission; label: string }[] }[] = [
+    { group: "Core", permissions: [
+        { value: "/", label: "Dashboard" },
+        { value: "/clients", label: "Clients" },
+        { value: "/logistics", label: "Logistics" },
+        { value: "/analytics", label: "Analytics" },
+    ]},
+    { group: "Procurement", permissions: [
+        { value: "/orders", label: "Orders" },
+        { value: "/purchase-orders", label: "Purchase Orders" },
+        { value: "/suppliers", label: "Suppliers" },
+    ]},
+    { group: "Inventory", permissions: [
+        { value: "/inventory", label: "Products" },
+        { value: "/issuance", label: "Issuance" },
+    ]},
+    { group: "Assurance", permissions: [
+        { value: "/returns", label: "Returns" },
+        { value: "/quality-control", label: "Quality Control" },
+    ]},
+];
 
 const signupSchema = z.object({
   firstName: z.string().min(1, "First name is required."),
@@ -36,7 +55,7 @@ const signupSchema = z.object({
   email: z.string().email({ message: "Invalid email address." }),
   password: z.string().min(6, { message: "Password must be at least 6 characters." }),
   role: z.enum(["Admin", "Manager", "Staff"]),
-  departments: z.array(z.string()).min(1, "At least one department is required."),
+  permissions: z.array(z.string()).min(1, "At least one permission is required."),
 });
 
 type SignupFormValues = z.infer<typeof signupSchema>;
@@ -58,7 +77,7 @@ export default function SignupPage() {
   const { userProfile } = useAuth();
   
   const isAdmin = userProfile?.role === "Admin";
-  const [isDepartmentPopoverOpen, setIsDepartmentPopoverOpen] = useState(false);
+  const [isPermissionPopoverOpen, setIsPermissionPopoverOpen] = useState(false);
 
   const {
     register,
@@ -71,11 +90,11 @@ export default function SignupPage() {
     resolver: zodResolver(signupSchema),
     defaultValues: {
       role: "Staff",
-      departments: ["All"],
+      permissions: ["/"],
     },
   });
 
-  const selectedDepartments = watch('departments') || [];
+  const selectedPermissions = watch('permissions') || [];
 
   const onSubmit = async (data: SignupFormValues) => {
     setIsLoading(true);
@@ -97,7 +116,7 @@ export default function SignupPage() {
         lastName: data.lastName,
         email: data.email,
         role: data.role as UserRole,
-        departments: data.departments as Department[],
+        permissions: data.permissions as PagePermission[],
       });
 
       if (isAdmin) {
@@ -226,60 +245,62 @@ export default function SignupPage() {
                         {errors.role && <p className="text-sm text-destructive">{errors.role.message}</p>}
                     </div>
                      <div className="space-y-2">
-                        <Label>Departments</Label>
+                        <Label>Permissions</Label>
                         <Controller
                             control={control}
-                            name="departments"
+                            name="permissions"
                             render={({ field }) => (
-                                <Popover open={isDepartmentPopoverOpen} onOpenChange={setIsDepartmentPopoverOpen}>
+                                <Popover open={isPermissionPopoverOpen} onOpenChange={setIsPermissionPopoverOpen}>
                                     <PopoverTrigger asChild>
                                         <Button
                                             variant="outline"
                                             role="combobox"
-                                            aria-expanded={isDepartmentPopoverOpen}
+                                            aria-expanded={isPermissionPopoverOpen}
                                             className="w-full justify-between"
                                             disabled={isLoading}
                                         >
                                             <span className="truncate">
-                                                {selectedDepartments.length > 0 ? selectedDepartments.join(', ') : "Select departments..."}
+                                                {selectedPermissions.length > 0 ? `${selectedPermissions.length} selected` : "Select permissions..."}
                                             </span>
                                             <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
                                         </Button>
                                     </PopoverTrigger>
                                     <PopoverContent className="w-[--radix-popover-trigger-width] p-0">
                                         <Command>
-                                            <CommandInput placeholder="Search departments..." />
-                                            <CommandEmpty>No department found.</CommandEmpty>
+                                            <CommandInput placeholder="Search permissions..." />
+                                            <CommandEmpty>No permission found.</CommandEmpty>
                                             <CommandList>
-                                                <CommandGroup>
-                                                    {departments.map((department) => (
+                                                {allPermissions.map((group) => (
+                                                <CommandGroup key={group.group} heading={group.group}>
+                                                    {group.permissions.map((permission) => (
                                                         <CommandItem
-                                                            key={department}
-                                                            value={department}
+                                                            key={permission.value}
+                                                            value={permission.label}
                                                             onSelect={() => {
-                                                                const newSelection = selectedDepartments.includes(department)
-                                                                    ? selectedDepartments.filter(d => d !== department)
-                                                                    : [...selectedDepartments, department];
+                                                                const newSelection = selectedPermissions.includes(permission.value)
+                                                                    ? selectedPermissions.filter(p => p !== permission.value)
+                                                                    : [...selectedPermissions, permission.value];
                                                                 field.onChange(newSelection);
                                                             }}
                                                         >
                                                             <Check
                                                                 className={cn(
                                                                     "mr-2 h-4 w-4",
-                                                                    selectedDepartments.includes(department) ? "opacity-100" : "opacity-0"
+                                                                    selectedPermissions.includes(permission.value) ? "opacity-100" : "opacity-0"
                                                                 )}
                                                             />
-                                                            {department}
+                                                            {permission.label}
                                                         </CommandItem>
                                                     ))}
                                                 </CommandGroup>
+                                                ))}
                                             </CommandList>
                                         </Command>
                                     </PopoverContent>
                                 </Popover>
                             )}
                         />
-                        {errors.departments && <p className="text-sm text-destructive">{errors.departments.message}</p>}
+                        {errors.permissions && <p className="text-sm text-destructive">{errors.permissions.message}</p>}
                     </div>
                 </div>
              )}
