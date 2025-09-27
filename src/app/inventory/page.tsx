@@ -6,7 +6,7 @@ import { useState, useEffect, useMemo, useRef } from "react";
 import { useForm, Controller } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
-import { PlusCircle, MoreHorizontal, Package, ChevronsUpDown, Check, Printer } from "lucide-react";
+import { PlusCircle, MoreHorizontal, Package, ChevronsUpDown, Check, Printer, FileDown } from "lucide-react";
 import { Button, buttonVariants } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
@@ -313,6 +313,31 @@ export default function InventoryPage() {
     }
   };
 
+  const handleExport = () => {
+    const headers = ["SKU", "Name", "Price", "Stock", "Status", "Supplier", "Last Updated"];
+    const rows = filteredProducts.map(p => {
+        const status = getStatus(p);
+        const lastUpdated = p.lastUpdated ? formatDate(p.lastUpdated) : 'N/A';
+        // Escape commas in names or other fields
+        const name = `"${p.name.replace(/"/g, '""')}"`;
+        const supplier = `"${(p.supplier || 'N/A').replace(/"/g, '""')}"`;
+
+        return [p.sku, name, p.price, p.stock, status.text, supplier, lastUpdated].join(',');
+    });
+
+    const csvContent = "data:text/csv;charset=utf-8," 
+        + headers.join(',') + "\n" 
+        + rows.join('\n');
+
+    const encodedUri = encodeURI(csvContent);
+    const link = document.createElement("a");
+    link.setAttribute("href", encodedUri);
+    link.setAttribute("download", "inventory-report.csv");
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  }
+
   return (
     <>
       <Card className="printable-content">
@@ -335,13 +360,17 @@ export default function InventoryPage() {
             </div>
           </div>
           <div className="flex items-center gap-2">
+            <Button size="sm" variant="outline" className="gap-1" onClick={handleExport}>
+                <FileDown />
+                Export to CSV
+            </Button>
             <Button size="sm" variant="outline" className="gap-1 print-hidden" onClick={() => window.print()}>
                 <Printer />
                 Print Report
             </Button>
             <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>
-              <DialogTrigger asChild>
-                <Button size="sm" className="gap-1 w-full md:w-auto print-hidden">
+              <DialogTrigger asChild className="print-hidden">
+                <Button size="sm" className="gap-1 w-full md:w-auto">
                   <PlusCircle />
                   Add Product
                 </Button>
