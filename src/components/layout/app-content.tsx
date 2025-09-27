@@ -8,7 +8,7 @@ import { Header } from "@/components/layout/header";
 import { ReactNode } from "react";
 import { cn } from "@/lib/utils";
 
-const unprotectedRoutes = ["/login", "/signup"];
+const unprotectedRoutes = ["/login", "/signup", "/verify-email"];
 
 export function AppContent({ children }: { children: ReactNode }) {
   const { user, loading } = useAuth();

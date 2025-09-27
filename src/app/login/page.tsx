@@ -17,6 +17,8 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
 import { CoreFlowLogo } from "@/components/icons";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import { FirebaseError } from "firebase/app";
 
 const loginSchema = z.object({
   email: z.string().email({ message: "Invalid email address." }),
@@ -42,14 +44,25 @@ export default function LoginPage() {
   const onSubmit = async (data: LoginFormValues) => {
     setIsLoading(true);
     try {
-      await signInWithEmailAndPassword(auth, data.email, data.password);
+      const userCredential = await signInWithEmailAndPassword(auth, data.email, data.password);
+       if (!userCredential.user.emailVerified) {
+        toast({
+          variant: "destructive",
+          title: "Email Not Verified",
+          description: "Please verify your email address before signing in.",
+        });
+        router.push(`/verify-email?email=${data.email}`);
+        return;
+      }
       router.push("/");
     } catch (error: any) {
       let errorMessage = "An unexpected error occurred.";
-      if (error.code === 'auth/wrong-password' || error.code === 'auth/user-not-found' || error.code === 'auth/invalid-credential') {
-        errorMessage = "Invalid email or password.";
-      } else if (error.message) {
-        errorMessage = error.message;
+      if (error instanceof FirebaseError) {
+          if (error.code === 'auth/invalid-credential' || error.code === 'auth/user-not-found' || error.code === 'auth/wrong-password') {
+            errorMessage = "Invalid email or password.";
+          } else {
+            errorMessage = error.message;
+          }
       }
       toast({
         variant: "destructive",

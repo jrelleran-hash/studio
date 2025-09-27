@@ -5,7 +5,7 @@ import { useState } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
-import { createUserWithEmailAndPassword, updateProfile } from "firebase/auth";
+import { createUserWithEmailAndPassword, updateProfile, sendEmailVerification } from "firebase/auth";
 import { auth } from "@/lib/firebase";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
@@ -21,6 +21,7 @@ import { createUserProfile } from "@/services/data-service";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import type { UserRole } from "@/types";
 import { useAuth } from "@/hooks/use-auth";
+import { FirebaseError } from "firebase/app";
 
 const signupSchema = z.object({
   firstName: z.string().min(1, "First name is required."),
@@ -65,16 +66,20 @@ export default function SignupPage() {
   const onSubmit = async (data: SignupFormValues) => {
     setIsLoading(true);
     try {
-      // If an admin is creating a user, they remain logged in.
-      // If it's a public signup, the new user is logged in automatically.
       const userCredential = await createUserWithEmailAndPassword(auth, data.email, data.password);
       const user = userCredential.user;
       const displayName = `${data.firstName} ${data.lastName}`.trim();
 
-      // Update Firebase Auth profile
       await updateProfile(user, { displayName });
+      
+      // The `actionCodeSettings` object is optional but recommended.
+      // It allows you to pass state back to the app on redirect.
+      const actionCodeSettings = {
+        url: `${window.location.origin}/login`,
+        handleCodeInApp: true,
+      };
+      await sendEmailVerification(user, actionCodeSettings);
 
-      // Create user profile in Firestore
       await createUserProfile(user.uid, {
         firstName: data.firstName,
         lastName: data.lastName,
@@ -84,17 +89,23 @@ export default function SignupPage() {
 
       if (isAdmin) {
         toast({ title: "User Created", description: "New user has been created successfully."});
-        router.push("/settings"); // Redirect admin to a relevant page
+        router.push("/settings?tab=users"); 
       } else {
-        router.push("/");
+        toast({
+          title: "Account Created",
+          description: "Please check your email to verify your account before logging in.",
+        });
+        router.push(`/verify-email?email=${data.email}`);
       }
 
     } catch (error: any) {
       let errorMessage = "An unexpected error occurred.";
-      if (error.code === 'auth/email-already-in-use') {
-        errorMessage = "This email address is already in use.";
-      } else if (error.message) {
-        errorMessage = error.message;
+      if (error instanceof FirebaseError) {
+          if (error.code === 'auth/email-already-in-use') {
+            errorMessage = "This email address is already in use.";
+          } else {
+            errorMessage = error.message;
+          }
       }
       toast({
         variant: "destructive",

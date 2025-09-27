@@ -3,7 +3,7 @@
 import { db, storage } from "@/lib/firebase";
 import { collection, getDocs, getDoc, doc, orderBy, query, limit, Timestamp, where, DocumentReference, addDoc, updateDoc, deleteDoc, arrayUnion, runTransaction, writeBatch, setDoc } from "firebase/firestore";
 import { ref, uploadBytes, getDownloadURL } from "firebase/storage";
-import type { Activity, Notification, Order, Product, Client, Issuance, Supplier, PurchaseOrder, Shipment, Return, ReturnItem, OutboundReturn, OutboundReturnItem, UserProfile, OrderItem, PurchaseOrderItem, IssuanceItem, Backorder } from "@/types";
+import type { Activity, Notification, Order, Product, Client, Issuance, Supplier, PurchaseOrder, Shipment, Return, ReturnItem, OutboundReturn, OutboundReturnItem, UserProfile, OrderItem, PurchaseOrderItem, IssuanceItem, Backorder, UserRole } from "@/types";
 import { format, subDays } from 'date-fns';
 
 function timeSince(date: Date) {
@@ -916,7 +916,7 @@ export async function addPurchaseOrder(poData: NewPurchaseOrderData): Promise<Do
         if (!supplierDoc.exists()) throw new Error("Supplier not found.");
 
         const backorderIds = poData.items.map(item => item.backorderId).filter(Boolean) as string[];
-        const backorderRefs = backorderIds.map(id => doc(db, 'backorders', id));
+        const backorderRefs = backorderIds.map(id => doc(db, 'backorders', id)).filter(Boolean);
         const backorderDocs = backorderRefs.length > 0 ? await Promise.all(backorderRefs.map(ref => transaction.get(ref))) : [];
         
         const uniqueOrderRefsMap = new Map<string, DocumentReference>();
@@ -1721,6 +1721,27 @@ export async function getUserProfile(uid: string): Promise<UserProfile | null> {
     }
 }
 
+export async function getAllUsers(): Promise<UserProfile[]> {
+  try {
+    const usersCol = collection(db, "users");
+    const userSnapshot = await getDocs(usersCol);
+    return userSnapshot.docs.map(doc => ({ uid: doc.id, ...doc.data() } as UserProfile));
+  } catch (error) {
+    console.error("Error fetching all users:", error);
+    return [];
+  }
+}
+
+export async function updateUserRole(uid: string, role: UserRole): Promise<void> {
+  try {
+    const userRef = doc(db, "users", uid);
+    await updateDoc(userRef, { role });
+  } catch (error) {
+    console.error("Error updating user role:", error);
+    throw new Error("Failed to update user role.");
+  }
+}
+
 export async function getBackorders(): Promise<Backorder[]> {
     try {
         const backordersCol = collection(db, "backorders");
@@ -1775,6 +1796,7 @@ export async function deleteBackorder(backorderId: string): Promise<void> {
     
 
     
+
 
 
 

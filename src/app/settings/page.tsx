@@ -1,5 +1,4 @@
 
-
 "use client";
 
 import { useState, useEffect, useRef } from "react";
@@ -40,8 +39,14 @@ import { useAuth } from "@/hooks/use-auth";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { Switch } from "@/components/ui/switch";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { uploadProfilePicture } from "@/services/data-service";
+import { uploadProfilePicture, getAllUsers, updateUserRole, type UserProfile } from "@/services/data-service";
 import Image from "next/image";
+import { useSearchParams, useRouter } from "next/navigation";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "../ui/table";
+import { MoreHorizontal } from "lucide-react";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuTrigger } from "../ui/dropdown-menu";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../ui/select";
+import type { UserRole } from "@/types";
 
 const MAX_FILE_SIZE = 5 * 1024 * 1024; // 5MB
 const ACCEPTED_IMAGE_TYPES = ["image/jpeg", "image/jpg", "image/png", "image/webp"];
@@ -82,15 +87,42 @@ const getInitialNames = (displayName: string | null | undefined) => {
 }
 
 export default function SettingsPage() {
-  const { user } = useAuth();
+  const { user, userProfile } = useAuth();
   const { toast } = useToast();
+  const searchParams = useSearchParams();
+  const router = useRouter();
+
   const [isProfileDialogOpen, setIsProfileDialogOpen] = useState(false);
+  const [isRoleDialogOpen, setIsRoleDialogOpen] = useState(false);
+  const [selectedUserForRoleChange, setSelectedUserForRoleChange] = useState<UserProfile | null>(null);
+  const [newRole, setNewRole] = useState<UserRole>("Staff");
+  
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [previewImage, setPreviewImage] = useState<string | null>(null);
+  const [allUsers, setAllUsers] = useState<UserProfile[]>([]);
+  const [loadingUsers, setLoadingUsers] = useState(false);
+  const [activeTab, setActiveTab] = useState(searchParams.get("tab") || "profile");
 
   const profileForm = useForm<ProfileFormValues>({
     resolver: zodResolver(profileFormSchema),
   });
+  
+  useEffect(() => {
+    const tab = searchParams.get("tab");
+    if (tab) {
+      setActiveTab(tab);
+    }
+  }, [searchParams]);
+
+  useEffect(() => {
+    if (activeTab === "users" && userProfile?.role === "Admin") {
+      setLoadingUsers(true);
+      getAllUsers()
+        .then(setAllUsers)
+        .catch(() => toast({ variant: "destructive", title: "Error", description: "Failed to load users." }))
+        .finally(() => setLoadingUsers(false));
+    }
+  }, [activeTab, userProfile?.role, toast]);
   
   useEffect(() => {
     if (isProfileDialogOpen && user) {
@@ -146,6 +178,23 @@ export default function SettingsPage() {
         setIsProfileDialogOpen(false);
     }
   };
+
+  const handleRoleChange = async () => {
+    if (!selectedUserForRoleChange) return;
+
+    try {
+        await updateUserRole(selectedUserForRoleChange.uid, newRole);
+        toast({ title: "Role Updated", description: `Role for ${selectedUserForRoleChange.email} has been changed to ${newRole}.` });
+        // Refetch users to show the change
+        const updatedUsers = await getAllUsers();
+        setAllUsers(updatedUsers);
+    } catch(error) {
+        toast({ variant: "destructive", title: "Error", description: "Failed to update user role." });
+    } finally {
+        setIsRoleDialogOpen(false);
+        setSelectedUserForRoleChange(null);
+    }
+  };
   
   const onNotificationsSubmit = (data: any) => {
     console.log(data);
@@ -166,6 +215,11 @@ export default function SettingsPage() {
     }
   };
 
+  const handleTabChange = (value: string) => {
+    setActiveTab(value);
+    router.push(`/settings?tab=${value}`, { scroll: false });
+  };
+
 
   return (
     <div className="space-y-6">
@@ -173,9 +227,10 @@ export default function SettingsPage() {
         <h1 className="text-2xl font-bold font-headline tracking-tight">Settings</h1>
         <p className="text-muted-foreground">Manage your account and application settings.</p>
       </div>
-      <Tabs defaultValue="profile" className="space-y-4">
+      <Tabs defaultValue="profile" value={activeTab} onValueChange={handleTabChange} className="space-y-4">
         <TabsList>
           <TabsTrigger value="profile">My Profile</TabsTrigger>
+          {userProfile?.role === "Admin" && <TabsTrigger value="users">Users</TabsTrigger>}
           <TabsTrigger value="appearance">Appearance</TabsTrigger>
           <TabsTrigger value="notifications">Notifications</TabsTrigger>
         </TabsList>
@@ -292,6 +347,57 @@ export default function SettingsPage() {
           </Card>
         </TabsContent>
         
+        {userProfile?.role === "Admin" && (
+            <TabsContent value="users" className="space-y-4">
+                <Card>
+                    <CardHeader>
+                        <CardTitle>User Management</CardTitle>
+                        <CardDescription>Manage user roles and access.</CardDescription>
+                    </CardHeader>
+                    <CardContent>
+                        <Table>
+                            <TableHeader>
+                                <TableRow>
+                                    <TableHead>User</TableHead>
+                                    <TableHead>Email</TableHead>
+                                    <TableHead>Role</TableHead>
+                                    <TableHead className="text-right">Actions</TableHead>
+                                </TableRow>
+                            </TableHeader>
+                            <TableBody>
+                                {loadingUsers ? (
+                                    <TableRow><TableCell colSpan={4}>Loading users...</TableCell></TableRow>
+                                ) : (
+                                    allUsers.map(u => (
+                                        <TableRow key={u.uid}>
+                                            <TableCell>{u.firstName} {u.lastName}</TableCell>
+                                            <TableCell>{u.email}</TableCell>
+                                            <TableCell>{u.role}</TableCell>
+                                            <TableCell className="text-right">
+                                                 <DropdownMenu>
+                                                    <DropdownMenuTrigger asChild>
+                                                        <Button variant="ghost" size="icon" disabled={u.uid === user.uid}>
+                                                            <MoreHorizontal />
+                                                        </Button>
+                                                    </DropdownMenuTrigger>
+                                                    <DropdownMenuContent>
+                                                        <DropdownMenuLabel>Actions</DropdownMenuLabel>
+                                                        <DropdownMenuItem onClick={() => { setSelectedUserForRoleChange(u); setNewRole(u.role); setIsRoleDialogOpen(true); }}>
+                                                            Change Role
+                                                        </DropdownMenuItem>
+                                                    </DropdownMenuContent>
+                                                 </DropdownMenu>
+                                            </TableCell>
+                                        </TableRow>
+                                    ))
+                                )}
+                            </TableBody>
+                        </Table>
+                    </CardContent>
+                </Card>
+            </TabsContent>
+        )}
+
         <TabsContent value="appearance" className="space-y-4">
            <Card>
             <CardHeader>
@@ -349,6 +455,35 @@ export default function SettingsPage() {
           </Card>
         </TabsContent>
       </Tabs>
+      
+      <Dialog open={isRoleDialogOpen} onOpenChange={setIsRoleDialogOpen}>
+        <DialogContent>
+            <DialogHeader>
+                <DialogTitle>Change User Role</DialogTitle>
+                <DialogDescription>
+                    Change the role for {selectedUserForRoleChange?.email}.
+                </DialogDescription>
+            </DialogHeader>
+            <div className="space-y-2 py-4">
+                <Label htmlFor="role-select">New Role</Label>
+                <Select value={newRole} onValueChange={(value: UserRole) => setNewRole(value)}>
+                    <SelectTrigger id="role-select">
+                        <SelectValue placeholder="Select a role" />
+                    </SelectTrigger>
+                    <SelectContent>
+                        <SelectItem value="Admin">Admin</SelectItem>
+                        <SelectItem value="Manager">Manager</SelectItem>
+                        <SelectItem value="Staff">Staff</SelectItem>
+                    </SelectContent>
+                </Select>
+            </div>
+            <DialogFooter>
+                <Button variant="ghost" onClick={() => setIsRoleDialogOpen(false)}>Cancel</Button>
+                <Button onClick={handleRoleChange}>Save Role</Button>
+            </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
     </div>
   );
 }
