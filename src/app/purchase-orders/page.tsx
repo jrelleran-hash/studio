@@ -1044,7 +1044,6 @@ export default function PurchaseOrdersPage() {
                                                     variant="ghost" 
                                                     size="icon"
                                                     onClick={() => handleDeleteBackorderClick(item.id)}
-                                                    disabled={item.status !== 'Pending'}
                                                 >
                                                     <Trash2 className="h-4 w-4 text-destructive"/>
                                                 </Button>
@@ -1550,4 +1549,5 @@ export default function PurchaseOrdersPage() {
     
 
     
+
 
