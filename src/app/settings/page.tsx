@@ -10,7 +10,7 @@ import { auth } from "@/lib/firebase";
 import Link from "next/link";
 
 
-import { Button } from "@/components/ui/button";
+import { Button, buttonVariants } from "@/components/ui/button";
 import {
   Card,
   CardContent,
@@ -24,6 +24,16 @@ import {
   TabsList,
   TabsTrigger,
 } from "@/components/ui/tabs";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import {
   Dialog,
   DialogContent,
@@ -40,13 +50,13 @@ import { useAuth } from "@/hooks/use-auth";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { Switch } from "@/components/ui/switch";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { uploadProfilePicture, type UserProfile, getAllUsers, updateUserRole } from "@/services/data-service";
+import { uploadProfilePicture, type UserProfile, getAllUsers, updateUserRole, deleteUser } from "@/services/data-service";
 import Image from "next/image";
 import { useSearchParams, useRouter } from "next/navigation";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { MoreHorizontal } from "lucide-react";
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import type { UserRole } from "@/types";
 
@@ -92,6 +102,8 @@ const getInitialNames = (displayName: string | null | undefined) => {
 function UserManagementTable({ isAdmin }: { isAdmin: boolean }) {
     const [users, setUsers] = useState<UserProfile[]>([]);
     const [loading, setLoading] = useState(true);
+    const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
+    const [deletingUser, setDeletingUser] = useState<UserProfile | null>(null);
     const { toast } = useToast();
 
     const fetchUsers = useCallback(async () => {
@@ -122,75 +134,119 @@ function UserManagementTable({ isAdmin }: { isAdmin: boolean }) {
         }
     };
     
+    const handleDeleteClick = (user: UserProfile) => {
+        setDeletingUser(user);
+        setIsDeleteDialogOpen(true);
+    };
+
+    const handleDeleteConfirm = async () => {
+        if (!deletingUser) return;
+        try {
+            await deleteUser(deletingUser.uid);
+            toast({ title: "Success", description: "User profile deleted." });
+            fetchUsers(); // Refresh the list
+        } catch (error) {
+            toast({ variant: "destructive", title: "Error", description: "Failed to delete user profile." });
+        } finally {
+            setIsDeleteDialogOpen(false);
+            setDeletingUser(null);
+        }
+    };
+
     if (!isAdmin) {
         return null;
     }
 
     return (
-        <Card>
-            <CardHeader className="flex flex-row items-start justify-between">
-                <div>
-                    <CardTitle>User Management</CardTitle>
-                    <CardDescription>Manage user roles and access.</CardDescription>
-                </div>
-                 <Button asChild size="sm">
-                    <Link href="/signup">Add User</Link>
-                </Button>
-            </CardHeader>
-            <CardContent>
-                <Table>
-                    <TableHeader>
-                        <TableRow>
-                            <TableHead>User</TableHead>
-                            <TableHead>Email</TableHead>
-                            <TableHead>Role</TableHead>
-                            <TableHead className="text-right">Actions</TableHead>
-                        </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                        {loading ? (
-                            Array.from({ length: 3 }).map((_, i) => (
-                                <TableRow key={i}>
-                                    <TableCell><Skeleton className="h-4 w-32" /></TableCell>
-                                    <TableCell><Skeleton className="h-4 w-48" /></TableCell>
-                                    <TableCell><Skeleton className="h-4 w-16" /></TableCell>
-                                    <TableCell className="text-right"><Skeleton className="h-8 w-8 ml-auto" /></TableCell>
-                                </TableRow>
-                            ))
-                        ) : (
-                            users.map((u) => (
-                                <TableRow key={u.uid}>
-                                    <TableCell className="font-medium">{u.firstName} {u.lastName}</TableCell>
-                                    <TableCell>{u.email}</TableCell>
-                                    <TableCell>{u.role}</TableCell>
-                                    <TableCell className="text-right">
-                                        <DropdownMenu>
-                                            <DropdownMenuTrigger asChild>
-                                                <Button variant="ghost" size="icon">
-                                                    <MoreHorizontal />
-                                                </Button>
-                                            </DropdownMenuTrigger>
-                                            <DropdownMenuContent align="end">
-                                                <DropdownMenuLabel>Change Role</DropdownMenuLabel>
-                                                {(["Admin", "Manager", "Staff"] as UserRole[]).map(role => (
-                                                    <DropdownMenuItem 
-                                                        key={role}
-                                                        disabled={u.role === role}
-                                                        onSelect={() => handleRoleChange(u.uid, role)}
+        <>
+            <Card>
+                <CardHeader className="flex flex-row items-start justify-between">
+                    <div>
+                        <CardTitle>User Management</CardTitle>
+                        <CardDescription>Manage user roles and access.</CardDescription>
+                    </div>
+                    <Button asChild size="sm">
+                        <Link href="/signup">Add User</Link>
+                    </Button>
+                </CardHeader>
+                <CardContent>
+                    <Table>
+                        <TableHeader>
+                            <TableRow>
+                                <TableHead>User</TableHead>
+                                <TableHead>Email</TableHead>
+                                <TableHead>Role</TableHead>
+                                <TableHead className="text-right">Actions</TableHead>
+                            </TableRow>
+                        </TableHeader>
+                        <TableBody>
+                            {loading ? (
+                                Array.from({ length: 3 }).map((_, i) => (
+                                    <TableRow key={i}>
+                                        <TableCell><Skeleton className="h-4 w-32" /></TableCell>
+                                        <TableCell><Skeleton className="h-4 w-48" /></TableCell>
+                                        <TableCell><Skeleton className="h-4 w-16" /></TableCell>
+                                        <TableCell className="text-right"><Skeleton className="h-8 w-8 ml-auto" /></TableCell>
+                                    </TableRow>
+                                ))
+                            ) : (
+                                users.map((u) => (
+                                    <TableRow key={u.uid}>
+                                        <TableCell className="font-medium">{u.firstName} {u.lastName}</TableCell>
+                                        <TableCell>{u.email}</TableCell>
+                                        <TableCell>{u.role}</TableCell>
+                                        <TableCell className="text-right">
+                                            <DropdownMenu>
+                                                <DropdownMenuTrigger asChild>
+                                                    <Button variant="ghost" size="icon">
+                                                        <MoreHorizontal />
+                                                    </Button>
+                                                </DropdownMenuTrigger>
+                                                <DropdownMenuContent align="end">
+                                                    <DropdownMenuLabel>Change Role</DropdownMenuLabel>
+                                                    {(["Admin", "Manager", "Staff"] as UserRole[]).map(role => (
+                                                        <DropdownMenuItem 
+                                                            key={role}
+                                                            disabled={u.role === role}
+                                                            onSelect={() => handleRoleChange(u.uid, role)}
+                                                        >
+                                                            {role}
+                                                        </DropdownMenuItem>
+                                                    ))}
+                                                    <DropdownMenuSeparator />
+                                                    <DropdownMenuItem
+                                                        className="text-destructive"
+                                                        onSelect={() => handleDeleteClick(u)}
                                                     >
-                                                        {role}
+                                                        Delete User
                                                     </DropdownMenuItem>
-                                                ))}
-                                            </DropdownMenuContent>
-                                        </DropdownMenu>
-                                    </TableCell>
-                                </TableRow>
-                            ))
-                        )}
-                    </TableBody>
-                </Table>
-            </CardContent>
-        </Card>
+                                                </DropdownMenuContent>
+                                            </DropdownMenu>
+                                        </TableCell>
+                                    </TableRow>
+                                ))
+                            )}
+                        </TableBody>
+                    </Table>
+                </CardContent>
+            </Card>
+             <AlertDialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
+                <AlertDialogContent>
+                    <AlertDialogHeader>
+                        <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
+                        <AlertDialogDescription>
+                            This will delete the user's profile document. It will **not** delete them from Firebase Authentication. You must do that manually in the Firebase Console.
+                        </AlertDialogDescription>
+                    </AlertDialogHeader>
+                    <AlertDialogFooter>
+                        <AlertDialogCancel>Cancel</AlertDialogCancel>
+                        <AlertDialogAction onClick={handleDeleteConfirm} className={buttonVariants({ variant: "destructive" })}>
+                            Delete Profile
+                        </AlertDialogAction>
+                    </AlertDialogFooter>
+                </AlertDialogContent>
+            </AlertDialog>
+        </>
     )
 }
 

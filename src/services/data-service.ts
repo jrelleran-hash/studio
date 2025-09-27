@@ -1725,28 +1725,7 @@ export async function getAllUsers(): Promise<UserProfile[]> {
   try {
     const usersCol = collection(db, "users");
     const userSnapshot = await getDocs(usersCol);
-    const userProfiles = userSnapshot.docs.map(doc => ({ uid: doc.id, ...doc.data() } as UserProfile));
-    
-    // This is not perfectly efficient as it fetches one by one, 
-    // but it's a client-side solution to check for deleted auth users.
-    const activeUsers = await Promise.all(
-      userProfiles.map(async (profile) => {
-        try {
-          // A more robust solution would use a server-side function to get user.
-          // For now, we assume if we can get a profile, they might exist.
-          // A truly deleted user check from client is not feasible without admin privileges.
-          // We will return all profiles from DB and let admin manage from there.
-          // This is a placeholder for a more complex verification logic if needed.
-          return profile;
-        } catch (error) {
-          // This error would typically be 'auth/user-not-found' if using Admin SDK
-          console.log(`User with UID ${profile.uid} not found in Auth, likely deleted.`);
-          return null;
-        }
-      })
-    );
-
-    return activeUsers.filter(Boolean) as UserProfile[];
+    return userSnapshot.docs.map(doc => ({ uid: doc.id, ...doc.data() } as UserProfile));
   } catch (error) {
     console.error("Error fetching all users:", error);
     return [];
@@ -1761,6 +1740,16 @@ export async function updateUserRole(uid: string, role: UserRole): Promise<void>
     console.error("Error updating user role:", error);
     throw new Error("Failed to update user role.");
   }
+}
+
+export async function deleteUser(uid: string): Promise<void> {
+    try {
+        const userRef = doc(db, "users", uid);
+        await deleteDoc(userRef);
+    } catch (error) {
+        console.error("Error deleting user profile:", error);
+        throw new Error("Failed to delete user profile.");
+    }
 }
 
 export async function getBackorders(): Promise<Backorder[]> {
@@ -1805,25 +1794,12 @@ export async function getBackorders(): Promise<Backorder[]> {
 
 
 export async function deleteBackorder(backorderId: string): Promise<void> {
-    try {
-        const backorderRef = doc(db, "backorders", backorderId);
-        await deleteDoc(backorderRef);
-    } catch (error) {
-        console.error("Error deleting backorder:", error);
-        // Do not throw an error that stops the UI, just log it.
-        // This is a cleanup operation, not critical path.
-    }
+  try {
+    const backorderRef = doc(db, "backorders", backorderId);
+    await deleteDoc(backorderRef);
+  } catch (error) {
+    console.error("Error deleting backorder:", error);
+    // Do not throw an error that stops the UI, just log it.
+    // This is a cleanup operation, not critical path.
+  }
 }
-
-    
-
-    
-
-
-
-
-
-
-
-
-
