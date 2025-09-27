@@ -33,7 +33,6 @@ const navItems = [
   { href: "/clients", label: "Clients", icon: Users },
   { href: "/logistics", label: "Logistics", icon: Truck },
   { href: "/analytics", label: "Analytics", icon: BarChart },
-  { href: "/reports", label: "Reports", icon: BarChart },
 ];
 
 const procurementNavItems = [
@@ -136,7 +135,6 @@ export function Sidebar({ className, inSheet }: { className?: string, inSheet?: 
             ...procurementNavItems.map(i => i.href),
             ...inventoryNavItems.map(i => i.href),
             ...assuranceNavItems.map(i => i.href),
-            '/reports',
         ] as PagePermission[];
     }
     return userProfile.permissions || [];
