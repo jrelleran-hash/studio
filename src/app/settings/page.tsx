@@ -51,15 +51,14 @@ import { useAuth } from "@/hooks/use-auth";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { Switch } from "@/components/ui/switch";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { uploadProfilePicture, type UserProfile, updateUserProfile, deleteUser } from "@/services/data-service";
-import { changePassword } from "@/services/data-service";
+import { uploadProfilePicture, type UserProfile, updateUserProfile, deleteUser, changePassword } from "@/services/data-service";
 import Image from "next/image";
 import { useSearchParams, useRouter } from "next/navigation";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuSub, DropdownMenuSubContent, DropdownMenuSubTrigger, DropdownMenuCheckboxItem } from "@/components/ui/dropdown-menu";
+import { DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuSub, DropdownMenuSubContent, DropdownMenuSubTrigger, DropdownMenuCheckboxItem } from "@/components/ui/dropdown-menu";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import type { UserRole, Department, PagePermission } from "@/types";
+import type { UserRole, PagePermission } from "@/types";
 import { cn } from "@/lib/utils";
 import { Check, MoreHorizontal, X, ChevronsUpDown } from "lucide-react";
 import { useData } from "@/context/data-context";
@@ -785,6 +784,7 @@ export default function SettingsPage() {
     </div>
   );
 }
+
 
 
 
