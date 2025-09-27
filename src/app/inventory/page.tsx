@@ -335,13 +335,13 @@ export default function InventoryPage() {
             </div>
           </div>
           <div className="flex items-center gap-2">
-            <Button size="sm" variant="outline" className="gap-1" onClick={() => window.print()}>
+            <Button size="sm" variant="outline" className="gap-1 print-hidden" onClick={() => window.print()}>
                 <Printer />
                 Print Report
             </Button>
             <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>
               <DialogTrigger asChild>
-                <Button size="sm" className="gap-1 w-full md:w-auto">
+                <Button size="sm" className="gap-1 w-full md:w-auto print-hidden">
                   <PlusCircle />
                   Add Product
                 </Button>
@@ -870,5 +870,7 @@ export default function InventoryPage() {
 
 
 
+
+    
 
     
