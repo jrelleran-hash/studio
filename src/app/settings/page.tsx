@@ -56,7 +56,7 @@ import Image from "next/image";
 import { useSearchParams, useRouter } from "next/navigation";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuSub, DropdownMenuSubContent, DropdownMenuSubTrigger, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuSub, DropdownMenuSubContent, DropdownMenuSubTrigger, DropdownMenuTrigger, DropdownMenuCheckboxItem } from "@/components/ui/dropdown-menu";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import type { UserRole, Department } from "@/types";
 import { cn } from "@/lib/utils";
@@ -123,8 +123,6 @@ function UserManagementTable({ isAdmin }: { isAdmin: boolean }) {
     const { users, loading, refetchData } = useData();
     const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
     const [deletingUser, setDeletingUser] = useState<UserProfile | null>(null);
-    const [editingUser, setEditingUser] = useState<UserProfile | null>(null);
-    const [isDepartmentPopoverOpen, setIsDepartmentPopoverOpen] = useState(false);
     const { toast } = useToast();
 
     const handleProfileUpdate = async (uid: string, data: Partial<UserProfile>) => {
@@ -229,34 +227,27 @@ function UserManagementTable({ isAdmin }: { isAdmin: boolean }) {
                                                         </DropdownMenuSubContent>
                                                     </DropdownMenuSub>
                                                      <DropdownMenuSub>
-                                                        <DropdownMenuSubTrigger onSelect={(e) => e.preventDefault()}>Change Departments</DropdownMenuSubTrigger>
-                                                         <DropdownMenuSubContent className="p-0">
-                                                            <Command>
-                                                                <CommandInput placeholder="Search departments..." autoFocus />
-                                                                <CommandList>
-                                                                    <CommandEmpty>No departments found.</CommandEmpty>
-                                                                    <CommandGroup>
-                                                                        {departments.map((dep) => {
-                                                                            const isSelected = u.departments?.includes(dep);
-                                                                            return (
-                                                                                <CommandItem
-                                                                                    key={dep}
-                                                                                    onSelect={() => {
-                                                                                        const currentDepartments = u.departments || [];
-                                                                                        const newDepartments = isSelected
-                                                                                            ? currentDepartments.filter(d => d !== dep)
-                                                                                            : [...currentDepartments, dep];
-                                                                                        handleProfileUpdate(u.uid, { departments: newDepartments });
-                                                                                    }}
-                                                                                >
-                                                                                    <Check className={cn("mr-2 h-4 w-4", isSelected ? "opacity-100" : "opacity-0")} />
-                                                                                    {dep}
-                                                                                </CommandItem>
-                                                                            )
-                                                                        })}
-                                                                    </CommandGroup>
-                                                                </CommandList>
-                                                            </Command>
+                                                        <DropdownMenuSubTrigger>Change Departments</DropdownMenuSubTrigger>
+                                                         <DropdownMenuSubContent>
+                                                            {departments.map((dep) => {
+                                                                const isSelected = u.departments?.includes(dep);
+                                                                return (
+                                                                    <DropdownMenuCheckboxItem
+                                                                        key={dep}
+                                                                        checked={isSelected}
+                                                                        onSelect={(e) => e.preventDefault()} // Prevent menu from closing on click
+                                                                        onCheckedChange={(checked) => {
+                                                                            const currentDepartments = u.departments || [];
+                                                                            const newDepartments = checked
+                                                                                ? [...currentDepartments, dep]
+                                                                                : currentDepartments.filter(d => d !== dep);
+                                                                            handleProfileUpdate(u.uid, { departments: newDepartments });
+                                                                        }}
+                                                                    >
+                                                                        {dep}
+                                                                    </DropdownMenuCheckboxItem>
+                                                                )
+                                                            })}
                                                         </DropdownMenuSubContent>
                                                     </DropdownMenuSub>
                                                     <DropdownMenuSeparator />
@@ -764,4 +755,5 @@ export default function SettingsPage() {
     </div>
   );
 }
+
 
