@@ -330,6 +330,48 @@ export async function deleteProduct(productId: string): Promise<void> {
   }
 }
 
+export async function adjustStock(productId: string, quantity: number, reason: string): Promise<void> {
+    const productRef = doc(db, "inventory", productId);
+    const now = Timestamp.now();
+
+    try {
+        await runTransaction(db, async (transaction) => {
+            const productDoc = await transaction.get(productRef);
+            if (!productDoc.exists()) {
+                throw new Error("Product not found.");
+            }
+            const productData = productDoc.data() as Product;
+            const newStock = productData.stock + quantity;
+
+            if (newStock < 0) {
+                throw new Error("Stock cannot be negative.");
+            }
+
+            const newHistoryEntry = {
+                date: format(now.toDate(), 'yyyy-MM-dd'),
+                stock: newStock,
+                changeReason: reason,
+                dateUpdated: now,
+            };
+
+            transaction.update(productRef, {
+                stock: newStock,
+                lastUpdated: now,
+                history: arrayUnion(newHistoryEntry)
+            });
+        });
+        
+        const updatedProductDoc = await getDoc(productRef);
+        if (updatedProductDoc.exists()) {
+            await checkStockAndCreateNotification(updatedProductDoc.data() as Product, productId);
+        }
+
+    } catch(error) {
+        console.error("Error adjusting stock:", error);
+        throw error;
+    }
+}
+
 export async function getOrders(): Promise<Order[]> {
     try {
         const ordersCol = collection(db, "orders");
@@ -1827,5 +1869,3 @@ export async function deleteBackorder(backorderId: string): Promise<void> {
         throw new Error("Failed to delete reorder request.");
     }
 }
-
-    

@@ -6,7 +6,7 @@ import { useState, useEffect, useMemo, useRef } from "react";
 import { useForm, Controller } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
-import { PlusCircle, MoreHorizontal, Package, ChevronsUpDown, Check, Printer, FileDown } from "lucide-react";
+import { PlusCircle, MoreHorizontal, Package, ChevronsUpDown, Check, Printer, FileDown, SlidersHorizontal } from "lucide-react";
 import { Button, buttonVariants } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
@@ -16,6 +16,7 @@ import {
   DropdownMenuItem,
   DropdownMenuLabel,
   DropdownMenuTrigger,
+  DropdownMenuSeparator,
 } from "@/components/ui/dropdown-menu";
 import {
   Dialog,
@@ -40,7 +41,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useToast } from "@/hooks/use-toast";
-import { addProduct, updateProduct, deleteProduct, addSupplier } from "@/services/data-service";
+import { addProduct, updateProduct, deleteProduct, addSupplier, adjustStock } from "@/services/data-service";
 import type { Product, Supplier, ProductCategory } from "@/types";
 import Image from "next/image";
 import { Badge } from "@/components/ui/badge";
@@ -56,7 +57,8 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
 import React from 'react';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-
+import { Textarea } from "@/components/ui/textarea";
+import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 
 const MAX_FILE_SIZE = 5 * 1024 * 1024; // 5MB
 const ACCEPTED_IMAGE_TYPES = ["image/jpeg", "image/jpg", "image/png", "image/webp"];
@@ -100,6 +102,14 @@ const supplierSchema = z.object({
   address: z.string().min(1, "Address is required."),
 });
 
+const stockAdjustmentSchema = z.object({
+  adjustmentType: z.enum(["add", "remove"]),
+  quantity: z.coerce.number().min(1, "Quantity must be at least 1."),
+  reason: z.string().min(5, "A reason is required for the adjustment."),
+});
+
+type StockAdjustmentFormValues = z.infer<typeof stockAdjustmentSchema>;
+
 type SupplierFormValues = z.infer<typeof supplierSchema>;
 
 
@@ -121,6 +131,8 @@ export default function InventoryPage() {
   const [editingProduct, setEditingProduct] = useState<Product | null>(null);
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
   const [deletingProductId, setDeletingProductId] = useState<string | null>(null);
+  const [isAdjustmentOpen, setIsAdjustmentOpen] = useState(false);
+  const [adjustmentProduct, setAdjustmentProduct] = useState<Product | null>(null);
   const { toast } = useToast();
   const [statusFilter, setStatusFilter] = useState<StatusFilter>("all");
   const [categoryFilter, setCategoryFilter] = useState<CategoryFilter>("all");
@@ -155,6 +167,15 @@ export default function InventoryPage() {
   const supplierForm = useForm<SupplierFormValues>({
     resolver: zodResolver(supplierSchema),
   });
+  
+  const adjustmentForm = useForm<StockAdjustmentFormValues>({
+    resolver: zodResolver(stockAdjustmentSchema),
+    defaultValues: {
+      adjustmentType: "add",
+      quantity: 1,
+      reason: "",
+    },
+  });
 
   useEffect(() => {
     if (isAddDialogOpen) {
@@ -175,6 +196,15 @@ export default function InventoryPage() {
       setPreviewImage(null);
     }
   }, [editingProduct, editForm, suppliers]);
+
+   useEffect(() => {
+    if (adjustmentProduct) {
+      adjustmentForm.reset();
+      setIsAdjustmentOpen(true);
+    } else {
+      setIsAdjustmentOpen(false);
+    }
+  }, [adjustmentProduct, adjustmentForm]);
 
    const getStatus = (product: Product): { text: string; variant: "default" | "secondary" | "destructive", className?: string } => {
     if (product.stock === 0) return { text: "Out of Stock", variant: "destructive", className: "font-semibold" };
@@ -246,6 +276,25 @@ export default function InventoryPage() {
         variant: "destructive",
         title: "Error",
         description: "Failed to update product. Please try again.",
+      });
+    }
+  };
+
+  const onAdjustmentSubmit = async (data: StockAdjustmentFormValues) => {
+    if (!adjustmentProduct) return;
+    try {
+      const quantity = data.adjustmentType === 'add' ? data.quantity : -data.quantity;
+      await adjustStock(adjustmentProduct.id, quantity, data.reason);
+      toast({ title: "Success", description: "Stock adjusted successfully." });
+      setAdjustmentProduct(null);
+      await refetchData();
+    } catch (error) {
+      console.error(error);
+      const errorMessage = error instanceof Error ? error.message : "An unexpected error occurred.";
+      toast({
+        variant: "destructive",
+        title: "Error Adjusting Stock",
+        description: errorMessage,
       });
     }
   };
@@ -379,7 +428,7 @@ export default function InventoryPage() {
             </div>
           </div>
           <div className="flex flex-col items-end gap-2">
-            <div className="flex items-center gap-2 print-hidden">
+             <div className="flex items-center gap-2 print-hidden">
                 <Button size="sm" variant="outline" className="gap-1" onClick={handleExport}>
                     <FileDown />
                     Export to CSV
@@ -638,6 +687,11 @@ export default function InventoryPage() {
                               <DropdownMenuContent align="end" onClick={(e) => e.stopPropagation()}>
                                 <DropdownMenuLabel>Actions</DropdownMenuLabel>
                                 <DropdownMenuItem onClick={() => handleEditClick(product)}>Edit</DropdownMenuItem>
+                                <DropdownMenuItem onClick={() => setAdjustmentProduct(product)}>
+                                    <SlidersHorizontal className="mr-2 h-4 w-4" />
+                                    <span>Adjust Stock</span>
+                                </DropdownMenuItem>
+                                <DropdownMenuSeparator />
                                 <DropdownMenuItem onClick={() => handleDeleteClick(product.id)} className="text-destructive">Delete</DropdownMenuItem>
                               </DropdownMenuContent>
                             </DropdownMenu>
@@ -694,6 +748,11 @@ export default function InventoryPage() {
                                         <DropdownMenuContent>
                                             <DropdownMenuLabel>Actions</DropdownMenuLabel>
                                             <DropdownMenuItem onClick={() => handleEditClick(product)}>Edit</DropdownMenuItem>
+                                             <DropdownMenuItem onClick={() => setAdjustmentProduct(product)}>
+                                                <SlidersHorizontal className="mr-2 h-4 w-4" />
+                                                <span>Adjust Stock</span>
+                                            </DropdownMenuItem>
+                                            <DropdownMenuSeparator />
                                             <DropdownMenuItem onClick={() => handleDeleteClick(product.id)} className="text-destructive">Delete</DropdownMenuItem>
                                         </DropdownMenuContent>
                                     </DropdownMenu>
@@ -958,16 +1017,52 @@ export default function InventoryPage() {
             </form>
         </DialogContent>
       </Dialog>
+      
+       <Dialog open={isAdjustmentOpen} onOpenChange={(open) => !open && setAdjustmentProduct(null)}>
+        <DialogContent>
+            <DialogHeader>
+                <DialogTitle>Adjust Stock for {adjustmentProduct?.name}</DialogTitle>
+                <DialogDescription>Current Stock: {adjustmentProduct?.stock}</DialogDescription>
+            </DialogHeader>
+            <form onSubmit={adjustmentForm.handleSubmit(onAdjustmentSubmit)} className="space-y-4">
+                <div className="space-y-2">
+                    <Label>Adjustment Type</Label>
+                    <Controller
+                        name="adjustmentType"
+                        control={adjustmentForm.control}
+                        render={({ field }) => (
+                            <RadioGroup onValueChange={field.onChange} defaultValue={field.value} className="flex gap-4">
+                                <Label className="flex items-center gap-2 cursor-pointer">
+                                    <RadioGroupItem value="add" id="add" />
+                                    Add to Stock
+                                </Label>
+                                <Label className="flex items-center gap-2 cursor-pointer">
+                                    <RadioGroupItem value="remove" id="remove" />
+                                    Remove from Stock
+                                </Label>
+                            </RadioGroup>
+                        )}
+                    />
+                </div>
+                 <div className="space-y-2">
+                    <Label htmlFor="quantity">Quantity</Label>
+                    <Input id="quantity" type="number" {...adjustmentForm.register("quantity")} />
+                    {adjustmentForm.formState.errors.quantity && <p className="text-sm text-destructive">{adjustmentForm.formState.errors.quantity.message}</p>}
+                </div>
+                <div className="space-y-2">
+                    <Label htmlFor="reason">Reason for Adjustment</Label>
+                    <Textarea id="reason" {...adjustmentForm.register("reason")} placeholder="e.g., Damaged item, Cycle count correction, etc." />
+                    {adjustmentForm.formState.errors.reason && <p className="text-sm text-destructive">{adjustmentForm.formState.errors.reason.message}</p>}
+                </div>
+                <DialogFooter>
+                    <Button type="button" variant="outline" onClick={() => setAdjustmentProduct(null)}>Cancel</Button>
+                    <Button type="submit" disabled={adjustmentForm.formState.isSubmitting}>
+                        {adjustmentForm.formState.isSubmitting ? "Adjusting..." : "Apply Adjustment"}
+                    </Button>
+                </DialogFooter>
+            </form>
+        </DialogContent>
+      </Dialog>
     </>
   );
 }
-
-    
-
-
-
-
-
-    
-
-    

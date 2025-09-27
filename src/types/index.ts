@@ -44,6 +44,7 @@ export interface ProductHistory {
     date: string; // YYYY-MM-DD
     stock: number;
     dateUpdated: Timestamp;
+    changeReason?: string;
 }
 
 export type ProductCategory = "Tools" | "Consumables" | "Raw Materials" | "Finished Goods" | "Other";
