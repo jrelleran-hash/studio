@@ -613,7 +613,7 @@ export async function addIssuance(issuanceData: NewIssuanceData): Promise<Docume
     const allProductIds = issuanceData.items.map(i => i.productId).filter(Boolean);
 
     // Fetch existing reorders outside the transaction
-    let existingReorders = new Map<string, Backorder>();
+    const existingReorders = new Map<string, Backorder>();
     if (allProductIds.length > 0) {
         const backorderQuery = query(
             collection(db, "backorders"),
@@ -1763,9 +1763,26 @@ export async function getBackorders(): Promise<Backorder[]> {
 }
 
 
+export async function deleteBackorder(backorderId: string): Promise<void> {
+  try {
+    const backorderRef = doc(db, "backorders", backorderId);
+    const backorderDoc = await getDoc(backorderRef);
+
+    if (backorderDoc.exists() && backorderDoc.data().status !== 'Pending') {
+        throw new Error("Cannot delete a backorder that is already ordered.");
+    }
+    
+    await deleteDoc(backorderRef);
+  } catch (error) {
+    console.error("Error deleting backorder:", error);
+    throw error;
+  }
+}
+
     
 
     
+
 
 
 

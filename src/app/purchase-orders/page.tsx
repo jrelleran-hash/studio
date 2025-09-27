@@ -6,7 +6,7 @@ import React, { useState, useEffect, useMemo, useCallback, useRef } from "react"
 import { useForm, useFieldArray, Controller } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
-import { PlusCircle, MoreHorizontal, X, RefreshCcw, ChevronsUpDown, Check, Printer } from "lucide-react";
+import { PlusCircle, MoreHorizontal, X, RefreshCcw, ChevronsUpDown, Check, Printer, Trash2 } from "lucide-react";
 import { Timestamp } from "firebase/firestore";
 import { format } from "date-fns";
 
@@ -47,7 +47,7 @@ import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useToast } from "@/hooks/use-toast";
-import { addProduct, addSupplier, addPurchaseOrder, updatePurchaseOrderStatus, deletePurchaseOrder, initiateOutboundReturn, addClient } from "@/services/data-service";
+import { addProduct, addSupplier, addPurchaseOrder, updatePurchaseOrderStatus, deletePurchaseOrder, initiateOutboundReturn, addClient, deleteBackorder } from "@/services/data-service";
 import type { Supplier, PurchaseOrder, Product, OutboundReturnItem, Client, Backorder } from "@/types";
 import { formatCurrency } from "@/lib/currency";
 import { CURRENCY_CONFIG } from "@/config/currency";
@@ -271,6 +271,7 @@ export default function PurchaseOrdersPage() {
   const [isAddProductOpen, setIsAddProductOpen] = useState(false);
   const [isAddSupplierOpen, setIsAddSupplierOpen] = useState(false);
   const [isDeletePOOpen, setIsDeletePOOpen] = useState(false);
+  const [isDeleteBackorderOpen, setIsDeleteBackorderOpen] = useState(false);
   const [selectedPO, setSelectedPO] = useState<PurchaseOrder | null>(null);
   const [purchaseQueueSelection, setPurchaseQueueSelection] = useState<{[key: string]: boolean}>({});
   const [poForReturn, setPoForReturn] = useState<PurchaseOrder | null>(null);
@@ -280,6 +281,7 @@ export default function PurchaseOrdersPage() {
   // Data states
   const [autoGenerateSku, setAutoGenerateSku] = useState(true);
   const [deletingPOId, setDeletingPOId] = useState<string | null>(null);
+  const [deletingBackorderId, setDeletingBackorderId] = useState<string | null>(null);
   const [poView, setPoView] = useState<'queue' | 'list'>('queue');
   
   // Popover states
@@ -573,6 +575,31 @@ export default function PurchaseOrdersPage() {
       setDeletingPOId(null);
     }
   };
+
+  const handleDeleteBackorderClick = (backorderId: string) => {
+    setDeletingBackorderId(backorderId);
+    setIsDeleteBackorderOpen(true);
+  };
+  
+  const handleDeleteBackorderConfirm = async () => {
+    if (!deletingBackorderId) return;
+    try {
+      await deleteBackorder(deletingBackorderId);
+      toast({ title: "Success", description: "Reorder request deleted." });
+      await refetchData();
+    } catch (error) {
+      console.error(error);
+      toast({
+        variant: "destructive",
+        title: "Error",
+        description: "Failed to delete reorder request.",
+      });
+    } finally {
+      setIsDeleteBackorderOpen(false);
+      setDeletingBackorderId(null);
+    }
+  };
+
 
   const handleCreatePOFromQueue = () => {
     if (selectedQueueItems.length === 0) return;
@@ -986,12 +1013,13 @@ export default function PurchaseOrdersPage() {
                                     <TableHead>SKU</TableHead>
                                     <TableHead className="text-center">Reorder Qty</TableHead>
                                     <TableHead>Status</TableHead>
+                                    <TableHead className="text-right">Actions</TableHead>
                                 </TableRow>
                             </TableHeader>
                              <TableBody>
                                 {loading ? (
                                     Array.from({ length: 2 }).map((_, i) => (
-                                        <TableRow key={i}><TableCell colSpan={5}><Skeleton className="h-8 w-full" /></TableCell></TableRow>
+                                        <TableRow key={i}><TableCell colSpan={6}><Skeleton className="h-8 w-full" /></TableCell></TableRow>
                                     ))
                                 ) : reorderQueue.length > 0 ? (
                                     reorderQueue.map((item) => (
@@ -1011,10 +1039,20 @@ export default function PurchaseOrdersPage() {
                                                     {item.status}
                                                 </Badge>
                                             </TableCell>
+                                            <TableCell className="text-right">
+                                                <Button 
+                                                    variant="ghost" 
+                                                    size="icon"
+                                                    onClick={() => handleDeleteBackorderClick(item.id)}
+                                                    disabled={item.status !== 'Pending'}
+                                                >
+                                                    <Trash2 className="h-4 w-4 text-destructive"/>
+                                                </Button>
+                                            </TableCell>
                                         </TableRow>
                                     ))
                                 ) : (
-                                    <TableRow><TableCell colSpan={5} className="h-24 text-center">No items need reordering.</TableCell></TableRow>
+                                    <TableRow><TableCell colSpan={6} className="h-24 text-center">No items need reordering.</TableCell></TableRow>
                                 )}
                             </TableBody>
                         </Table>
@@ -1487,6 +1525,23 @@ export default function PurchaseOrdersPage() {
     <div className="hidden print:block">
       {poForPrint && <PrintablePurchaseOrder po={poForPrint} ref={printableRef} />}
     </div>
+    
+     <AlertDialog open={isDeleteBackorderOpen} onOpenChange={setIsDeleteBackorderOpen}>
+      <AlertDialogContent>
+        <AlertDialogHeader>
+          <AlertDialogTitle>Are you sure?</AlertDialogTitle>
+          <AlertDialogDescription>
+            This action cannot be undone. This will permanently delete this reorder request from the queue.
+          </AlertDialogDescription>
+        </AlertDialogHeader>
+        <AlertDialogFooter>
+          <AlertDialogCancel>Cancel</AlertDialogCancel>
+          <AlertDialogAction onClick={handleDeleteBackorderConfirm}>
+            Delete
+          </AlertDialogAction>
+        </AlertDialogFooter>
+      </AlertDialogContent>
+    </AlertDialog>
     </>
   );
 }
