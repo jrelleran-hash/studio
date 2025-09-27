@@ -1,8 +1,9 @@
 
 
-import { db, storage } from "@/lib/firebase";
+import { db, storage, auth } from "@/lib/firebase";
 import { collection, getDocs, getDoc, doc, orderBy, query, limit, Timestamp, where, DocumentReference, addDoc, updateDoc, deleteDoc, arrayUnion, runTransaction, writeBatch, setDoc } from "firebase/firestore";
 import { ref, uploadBytes, getDownloadURL } from "firebase/storage";
+import { EmailAuthProvider, reauthenticateWithCredential, updatePassword } from "firebase/auth";
 import type { Activity, Notification, Order, Product, Client, Issuance, Supplier, PurchaseOrder, Shipment, Return, ReturnItem, OutboundReturn, OutboundReturnItem, UserProfile, OrderItem, PurchaseOrderItem, IssuanceItem, Backorder, UserRole } from "@/types";
 import { format, subDays } from 'date-fns';
 
@@ -1753,6 +1754,30 @@ export async function deleteUser(uid: string): Promise<void> {
         throw new Error("Failed to delete user profile.");
     }
 }
+
+export async function changePassword(currentPassword: string, newPassword: string): Promise<void> {
+  const user = auth.currentUser;
+  if (!user || !user.email) {
+    throw new Error("No user is currently signed in.");
+  }
+
+  try {
+    // Re-authenticate the user
+    const credential = EmailAuthProvider.credential(user.email, currentPassword);
+    await reauthenticateWithCredential(user, credential);
+
+    // If re-authentication is successful, update the password
+    await updatePassword(user, newPassword);
+  } catch (error) {
+    console.error("Error changing password:", error);
+    // Provide a more user-friendly error message
+    if ((error as any).code === 'auth/wrong-password') {
+        throw new Error("The current password you entered is incorrect.");
+    }
+    throw new Error("Failed to change password. Please try again.");
+  }
+}
+
 
 export async function getBackorders(): Promise<Backorder[]> {
     try {
