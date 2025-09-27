@@ -51,14 +51,15 @@ import { useAuth } from "@/hooks/use-auth";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { Switch } from "@/components/ui/switch";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { uploadProfilePicture, type UserProfile, updateUserProfile, deleteUser, changePassword } from "@/services/data-service";
+import { uploadProfilePicture, type UserProfile, updateUserProfile, deleteUser } from "@/services/data-service";
+import { changePassword } from "@/services/data-service";
 import Image from "next/image";
 import { useSearchParams, useRouter } from "next/navigation";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuSub, DropdownMenuSubContent, DropdownMenuSubTrigger, DropdownMenuTrigger, DropdownMenuCheckboxItem } from "@/components/ui/dropdown-menu";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuSub, DropdownMenuSubContent, DropdownMenuSubTrigger, DropdownMenuCheckboxItem } from "@/components/ui/dropdown-menu";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import type { UserRole, Department } from "@/types";
+import type { UserRole, Department, PagePermission } from "@/types";
 import { cn } from "@/lib/utils";
 import { Check, MoreHorizontal, X, ChevronsUpDown } from "lucide-react";
 import { useData } from "@/context/data-context";
@@ -70,6 +71,27 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 const MAX_FILE_SIZE = 5 * 1024 * 1024; // 5MB
 const ACCEPTED_IMAGE_TYPES = ["image/jpeg", "image/jpg", "image/png", "image/webp"];
 
+const allPermissions: { group: string; permissions: { value: PagePermission; label: string }[] }[] = [
+    { group: "Core", permissions: [
+        { value: "/", label: "Dashboard" },
+        { value: "/clients", label: "Clients" },
+        { value: "/logistics", label: "Logistics" },
+        { value: "/analytics", label: "Analytics" },
+    ]},
+    { group: "Procurement", permissions: [
+        { value: "/orders", label: "Orders" },
+        { value: "/purchase-orders", label: "Purchase Orders" },
+        { value: "/suppliers", label: "Suppliers" },
+    ]},
+    { group: "Inventory", permissions: [
+        { value: "/inventory", label: "Products" },
+        { value: "/issuance", label: "Issuance" },
+    ]},
+    { group: "Assurance", permissions: [
+        { value: "/returns", label: "Returns" },
+        { value: "/quality-control", label: "Quality Control" },
+    ]},
+];
 
 const profileFormSchema = z.object({
   firstName: z.string().min(1, "First name is required."),
@@ -116,8 +138,6 @@ const getInitialNames = (displayName: string | null | undefined) => {
     const firstName = nameParts.join(" ");
     return { firstName, lastName };
 }
-
-const departments: Department[] = ["Procurement", "Inventory", "Assurance", "Logistics", "Analytics", "Clients", "All"];
 
 function UserManagementTable({ isAdmin }: { isAdmin: boolean }) {
     const { users, loading, refetchData } = useData();
@@ -177,7 +197,7 @@ function UserManagementTable({ isAdmin }: { isAdmin: boolean }) {
                                 <TableHead>User</TableHead>
                                 <TableHead>Email</TableHead>
                                 <TableHead>Role</TableHead>
-                                <TableHead>Departments</TableHead>
+                                <TableHead>Permissions</TableHead>
                                 <TableHead className="text-right">Actions</TableHead>
                             </TableRow>
                         </TableHeader>
@@ -200,7 +220,10 @@ function UserManagementTable({ isAdmin }: { isAdmin: boolean }) {
                                         <TableCell>{u.role}</TableCell>
                                         <TableCell>
                                             <div className="flex flex-wrap gap-1">
-                                                {(u.departments || []).map(dep => <Badge key={dep} variant="secondary">{dep}</Badge>)}
+                                                {(u.permissions || []).map(perm => {
+                                                    const permissionLabel = allPermissions.flatMap(g => g.permissions).find(p => p.value === perm)?.label || perm;
+                                                    return <Badge key={perm} variant="secondary">{permissionLabel}</Badge>
+                                                })}
                                             </div>
                                         </TableCell>
                                         <TableCell className="text-right">
@@ -226,28 +249,35 @@ function UserManagementTable({ isAdmin }: { isAdmin: boolean }) {
                                                             ))}
                                                         </DropdownMenuSubContent>
                                                     </DropdownMenuSub>
-                                                     <DropdownMenuSub>
-                                                        <DropdownMenuSubTrigger>Change Departments</DropdownMenuSubTrigger>
-                                                         <DropdownMenuSubContent>
-                                                            {departments.map((dep) => {
-                                                                const isSelected = u.departments?.includes(dep);
-                                                                return (
-                                                                    <DropdownMenuCheckboxItem
-                                                                        key={dep}
-                                                                        checked={isSelected}
-                                                                        onSelect={(e) => e.preventDefault()} // Prevent menu from closing on click
-                                                                        onCheckedChange={(checked) => {
-                                                                            const currentDepartments = u.departments || [];
-                                                                            const newDepartments = checked
-                                                                                ? [...currentDepartments, dep]
-                                                                                : currentDepartments.filter(d => d !== dep);
-                                                                            handleProfileUpdate(u.uid, { departments: newDepartments });
-                                                                        }}
-                                                                    >
-                                                                        {dep}
-                                                                    </DropdownMenuCheckboxItem>
-                                                                )
-                                                            })}
+                                                    <DropdownMenuSub>
+                                                        <DropdownMenuSubTrigger>Edit Permissions</DropdownMenuSubTrigger>
+                                                        <DropdownMenuSubContent className="p-2">
+                                                            {allPermissions.map((group) => (
+                                                                <DropdownMenuSub key={group.group}>
+                                                                    <DropdownMenuSubTrigger>{group.group}</DropdownMenuSubTrigger>
+                                                                    <DropdownMenuSubContent>
+                                                                        {group.permissions.map((permission) => {
+                                                                            const isSelected = (u.permissions || []).includes(permission.value);
+                                                                            return (
+                                                                                <DropdownMenuCheckboxItem
+                                                                                    key={permission.value}
+                                                                                    checked={isSelected}
+                                                                                    onSelect={(e) => e.preventDefault()}
+                                                                                    onCheckedChange={(checked) => {
+                                                                                        const currentPermissions = u.permissions || [];
+                                                                                        const newPermissions = checked
+                                                                                            ? [...currentPermissions, permission.value]
+                                                                                            : currentPermissions.filter(p => p !== permission.value);
+                                                                                        handleProfileUpdate(u.uid, { permissions: newPermissions });
+                                                                                    }}
+                                                                                >
+                                                                                    {permission.label}
+                                                                                </DropdownMenuCheckboxItem>
+                                                                            )
+                                                                        })}
+                                                                    </DropdownMenuSubContent>
+                                                                </DropdownMenuSub>
+                                                            ))}
                                                         </DropdownMenuSubContent>
                                                     </DropdownMenuSub>
                                                     <DropdownMenuSeparator />
@@ -755,5 +785,6 @@ export default function SettingsPage() {
     </div>
   );
 }
+
 
 
