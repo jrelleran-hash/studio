@@ -1,3 +1,4 @@
+
 import { Timestamp, DocumentReference } from "firebase/firestore";
 
 export interface Activity {
@@ -45,10 +46,13 @@ export interface ProductHistory {
     dateUpdated: Timestamp;
 }
 
+export type ProductCategory = "Tools" | "Consumables" | "Raw Materials" | "Finished Goods" | "Other";
+
 export interface Product {
     id:string;
     name: string;
     sku: string;
+    category: ProductCategory;
     stock: number;
     price: number;
     reorderLimit: number;

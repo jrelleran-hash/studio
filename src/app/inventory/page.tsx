@@ -41,7 +41,7 @@ import { Label } from "@/components/ui/label";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useToast } from "@/hooks/use-toast";
 import { addProduct, updateProduct, deleteProduct, addSupplier } from "@/services/data-service";
-import type { Product, Supplier } from "@/types";
+import type { Product, Supplier, ProductCategory } from "@/types";
 import Image from "next/image";
 import { Badge } from "@/components/ui/badge";
 import { Switch } from "@/components/ui/switch";
@@ -55,14 +55,18 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
 import React from 'react';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
 
 const MAX_FILE_SIZE = 5 * 1024 * 1024; // 5MB
 const ACCEPTED_IMAGE_TYPES = ["image/jpeg", "image/jpg", "image/png", "image/webp"];
+const categories: ProductCategory[] = ["Tools", "Consumables", "Raw Materials", "Finished Goods", "Other"];
+
 
 const createProductSchema = (isSkuAuto: boolean) => z.object({
   name: z.string().min(1, "Product name is required."),
   sku: z.string().optional(),
+  category: z.enum(categories),
   price: z.coerce.number().nonnegative("Price must be a non-negative number.").optional(),
   stock: z.coerce.number().int().nonnegative("Stock must be a non-negative integer.").optional(),
   reorderLimit: z.coerce.number().int().nonnegative("Reorder limit must be a non-negative integer."),
@@ -78,6 +82,7 @@ const createProductSchema = (isSkuAuto: boolean) => z.object({
 const editProductSchema = z.object({
   name: z.string().min(1, "Product name is required."),
   sku: z.string().optional(),
+  category: z.enum(categories),
   price: z.coerce.number().nonnegative("Price must be a non-negative number."),
   stock: z.coerce.number().int().nonnegative("Stock must be a non-negative integer."),
   reorderLimit: z.coerce.number().int().nonnegative("Reorder limit must be a non-negative integer."),
@@ -100,6 +105,7 @@ type SupplierFormValues = z.infer<typeof supplierSchema>;
 
 type ProductFormValues = z.infer<ReturnType<typeof createProductSchema>>;
 type StatusFilter = "all" | "in-stock" | "low-stock" | "out-of-stock";
+type CategoryFilter = "all" | ProductCategory;
 
 const toTitleCase = (str: string) => {
   return str.replace(
@@ -117,6 +123,7 @@ export default function InventoryPage() {
   const [deletingProductId, setDeletingProductId] = useState<string | null>(null);
   const { toast } = useToast();
   const [statusFilter, setStatusFilter] = useState<StatusFilter>("all");
+  const [categoryFilter, setCategoryFilter] = useState<CategoryFilter>("all");
   const [autoGenerateSku, setAutoGenerateSku] = useState(true);
   const [previewImage, setPreviewImage] = useState<string | null>(null);
   const addFileInputRef = useRef<HTMLInputElement>(null);
@@ -131,6 +138,7 @@ export default function InventoryPage() {
     defaultValues: {
       name: "",
       sku: "",
+      category: "Other",
       price: undefined,
       stock: undefined,
       reorderLimit: 10,
@@ -175,17 +183,13 @@ export default function InventoryPage() {
   };
 
   const filteredProducts = useMemo(() => {
-    if (statusFilter === "all") {
-      return products;
-    }
     return products.filter(product => {
-      const status = getStatus(product);
-      if (statusFilter === "in-stock") return status.text === "In Stock";
-      if (statusFilter === "low-stock") return status.text === "Low Stock";
-      if (statusFilter === "out-of-stock") return status.text === "Out of Stock";
-      return true;
+      const statusCheck = statusFilter === "all" || getStatus(product).text.replace(' ', '-')
+.toLowerCase() === statusFilter;
+      const categoryCheck = categoryFilter === "all" || product.category === categoryFilter;
+      return statusCheck && categoryCheck;
     });
-  }, [products, statusFilter]);
+  }, [products, statusFilter, categoryFilter]);
 
   
   const onAddSubmit = async (data: ProductFormValues) => {
@@ -314,7 +318,7 @@ export default function InventoryPage() {
   };
 
   const handleExport = () => {
-    const headers = ["SKU", "Name", "Price", "Stock", "Status", "Supplier", "Last Updated"];
+    const headers = ["SKU", "Name", "Category", "Price", "Stock", "Status", "Supplier", "Last Updated"];
     const rows = filteredProducts.map(p => {
         const status = getStatus(p);
         const lastUpdated = p.lastUpdated ? formatDate(p.lastUpdated) : 'N/A';
@@ -322,7 +326,7 @@ export default function InventoryPage() {
         const name = `"${p.name.replace(/"/g, '""')}"`;
         const supplier = `"${(p.supplier || 'N/A').replace(/"/g, '""')}"`;
 
-        return [p.sku, name, p.price, p.stock, status.text, supplier, lastUpdated].join(',');
+        return [p.sku, name, p.category, p.price, p.stock, status.text, supplier, lastUpdated].join(',');
     });
 
     const csvContent = "data:text/csv;charset=utf-8," 
@@ -346,6 +350,7 @@ export default function InventoryPage() {
             <CardTitle>Inventory</CardTitle>
             <CardDescription>Manage your product inventory.</CardDescription>
             <div className="flex items-center gap-2 mt-4 flex-wrap print-hidden">
+                <p className="text-sm font-medium mr-2">Status:</p>
               {(["all", "in-stock", "low-stock", "out-of-stock"] as StatusFilter[]).map((filter) => (
                 <Button
                   key={filter}
@@ -358,16 +363,32 @@ export default function InventoryPage() {
                 </Button>
               ))}
             </div>
+             <div className="flex items-center gap-2 mt-2 flex-wrap print-hidden">
+                <p className="text-sm font-medium mr-2">Category:</p>
+                {(["all", ...categories] as (CategoryFilter)[]).map((filter) => (
+                    <Button
+                    key={filter}
+                    variant={categoryFilter === filter ? "secondary" : "outline"}
+                    size="sm"
+                    onClick={() => setCategoryFilter(filter)}
+                    className="capitalize"
+                    >
+                    {filter.replace("-", " ")}
+                    </Button>
+                ))}
+            </div>
           </div>
-          <div className="flex items-center gap-2">
-            <Button size="sm" variant="outline" className="gap-1" onClick={handleExport}>
-                <FileDown />
-                Export to CSV
-            </Button>
-            <Button size="sm" variant="outline" className="gap-1 print-hidden" onClick={() => window.print()}>
-                <Printer />
-                Print Report
-            </Button>
+          <div className="flex flex-col items-end gap-2">
+            <div className="flex items-center gap-2 print-hidden">
+                <Button size="sm" variant="outline" className="gap-1" onClick={handleExport}>
+                    <FileDown />
+                    Export to CSV
+                </Button>
+                <Button size="sm" variant="outline" className="gap-1" onClick={() => window.print()}>
+                    <Printer />
+                    Print Report
+                </Button>
+            </div>
             <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>
               <DialogTrigger asChild className="print-hidden">
                 <Button size="sm" className="gap-1 w-full md:w-auto">
@@ -413,14 +434,34 @@ export default function InventoryPage() {
                         />
                         {addForm.formState.errors.photoFile && <p className="text-sm text-destructive">{addForm.formState.errors.photoFile.message as string}</p>}
                   </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="name">Product Name</Label>
-                    <Input id="name" {...addForm.register("name")} onChange={(e) => {
-                      const { value } = e.target;
-                      e.target.value = toTitleCase(value);
-                      addForm.setValue("name", e.target.value);
-                    }}/>
-                    {addForm.formState.errors.name && <p className="text-sm text-destructive">{addForm.formState.errors.name.message}</p>}
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                        <Label htmlFor="name">Product Name</Label>
+                        <Input id="name" {...addForm.register("name")} onChange={(e) => {
+                        const { value } = e.target;
+                        e.target.value = toTitleCase(value);
+                        addForm.setValue("name", e.target.value);
+                        }}/>
+                        {addForm.formState.errors.name && <p className="text-sm text-destructive">{addForm.formState.errors.name.message}</p>}
+                    </div>
+                     <div className="space-y-2">
+                        <Label htmlFor="category">Category</Label>
+                        <Controller
+                            name="category"
+                            control={addForm.control}
+                            render={({ field }) => (
+                                <Select onValueChange={field.onChange} defaultValue={field.value}>
+                                    <SelectTrigger>
+                                        <SelectValue placeholder="Select a category" />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                        {categories.map(cat => <SelectItem key={cat} value={cat}>{cat}</SelectItem>)}
+                                    </SelectContent>
+                                </Select>
+                            )}
+                        />
+                        {addForm.formState.errors.category && <p className="text-sm text-destructive">{addForm.formState.errors.category.message}</p>}
+                    </div>
                   </div>
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                     <div className="space-y-2">
@@ -535,6 +576,7 @@ export default function InventoryPage() {
                     <TableHead className="w-16 print-hidden">Image</TableHead>
                     <TableHead>Name</TableHead>
                     <TableHead>SKU</TableHead>
+                    <TableHead>Category</TableHead>
                     <TableHead>Price</TableHead>
                     <TableHead>Stock</TableHead>
                     <TableHead>Status</TableHead>
@@ -551,6 +593,7 @@ export default function InventoryPage() {
                       <TableRow key={i}>
                         <TableCell className="print-hidden"><Skeleton className="h-12 w-12 rounded-md" /></TableCell>
                         <TableCell><Skeleton className="h-4 w-48" /></TableCell>
+                        <TableCell><Skeleton className="h-4 w-24" /></TableCell>
                         <TableCell><Skeleton className="h-4 w-24" /></TableCell>
                         <TableCell><Skeleton className="h-4 w-16" /></TableCell>
                         <TableCell><Skeleton className="h-4 w-12" /></TableCell>
@@ -576,6 +619,7 @@ export default function InventoryPage() {
                           </TableCell>
                           <TableCell className="font-medium">{product.name}</TableCell>
                           <TableCell>{product.sku}</TableCell>
+                          <TableCell>{product.category}</TableCell>
                           <TableCell>{formatCurrency(product.price)}</TableCell>
                           <TableCell>{product.stock}</TableCell>
                           <TableCell>
@@ -656,6 +700,10 @@ export default function InventoryPage() {
                                 </CardHeader>
                                 <CardContent className="grid grid-cols-2 gap-4 text-sm">
                                     <div>
+                                        <p className="font-medium">Category</p>
+                                        <p>{product.category}</p>
+                                    </div>
+                                     <div>
                                         <p className="font-medium">Price</p>
                                         <p>{formatCurrency(product.price)}</p>
                                     </div>
@@ -723,14 +771,34 @@ export default function InventoryPage() {
                     />
                     {editForm.formState.errors.photoFile && <p className="text-sm text-destructive">{editForm.formState.errors.photoFile.message as string}</p>}
               </div>
-               <div className="space-y-2">
-                  <Label htmlFor="edit-name">Product Name</Label>
-                  <Input id="edit-name" {...editForm.register("name")} onChange={(e) => {
-                    const { value } = e.target;
-                    e.target.value = toTitleCase(value);
-                    editForm.setValue("name", e.target.value);
-                  }}/>
-                  {editForm.formState.errors.name && <p className="text-sm text-destructive">{editForm.formState.errors.name.message}</p>}
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                        <Label htmlFor="edit-name">Product Name</Label>
+                        <Input id="edit-name" {...editForm.register("name")} onChange={(e) => {
+                            const { value } = e.target;
+                            e.target.value = toTitleCase(value);
+                            editForm.setValue("name", e.target.value);
+                        }}/>
+                        {editForm.formState.errors.name && <p className="text-sm text-destructive">{editForm.formState.errors.name.message}</p>}
+                    </div>
+                    <div className="space-y-2">
+                        <Label htmlFor="edit-category">Category</Label>
+                        <Controller
+                            name="category"
+                            control={editForm.control}
+                            render={({ field }) => (
+                                <Select onValueChange={field.onChange} defaultValue={field.value}>
+                                    <SelectTrigger>
+                                        <SelectValue placeholder="Select a category" />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                        {categories.map(cat => <SelectItem key={cat} value={cat}>{cat}</SelectItem>)}
+                                    </SelectContent>
+                                </Select>
+                            )}
+                        />
+                        {editForm.formState.errors.category && <p className="text-sm text-destructive">{editForm.formState.errors.category.message}</p>}
+                    </div>
                 </div>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <div className="space-y-2">
