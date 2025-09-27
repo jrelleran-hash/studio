@@ -7,6 +7,7 @@ import { Sidebar } from "@/components/layout/sidebar";
 import { Header } from "@/components/layout/header";
 import { ReactNode } from "react";
 import { cn } from "@/lib/utils";
+import { StartupAnimation } from "./startup-animation";
 
 const unprotectedRoutes = ["/login", "/signup", "/verify-email"];
 
@@ -16,12 +17,8 @@ export function AppContent({ children }: { children: ReactNode }) {
 
   const isUnprotected = unprotectedRoutes.includes(pathname);
 
-  if (loading) {
-    return (
-      <div className="flex min-h-screen w-full items-center justify-center bg-background">
-        <p>Loading...</p>
-      </div>
-    );
+  if (loading && !isUnprotected) {
+    return <StartupAnimation />;
   }
 
   if (isUnprotected) {

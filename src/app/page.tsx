@@ -1,5 +1,4 @@
 
-
 "use client";
 
 import { WelcomeCard } from "@/components/dashboard/welcome-card";
@@ -19,6 +18,7 @@ import { PesoSign } from "@/components/icons";
 import { subDays, subWeeks, subMonths, subYears, startOfDay, endOfDay, startOfWeek, endOfWeek, startOfMonth, endOfMonth, startOfYear, endOfYear, format, isWithinInterval, eachDayOfInterval, eachWeekOfInterval, eachMonthOfInterval } from "date-fns";
 import type { Order } from "@/types";
 import { Button } from "@/components/ui/button";
+import { StartupAnimation } from "@/components/layout/startup-animation";
 
 const getRevenueData = (orders: Order[], filter: FilterType) => {
     const now = new Date();
@@ -196,11 +196,7 @@ export default function DashboardPage() {
 
 
   if (authLoading || !user) {
-    return (
-      <div className="flex h-screen items-center justify-center">
-        <p>Loading application...</p>
-      </div>
-    );
+    return <StartupAnimation />;
   }
 
   return (
