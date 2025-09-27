@@ -202,7 +202,7 @@ function UserManagementTable({ isAdmin }: { isAdmin: boolean }) {
                                         <TableCell>{u.role}</TableCell>
                                         <TableCell>
                                             <div className="flex flex-wrap gap-1">
-                                                {u.departments?.map(dep => <Badge key={dep} variant="secondary">{dep}</Badge>)}
+                                                {(u.departments || []).map(dep => <Badge key={dep} variant="secondary">{dep}</Badge>)}
                                             </div>
                                         </TableCell>
                                         <TableCell className="text-right">
@@ -229,7 +229,7 @@ function UserManagementTable({ isAdmin }: { isAdmin: boolean }) {
                                                         </DropdownMenuSubContent>
                                                     </DropdownMenuSub>
                                                      <DropdownMenuSub>
-                                                        <DropdownMenuSubTrigger onSelect={() => setEditingUser(u)}>Change Departments</DropdownMenuSubTrigger>
+                                                        <DropdownMenuSubTrigger onSelect={(e) => e.preventDefault()}>Change Departments</DropdownMenuSubTrigger>
                                                          <DropdownMenuSubContent className="p-0">
                                                             <Command>
                                                                 <CommandInput placeholder="Search departments..." autoFocus />
@@ -242,9 +242,10 @@ function UserManagementTable({ isAdmin }: { isAdmin: boolean }) {
                                                                                 <CommandItem
                                                                                     key={dep}
                                                                                     onSelect={() => {
+                                                                                        const currentDepartments = u.departments || [];
                                                                                         const newDepartments = isSelected
-                                                                                            ? u.departments.filter(d => d !== dep)
-                                                                                            : [...u.departments, dep];
+                                                                                            ? currentDepartments.filter(d => d !== dep)
+                                                                                            : [...currentDepartments, dep];
                                                                                         handleProfileUpdate(u.uid, { departments: newDepartments });
                                                                                     }}
                                                                                 >
@@ -763,3 +764,4 @@ export default function SettingsPage() {
     </div>
   );
 }
+
