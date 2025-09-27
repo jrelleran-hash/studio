@@ -1,4 +1,5 @@
 
+
 "use client";
 
 import { useState, useEffect, useRef, useCallback } from "react";
@@ -59,6 +60,8 @@ import { MoreHorizontal } from "lucide-react";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import type { UserRole } from "@/types";
+import { cn } from "@/lib/utils";
+import { Check } from "lucide-react";
 
 
 const MAX_FILE_SIZE = 5 * 1024 * 1024; // 5MB
@@ -165,7 +168,7 @@ function UserManagementTable({ isAdmin }: { isAdmin: boolean }) {
                         <CardTitle>User Management</CardTitle>
                         <CardDescription>Manage user roles and access.</CardDescription>
                     </div>
-                    <Button asChild size="sm">
+                     <Button asChild size="sm">
                         <Link href="/signup">Add User</Link>
                     </Button>
                 </CardHeader>
@@ -248,6 +251,82 @@ function UserManagementTable({ isAdmin }: { isAdmin: boolean }) {
             </AlertDialog>
         </>
     )
+}
+
+const colorThemes = [
+  { name: 'green', light: '89 100% 71.6%', dark: '89 100% 71.6%' },
+  { name: 'blue', light: '217 91% 60%', dark: '217 91% 60%' },
+  { name: 'violet', light: '262 84% 60%', dark: '262 84% 60%' },
+  { name: 'orange', light: '35 92% 60%', dark: '35 92% 60%' },
+  { name: 'red', light: '0 84% 60%', dark: '0 84% 60%' },
+];
+
+function AppearanceTab() {
+  const [selectedColor, setSelectedColor] = useState('green');
+
+  useEffect(() => {
+    const storedColorName = localStorage.getItem('app-accent-color') || 'green';
+    const theme = colorThemes.find(c => c.name === storedColorName) || colorThemes[0];
+    setSelectedColor(theme.name);
+    // Apply theme on initial load
+    const isDark = document.documentElement.classList.contains('dark');
+    document.documentElement.style.setProperty('--primary', theme[isDark ? 'dark' : 'light']);
+  }, []);
+
+  const handleColorChange = (colorName: string) => {
+    const theme = colorThemes.find(c => c.name === colorName);
+    if (theme) {
+      setSelectedColor(colorName);
+      localStorage.setItem('app-accent-color', colorName);
+      const isDark = document.documentElement.classList.contains('dark');
+      document.documentElement.style.setProperty('--primary', theme[isDark ? 'dark' : 'light']);
+    }
+  };
+
+  const resetColor = () => {
+    handleColorChange('green'); // Default color
+  };
+
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle>Appearance</CardTitle>
+        <CardDescription>
+          Customize the look and feel of the application.
+        </CardDescription>
+      </CardHeader>
+      <CardContent className="space-y-6">
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+              <div className="space-y-1">
+                  <Label htmlFor="theme">Theme</Label>
+                  <p className="text-sm text-muted-foreground">Select the theme for the dashboard.</p>
+              </div>
+              <ThemeToggle />
+          </div>
+           <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+              <div className="space-y-1">
+                  <Label>Accent Color</Label>
+                  <p className="text-sm text-muted-foreground">Select the primary accent color.</p>
+              </div>
+              <div className="flex items-center gap-2">
+                {colorThemes.map((color) => (
+                   <Button
+                    key={color.name}
+                    variant="outline"
+                    size="icon"
+                    className={cn('h-8 w-8 rounded-full', selectedColor === color.name && 'border-2 border-primary')}
+                    style={{ backgroundColor: `hsl(${color.light})` }}
+                    onClick={() => handleColorChange(color.name)}
+                   >
+                     {selectedColor === color.name && <Check className="h-4 w-4 text-white" />}
+                   </Button>
+                ))}
+                <Button variant="ghost" size="sm" onClick={resetColor}>Reset</Button>
+              </div>
+          </div>
+      </CardContent>
+    </Card>
+  )
 }
 
 export default function SettingsPage() {
@@ -483,23 +562,7 @@ export default function SettingsPage() {
         
 
         <TabsContent value="appearance" className="space-y-4">
-           <Card>
-            <CardHeader>
-              <CardTitle>Appearance</CardTitle>
-              <CardDescription>
-                Customize the look and feel of the application.
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-6">
-                <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-                    <div className="space-y-1">
-                        <Label htmlFor="theme">Theme</Label>
-                        <p className="text-sm text-muted-foreground">Select the theme for the dashboard.</p>
-                    </div>
-                    <ThemeToggle />
-                </div>
-            </CardContent>
-          </Card>
+          <AppearanceTab />
         </TabsContent>
 
         <TabsContent value="notifications" className="space-y-4">
@@ -546,3 +609,4 @@ export default function SettingsPage() {
     </div>
   );
 }
+
