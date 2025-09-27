@@ -2,8 +2,8 @@
 
 "use client";
 
-import { useState, useEffect, useRef, useCallback } from "react";
-import { useForm } from "react-hook-form";
+import React, { useState, useEffect, useRef, useCallback } from "react";
+import { useForm, Controller } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
 import { updateProfile } from "firebase/auth";
@@ -60,8 +60,11 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel,
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import type { UserRole, Department } from "@/types";
 import { cn } from "@/lib/utils";
-import { Check, MoreHorizontal } from "lucide-react";
+import { Check, MoreHorizontal, X, ChevronsUpDown } from "lucide-react";
 import { useData } from "@/context/data-context";
+import { Badge } from "@/components/ui/badge";
+import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 
 
 const MAX_FILE_SIZE = 5 * 1024 * 1024; // 5MB
@@ -114,10 +117,14 @@ const getInitialNames = (displayName: string | null | undefined) => {
     return { firstName, lastName };
 }
 
+const departments: Department[] = ["Procurement", "Inventory", "Assurance", "Logistics", "Analytics", "Clients", "All"];
+
 function UserManagementTable({ isAdmin }: { isAdmin: boolean }) {
     const { users, loading, refetchData } = useData();
     const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
     const [deletingUser, setDeletingUser] = useState<UserProfile | null>(null);
+    const [editingUser, setEditingUser] = useState<UserProfile | null>(null);
+    const [isDepartmentPopoverOpen, setIsDepartmentPopoverOpen] = useState(false);
     const { toast } = useToast();
 
     const handleProfileUpdate = async (uid: string, data: Partial<UserProfile>) => {
@@ -172,7 +179,7 @@ function UserManagementTable({ isAdmin }: { isAdmin: boolean }) {
                                 <TableHead>User</TableHead>
                                 <TableHead>Email</TableHead>
                                 <TableHead>Role</TableHead>
-                                <TableHead>Department</TableHead>
+                                <TableHead>Departments</TableHead>
                                 <TableHead className="text-right">Actions</TableHead>
                             </TableRow>
                         </TableHeader>
@@ -193,7 +200,11 @@ function UserManagementTable({ isAdmin }: { isAdmin: boolean }) {
                                         <TableCell className="font-medium">{u.firstName} {u.lastName}</TableCell>
                                         <TableCell>{u.email}</TableCell>
                                         <TableCell>{u.role}</TableCell>
-                                        <TableCell>{u.department}</TableCell>
+                                        <TableCell>
+                                            <div className="flex flex-wrap gap-1">
+                                                {u.departments?.map(dep => <Badge key={dep} variant="secondary">{dep}</Badge>)}
+                                            </div>
+                                        </TableCell>
                                         <TableCell className="text-right">
                                             <DropdownMenu>
                                                 <DropdownMenuTrigger asChild>
@@ -217,18 +228,34 @@ function UserManagementTable({ isAdmin }: { isAdmin: boolean }) {
                                                             ))}
                                                         </DropdownMenuSubContent>
                                                     </DropdownMenuSub>
-                                                    <DropdownMenuSub>
-                                                        <DropdownMenuSubTrigger>Change Department</DropdownMenuSubTrigger>
-                                                        <DropdownMenuSubContent>
-                                                            {(["Procurement", "Inventory", "Assurance", "Logistics", "Analytics", "Clients", "All"] as Department[]).map(dep => (
-                                                                <DropdownMenuItem 
-                                                                    key={dep}
-                                                                    disabled={u.department === dep}
-                                                                    onSelect={() => handleProfileUpdate(u.uid, { department: dep })}
-                                                                >
-                                                                    {dep}
-                                                                </DropdownMenuItem>
-                                                            ))}
+                                                     <DropdownMenuSub>
+                                                        <DropdownMenuSubTrigger onSelect={() => setEditingUser(u)}>Change Departments</DropdownMenuSubTrigger>
+                                                         <DropdownMenuSubContent className="p-0">
+                                                            <Command>
+                                                                <CommandInput placeholder="Search departments..." autoFocus />
+                                                                <CommandList>
+                                                                    <CommandEmpty>No departments found.</CommandEmpty>
+                                                                    <CommandGroup>
+                                                                        {departments.map((dep) => {
+                                                                            const isSelected = u.departments?.includes(dep);
+                                                                            return (
+                                                                                <CommandItem
+                                                                                    key={dep}
+                                                                                    onSelect={() => {
+                                                                                        const newDepartments = isSelected
+                                                                                            ? u.departments.filter(d => d !== dep)
+                                                                                            : [...u.departments, dep];
+                                                                                        handleProfileUpdate(u.uid, { departments: newDepartments });
+                                                                                    }}
+                                                                                >
+                                                                                    <Check className={cn("mr-2 h-4 w-4", isSelected ? "opacity-100" : "opacity-0")} />
+                                                                                    {dep}
+                                                                                </CommandItem>
+                                                                            )
+                                                                        })}
+                                                                    </CommandGroup>
+                                                                </CommandList>
+                                                            </Command>
                                                         </DropdownMenuSubContent>
                                                     </DropdownMenuSub>
                                                     <DropdownMenuSeparator />
@@ -445,7 +472,7 @@ function SecurityTab() {
 }
 
 export default function SettingsPage() {
-  const { user, userProfile } = useAuth();
+  const { user, userProfile, refetchUserProfile } = useAuth();
   const { toast } = useToast();
   const searchParams = useSearchParams();
   const router = useRouter();
@@ -511,6 +538,8 @@ export default function SettingsPage() {
         firstName: data.firstName,
         lastName: data.lastName,
       });
+
+      await refetchUserProfile();
 
       toast({
         title: "Profile Updated",
@@ -734,10 +763,3 @@ export default function SettingsPage() {
     </div>
   );
 }
-
-
-
-
-
-
-

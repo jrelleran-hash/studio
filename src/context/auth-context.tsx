@@ -1,4 +1,5 @@
 
+
 "use client";
 
 import { createContext, useEffect, useState, ReactNode, useCallback, useMemo } from "react";
@@ -13,6 +14,7 @@ interface AuthContextType {
   userProfile: UserProfile | null;
   loading: boolean;
   logout: () => Promise<void>;
+  refetchUserProfile: () => Promise<void>;
 }
 
 export const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -40,17 +42,21 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [loading, setLoading] = useState(true);
   const router = useRouter();
 
+  const fetchUserProfile = useCallback(async (firebaseUser: FirebaseUser) => {
+      const [profile, token] = await Promise.all([
+        getUserProfile(firebaseUser.uid),
+        getIdToken(firebaseUser, true) // Force refresh of the token
+      ]);
+      setUserProfile(profile);
+      // Set the session cookie for middleware
+      setCookie('__session', token, 1);
+  }, []);
+
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (user) => {
       setUser(user);
       if (user) {
-        const [profile, token] = await Promise.all([
-          getUserProfile(user.uid),
-          getIdToken(user, true) // Force refresh of the token
-        ]);
-        setUserProfile(profile);
-        // Set the session cookie for middleware
-        setCookie('__session', token, 1);
+        await fetchUserProfile(user);
       } else {
         setUserProfile(null);
         // Clear the session cookie on logout
@@ -60,7 +66,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     });
 
     return () => unsubscribe();
-  }, []);
+  }, [fetchUserProfile]);
 
 
   const logout = useCallback(async () => {
@@ -71,10 +77,18 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     eraseCookie('__session');
     router.push("/login");
   }, [router]);
+  
+  const refetchUserProfile = useCallback(async () => {
+    if (user) {
+        setLoading(true);
+        await fetchUserProfile(user);
+        setLoading(false);
+    }
+  }, [user, fetchUserProfile]);
 
   const value = useMemo(() => ({
-     user, userProfile, loading, logout
-  }), [user, userProfile, loading, logout]);
+     user, userProfile, loading, logout, refetchUserProfile
+  }), [user, userProfile, loading, logout, refetchUserProfile]);
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 }

@@ -122,13 +122,13 @@ export function Sidebar({ className, inSheet }: { className?: string, inSheet?: 
   const pathname = usePathname();
   const { userProfile } = useAuth();
   
-  const canAccess = (department: Department | "All") => {
+  const canAccess = (department: Department) => {
     if (!userProfile) return false;
-    const { role, department: userDepartment } = userProfile;
-    if (role === "Admin" || role === "Manager" || userDepartment === "All") {
+    const { role, departments } = userProfile;
+    if (role === "Admin" || role === "Manager" || departments.includes("All")) {
       return true;
     }
-    return userDepartment === department;
+    return departments.includes(department);
   }
 
   return (
@@ -142,7 +142,7 @@ export function Sidebar({ className, inSheet }: { className?: string, inSheet?: 
         </div>
         <div className="flex-1 overflow-auto py-2">
           <nav className="grid items-start px-4 text-sm font-medium">
-            {navItems.filter(item => canAccess(item.department as Department | "All")).map((item) => (
+            {navItems.filter(item => canAccess(item.department as Department)).map((item) => (
               <SidebarLink key={item.href} {...item} pathname={pathname} inSheet={inSheet} />
             ))}
             

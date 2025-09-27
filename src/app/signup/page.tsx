@@ -3,14 +3,14 @@
 "use client";
 
 import { useState } from "react";
-import { useForm } from "react-hook-form";
+import { useForm, Controller } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
 import { createUserWithEmailAndPassword, updateProfile, sendEmailVerification } from "firebase/auth";
 import { auth } from "@/lib/firebase";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { Eye, EyeOff } from "lucide-react";
+import { Eye, EyeOff, ChevronsUpDown, Check, X } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -23,6 +23,12 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import type { UserRole, Department } from "@/types";
 import { useAuth } from "@/hooks/use-auth";
 import { FirebaseError } from "firebase/app";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
+import { cn } from "@/lib/utils";
+import { Badge } from "@/components/ui/badge";
+
+const departments: Department[] = ["Procurement", "Inventory", "Assurance", "Logistics", "Analytics", "Clients", "All"];
 
 const signupSchema = z.object({
   firstName: z.string().min(1, "First name is required."),
@@ -30,7 +36,7 @@ const signupSchema = z.object({
   email: z.string().email({ message: "Invalid email address." }),
   password: z.string().min(6, { message: "Password must be at least 6 characters." }),
   role: z.enum(["Admin", "Manager", "Staff"]),
-  department: z.enum(["Procurement", "Inventory", "Assurance", "Logistics", "Analytics", "Clients", "All"]),
+  departments: z.array(z.string()).min(1, "At least one department is required."),
 });
 
 type SignupFormValues = z.infer<typeof signupSchema>;
@@ -52,6 +58,7 @@ export default function SignupPage() {
   const { userProfile } = useAuth();
   
   const isAdmin = userProfile?.role === "Admin";
+  const [isDepartmentPopoverOpen, setIsDepartmentPopoverOpen] = useState(false);
 
   const {
     register,
@@ -59,13 +66,16 @@ export default function SignupPage() {
     formState: { errors },
     setValue,
     control,
+    watch,
   } = useForm<SignupFormValues>({
     resolver: zodResolver(signupSchema),
     defaultValues: {
       role: "Staff",
-      department: "All",
+      departments: ["All"],
     },
   });
+
+  const selectedDepartments = watch('departments') || [];
 
   const onSubmit = async (data: SignupFormValues) => {
     setIsLoading(true);
@@ -87,7 +97,7 @@ export default function SignupPage() {
         lastName: data.lastName,
         email: data.email,
         role: data.role as UserRole,
-        department: data.department as Department,
+        departments: data.departments as Department[],
       });
 
       if (isAdmin) {
@@ -216,22 +226,60 @@ export default function SignupPage() {
                         {errors.role && <p className="text-sm text-destructive">{errors.role.message}</p>}
                     </div>
                      <div className="space-y-2">
-                        <Label htmlFor="department">Department</Label>
-                        <Select onValueChange={(value) => setValue('department', value as Department)} defaultValue="All">
-                            <SelectTrigger id="department" disabled={isLoading}>
-                                <SelectValue placeholder="Select a department" />
-                            </SelectTrigger>
-                            <SelectContent>
-                                <SelectItem value="Procurement">Procurement</SelectItem>
-                                <SelectItem value="Inventory">Inventory</SelectItem>
-                                <SelectItem value="Assurance">Assurance</SelectItem>
-                                <SelectItem value="Logistics">Logistics</SelectItem>
-                                <SelectItem value="Analytics">Analytics</SelectItem>
-                                <SelectItem value="Clients">Clients</SelectItem>
-                                <SelectItem value="All">All Access</SelectItem>
-                            </SelectContent>
-                        </Select>
-                        {errors.department && <p className="text-sm text-destructive">{errors.department.message}</p>}
+                        <Label>Departments</Label>
+                        <Controller
+                            control={control}
+                            name="departments"
+                            render={({ field }) => (
+                                <Popover open={isDepartmentPopoverOpen} onOpenChange={setIsDepartmentPopoverOpen}>
+                                    <PopoverTrigger asChild>
+                                        <Button
+                                            variant="outline"
+                                            role="combobox"
+                                            aria-expanded={isDepartmentPopoverOpen}
+                                            className="w-full justify-between"
+                                            disabled={isLoading}
+                                        >
+                                            <span className="truncate">
+                                                {selectedDepartments.length > 0 ? selectedDepartments.join(', ') : "Select departments..."}
+                                            </span>
+                                            <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                                        </Button>
+                                    </PopoverTrigger>
+                                    <PopoverContent className="w-[--radix-popover-trigger-width] p-0">
+                                        <Command>
+                                            <CommandInput placeholder="Search departments..." />
+                                            <CommandEmpty>No department found.</CommandEmpty>
+                                            <CommandList>
+                                                <CommandGroup>
+                                                    {departments.map((department) => (
+                                                        <CommandItem
+                                                            key={department}
+                                                            value={department}
+                                                            onSelect={() => {
+                                                                const newSelection = selectedDepartments.includes(department)
+                                                                    ? selectedDepartments.filter(d => d !== department)
+                                                                    : [...selectedDepartments, department];
+                                                                field.onChange(newSelection);
+                                                            }}
+                                                        >
+                                                            <Check
+                                                                className={cn(
+                                                                    "mr-2 h-4 w-4",
+                                                                    selectedDepartments.includes(department) ? "opacity-100" : "opacity-0"
+                                                                )}
+                                                            />
+                                                            {department}
+                                                        </CommandItem>
+                                                    ))}
+                                                </CommandGroup>
+                                            </CommandList>
+                                        </Command>
+                                    </PopoverContent>
+                                </Popover>
+                            )}
+                        />
+                        {errors.departments && <p className="text-sm text-destructive">{errors.departments.message}</p>}
                     </div>
                 </div>
              )}

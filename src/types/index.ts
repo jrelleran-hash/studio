@@ -2,6 +2,7 @@
 
 
 
+
 import { Timestamp, DocumentReference } from "firebase/firestore";
 
 export interface Activity {
@@ -205,5 +206,5 @@ export interface UserProfile {
     firstName: string;
     lastName: string;
     role: UserRole;
-    department: Department;
+    departments: Department[];
 }
