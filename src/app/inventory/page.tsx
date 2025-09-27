@@ -316,7 +316,7 @@ export default function InventoryPage() {
   return (
     <>
       <Card className="printable-content">
-        <CardHeader className="flex flex-col md:flex-row md:items-start md:justify-between gap-4 print-hidden">
+        <CardHeader className="flex flex-col md:flex-row md:items-start md:justify-between gap-4">
           <div>
             <CardTitle>Inventory</CardTitle>
             <CardDescription>Manage your product inventory.</CardDescription>
@@ -324,7 +324,7 @@ export default function InventoryPage() {
               {(["all", "in-stock", "low-stock", "out-of-stock"] as StatusFilter[]).map((filter) => (
                 <Button
                   key={filter}
-                  variant={statusFilter === filter ? "default" : "outline"}
+                  variant={statusFilter === filter ? "secondary" : "outline"}
                   size="sm"
                   onClick={() => setStatusFilter(filter)}
                   className="capitalize"
@@ -334,14 +334,14 @@ export default function InventoryPage() {
               ))}
             </div>
           </div>
-          <div className="flex items-center gap-2 print-hidden">
-            <Button size="sm" variant="outline" className="gap-1" onClick={() => window.print()}>
-              <Printer />
-              Print Report
+          <div className="flex items-center gap-2">
+            <Button size="sm" variant="outline" className="gap-1 print-hidden" onClick={() => window.print()}>
+                <Printer />
+                Print Report
             </Button>
             <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>
               <DialogTrigger asChild>
-                <Button size="sm" className="gap-1 w-full md:w-auto">
+                <Button size="sm" className="gap-1 w-full md:w-auto print-hidden">
                   <PlusCircle />
                   Add Product
                 </Button>
@@ -866,5 +866,6 @@ export default function InventoryPage() {
 }
 
     
+
 
 
