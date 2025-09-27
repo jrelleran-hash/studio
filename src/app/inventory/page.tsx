@@ -316,7 +316,7 @@ export default function InventoryPage() {
   return (
     <>
       <Card className="printable-content">
-        <CardHeader className="flex flex-col md:flex-row md:items-start md:justify-between gap-4">
+        <CardHeader className="flex flex-col md:flex-row md:items-start md:justify-between gap-4 print-hidden">
           <div>
             <CardTitle>Inventory</CardTitle>
             <CardDescription>Manage your product inventory.</CardDescription>
@@ -866,4 +866,5 @@ export default function InventoryPage() {
 }
 
     
+
 
