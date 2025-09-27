@@ -56,12 +56,11 @@ import Image from "next/image";
 import { useSearchParams, useRouter } from "next/navigation";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { MoreHorizontal } from "lucide-react";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import type { UserRole } from "@/types";
 import { cn } from "@/lib/utils";
-import { Check } from "lucide-react";
+import { Check, MoreHorizontal } from "lucide-react";
 
 
 const MAX_FILE_SIZE = 5 * 1024 * 1024; // 5MB
@@ -146,7 +145,7 @@ function UserManagementTable({ isAdmin }: { isAdmin: boolean }) {
         if (!deletingUser) return;
         try {
             await deleteUser(deletingUser.uid);
-            toast({ title: "Success", description: "User profile deleted." });
+            toast({ title: "Success", description: "User profile deleted. The user's login must be deleted from the Firebase Authentication console manually." });
             fetchUsers(); // Refresh the list
         } catch (error) {
             toast({ variant: "destructive", title: "Error", description: "Failed to delete user profile." });
@@ -253,38 +252,58 @@ function UserManagementTable({ isAdmin }: { isAdmin: boolean }) {
     )
 }
 
-const colorThemes = [
-  { name: 'green', light: '89 100% 71.6%', dark: '89 100% 71.6%' },
-  { name: 'blue', light: '217 91% 60%', dark: '217 91% 60%' },
-  { name: 'violet', light: '262 84% 60%', dark: '262 84% 60%' },
-  { name: 'orange', light: '35 92% 60%', dark: '35 92% 60%' },
-  { name: 'red', light: '0 84% 60%', dark: '0 84% 60%' },
-];
+// Function to convert HEX to HSL
+const hexToHsl = (hex: string): string => {
+  let r = 0, g = 0, b = 0;
+  if (hex.length === 4) {
+    r = parseInt(hex[1] + hex[1], 16);
+    g = parseInt(hex[2] + hex[2], 16);
+    b = parseInt(hex[3] + hex[3], 16);
+  } else if (hex.length === 7) {
+    r = parseInt(hex[1] + hex[2], 16);
+    g = parseInt(hex[3] + hex[4], 16);
+    b = parseInt(hex[5] + hex[6], 16);
+  }
+  r /= 255; g /= 255; b /= 255;
+  let cmin = Math.min(r,g,b),
+      cmax = Math.max(r,g,b),
+      delta = cmax - cmin,
+      h = 0, s = 0, l = 0;
+
+  if (delta === 0) h = 0;
+  else if (cmax === r) h = ((g - b) / delta) % 6;
+  else if (cmax === g) h = (b - r) / delta + 2;
+  else h = (r - g) / delta + 4;
+
+  h = Math.round(h * 60);
+  if (h < 0) h += 360;
+
+  l = (cmax + cmin) / 2;
+  s = delta === 0 ? 0 : delta / (1 - Math.abs(2 * l - 1));
+  s = +(s * 100).toFixed(1);
+  l = +(l * 100).toFixed(1);
+
+  return `${h} ${s}% ${l}%`;
+}
+
 
 function AppearanceTab() {
-  const [selectedColor, setSelectedColor] = useState('green');
+  const [selectedColor, setSelectedColor] = useState('#B3FF70'); // Default to green in hex
 
   useEffect(() => {
-    const storedColorName = localStorage.getItem('app-accent-color') || 'green';
-    const theme = colorThemes.find(c => c.name === storedColorName) || colorThemes[0];
-    setSelectedColor(theme.name);
-    // Apply theme on initial load
-    const isDark = document.documentElement.classList.contains('dark');
-    document.documentElement.style.setProperty('--primary', theme[isDark ? 'dark' : 'light']);
+    const storedColor = localStorage.getItem('app-accent-color') || '#B3FF70';
+    setSelectedColor(storedColor);
+    document.documentElement.style.setProperty('--primary', hexToHsl(storedColor));
   }, []);
 
-  const handleColorChange = (colorName: string) => {
-    const theme = colorThemes.find(c => c.name === colorName);
-    if (theme) {
-      setSelectedColor(colorName);
-      localStorage.setItem('app-accent-color', colorName);
-      const isDark = document.documentElement.classList.contains('dark');
-      document.documentElement.style.setProperty('--primary', theme[isDark ? 'dark' : 'light']);
-    }
+  const handleColorChange = (hex: string) => {
+    setSelectedColor(hex);
+    localStorage.setItem('app-accent-color', hex);
+    document.documentElement.style.setProperty('--primary', hexToHsl(hex));
   };
 
   const resetColor = () => {
-    handleColorChange('green'); // Default color
+    handleColorChange('#B3FF70'); // Default color
   };
 
   return (
@@ -309,18 +328,19 @@ function AppearanceTab() {
                   <p className="text-sm text-muted-foreground">Select the primary accent color.</p>
               </div>
               <div className="flex items-center gap-2">
-                {colorThemes.map((color) => (
-                   <Button
-                    key={color.name}
-                    variant="outline"
-                    size="icon"
-                    className={cn('h-8 w-8 rounded-full', selectedColor === color.name && 'border-2 border-primary')}
-                    style={{ backgroundColor: `hsl(${color.light})` }}
-                    onClick={() => handleColorChange(color.name)}
-                   >
-                     {selectedColor === color.name && <Check className="h-4 w-4 text-white" />}
-                   </Button>
-                ))}
+                <div className="relative">
+                   <Input 
+                      type="color" 
+                      value={selectedColor}
+                      onChange={(e) => handleColorChange(e.target.value)}
+                      className="p-0 h-8 w-14 border-none bg-transparent cursor-pointer"
+                   />
+                </div>
+                <Input 
+                  value={selectedColor}
+                  onChange={(e) => handleColorChange(e.target.value)}
+                  className="h-8 w-24"
+                />
                 <Button variant="ghost" size="sm" onClick={resetColor}>Reset</Button>
               </div>
           </div>
@@ -609,4 +629,5 @@ export default function SettingsPage() {
     </div>
   );
 }
+
 
