@@ -51,14 +51,14 @@ import { useAuth } from "@/hooks/use-auth";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { Switch } from "@/components/ui/switch";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { uploadProfilePicture, type UserProfile, getAllUsers, updateUserRole, deleteUser } from "@/services/data-service";
+import { uploadProfilePicture, type UserProfile, getAllUsers, updateUserProfile, deleteUser } from "@/services/data-service";
 import Image from "next/image";
 import { useSearchParams, useRouter } from "next/navigation";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger, DropdownMenuSub, DropdownMenuSubContent, DropdownMenuSubTrigger } from "@/components/ui/dropdown-menu";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import type { UserRole } from "@/types";
+import type { UserRole, Department } from "@/types";
 import { cn } from "@/lib/utils";
 import { Check, MoreHorizontal } from "lucide-react";
 
@@ -126,13 +126,13 @@ function UserManagementTable({ isAdmin }: { isAdmin: boolean }) {
         }
     }, [isAdmin, fetchUsers]);
 
-    const handleRoleChange = async (uid: string, role: UserRole) => {
+    const handleProfileUpdate = async (uid: string, data: Partial<UserProfile>) => {
         try {
-            await updateUserRole(uid, role);
-            toast({ title: "Success", description: "User role updated." });
+            await updateUserProfile(uid, data);
+            toast({ title: "Success", description: "User profile updated." });
             fetchUsers(); // Refresh the list
         } catch (error) {
-            toast({ variant: "destructive", title: "Error", description: "Failed to update user role." });
+            toast({ variant: "destructive", title: "Error", description: "Failed to update user profile." });
         }
     };
     
@@ -178,6 +178,7 @@ function UserManagementTable({ isAdmin }: { isAdmin: boolean }) {
                                 <TableHead>User</TableHead>
                                 <TableHead>Email</TableHead>
                                 <TableHead>Role</TableHead>
+                                <TableHead>Department</TableHead>
                                 <TableHead className="text-right">Actions</TableHead>
                             </TableRow>
                         </TableHeader>
@@ -188,6 +189,7 @@ function UserManagementTable({ isAdmin }: { isAdmin: boolean }) {
                                         <TableCell><Skeleton className="h-4 w-32" /></TableCell>
                                         <TableCell><Skeleton className="h-4 w-48" /></TableCell>
                                         <TableCell><Skeleton className="h-4 w-16" /></TableCell>
+                                        <TableCell><Skeleton className="h-4 w-24" /></TableCell>
                                         <TableCell className="text-right"><Skeleton className="h-8 w-8 ml-auto" /></TableCell>
                                     </TableRow>
                                 ))
@@ -197,6 +199,7 @@ function UserManagementTable({ isAdmin }: { isAdmin: boolean }) {
                                         <TableCell className="font-medium">{u.firstName} {u.lastName}</TableCell>
                                         <TableCell>{u.email}</TableCell>
                                         <TableCell>{u.role}</TableCell>
+                                        <TableCell>{u.department}</TableCell>
                                         <TableCell className="text-right">
                                             <DropdownMenu>
                                                 <DropdownMenuTrigger asChild>
@@ -205,16 +208,35 @@ function UserManagementTable({ isAdmin }: { isAdmin: boolean }) {
                                                     </Button>
                                                 </DropdownMenuTrigger>
                                                 <DropdownMenuContent align="end">
-                                                    <DropdownMenuLabel>Change Role</DropdownMenuLabel>
-                                                    {(["Admin", "Manager", "Staff"] as UserRole[]).map(role => (
-                                                        <DropdownMenuItem 
-                                                            key={role}
-                                                            disabled={u.role === role}
-                                                            onSelect={() => handleRoleChange(u.uid, role)}
-                                                        >
-                                                            {role}
-                                                        </DropdownMenuItem>
-                                                    ))}
+                                                    <DropdownMenuLabel>Actions</DropdownMenuLabel>
+                                                    <DropdownMenuSub>
+                                                        <DropdownMenuSubTrigger>Change Role</DropdownMenuSubTrigger>
+                                                        <DropdownMenuSubContent>
+                                                            {(["Admin", "Manager", "Staff"] as UserRole[]).map(role => (
+                                                                <DropdownMenuItem 
+                                                                    key={role}
+                                                                    disabled={u.role === role}
+                                                                    onSelect={() => handleProfileUpdate(u.uid, { role })}
+                                                                >
+                                                                    {role}
+                                                                </DropdownMenuItem>
+                                                            ))}
+                                                        </DropdownMenuSubContent>
+                                                    </DropdownMenuSub>
+                                                    <DropdownMenuSub>
+                                                        <DropdownMenuSubTrigger>Change Department</DropdownMenuSubTrigger>
+                                                        <DropdownMenuSubContent>
+                                                            {(["Procurement", "Inventory", "Assurance", "Logistics", "Analytics", "Clients", "All"] as Department[]).map(dep => (
+                                                                <DropdownMenuItem 
+                                                                    key={dep}
+                                                                    disabled={u.department === dep}
+                                                                    onSelect={() => handleProfileUpdate(u.uid, { department: dep })}
+                                                                >
+                                                                    {dep}
+                                                                </DropdownMenuItem>
+                                                            ))}
+                                                        </DropdownMenuSubContent>
+                                                    </DropdownMenuSub>
                                                     <DropdownMenuSeparator />
                                                     <DropdownMenuItem
                                                         className="text-destructive"
@@ -410,6 +432,11 @@ export default function SettingsPage() {
       await updateProfile(user, {
         displayName: displayName,
         photoURL: photoURL,
+      });
+      
+      await updateUserProfile(user.uid, {
+        firstName: data.firstName,
+        lastName: data.lastName,
       });
 
       toast({
@@ -629,5 +656,6 @@ export default function SettingsPage() {
     </div>
   );
 }
+
 
 

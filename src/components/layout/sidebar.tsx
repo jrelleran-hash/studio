@@ -1,4 +1,5 @@
 
+
 "use client";
 
 import Link from "next/link";
@@ -25,12 +26,14 @@ import { SheetClose } from "@/components/ui/sheet";
 import { type LucideIcon } from "lucide-react";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { Button } from "../ui/button";
+import { useAuth } from "@/hooks/use-auth";
+import type { Department, UserRole } from "@/types";
 
 const navItems = [
-  { href: "/", label: "Dashboard", icon: Home },
-  { href: "/clients", label: "Clients", icon: Users },
-  { href: "/logistics", label: "Logistics", icon: Truck },
-  { href: "/analytics", label: "Analytics", icon: BarChart },
+  { href: "/", label: "Dashboard", icon: Home, department: "All" },
+  { href: "/clients", label: "Clients", icon: Users, department: "Clients" },
+  { href: "/logistics", label: "Logistics", icon: Truck, department: "Logistics" },
+  { href: "/analytics", label: "Analytics", icon: BarChart, department: "Analytics" },
 ];
 
 const procurementNavItems = [
@@ -81,7 +84,7 @@ function SidebarLink({ href, label, icon: Icon, pathname, inSheet }: SidebarLink
 
 interface NavSectionProps {
     title: string;
-    items: typeof navItems;
+    items: Omit<typeof navItems, 'department'>;
     pathname: string;
     inSheet?: boolean;
 }
@@ -89,10 +92,8 @@ interface NavSectionProps {
 function NavSection({ title, items, pathname, inSheet }: NavSectionProps) {
     const [isOpen, setIsOpen] = useState(true);
     
-    // Check if any link in this section is active
     const isActiveSection = items.some(item => pathname.startsWith(item.href) && item.href !== '/');
     
-    // Default to open if a link inside is active
     useState(() => {
         setIsOpen(isActiveSection);
     });
@@ -119,6 +120,16 @@ function NavSection({ title, items, pathname, inSheet }: NavSectionProps) {
 
 export function Sidebar({ className, inSheet }: { className?: string, inSheet?: boolean }) {
   const pathname = usePathname();
+  const { userProfile } = useAuth();
+  
+  const canAccess = (department: Department | "All") => {
+    if (!userProfile) return false;
+    const { role, department: userDepartment } = userProfile;
+    if (role === "Admin" || role === "Manager" || userDepartment === "All") {
+      return true;
+    }
+    return userDepartment === department;
+  }
 
   return (
     <aside className={cn("flex-col border-r bg-card", className)}>
@@ -131,13 +142,13 @@ export function Sidebar({ className, inSheet }: { className?: string, inSheet?: 
         </div>
         <div className="flex-1 overflow-auto py-2">
           <nav className="grid items-start px-4 text-sm font-medium">
-            {navItems.map((item) => (
+            {navItems.filter(item => canAccess(item.department as Department | "All")).map((item) => (
               <SidebarLink key={item.href} {...item} pathname={pathname} inSheet={inSheet} />
             ))}
             
-            <NavSection title="Procurement" items={procurementNavItems} pathname={pathname} inSheet={inSheet} />
-            <NavSection title="Inventory" items={inventoryNavItems} pathname={pathname} inSheet={inSheet} />
-            <NavSection title="Assurance" items={assuranceNavItems} pathname={pathname} inSheet={inSheet} />
+            {canAccess("Procurement") && <NavSection title="Procurement" items={procurementNavItems} pathname={pathname} inSheet={inSheet} />}
+            {canAccess("Inventory") && <NavSection title="Inventory" items={inventoryNavItems} pathname={pathname} inSheet={inSheet} />}
+            {canAccess("Assurance") && <NavSection title="Assurance" items={assuranceNavItems} pathname={pathname} inSheet={inSheet} />}
             
           </nav>
         </div>

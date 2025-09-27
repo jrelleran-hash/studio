@@ -1,4 +1,5 @@
 
+
 "use client";
 
 import { useState } from "react";
@@ -19,7 +20,7 @@ import { useToast } from "@/hooks/use-toast";
 import { CoreFlowLogo } from "@/components/icons";
 import { createUserProfile } from "@/services/data-service";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import type { UserRole } from "@/types";
+import type { UserRole, Department } from "@/types";
 import { useAuth } from "@/hooks/use-auth";
 import { FirebaseError } from "firebase/app";
 
@@ -29,6 +30,7 @@ const signupSchema = z.object({
   email: z.string().email({ message: "Invalid email address." }),
   password: z.string().min(6, { message: "Password must be at least 6 characters." }),
   role: z.enum(["Admin", "Manager", "Staff"]),
+  department: z.enum(["Procurement", "Inventory", "Assurance", "Logistics", "Analytics", "Clients", "All"]),
 });
 
 type SignupFormValues = z.infer<typeof signupSchema>;
@@ -56,10 +58,12 @@ export default function SignupPage() {
     handleSubmit,
     formState: { errors },
     setValue,
+    control,
   } = useForm<SignupFormValues>({
     resolver: zodResolver(signupSchema),
     defaultValues: {
       role: "Staff",
+      department: "All",
     },
   });
 
@@ -72,8 +76,6 @@ export default function SignupPage() {
 
       await updateProfile(user, { displayName });
       
-      // The `actionCodeSettings` object is optional but recommended.
-      // It allows you to pass state back to the app on redirect.
       const actionCodeSettings = {
         url: `${window.location.origin}/login`,
         handleCodeInApp: true,
@@ -85,6 +87,7 @@ export default function SignupPage() {
         lastName: data.lastName,
         email: data.email,
         role: data.role as UserRole,
+        department: data.department as Department,
       });
 
       if (isAdmin) {
@@ -197,19 +200,39 @@ export default function SignupPage() {
               {errors.password && <p className="text-sm text-destructive">{errors.password.message}</p>}
             </div>
              {isAdmin && (
-                <div className="space-y-2">
-                    <Label htmlFor="role">Role</Label>
-                    <Select onValueChange={(value) => setValue('role', value as "Admin" | "Manager" | "Staff")} defaultValue="Staff">
-                        <SelectTrigger id="role" disabled={isLoading}>
-                            <SelectValue placeholder="Select a role" />
-                        </SelectTrigger>
-                        <SelectContent>
-                            <SelectItem value="Admin">Admin</SelectItem>
-                            <SelectItem value="Manager">Manager</SelectItem>
-                            <SelectItem value="Staff">Staff</SelectItem>
-                        </SelectContent>
-                    </Select>
-                    {errors.role && <p className="text-sm text-destructive">{errors.role.message}</p>}
+                <div className="grid grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                        <Label htmlFor="role">Role</Label>
+                        <Select onValueChange={(value) => setValue('role', value as UserRole)} defaultValue="Staff">
+                            <SelectTrigger id="role" disabled={isLoading}>
+                                <SelectValue placeholder="Select a role" />
+                            </SelectTrigger>
+                            <SelectContent>
+                                <SelectItem value="Admin">Admin</SelectItem>
+                                <SelectItem value="Manager">Manager</SelectItem>
+                                <SelectItem value="Staff">Staff</SelectItem>
+                            </SelectContent>
+                        </Select>
+                        {errors.role && <p className="text-sm text-destructive">{errors.role.message}</p>}
+                    </div>
+                     <div className="space-y-2">
+                        <Label htmlFor="department">Department</Label>
+                        <Select onValueChange={(value) => setValue('department', value as Department)} defaultValue="All">
+                            <SelectTrigger id="department" disabled={isLoading}>
+                                <SelectValue placeholder="Select a department" />
+                            </SelectTrigger>
+                            <SelectContent>
+                                <SelectItem value="Procurement">Procurement</SelectItem>
+                                <SelectItem value="Inventory">Inventory</SelectItem>
+                                <SelectItem value="Assurance">Assurance</SelectItem>
+                                <SelectItem value="Logistics">Logistics</SelectItem>
+                                <SelectItem value="Analytics">Analytics</SelectItem>
+                                <SelectItem value="Clients">Clients</SelectItem>
+                                <SelectItem value="All">All Access</SelectItem>
+                            </SelectContent>
+                        </Select>
+                        {errors.department && <p className="text-sm text-destructive">{errors.department.message}</p>}
+                    </div>
                 </div>
              )}
             <Button type="submit" className="w-full" disabled={isLoading}>

@@ -1,5 +1,6 @@
 
 
+
 import { db, storage } from "@/lib/firebase";
 import { collection, getDocs, getDoc, doc, orderBy, query, limit, Timestamp, where, DocumentReference, addDoc, updateDoc, deleteDoc, arrayUnion, runTransaction, writeBatch, setDoc } from "firebase/firestore";
 import { ref, uploadBytes, getDownloadURL } from "firebase/storage";
@@ -612,7 +613,6 @@ export async function addIssuance(issuanceData: NewIssuanceData): Promise<Docume
   const clientRef = doc(db, "clients", issuanceData.clientId);
   const allProductIds = issuanceData.items.map(i => i.productId).filter(Boolean);
 
-  // Fetch existing reorders outside the transaction
   let existingReorders = new Map<string, Backorder>();
   if (allProductIds.length > 0) {
     const backorderQuery = query(
@@ -1700,7 +1700,7 @@ export async function initiateOutboundReturn(returnData: NewOutboundReturnData):
 export async function createUserProfile(uid: string, data: Omit<UserProfile, 'uid'>) {
     try {
         const userRef = doc(db, "users", uid);
-        await setDoc(userRef, data);
+        await setDoc(userRef, { ...data, uid });
     } catch (error) {
         console.error("Error creating user profile:", error);
         throw new Error("Failed to create user profile.");
@@ -1732,15 +1732,16 @@ export async function getAllUsers(): Promise<UserProfile[]> {
   }
 }
 
-export async function updateUserRole(uid: string, role: UserRole): Promise<void> {
+export async function updateUserProfile(uid: string, data: Partial<UserProfile>): Promise<void> {
   try {
     const userRef = doc(db, "users", uid);
-    await updateDoc(userRef, { role });
+    await updateDoc(userRef, data);
   } catch (error) {
-    console.error("Error updating user role:", error);
-    throw new Error("Failed to update user role.");
+    console.error("Error updating user profile:", error);
+    throw new Error("Failed to update user profile.");
   }
 }
+
 
 export async function deleteUser(uid: string): Promise<void> {
     try {
@@ -1794,12 +1795,11 @@ export async function getBackorders(): Promise<Backorder[]> {
 
 
 export async function deleteBackorder(backorderId: string): Promise<void> {
-  try {
-    const backorderRef = doc(db, "backorders", backorderId);
-    await deleteDoc(backorderRef);
-  } catch (error) {
-    console.error("Error deleting backorder:", error);
-    // Do not throw an error that stops the UI, just log it.
-    // This is a cleanup operation, not critical path.
-  }
+    try {
+        const backorderRef = doc(db, "backorders", backorderId);
+        await deleteDoc(backorderRef);
+    } catch (error) {
+        console.error("Error deleting backorder:", error);
+        throw new Error("Failed to delete reorder request.");
+    }
 }
