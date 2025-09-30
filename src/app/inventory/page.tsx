@@ -500,8 +500,8 @@ export default function InventoryPage() {
             onClose={() => setIsScannerOpen(false)}
         />
       )}
-      <Card className="printable-content">
-        <CardHeader className="flex flex-col md:flex-row md:items-start md:justify-between gap-4">
+      <Card>
+        <CardHeader className="flex flex-col md:flex-row md:items-start md:justify-between gap-4 print-hidden">
           <div>
             <CardTitle>Inventory</CardTitle>
             <CardDescription>Manage your product inventory.</CardDescription>
@@ -1150,19 +1150,19 @@ export default function InventoryPage() {
       </Dialog>
       <Dialog open={!!qrCodeProduct} onOpenChange={(open) => !open && setQrCodeProduct(null)}>
         <DialogContent className="sm:max-w-sm">
-             <DialogHeader className="sr-only print-hidden">
+            <DialogHeader className="sr-only print-hidden">
                 <DialogTitle>Product QR Code</DialogTitle>
             </DialogHeader>
-            <div className="printable-content flex flex-col items-center justify-center p-4 bg-white text-black text-center">
-                <div className="flex items-center gap-2">
+            <div className="printable-content flex flex-col items-center justify-center text-center p-4 bg-white text-black">
+                <div className="flex items-center gap-2 font-semibold">
                     <CoreFlowLogo className="h-6 w-6 text-black" />
-                    <span className="font-semibold">CoreFlow</span>
+                    <span>CoreFlow</span>
                 </div>
-                <p className="text-lg font-semibold mt-2">{qrCodeProduct?.name}</p>
+                <p className="text-lg font-bold mt-2">{qrCodeProduct?.name}</p>
                 <div className="p-2 inline-block my-2">
                     <QRCode value={qrCodeProduct?.id || ""} size={128} />
                 </div>
-                <p className="text-sm text-gray-600">SKU: {qrCodeProduct?.sku}</p>
+                <p className="text-sm font-mono text-gray-600">SKU: {qrCodeProduct?.sku}</p>
             </div>
             <DialogFooter className="print-hidden mt-4">
                 <Button variant="outline" onClick={() => setQrCodeProduct(null)}>Close</Button>
