@@ -1,7 +1,7 @@
 
 "use client";
 
-import { useMemo, useState } from "react";
+import React, { useMemo, useState } from "react";
 import type { Product, ProductLocation } from "@/types";
 import { cn } from "@/lib/utils";
 import {
