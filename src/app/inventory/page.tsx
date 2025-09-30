@@ -1,4 +1,5 @@
 
+
 "use client";
 
 import { useState, useEffect, useMemo, useRef, useCallback } from "react";
@@ -1175,15 +1176,15 @@ export default function InventoryPage() {
       </Dialog>
       <Dialog open={!!qrCodeProduct} onOpenChange={(open) => !open && setQrCodeProduct(null)}>
         <DialogContent className="sm:max-w-sm">
-            <DialogHeader className="sr-only print-hidden">
+            <DialogHeader className="print-hidden sr-only">
                 <DialogTitle>Product QR Code</DialogTitle>
             </DialogHeader>
-            <div ref={qrCodeLabelRef} className="printable-content flex flex-col items-center justify-center p-4 bg-white text-black">
+            <div ref={qrCodeLabelRef} className="printable-content flex flex-col items-center justify-center p-4 bg-white text-black rounded-lg">
                 <div className="flex items-center gap-2 font-semibold">
                     <CoreFlowLogo className="h-6 w-6 text-black" />
                     <span>CoreFlow</span>
                 </div>
-                <p className="text-lg font-bold mt-2 text-center">{qrCodeProduct?.name}</p>
+                <p className="text-lg font-bold mt-4 text-center">{qrCodeProduct?.name}</p>
                 <div className="p-2 inline-block my-2">
                     <QRCode value={qrCodeProduct?.id || ""} size={128} />
                 </div>
@@ -1202,23 +1203,6 @@ export default function InventoryPage() {
             </DialogFooter>
         </DialogContent>
       </Dialog>
-      <div className="hidden">
-        <div ref={qrCodeLabelRef}>
-            {qrCodeProduct && (
-                 <div className="flex flex-col items-center justify-center text-center p-4 bg-white text-black w-[300px]">
-                    <div className="flex items-center gap-2 font-semibold">
-                        <CoreFlowLogo className="h-6 w-6 text-black" />
-                        <span>CoreFlow</span>
-                    </div>
-                    <p className="text-lg font-bold mt-2">{qrCodeProduct?.name}</p>
-                    <div className="p-2 inline-block my-2">
-                        <QRCode value={qrCodeProduct?.id || ""} size={128} />
-                    </div>
-                    <p className="text-sm font-mono text-gray-600">SKU: {qrCodeProduct?.sku}</p>
-                </div>
-            )}
-        </div>
-      </div>
     </>
   );
 }
