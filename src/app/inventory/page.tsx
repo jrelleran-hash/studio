@@ -44,7 +44,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useToast } from "@/hooks/use-toast";
-import { addProduct, updateProduct, deleteProduct, addSupplier, adjustStock, uploadProductPicture } from "@/services/data-service";
+import { addProduct, updateProduct, deleteProduct, addSupplier, adjustStock } from "@/services/data-service";
 import type { Product, Supplier, ProductCategory } from "@/types";
 import Image from "next/image";
 import { Badge } from "@/components/ui/badge";
@@ -64,8 +64,6 @@ import { Textarea } from "@/components/ui/textarea";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import QRCode from "react-qr-code";
 
-const MAX_FILE_SIZE = 5 * 1024 * 1024; // 5MB
-const ACCEPTED_IMAGE_TYPES = ["image/jpeg", "image/jpg", "image/png", "image/webp"];
 const categories: ProductCategory[] = ["Tools", "Consumables", "Raw Materials", "Finished Goods", "Other"];
 
 
@@ -79,14 +77,6 @@ const createProductSchema = (isSkuAuto: boolean) => z.object({
   maxStockLevel: z.coerce.number().int().nonnegative("Max stock must be a non-negative integer."),
   location: z.string().optional(),
   supplierId: z.string().optional(),
-  photoFile: z
-    .any()
-    .optional()
-    .refine((files) => !files?.[0] || files?.[0]?.size <= MAX_FILE_SIZE, `Max file size is 5MB.`)
-    .refine(
-      (files) => !files || (files?.[0] && ACCEPTED_IMAGE_TYPES.includes(files?.[0]?.type)),
-      ".jpg, .jpeg, .png and .webp files are accepted."
-    ),
 }).refine(data => isSkuAuto || (data.sku && data.sku.length > 0), {
     message: "SKU is required when not auto-generated.",
     path: ["sku"],
@@ -102,14 +92,6 @@ const editProductSchema = z.object({
   maxStockLevel: z.coerce.number().int().nonnegative("Max stock must be a non-negative integer."),
   location: z.string().optional(),
   supplierId: z.string().optional(),
-    photoFile: z
-    .any()
-    .optional()
-    .refine((files) => !files?.[0] || files?.[0]?.size <= MAX_FILE_SIZE, `Max file size is 5MB.`)
-    .refine(
-      (files) => !files || (files?.[0] && ACCEPTED_IMAGE_TYPES.includes(files?.[0]?.type)),
-      ".jpg, .jpeg, .png and .webp files are accepted."
-    ),
 });
 
 const supplierSchema = z.object({
@@ -158,9 +140,6 @@ export default function InventoryPage() {
   const [isSupplierPopoverOpen, setIsSupplierPopoverOpen] = useState(false);
   const [isAddSupplierOpen, setIsAddSupplierOpen] = useState(false);
   const [qrCodeProduct, setQrCodeProduct] = useState<Product | null>(null);
-  const [previewImage, setPreviewImage] = useState<string | null>(null);
-  const addFileRef = useRef<HTMLInputElement>(null);
-  const editFileRef = useRef<HTMLInputElement>(null);
 
   const productSchema = useMemo(() => createProductSchema(autoGenerateSku), [autoGenerateSku]);
 
@@ -200,7 +179,6 @@ export default function InventoryPage() {
     if (isAddDialogOpen) {
       addForm.reset();
       setAutoGenerateSku(true);
-      setPreviewImage(null);
     }
   }, [isAddDialogOpen, addForm]);
 
@@ -210,7 +188,6 @@ export default function InventoryPage() {
         ...editingProduct,
         supplierId: suppliers.find(s => s.name === editingProduct.supplier)?.id || '',
       });
-      setPreviewImage(editingProduct.photoURL || null);
     }
   }, [editingProduct, editForm, suppliers]);
 
@@ -241,16 +218,10 @@ export default function InventoryPage() {
   
   const onAddSubmit = async (data: ProductFormValues) => {
     try {
-      const { supplierId, photoFile, ...productData } = data;
+      const { supplierId, ...productData } = data;
       const supplierName = suppliers.find(s => s.id === supplierId)?.name || '';
       
-      let photoURL: string | undefined = undefined;
-      const file = photoFile?.[0];
-      if (file) {
-        photoURL = await uploadProductPicture(file, Date.now().toString());
-      }
-      
-      const finalProductData: any = { ...productData, supplier: supplierName, photoURL };
+      const finalProductData: any = { ...productData, supplier: supplierName };
 
       if (autoGenerateSku) {
         const namePart = data.name.substring(0, 3).toUpperCase();
@@ -276,16 +247,10 @@ export default function InventoryPage() {
   const onEditSubmit = async (data: ProductFormValues) => {
     if (!editingProduct) return;
     try {
-      const { sku, supplierId, photoFile, ...updateData } = data;
+      const { sku, supplierId, ...updateData } = data;
       const supplierName = suppliers.find(s => s.id === supplierId)?.name || '';
       
-      let photoURL: string | undefined = editingProduct.photoURL;
-      const file = photoFile?.[0];
-      if (file) {
-        photoURL = await uploadProductPicture(file, editingProduct.id);
-      }
-      
-      const payload: any = { ...updateData, supplier: supplierName, photoURL };
+      const payload: any = { ...updateData, supplier: supplierName };
       
       await updateProduct(editingProduct.id, payload);
       toast({ title: "Success", description: "Product updated successfully." });
@@ -396,17 +361,6 @@ export default function InventoryPage() {
     link.click();
     document.body.removeChild(link);
   }
-  
-  const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
-    const file = event.target.files?.[0];
-    if (file) {
-      const reader = new FileReader();
-      reader.onloadend = () => {
-        setPreviewImage(reader.result as string);
-      };
-      reader.readAsDataURL(file);
-    }
-  };
 
   return (
     <>
@@ -478,74 +432,45 @@ export default function InventoryPage() {
                   <DialogDescription>Fill in the details for the new product.</DialogDescription>
                 </DialogHeader>
                 <form onSubmit={addForm.handleSubmit(onAddSubmit)} className="space-y-4">
-                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-                    <div className="sm:col-span-1 space-y-2 text-center">
-                        <Label>Product Image</Label>
-                        <Avatar className="w-full h-32 rounded-md">
-                            {previewImage ? (
-                                <Image src={previewImage} alt="Product preview" layout="fill" objectFit="cover" className="rounded-md" />
-                            ) : (
-                                <div className="w-full h-full bg-muted rounded-md flex items-center justify-center">
-                                    <Package className="w-10 h-10 text-muted-foreground" />
-                                </div>
-                            )}
-                        </Avatar>
-                        <Button type="button" variant="link" onClick={() => addFileRef.current?.click()}>
-                           Upload Photo
-                        </Button>
-                        <Input
-                           type="file"
-                           className="hidden"
-                           {...addForm.register("photoFile")}
-                           ref={addFileRef}
-                           onChange={(e) => {
-                            handleFileChange(e);
-                            addForm.trigger("photoFile");
-                           }}
-                           accept="image/png, image/jpeg, image/webp"
-                         />
-                        {addForm.formState.errors.photoFile && <p className="text-sm text-destructive">{addForm.formState.errors.photoFile.message as string}</p>}
-                    </div>
-                    <div className="sm:col-span-2 grid grid-cols-1 sm:grid-cols-2 gap-4">
-                        <div className="space-y-2 sm:col-span-2">
-                            <Label htmlFor="name">Product Name</Label>
-                            <Input id="name" {...addForm.register("name")} onChange={(e) => {
-                            const { value } = e.target;
-                            e.target.value = toTitleCase(value);
-                            addForm.setValue("name", e.target.value);
-                            }}/>
-                            {addForm.formState.errors.name && <p className="text-sm text-destructive">{addForm.formState.errors.name.message}</p>}
-                        </div>
-                        <div className="space-y-2">
-                            <Label htmlFor="category">Category</Label>
-                            <Controller
-                                name="category"
-                                control={addForm.control}
-                                render={({ field }) => (
-                                    <Select onValueChange={field.onChange} defaultValue={field.value}>
-                                        <SelectTrigger>
-                                            <SelectValue placeholder="Select a category" />
-                                        </SelectTrigger>
-                                        <SelectContent>
-                                            {categories.map(cat => <SelectItem key={cat} value={cat}>{cat}</SelectItem>)}
-                                        </SelectContent>
-                                    </Select>
-                                )}
-                            />
-                            {addForm.formState.errors.category && <p className="text-sm text-destructive">{addForm.formState.errors.category.message}</p>}
-                        </div>
-                        <div className="space-y-2">
-                            <div className="flex items-center justify-between">
-                                <Label htmlFor="sku">SKU</Label>
-                                <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                                    <Switch id="auto-generate-sku-add" checked={autoGenerateSku} onCheckedChange={setAutoGenerateSku} />
-                                    <Label htmlFor="auto-generate-sku-add">Auto</Label>
-                                </div>
-                            </div>
-                            <Input id="sku" {...addForm.register("sku")} disabled={autoGenerateSku} placeholder={autoGenerateSku ? "Generated" : "Manual SKU"} />
-                            {addForm.formState.errors.sku && <p className="text-sm text-destructive">{addForm.formState.errors.sku.message}</p>}
-                        </div>
-                    </div>
+                  <div className="sm:col-span-2 grid grid-cols-1 sm:grid-cols-2 gap-4">
+                      <div className="space-y-2 sm:col-span-2">
+                          <Label htmlFor="name">Product Name</Label>
+                          <Input id="name" {...addForm.register("name")} onChange={(e) => {
+                          const { value } = e.target;
+                          e.target.value = toTitleCase(value);
+                          addForm.setValue("name", e.target.value);
+                          }}/>
+                          {addForm.formState.errors.name && <p className="text-sm text-destructive">{addForm.formState.errors.name.message}</p>}
+                      </div>
+                      <div className="space-y-2">
+                          <Label htmlFor="category">Category</Label>
+                          <Controller
+                              name="category"
+                              control={addForm.control}
+                              render={({ field }) => (
+                                  <Select onValueChange={field.onChange} defaultValue={field.value}>
+                                      <SelectTrigger>
+                                          <SelectValue placeholder="Select a category" />
+                                      </SelectTrigger>
+                                      <SelectContent>
+                                          {categories.map(cat => <SelectItem key={cat} value={cat}>{cat}</SelectItem>)}
+                                      </SelectContent>
+                                  </Select>
+                              )}
+                          />
+                          {addForm.formState.errors.category && <p className="text-sm text-destructive">{addForm.formState.errors.category.message}</p>}
+                      </div>
+                      <div className="space-y-2">
+                          <div className="flex items-center justify-between">
+                              <Label htmlFor="sku">SKU</Label>
+                              <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                                  <Switch id="auto-generate-sku-add" checked={autoGenerateSku} onCheckedChange={setAutoGenerateSku} />
+                                  <Label htmlFor="auto-generate-sku-add">Auto</Label>
+                              </div>
+                          </div>
+                          <Input id="sku" {...addForm.register("sku")} disabled={autoGenerateSku} placeholder={autoGenerateSku ? "Generated" : "Manual SKU"} />
+                          {addForm.formState.errors.sku && <p className="text-sm text-destructive">{addForm.formState.errors.sku.message}</p>}
+                      </div>
                   </div>
                   <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
                     <div className="space-y-2">
@@ -675,11 +600,7 @@ export default function InventoryPage() {
                       const status = getStatus(product);
                       return (
                         <TableRow key={product.id} onClick={() => handleEditClick(product)} className="cursor-pointer">
-                          <TableCell className="font-medium flex items-center gap-3">
-                            <Avatar className="hidden sm:inline-flex rounded-md">
-                                <AvatarImage src={product.photoURL || undefined} />
-                                <AvatarFallback className="rounded-md"><Package/></AvatarFallback>
-                            </Avatar>
+                          <TableCell className="font-medium">
                             {product.name}
                           </TableCell>
                           <TableCell>{product.sku}</TableCell>
@@ -728,7 +649,6 @@ export default function InventoryPage() {
                         <Card key={i}>
                             <CardHeader>
                                  <div className="flex items-center gap-4">
-                                    <Skeleton className="w-12 h-12 rounded-md" />
                                     <div className="flex-1 space-y-2">
                                         <Skeleton className="h-5 w-3/4" />
                                         <Skeleton className="h-4 w-1/4" />
@@ -747,15 +667,9 @@ export default function InventoryPage() {
                         return (
                             <Card key={product.id} onClick={() => handleEditClick(product)} className="cursor-pointer">
                                 <CardHeader className="flex flex-row items-center justify-between">
-                                    <div className="flex items-center gap-4">
-                                        <Avatar className="rounded-md w-12 h-12">
-                                            <AvatarImage src={product.photoURL || undefined} />
-                                            <AvatarFallback className="rounded-md"><Package /></AvatarFallback>
-                                        </Avatar>
-                                        <div>
-                                            <CardTitle className="text-base">{product.name}</CardTitle>
-                                            <CardDescription>{product.sku}</CardDescription>
-                                        </div>
+                                    <div>
+                                        <CardTitle className="text-base">{product.name}</CardTitle>
+                                        <CardDescription>{product.sku}</CardDescription>
                                     </div>
                                     <DropdownMenu>
                                         <DropdownMenuTrigger asChild>
@@ -818,69 +732,40 @@ export default function InventoryPage() {
               <DialogDescription>Update the details for {editingProduct.name}.</DialogDescription>
             </DialogHeader>
             <form onSubmit={editForm.handleSubmit(onEditSubmit)} className="space-y-4">
-                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-                    <div className="sm:col-span-1 space-y-2 text-center">
-                        <Label>Product Image</Label>
-                        <Avatar className="w-full h-32 rounded-md">
-                            {previewImage ? (
-                                <Image src={previewImage} alt="Product preview" layout="fill" objectFit="cover" className="rounded-md" />
-                            ) : (
-                                <div className="w-full h-full bg-muted rounded-md flex items-center justify-center">
-                                    <Package className="w-10 h-10 text-muted-foreground" />
-                                </div>
-                            )}
-                        </Avatar>
-                        <Button type="button" variant="link" onClick={() => editFileRef.current?.click()}>
-                           Change Photo
-                        </Button>
-                        <Input
-                           type="file"
-                           className="hidden"
-                           {...editForm.register("photoFile")}
-                           ref={editFileRef}
-                           onChange={(e) => {
-                            handleFileChange(e);
-                            editForm.trigger("photoFile");
-                           }}
-                           accept="image/png, image/jpeg, image/webp"
-                         />
-                        {editForm.formState.errors.photoFile && <p className="text-sm text-destructive">{editForm.formState.errors.photoFile.message as string}</p>}
-                    </div>
-                    <div className="sm:col-span-2 grid grid-cols-1 sm:grid-cols-2 gap-4">
-                        <div className="space-y-2 sm:col-span-2">
-                            <Label htmlFor="edit-name">Product Name</Label>
-                            <Input id="edit-name" {...editForm.register("name")} onChange={(e) => {
-                                const { value } = e.target;
-                                e.target.value = toTitleCase(value);
-                                editForm.setValue("name", e.target.value);
-                            }}/>
-                            {editForm.formState.errors.name && <p className="text-sm text-destructive">{editForm.formState.errors.name.message}</p>}
-                        </div>
-                         <div className="space-y-2">
-                            <Label htmlFor="edit-category">Category</Label>
-                            <Controller
-                                name="category"
-                                control={editForm.control}
-                                render={({ field }) => (
-                                    <Select onValueChange={field.onChange} defaultValue={field.value}>
-                                        <SelectTrigger>
-                                            <SelectValue placeholder="Select a category" />
-                                        </SelectTrigger>
-                                        <SelectContent>
-                                            {categories.map(cat => <SelectItem key={cat} value={cat}>{cat}</SelectItem>)}
-                                        </SelectContent>
-                                    </Select>
-                                )}
-                            />
-                            {editForm.formState.errors.category && <p className="text-sm text-destructive">{editForm.formState.errors.category.message}</p>}
-                        </div>
-                        <div className="space-y-2">
-                            <Label htmlFor="edit-sku">SKU</Label>
-                            <Input id="edit-sku" {...editForm.register("sku")} disabled />
-                            {editForm.formState.errors.sku && <p className="text-sm text-destructive">{editForm.formState.errors.sku.message}</p>}
-                        </div>
-                    </div>
-                </div>
+                 <div className="sm:col-span-2 grid grid-cols-1 sm:grid-cols-2 gap-4">
+                      <div className="space-y-2 sm:col-span-2">
+                          <Label htmlFor="edit-name">Product Name</Label>
+                          <Input id="edit-name" {...editForm.register("name")} onChange={(e) => {
+                              const { value } = e.target;
+                              e.target.value = toTitleCase(value);
+                              editForm.setValue("name", e.target.value);
+                          }}/>
+                          {editForm.formState.errors.name && <p className="text-sm text-destructive">{editForm.formState.errors.name.message}</p>}
+                      </div>
+                       <div className="space-y-2">
+                          <Label htmlFor="edit-category">Category</Label>
+                          <Controller
+                              name="category"
+                              control={editForm.control}
+                              render={({ field }) => (
+                                  <Select onValueChange={field.onChange} defaultValue={field.value}>
+                                      <SelectTrigger>
+                                          <SelectValue placeholder="Select a category" />
+                                      </SelectTrigger>
+                                      <SelectContent>
+                                          {categories.map(cat => <SelectItem key={cat} value={cat}>{cat}</SelectItem>)}
+                                      </SelectContent>
+                                  </Select>
+                              )}
+                          />
+                          {editForm.formState.errors.category && <p className="text-sm text-destructive">{editForm.formState.errors.category.message}</p>}
+                      </div>
+                      <div className="space-y-2">
+                          <Label htmlFor="edit-sku">SKU</Label>
+                          <Input id="edit-sku" {...editForm.register("sku")} disabled />
+                          {editForm.formState.errors.sku && <p className="text-sm text-destructive">{editForm.formState.errors.sku.message}</p>}
+                      </div>
+                  </div>
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
                    <div className="space-y-2">
                     <Label htmlFor="edit-price">Price</Label>
@@ -1100,3 +985,6 @@ export default function InventoryPage() {
     </>
   );
 }
+
+
+    
