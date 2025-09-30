@@ -1150,17 +1150,15 @@ export default function InventoryPage() {
       </Dialog>
 
       <Dialog open={!!qrCodeProduct} onOpenChange={(open) => !open && setQrCodeProduct(null)}>
-        <DialogContent>
-            <DialogHeader>
-                <DialogTitle>{qrCodeProduct?.name}</DialogTitle>
-                <DialogDescription>SKU: {qrCodeProduct?.sku}</DialogDescription>
-            </DialogHeader>
-            <div className="py-4 flex items-center justify-center printable-content">
-                <div className="bg-white p-4 inline-block">
+        <DialogContent className="sm:max-w-sm">
+            <div className="printable-content flex flex-col items-center justify-center p-4">
+                <h3 className="text-lg font-semibold text-center text-black print:text-black">{qrCodeProduct?.name}</h3>
+                <p className="text-sm text-gray-600 print:text-gray-600 mb-2">SKU: {qrCodeProduct?.sku} | {qrCodeProduct?.category}</p>
+                <div className="bg-white p-4 inline-block rounded-md">
                     <QRCode value={qrCodeProduct?.id || ""} size={256} />
                 </div>
             </div>
-            <DialogFooter className="print-hidden">
+            <DialogFooter className="print-hidden mt-4">
                 <Button variant="outline" onClick={() => setQrCodeProduct(null)}>Close</Button>
                 <Button onClick={() => window.print()}>
                     <Printer className="mr-2 h-4 w-4" />
@@ -1178,6 +1176,7 @@ export default function InventoryPage() {
     
 
     
+
 
 
 
