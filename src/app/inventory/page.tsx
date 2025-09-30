@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useState, useEffect, useMemo, useRef } from "react";
@@ -1146,17 +1147,16 @@ export default function InventoryPage() {
             </form>
         </DialogContent>
       </Dialog>
-
       <Dialog open={!!qrCodeProduct} onOpenChange={(open) => !open && setQrCodeProduct(null)}>
         <DialogContent className="sm:max-w-sm">
             <DialogHeader className="sr-only print-hidden">
                 <DialogTitle>Product QR Code</DialogTitle>
             </DialogHeader>
-            <div className="printable-content flex flex-col items-center justify-center p-4">
-                <h3 className="text-lg font-semibold text-center text-black print:text-black">{qrCodeProduct?.name}</h3>
-                <p className="text-sm text-gray-600 print:text-gray-600 mb-2">SKU: {qrCodeProduct?.sku} | {qrCodeProduct?.category}</p>
-                <div className="bg-white p-4 inline-block rounded-md">
-                    <QRCode value={qrCodeProduct?.id || ""} size={256} />
+            <div className="printable-content flex flex-col items-center justify-center p-4 bg-white text-black">
+                <h3 className="text-lg font-semibold">{qrCodeProduct?.name}</h3>
+                <p className="text-sm text-gray-600 mb-2">SKU: {qrCodeProduct?.sku} | {qrCodeProduct?.category}</p>
+                <div className="p-2 inline-block">
+                    <QRCode value={qrCodeProduct?.id || ""} size={200} />
                 </div>
             </div>
             <DialogFooter className="print-hidden mt-4">
@@ -1168,26 +1168,8 @@ export default function InventoryPage() {
             </DialogFooter>
         </DialogContent>
       </Dialog>
-
     </>
   );
 }
-
-
-    
-
-    
-
-
-
-
-
-
-
-
-
-
-
-
 
     
