@@ -311,7 +311,7 @@ export default function ClientsPage() {
                   ))
                 ) : (
                   clients.map((client) => (
-                    <TableRow key={client.id}>
+                    <TableRow key={client.id} onClick={() => handleEditClick(client)} className="cursor-pointer">
                       <TableCell className="font-medium">{client.clientName}</TableCell>
                       <TableCell>{client.projectName}</TableCell>
                       <TableCell>{client.boqNumber}</TableCell>
