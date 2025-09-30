@@ -6,7 +6,7 @@ import { useState, useEffect, useMemo, useRef } from "react";
 import { useForm, Controller } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
-import { PlusCircle, MoreHorizontal, Package, ChevronsUpDown, Check, Printer, FileDown, SlidersHorizontal, QrCode, ScanLine } from "lucide-react";
+import { PlusCircle, MoreHorizontal, Package, ChevronsUpDown, Check, Printer, FileDown, SlidersHorizontal, QrCode } from "lucide-react";
 import { Button, buttonVariants } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
@@ -62,7 +62,6 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Textarea } from "@/components/ui/textarea";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import QRCode from "react-qr-code";
-import { BarcodeScanner } from "react-zxing";
 import { Alert, AlertTitle, AlertDescription } from "@/components/ui/alert";
 
 
@@ -142,7 +141,6 @@ export default function InventoryPage() {
   const [isSupplierPopoverOpen, setIsSupplierPopoverOpen] = useState(false);
   const [isAddSupplierOpen, setIsAddSupplierOpen] = useState(false);
   const [qrCodeProduct, setQrCodeProduct] = useState<Product | null>(null);
-  const [isScannerOpen, setIsScannerOpen] = useState(false);
 
   const productSchema = useMemo(() => createProductSchema(autoGenerateSku), [autoGenerateSku]);
 
@@ -365,22 +363,6 @@ export default function InventoryPage() {
     document.body.removeChild(link);
   }
 
-  const handleScanResult = (result: string | null) => {
-    if (result) {
-        setIsScannerOpen(false);
-        const product = products.find(p => p.id === result);
-        if (product) {
-            handleEditClick(product);
-        } else {
-            toast({
-                variant: 'destructive',
-                title: 'Product Not Found',
-                description: 'The scanned QR code does not correspond to any product in your inventory.',
-            });
-        }
-    }
-  };
-
   return (
     <>
       <Card className="printable-content">
@@ -439,10 +421,6 @@ export default function InventoryPage() {
                 </Button>
             </div>
             <div className="flex items-center gap-2">
-                 <Button size="sm" variant="outline" className="gap-1 print-hidden" onClick={() => setIsScannerOpen(true)}>
-                    <ScanLine />
-                    Scan Product
-                </Button>
                 <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>
                 <DialogTrigger asChild className="print-hidden">
                     <Button size="sm" className="gap-1 w-full md:w-auto">
@@ -1019,28 +997,6 @@ export default function InventoryPage() {
         </DialogContent>
       </Dialog>
 
-      <Dialog open={isScannerOpen} onOpenChange={setIsScannerOpen}>
-        <DialogContent>
-            <DialogHeader>
-                <DialogTitle>Scan Product QR Code</DialogTitle>
-                <DialogDescription>Point your camera at a QR code to quickly find a product.</DialogDescription>
-            </DialogHeader>
-             <div className="rounded-lg overflow-hidden [&>video]:w-full [&>video]:h-auto">
-                 <BarcodeScanner
-                    onResult={(result) => handleScanResult(result.getText())}
-                    onError={(error) => {
-                        if (error && error.message.includes('permission')) {
-                             toast({
-                                variant: 'destructive',
-                                title: 'Camera Access Denied',
-                                description: 'Please enable camera permissions in your browser settings.',
-                            });
-                        }
-                    }}
-                />
-            </div>
-        </DialogContent>
-      </Dialog>
     </>
   );
 }
@@ -1049,6 +1005,7 @@ export default function InventoryPage() {
     
 
     
+
 
 
 
