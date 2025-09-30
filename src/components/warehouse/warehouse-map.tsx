@@ -47,6 +47,12 @@ const binStatusClasses = {
 };
 
 const Breadcrumbs = ({ path, onNavigate }: { path: {key: string, value: string}[], onNavigate: (index: number) => void }) => {
+    const keyToLabel: { [key: string]: string } = {
+        Z: 'Zone',
+        R: 'Rack',
+        A: 'Aisle',
+    };
+
     return (
         <div className="flex items-center gap-2 text-sm text-muted-foreground mb-4">
             <Button variant="link" className="p-0 h-auto" onClick={() => onNavigate(-1)}>Warehouse</Button>
@@ -59,7 +65,7 @@ const Breadcrumbs = ({ path, onNavigate }: { path: {key: string, value: string}[
                         onClick={() => onNavigate(index)}
                         disabled={index === path.length -1}
                     >
-                        {item.key}: {item.value}
+                        {keyToLabel[item.key]}: {item.value}
                     </Button>
                 </React.Fragment>
             ))}
@@ -142,7 +148,7 @@ export function WarehouseMap({ products, onProductSelect }: WarehouseMapProps) {
                     {Object.keys(locationTree).sort().map(zone => (
                         <Card key={zone} onClick={() => setSelectedZone(zone)} className="cursor-pointer hover:border-primary transition-colors">
                             <CardHeader>
-                                <CardTitle>Z: {zone}</CardTitle>
+                                <CardTitle>Zone: {zone}</CardTitle>
                                 <CardDescription>{Object.keys(locationTree[zone]).length} racks</CardDescription>
                             </CardHeader>
                         </Card>
@@ -156,7 +162,7 @@ export function WarehouseMap({ products, onProductSelect }: WarehouseMapProps) {
                     {Object.keys(locationTree[selectedZone]).sort().map(rack => (
                         <Card key={rack} onClick={() => setSelectedRack(rack)} className="cursor-pointer hover:border-primary transition-colors">
                              <CardHeader>
-                                <CardTitle>R: {rack}</CardTitle>
+                                <CardTitle>Rack: {rack}</CardTitle>
                                 <CardDescription>{Object.keys(locationTree[selectedZone][rack]).length} aisles</CardDescription>
                             </CardHeader>
                         </Card>
@@ -170,12 +176,12 @@ export function WarehouseMap({ products, onProductSelect }: WarehouseMapProps) {
                     {Object.keys(aisleStructure).sort().map(aisle => (
                         <Card key={aisle}>
                              <CardHeader>
-                                <CardTitle>A: {aisle}</CardTitle>
+                                <CardTitle>Aisle: {aisle}</CardTitle>
                             </CardHeader>
                             <CardContent className="flex flex-col-reverse gap-2">
                                 {Object.keys(aisleStructure[aisle]).sort((a,b) => parseInt(b) - parseInt(a)).map(level => (
                                     <div key={level} className="flex items-center gap-4">
-                                        <div className="w-16 text-sm text-muted-foreground font-semibold">L: {level}</div>
+                                        <div className="w-16 text-sm text-muted-foreground font-semibold">Level: {level}</div>
                                         <div className="flex-1 grid grid-cols-4 md:grid-cols-8 lg:grid-cols-12 gap-2">
                                             {Array.from(aisleStructure[aisle][level]).sort((a,b) => parseInt(a) - parseInt(b)).map(bin => {
                                                 const productsInBin = getProductsInBin(selectedZone, selectedRack, aisle, level, bin);
@@ -187,7 +193,7 @@ export function WarehouseMap({ products, onProductSelect }: WarehouseMapProps) {
                                                             "h-16 border rounded-md flex items-center justify-center cursor-pointer transition-colors shadow-inner",
                                                             binStatusClasses[status]
                                                         )}>
-                                                        <p className="text-sm font-mono text-center text-muted-foreground">B: {bin}</p>
+                                                        <p className="text-sm font-mono text-center text-muted-foreground">Bin: {bin}</p>
                                                         </div>
                                                     </TooltipTrigger>
                                                     <TooltipContent>
