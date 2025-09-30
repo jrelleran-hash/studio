@@ -1,4 +1,5 @@
 
+
 "use client";
 
 import React, { useState, useEffect, useMemo, useCallback } from "react";
@@ -360,7 +361,7 @@ export default function SuppliersPage() {
                     ))
                 ) : (
                     suppliers.map((supplier) => (
-                        <Card key={supplier.id} onClick={() => handleEditSupplierClick(supplier)}>
+                        <Card key={supplier.id} onClick={() => handleEditSupplierClick(supplier)} className="cursor-pointer">
                             <CardHeader>
                                 <div className="flex justify-between items-start">
                                     <div>

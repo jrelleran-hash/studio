@@ -669,7 +669,7 @@ export default function InventoryPage() {
                     filteredProducts.map((product) => {
                         const status = getStatus(product);
                         return (
-                            <Card key={product.id}>
+                            <Card key={product.id} onClick={() => handleEditClick(product)} className="cursor-pointer">
                                 <CardHeader className="flex flex-row items-center justify-between">
                                     <div>
                                         <CardTitle className="text-base">{product.name}</CardTitle>
@@ -677,7 +677,7 @@ export default function InventoryPage() {
                                     </div>
                                     <DropdownMenu>
                                         <DropdownMenuTrigger asChild>
-                                            <Button size="icon" variant="ghost"><MoreHorizontal /></Button>
+                                            <Button size="icon" variant="ghost" onClick={(e) => e.stopPropagation()}><MoreHorizontal /></Button>
                                         </DropdownMenuTrigger>
                                         <DropdownMenuContent>
                                             <DropdownMenuLabel>Actions</DropdownMenuLabel>

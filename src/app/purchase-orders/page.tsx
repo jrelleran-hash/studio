@@ -1205,7 +1205,7 @@ export default function PurchaseOrdersPage() {
                           const displayStatus = associatedReturn && !isReturnCompleted ? `Return ${associatedReturn.status}` : po.status;
                           const finalVariant = associatedReturn && !isReturnCompleted ? outboundReturnStatusVariant[associatedReturn.status] : statusVariant[po.status];
                           return (
-                              <Card key={po.id} onClick={() => setSelectedPO(po)}>
+                              <Card key={po.id} onClick={() => setSelectedPO(po)} className="cursor-pointer">
                                   <CardHeader>
                                       <div className="flex justify-between items-start">
                                           <div>

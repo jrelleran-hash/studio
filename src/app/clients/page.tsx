@@ -354,7 +354,7 @@ export default function ClientsPage() {
                 ))
             ) : (
                 clients.map((client) => (
-                    <Card key={client.id} className="w-full">
+                    <Card key={client.id} className="w-full cursor-pointer" onClick={() => handleEditClick(client)}>
                         <CardHeader className="flex flex-row justify-between items-start">
                             <div>
                                 <CardTitle className="text-base">{client.clientName}</CardTitle>
@@ -362,7 +362,7 @@ export default function ClientsPage() {
                             </div>
                             <DropdownMenu>
                                 <DropdownMenuTrigger asChild>
-                                    <Button size="icon" variant="ghost">
+                                    <Button size="icon" variant="ghost" onClick={(e) => e.stopPropagation()}>
                                         <MoreHorizontal />
                                     </Button>
                                 </DropdownMenuTrigger>

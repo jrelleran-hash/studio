@@ -689,7 +689,7 @@ export default function OrdersPage() {
                 ))
             ) : (
                 orders.map((order) => (
-                    <Card key={order.id} onClick={() => setSelectedOrder(order)}>
+                    <Card key={order.id} onClick={() => setSelectedOrder(order)} className="cursor-pointer">
                         <CardHeader>
                             <div className="flex justify-between items-start">
                                 <div>
