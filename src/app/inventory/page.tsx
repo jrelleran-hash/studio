@@ -69,6 +69,7 @@ import { useZxing } from "react-zxing";
 import { Alert, AlertTitle, AlertDescription } from "@/components/ui/alert";
 import { CoreFlowLogo } from "@/components/icons";
 import { toPng } from 'html-to-image';
+import { useSearchParams } from "next/navigation";
 
 
 const categories: ProductCategory[] = ["Tools", "Consumables", "Raw Materials", "Finished Goods", "Other"];
@@ -148,6 +149,7 @@ const toTitleCase = (str: string) => {
 
 const Scanner = ({ onResult, onClose }: { onResult: (text: string) => void; onClose: () => void }) => {
     const { toast } = useToast();
+    const videoRef = useRef<HTMLVideoElement>(null);
     const [hasCameraPermission, setHasCameraPermission] = useState<boolean | null>(null);
 
     const { ref } = useZxing({
@@ -169,10 +171,29 @@ const Scanner = ({ onResult, onClose }: { onResult: (text: string) => void; onCl
                 });
             }
         },
-        onPlay() {
-            setHasCameraPermission(true);
-        }
     });
+
+    useEffect(() => {
+        const getCameraPermission = async () => {
+          if (!navigator?.mediaDevices) {
+            setHasCameraPermission(false);
+            return;
+          }
+          try {
+            const stream = await navigator.mediaDevices.getUserMedia({video: true});
+            setHasCameraPermission(true);
+    
+            if (videoRef.current) {
+              videoRef.current.srcObject = stream;
+            }
+          } catch (error) {
+            console.error('Error accessing camera:', error);
+            setHasCameraPermission(false);
+          }
+        };
+    
+        getCameraPermission();
+      }, []);
 
     return (
         <Dialog open onOpenChange={(open) => !open && onClose()}>
@@ -218,6 +239,7 @@ export default function InventoryPage() {
   const [qrCodeProduct, setQrCodeProduct] = useState<Product | null>(null);
   const [isScannerOpen, setIsScannerOpen] = useState(false);
   const qrCodeLabelRef = useRef<HTMLDivElement>(null);
+  const searchParams = useSearchParams();
 
   const productSchema = useMemo(() => createProductSchema(autoGenerateSku), [autoGenerateSku]);
 
@@ -277,6 +299,16 @@ export default function InventoryPage() {
       setIsAdjustmentOpen(false);
     }
   }, [adjustmentProduct, adjustmentForm]);
+
+  useEffect(() => {
+    const editProductId = searchParams.get('edit');
+    if (editProductId && products.length > 0) {
+      const productToEdit = products.find(p => p.id === editProductId);
+      if (productToEdit) {
+        handleEditClick(productToEdit);
+      }
+    }
+  }, [searchParams, products]);
 
    const getStatus = (product: Product): { text: string; variant: "default" | "secondary" | "destructive", className?: string } => {
     if (product.stock === 0) return { text: "Out of Stock", variant: "destructive", className: "font-semibold" };
@@ -1204,3 +1236,5 @@ export default function InventoryPage() {
 }
 
     
+
+  

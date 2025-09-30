@@ -1,4 +1,5 @@
 
+
 "use client";
 
 import { useState } from "react";
@@ -10,6 +11,7 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, Di
 import { Button } from "@/components/ui/button";
 import { formatCurrency } from "@/lib/currency";
 import Image from "next/image";
+import Link from "next/link";
 
 export default function WarehousePage() {
     const { products, loading } = useData();
@@ -62,8 +64,11 @@ export default function WarehousePage() {
                                 <p className="text-3xl font-bold font-headline">{selectedProduct.maxStockLevel}</p>
                             </div>
                         </div>
-                        <DialogFooter>
+                        <DialogFooter className="!justify-between">
                             <Button variant="outline" onClick={() => setSelectedProduct(null)}>Close</Button>
+                            <Button asChild>
+                                <Link href={`/inventory?edit=${selectedProduct.id}`}>Edit Product</Link>
+                            </Button>
                         </DialogFooter>
                     </DialogContent>
                 </Dialog>
@@ -71,3 +76,5 @@ export default function WarehousePage() {
         </div>
     );
 }
+
+  
