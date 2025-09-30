@@ -6,7 +6,7 @@ import { useState, useEffect, useMemo, useRef } from "react";
 import { useForm, Controller } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
-import { PlusCircle, MoreHorizontal, Package, ChevronsUpDown, Check, Printer, FileDown, SlidersHorizontal, QrCode } from "lucide-react";
+import { PlusCircle, MoreHorizontal, Package, ChevronsUpDown, Check, Printer, FileDown, SlidersHorizontal, QrCode, ScanLine } from "lucide-react";
 import { Button, buttonVariants } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
@@ -46,7 +46,6 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { useToast } from "@/hooks/use-toast";
 import { addProduct, updateProduct, deleteProduct, addSupplier, adjustStock } from "@/services/data-service";
 import type { Product, Supplier, ProductCategory } from "@/types";
-import Image from "next/image";
 import { Badge } from "@/components/ui/badge";
 import { Switch } from "@/components/ui/switch";
 import { cn } from "@/lib/utils";
@@ -63,6 +62,9 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Textarea } from "@/components/ui/textarea";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import QRCode from "react-qr-code";
+import { BarcodeScanner } from "react-zxing";
+import { Alert, AlertTitle, AlertDescription } from "@/components/ui/alert";
+
 
 const categories: ProductCategory[] = ["Tools", "Consumables", "Raw Materials", "Finished Goods", "Other"];
 
@@ -140,6 +142,7 @@ export default function InventoryPage() {
   const [isSupplierPopoverOpen, setIsSupplierPopoverOpen] = useState(false);
   const [isAddSupplierOpen, setIsAddSupplierOpen] = useState(false);
   const [qrCodeProduct, setQrCodeProduct] = useState<Product | null>(null);
+  const [isScannerOpen, setIsScannerOpen] = useState(false);
 
   const productSchema = useMemo(() => createProductSchema(autoGenerateSku), [autoGenerateSku]);
 
@@ -362,6 +365,22 @@ export default function InventoryPage() {
     document.body.removeChild(link);
   }
 
+  const handleScanResult = (result: string | null) => {
+    if (result) {
+        setIsScannerOpen(false);
+        const product = products.find(p => p.id === result);
+        if (product) {
+            handleEditClick(product);
+        } else {
+            toast({
+                variant: 'destructive',
+                title: 'Product Not Found',
+                description: 'The scanned QR code does not correspond to any product in your inventory.',
+            });
+        }
+    }
+  };
+
   return (
     <>
       <Card className="printable-content">
@@ -419,147 +438,153 @@ export default function InventoryPage() {
                     Print Report
                 </Button>
             </div>
-            <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>
-              <DialogTrigger asChild className="print-hidden">
-                <Button size="sm" className="gap-1 w-full md:w-auto">
-                  <PlusCircle />
-                  Add Product
+            <div className="flex items-center gap-2">
+                 <Button size="sm" variant="outline" className="gap-1 print-hidden" onClick={() => setIsScannerOpen(true)}>
+                    <ScanLine />
+                    Scan Product
                 </Button>
-              </DialogTrigger>
-              <DialogContent className="sm:max-w-2xl">
-                <DialogHeader>
-                  <DialogTitle>Add New Product</DialogTitle>
-                  <DialogDescription>Fill in the details for the new product.</DialogDescription>
-                </DialogHeader>
-                <form onSubmit={addForm.handleSubmit(onAddSubmit)} className="space-y-4">
-                  <div className="sm:col-span-2 grid grid-cols-1 sm:grid-cols-2 gap-4">
-                      <div className="space-y-2 sm:col-span-2">
-                          <Label htmlFor="name">Product Name</Label>
-                          <Input id="name" {...addForm.register("name")} onChange={(e) => {
-                          const { value } = e.target;
-                          e.target.value = toTitleCase(value);
-                          addForm.setValue("name", e.target.value);
-                          }}/>
-                          {addForm.formState.errors.name && <p className="text-sm text-destructive">{addForm.formState.errors.name.message}</p>}
-                      </div>
-                      <div className="space-y-2">
-                          <Label htmlFor="category">Category</Label>
-                          <Controller
-                              name="category"
-                              control={addForm.control}
-                              render={({ field }) => (
-                                  <Select onValueChange={field.onChange} defaultValue={field.value}>
-                                      <SelectTrigger>
-                                          <SelectValue placeholder="Select a category" />
-                                      </SelectTrigger>
-                                      <SelectContent>
-                                          {categories.map(cat => <SelectItem key={cat} value={cat}>{cat}</SelectItem>)}
-                                      </SelectContent>
-                                  </Select>
-                              )}
-                          />
-                          {addForm.formState.errors.category && <p className="text-sm text-destructive">{addForm.formState.errors.category.message}</p>}
-                      </div>
-                      <div className="space-y-2">
-                          <div className="flex items-center justify-between">
-                              <Label htmlFor="sku">SKU</Label>
-                              <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                                  <Switch id="auto-generate-sku-add" checked={autoGenerateSku} onCheckedChange={setAutoGenerateSku} />
-                                  <Label htmlFor="auto-generate-sku-add">Auto</Label>
-                              </div>
-                          </div>
-                          <Input id="sku" {...addForm.register("sku")} disabled={autoGenerateSku} placeholder={autoGenerateSku ? "Generated" : "Manual SKU"} />
-                          {addForm.formState.errors.sku && <p className="text-sm text-destructive">{addForm.formState.errors.sku.message}</p>}
-                      </div>
-                  </div>
-                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-                    <div className="space-y-2">
-                      <Label htmlFor="price">Price (Optional)</Label>
-                      <div className="relative">
-                        <span className="absolute inset-y-0 left-0 flex items-center pl-3 text-muted-foreground">{CURRENCY_CONFIG.symbol}</span>
-                        <Input id="price" type="number" step="0.01" className="pl-8" placeholder="0.00" {...addForm.register("price")} />
-                      </div>
-                      {addForm.formState.errors.price && <p className="text-sm text-destructive">{addForm.formState.errors.price.message}</p>}
-                    </div>
-                    <div className="space-y-2">
-                      <Label htmlFor="stock">Initial Stock</Label>
-                      <Input id="stock" type="number" placeholder="0" {...addForm.register("stock")} />
-                      {addForm.formState.errors.stock && <p className="text-sm text-destructive">{addForm.formState.errors.stock.message}</p>}
-                    </div>
-                     <div className="space-y-2">
-                      <Label htmlFor="reorderLimit">Reorder At</Label>
-                      <Input id="reorderLimit" type="number" {...addForm.register("reorderLimit")} />
-                      {addForm.formState.errors.reorderLimit && <p className="text-sm text-destructive">{addForm.formState.errors.reorderLimit.message}</p>}
-                    </div>
-                    <div className="space-y-2">
-                      <Label htmlFor="maxStockLevel">Max Stock</Label>
-                      <Input id="maxStockLevel" type="number" {...addForm.register("maxStockLevel")} />
-                      {addForm.formState.errors.maxStockLevel && <p className="text-sm text-destructive">{addForm.formState.errors.maxStockLevel.message}</p>}
-                    </div>
-                  </div>
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                      <div className="space-y-2">
-                        <Label htmlFor="location">Location</Label>
-                        <Input id="location" placeholder="e.g. 'Warehouse A'" {...addForm.register("location")} />
-                      </div>
-                      <div className="space-y-2">
-                         <Label>Supplier</Label>
-                          <Controller
-                              control={addForm.control}
-                              name="supplierId"
-                              render={({ field }) => (
-                                  <Popover open={isSupplierPopoverOpen} onOpenChange={setIsSupplierPopoverOpen}>
-                                      <PopoverTrigger asChild>
-                                          <Button
-                                              variant="outline"
-                                              role="combobox"
-                                              className={cn("w-full justify-between", !field.value && "text-muted-foreground")}
-                                          >
-                                              {field.value ? suppliers.find(s => s.id === field.value)?.name : "Select supplier"}
-                                              <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
-                                          </Button>
-                                      </PopoverTrigger>
-                                      <PopoverContent className="w-[--radix-popover-trigger-width] p-0">
-                                          <Command>
-                                              <CommandInput placeholder="Search supplier..." />
-                                              <CommandList>
-                                                  <CommandEmpty>
-                                                       <Button variant="ghost" className="w-full" onClick={() => { setIsSupplierPopoverOpen(false); setIsAddSupplierOpen(true); }}>
-                                                          Add new supplier
-                                                      </Button>
-                                                  </CommandEmpty>
-                                                  <CommandGroup>
-                                                      {suppliers.map(s => (
-                                                          <CommandItem
-                                                              key={s.id}
-                                                              value={s.name}
-                                                              onSelect={() => {
-                                                                  field.onChange(s.id);
-                                                                  setIsSupplierPopoverOpen(false);
-                                                              }}
-                                                          >
-                                                              <Check className={cn("mr-2 h-4 w-4", field.value === s.id ? "opacity-100" : "opacity-0")} />
-                                                              {s.name}
-                                                          </CommandItem>
-                                                      ))}
-                                                  </CommandGroup>
-                                              </CommandList>
-                                          </Command>
-                                      </PopoverContent>
-                                  </Popover>
-                              )}
-                          />
-                      </div>
-                  </div>
-                  <DialogFooter>
-                    <Button type="button" variant="outline" onClick={() => setIsAddDialogOpen(false)}>Cancel</Button>
-                    <Button type="submit" disabled={addForm.formState.isSubmitting}>
-                      {addForm.formState.isSubmitting ? "Adding..." : "Add Product"}
+                <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>
+                <DialogTrigger asChild className="print-hidden">
+                    <Button size="sm" className="gap-1 w-full md:w-auto">
+                    <PlusCircle />
+                    Add Product
                     </Button>
-                  </DialogFooter>
-                </form>
-              </DialogContent>
-            </Dialog>
+                </DialogTrigger>
+                <DialogContent className="sm:max-w-2xl">
+                    <DialogHeader>
+                    <DialogTitle>Add New Product</DialogTitle>
+                    <DialogDescription>Fill in the details for the new product.</DialogDescription>
+                    </DialogHeader>
+                    <form onSubmit={addForm.handleSubmit(onAddSubmit)} className="space-y-4">
+                    <div className="sm:col-span-2 grid grid-cols-1 sm:grid-cols-2 gap-4">
+                        <div className="space-y-2 sm:col-span-2">
+                            <Label htmlFor="name">Product Name</Label>
+                            <Input id="name" {...addForm.register("name")} onChange={(e) => {
+                            const { value } = e.target;
+                            e.target.value = toTitleCase(value);
+                            addForm.setValue("name", e.target.value);
+                            }}/>
+                            {addForm.formState.errors.name && <p className="text-sm text-destructive">{addForm.formState.errors.name.message}</p>}
+                        </div>
+                        <div className="space-y-2">
+                            <Label htmlFor="category">Category</Label>
+                            <Controller
+                                name="category"
+                                control={addForm.control}
+                                render={({ field }) => (
+                                    <Select onValueChange={field.onChange} defaultValue={field.value}>
+                                        <SelectTrigger>
+                                            <SelectValue placeholder="Select a category" />
+                                        </SelectTrigger>
+                                        <SelectContent>
+                                            {categories.map(cat => <SelectItem key={cat} value={cat}>{cat}</SelectItem>)}
+                                        </SelectContent>
+                                    </Select>
+                                )}
+                            />
+                            {addForm.formState.errors.category && <p className="text-sm text-destructive">{addForm.formState.errors.category.message}</p>}
+                        </div>
+                        <div className="space-y-2">
+                            <div className="flex items-center justify-between">
+                                <Label htmlFor="sku">SKU</Label>
+                                <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                                    <Switch id="auto-generate-sku-add" checked={autoGenerateSku} onCheckedChange={setAutoGenerateSku} />
+                                    <Label htmlFor="auto-generate-sku-add">Auto</Label>
+                                </div>
+                            </div>
+                            <Input id="sku" {...addForm.register("sku")} disabled={autoGenerateSku} placeholder={autoGenerateSku ? "Generated" : "Manual SKU"} />
+                            {addForm.formState.errors.sku && <p className="text-sm text-destructive">{addForm.formState.errors.sku.message}</p>}
+                        </div>
+                    </div>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                        <div className="space-y-2">
+                        <Label htmlFor="price">Price (Optional)</Label>
+                        <div className="relative">
+                            <span className="absolute inset-y-0 left-0 flex items-center pl-3 text-muted-foreground">{CURRENCY_CONFIG.symbol}</span>
+                            <Input id="price" type="number" step="0.01" className="pl-8" placeholder="0.00" {...addForm.register("price")} />
+                        </div>
+                        {addForm.formState.errors.price && <p className="text-sm text-destructive">{addForm.formState.errors.price.message}</p>}
+                        </div>
+                        <div className="space-y-2">
+                        <Label htmlFor="stock">Initial Stock</Label>
+                        <Input id="stock" type="number" placeholder="0" {...addForm.register("stock")} />
+                        {addForm.formState.errors.stock && <p className="text-sm text-destructive">{addForm.formState.errors.stock.message}</p>}
+                        </div>
+                        <div className="space-y-2">
+                        <Label htmlFor="reorderLimit">Reorder At</Label>
+                        <Input id="reorderLimit" type="number" {...addForm.register("reorderLimit")} />
+                        {addForm.formState.errors.reorderLimit && <p className="text-sm text-destructive">{addForm.formState.errors.reorderLimit.message}</p>}
+                        </div>
+                        <div className="space-y-2">
+                        <Label htmlFor="maxStockLevel">Max Stock</Label>
+                        <Input id="maxStockLevel" type="number" {...addForm.register("maxStockLevel")} />
+                        {addForm.formState.errors.maxStockLevel && <p className="text-sm text-destructive">{addForm.formState.errors.maxStockLevel.message}</p>}
+                        </div>
+                    </div>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                        <div className="space-y-2">
+                            <Label htmlFor="location">Location</Label>
+                            <Input id="location" placeholder="e.g. 'Warehouse A'" {...addForm.register("location")} />
+                        </div>
+                        <div className="space-y-2">
+                            <Label>Supplier</Label>
+                            <Controller
+                                control={addForm.control}
+                                name="supplierId"
+                                render={({ field }) => (
+                                    <Popover open={isSupplierPopoverOpen} onOpenChange={setIsSupplierPopoverOpen}>
+                                        <PopoverTrigger asChild>
+                                            <Button
+                                                variant="outline"
+                                                role="combobox"
+                                                className={cn("w-full justify-between", !field.value && "text-muted-foreground")}
+                                            >
+                                                {field.value ? suppliers.find(s => s.id === field.value)?.name : "Select supplier"}
+                                                <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                                            </Button>
+                                        </PopoverTrigger>
+                                        <PopoverContent className="w-[--radix-popover-trigger-width] p-0">
+                                            <Command>
+                                                <CommandInput placeholder="Search supplier..." />
+                                                <CommandList>
+                                                    <CommandEmpty>
+                                                        <Button variant="ghost" className="w-full" onClick={() => { setIsSupplierPopoverOpen(false); setIsAddSupplierOpen(true); }}>
+                                                            Add new supplier
+                                                        </Button>
+                                                    </CommandEmpty>
+                                                    <CommandGroup>
+                                                        {suppliers.map(s => (
+                                                            <CommandItem
+                                                                key={s.id}
+                                                                value={s.name}
+                                                                onSelect={() => {
+                                                                    field.onChange(s.id);
+                                                                    setIsSupplierPopoverOpen(false);
+                                                                }}
+                                                            >
+                                                                <Check className={cn("mr-2 h-4 w-4", field.value === s.id ? "opacity-100" : "opacity-0")} />
+                                                                {s.name}
+                                                            </CommandItem>
+                                                        ))}
+                                                    </CommandGroup>
+                                                </CommandList>
+                                            </Command>
+                                        </PopoverContent>
+                                    </Popover>
+                                )}
+                            />
+                        </div>
+                    </div>
+                    <DialogFooter>
+                        <Button type="button" variant="outline" onClick={() => setIsAddDialogOpen(false)}>Cancel</Button>
+                        <Button type="submit" disabled={addForm.formState.isSubmitting}>
+                        {addForm.formState.isSubmitting ? "Adding..." : "Add Product"}
+                        </Button>
+                    </DialogFooter>
+                    </form>
+                </DialogContent>
+                </Dialog>
+            </div>
           </div>
         </CardHeader>
         <CardContent>
@@ -991,6 +1016,29 @@ export default function InventoryPage() {
                     Print
                 </Button>
             </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={isScannerOpen} onOpenChange={setIsScannerOpen}>
+        <DialogContent>
+            <DialogHeader>
+                <DialogTitle>Scan Product QR Code</DialogTitle>
+                <DialogDescription>Point your camera at a QR code to quickly find a product.</DialogDescription>
+            </DialogHeader>
+             <div className="rounded-lg overflow-hidden [&>video]:w-full [&>video]:h-auto">
+                 <BarcodeScanner
+                    onResult={(result) => handleScanResult(result.getText())}
+                    onError={(error) => {
+                        if (error && error.message.includes('permission')) {
+                             toast({
+                                variant: 'destructive',
+                                title: 'Camera Access Denied',
+                                description: 'Please enable camera permissions in your browser settings.',
+                            });
+                        }
+                    }}
+                />
+            </div>
         </DialogContent>
       </Dialog>
     </>
