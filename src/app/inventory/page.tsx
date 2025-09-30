@@ -130,7 +130,7 @@ export default function InventoryPage() {
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
   const [editingProduct, setEditingProduct] = useState<Product | null>(null);
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
-  const [deletingProductId, setDeletingProductId] = useState<string | null>(null);
+  const [deletingProductId, setDeletingProductId]_useState<string | null>(null);
   const [isAdjustmentOpen, setIsAdjustmentOpen] = useState(false);
   const [adjustmentProduct, setAdjustmentProduct] = useState<Product | null>(null);
   const { toast } = useToast();
@@ -726,13 +726,14 @@ export default function InventoryPage() {
       
       {editingProduct && (
         <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
-          <DialogContent className="sm:max-w-2xl">
+          <DialogContent className="sm:max-w-4xl">
             <DialogHeader>
               <DialogTitle>Edit Product</DialogTitle>
               <DialogDescription>Update the details for {editingProduct.name}.</DialogDescription>
             </DialogHeader>
-            <form onSubmit={editForm.handleSubmit(onEditSubmit)} className="space-y-4">
-                 <div className="sm:col-span-2 grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div className="grid md:grid-cols-[2fr_1fr] gap-8">
+              <form onSubmit={editForm.handleSubmit(onEditSubmit)} className="space-y-4">
+                  <div className="sm:col-span-2 grid grid-cols-1 sm:grid-cols-2 gap-4">
                       <div className="space-y-2 sm:col-span-2">
                           <Label htmlFor="edit-name">Product Name</Label>
                           <Input id="edit-name" {...editForm.register("name")} onChange={(e) => {
@@ -852,6 +853,16 @@ export default function InventoryPage() {
                 </Button>
               </DialogFooter>
             </form>
+            <div className="flex flex-col items-center justify-center space-y-2 border-l pl-8">
+                <div className="bg-white p-2 inline-block rounded-md">
+                  <QRCode value={editingProduct.id || ""} size={128} />
+                </div>
+                <p className="text-sm text-muted-foreground">ID: {editingProduct.id}</p>
+                <Button variant="outline" size="sm" onClick={() => setQrCodeProduct(editingProduct)}>
+                  <Printer className="mr-2 h-4 w-4" /> Print
+                </Button>
+            </div>
+            </div>
           </DialogContent>
         </Dialog>
       )}
