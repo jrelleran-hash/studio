@@ -10,8 +10,8 @@ import type { Product } from "@/types";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { formatCurrency } from "@/lib/currency";
-import Image from "next/image";
 import Link from "next/link";
+import { Package } from "lucide-react";
 
 export default function WarehousePage() {
     const { products, loading } = useData();
@@ -37,13 +37,9 @@ export default function WarehousePage() {
                             <DialogDescription>SKU: {selectedProduct.sku}</DialogDescription>
                         </DialogHeader>
                         <div className="grid grid-cols-[100px_1fr] gap-4 py-4">
-                            <Image
-                                alt={selectedProduct.name}
-                                className="rounded-lg aspect-square object-cover"
-                                height={100}
-                                width={100}
-                                src={selectedProduct.photoURL || `https://picsum.photos/seed/${selectedProduct.id}/100/100`}
-                            />
+                             <div className="h-[100px] w-[100px] bg-muted/50 rounded-lg flex items-center justify-center">
+                                <Package className="h-12 w-12 text-muted-foreground" />
+                            </div>
                              <div className="space-y-2">
                                 <p><strong>Category:</strong> {selectedProduct.category}</p>
                                 <p><strong>Price:</strong> {formatCurrency(selectedProduct.price)}</p>

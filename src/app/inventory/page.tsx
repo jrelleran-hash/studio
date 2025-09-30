@@ -57,7 +57,6 @@ import { formatCurrency } from "@/lib/currency";
 import { Timestamp } from "firebase/firestore";
 import { format } from "date-fns";
 import { useData } from "@/context/data-context";
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
 import React from 'react';
@@ -70,7 +69,6 @@ import { Alert, AlertTitle, AlertDescription } from "@/components/ui/alert";
 import { CoreFlowLogo } from "@/components/icons";
 import { toPng } from 'html-to-image';
 import { useSearchParams } from "next/navigation";
-import Image from "next/image";
 import { useAuth } from "@/hooks/use-auth";
 
 const categories: ProductCategory[] = ["Tools", "Consumables", "Raw Materials", "Finished Goods", "Other"];
@@ -963,20 +961,6 @@ export default function InventoryPage() {
             </DialogHeader>
             <div className="grid md:grid-cols-[2fr_1fr] gap-8">
               <form onSubmit={editForm.handleSubmit(onEditSubmit)} className="space-y-4">
-                  {canEditProduct && (
-                    <div className="flex flex-col items-center gap-2">
-                      <Image 
-                        src={'/placeholder.svg'}
-                        alt={editingProduct.name}
-                        width={128}
-                        height={128}
-                        className="rounded-lg object-cover aspect-square"
-                      />
-                      <Button type="button" variant="link">
-                        Change Photo
-                      </Button>
-                    </div>
-                  )}
                   <div className="sm:col-span-2 grid grid-cols-1 sm:grid-cols-2 gap-4">
                       <div className="space-y-2 sm:col-span-2">
                           <Label htmlFor="edit-name">Product Name</Label>

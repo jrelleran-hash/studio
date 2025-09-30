@@ -50,7 +50,7 @@ import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/use-auth";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { Switch } from "@/components/ui/switch";
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { type UserProfile, updateUserProfile, deleteUser, changePassword } from "@/services/data-service";
 import { useSearchParams, useRouter } from "next/navigation";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -589,7 +589,6 @@ export default function SettingsPage() {
             <CardHeader className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4">
               <div className="flex items-center gap-4">
                  <Avatar className="h-16 w-16">
-                    <AvatarImage src={userProfile?.photoURL || user?.photoURL || undefined} alt={user?.email || '@user'} />
                     <AvatarFallback>{user?.displayName?.[0].toUpperCase() || user?.email?.[0].toUpperCase() || "U"}</AvatarFallback>
                 </Avatar>
                 <div>

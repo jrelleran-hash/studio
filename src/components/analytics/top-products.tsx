@@ -2,10 +2,10 @@
 "use client";
 
 import { useMemo } from "react";
-import Image from "next/image";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import type { Order } from "@/types";
+import { Package } from "lucide-react";
 
 interface TopProductsProps {
     orders: Order[];
@@ -57,13 +57,9 @@ export function TopProducts({ orders, loading }: TopProductsProps) {
             <div className="space-y-4">
             {topProducts.map((product) => (
                 <div key={product.id} className="flex items-center gap-4">
-                <Image
-                    alt={product.name}
-                    className="rounded-md aspect-square object-cover"
-                    height={40}
-                    width={40}
-                    src={`https://picsum.photos/seed/${product.id}/100/100`}
-                />
+                 <div className="p-2 bg-muted/50 rounded-md">
+                    <Package className="h-6 w-6 text-muted-foreground" />
+                  </div>
                 <div className="flex-1">
                     <p className="text-sm font-medium">{product.name}</p>
                     <p className="text-xs text-muted-foreground">{product.sku}</p>

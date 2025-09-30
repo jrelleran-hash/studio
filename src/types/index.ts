@@ -70,7 +70,6 @@ export interface Product {
     supplier?: string;
     history?: ProductHistory[];
     lastUpdated?: Timestamp;
-    photoURL?: string;
 }
 
 export interface OrderItem {
@@ -215,5 +214,4 @@ export interface UserProfile {
     lastName: string;
     role: UserRole;
     permissions: PagePermission[];
-    photoURL?: string;
 }

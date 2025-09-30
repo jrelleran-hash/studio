@@ -1,14 +1,13 @@
 
-
 "use client";
 import { useState, useEffect } from "react";
-import Image from "next/image";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { getLowStockProducts } from "@/services/data-service";
 import type { Product } from "@/types";
 import { Skeleton } from "../ui/skeleton";
+import { Package } from "lucide-react";
 
 export function LowStockItems() {
   const [lowStockItems, setLowStockItems] = useState<Product[]>([]);
@@ -61,13 +60,9 @@ export function LowStockItems() {
                 className="flex items-center gap-4 p-2 cursor-pointer hover:bg-muted/50 rounded-lg -m-2" 
                 onClick={() => handleDetailsClick(item)}
               >
-                <Image
-                  alt={item.name}
-                  className="rounded-md"
-                  height={48}
-                  width={48}
-                  src={`https://picsum.photos/seed/${item.id}/100/100`}
-                />
+                <div className="p-2 bg-muted/50 rounded-md">
+                  <Package className="h-6 w-6 text-muted-foreground" />
+                </div>
                 <div>
                   <p className="text-sm font-medium">{item.name}</p>
                   <p className="text-xs text-muted-foreground">Stock: {item.stock}</p>
@@ -88,15 +83,7 @@ export function LowStockItems() {
                 <DialogTitle>{selectedItemForDetails.name}</DialogTitle>
                 <DialogDescription>SKU: {selectedItemForDetails.sku}</DialogDescription>
               </DialogHeader>
-              <div className="flex gap-4">
-                <Image
-                  alt={selectedItemForDetails.name}
-                  className="rounded-lg"
-                  height={100}
-                  width={100}
-                  src={`https://picsum.photos/seed/${selectedItemForDetails.id}/100/100`}
-                />
-                <div className="grid grid-cols-2 gap-4 flex-1">
+               <div className="grid grid-cols-2 gap-4 flex-1">
                    <div>
                     <h3 className="font-semibold">Current Stock</h3>
                     <p className="text-4xl font-bold font-headline text-destructive">{selectedItemForDetails.stock}</p>
@@ -108,7 +95,6 @@ export function LowStockItems() {
                     <p className="text-sm text-muted-foreground">units</p>
                   </div>
                 </div>
-              </div>
                <div>
                   <h3 className="font-semibold">Supplier</h3>
                   <p className="text-sm text-muted-foreground">{selectedItemForDetails.supplier || 'Not specified'}</p>
