@@ -47,7 +47,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useToast } from "@/hooks/use-toast";
-import { addProduct, updateProduct, deleteProduct, addSupplier, adjustStock } from "@/services/data-service";
+import { addProduct, updateProduct, deleteProduct, addSupplier, adjustStock, uploadProductPicture } from "@/services/data-service";
 import type { Product, Supplier, ProductCategory, ProductLocation } from "@/types";
 import { Badge } from "@/components/ui/badge";
 import { Switch } from "@/components/ui/switch";
@@ -70,6 +70,11 @@ import { Alert, AlertTitle, AlertDescription } from "@/components/ui/alert";
 import { CoreFlowLogo } from "@/components/icons";
 import { toPng } from 'html-to-image';
 import { useSearchParams } from "next/navigation";
+import Image from "next/image";
+import { useAuth } from "@/hooks/use-auth";
+
+const MAX_FILE_SIZE = 5 * 1024 * 1024; // 5MB
+const ACCEPTED_IMAGE_TYPES = ["image/jpeg", "image/jpg", "image/png", "image/webp"];
 
 
 const categories: ProductCategory[] = ["Tools", "Consumables", "Raw Materials", "Finished Goods", "Other"];
@@ -107,6 +112,14 @@ const editProductSchema = z.object({
   maxStockLevel: z.coerce.number().int().nonnegative("Max stock must be a non-negative integer."),
   location: locationSchema,
   supplierId: z.string().optional(),
+  photoFile: z
+    .any()
+    .optional()
+    .refine((files) => !files?.[0] || files?.[0]?.size <= MAX_FILE_SIZE, `Max file size is 5MB.`)
+    .refine(
+      (files) => !files || (files?.[0] && ACCEPTED_IMAGE_TYPES.includes(files?.[0]?.type)),
+      ".jpg, .jpeg, .png and .webp files are accepted."
+    ),
 });
 
 const supplierSchema = z.object({
@@ -129,6 +142,7 @@ type SupplierFormValues = z.infer<typeof supplierSchema>;
 
 
 type ProductFormValues = z.infer<ReturnType<typeof createProductSchema>>;
+type EditProductFormValues = z.infer<typeof editProductSchema>;
 type StatusFilter = "all" | "in-stock" | "low-stock" | "out-of-stock";
 type CategoryFilter = "all" | ProductCategory;
 
@@ -222,6 +236,7 @@ const Scanner = ({ onResult, onClose }: { onResult: (text: string) => void; onCl
 
 export default function InventoryPage() {
   const { products, suppliers, loading, refetchData } = useData();
+  const { userProfile } = useAuth();
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
   const [editingProduct, setEditingProduct] = useState<Product | null>(null);
@@ -240,6 +255,9 @@ export default function InventoryPage() {
   const [isScannerOpen, setIsScannerOpen] = useState(false);
   const qrCodeLabelRef = useRef<HTMLDivElement>(null);
   const searchParams = useSearchParams();
+  const [previewImage, setPreviewImage] = useState<string | null>(null);
+
+  const canEditProduct = userProfile?.role === 'Admin' || userProfile?.role === 'Manager';
 
   const productSchema = useMemo(() => createProductSchema(autoGenerateSku), [autoGenerateSku]);
 
@@ -258,7 +276,7 @@ export default function InventoryPage() {
     },
   });
 
-  const editForm = useForm<ProductFormValues>({
+  const editForm = useForm<EditProductFormValues>({
     resolver: zodResolver(editProductSchema),
   });
 
@@ -287,7 +305,9 @@ export default function InventoryPage() {
       editForm.reset({
         ...editingProduct,
         supplierId: suppliers.find(s => s.name === editingProduct.supplier)?.id || '',
+        photoFile: undefined
       });
+      setPreviewImage(editingProduct.photoURL || null);
     }
   }, [editingProduct, editForm, suppliers]);
 
@@ -384,13 +404,18 @@ export default function InventoryPage() {
     }
   };
 
-  const onEditSubmit = async (data: ProductFormValues) => {
+  const onEditSubmit = async (data: EditProductFormValues) => {
     if (!editingProduct) return;
     try {
-      const { sku, supplierId, ...updateData } = data;
+      const { sku, supplierId, photoFile, ...updateData } = data;
       const supplierName = suppliers.find(s => s.id === supplierId)?.name || '';
       
       const payload: any = { ...updateData, supplier: supplierName };
+
+      const file = photoFile?.[0];
+      if(file) {
+        payload.photoURL = await uploadProductPicture(file, editingProduct.id);
+      }
       
       await updateProduct(editingProduct.id, payload);
       toast({ title: "Success", description: "Product updated successfully." });
@@ -542,6 +567,18 @@ export default function InventoryPage() {
         });
       });
   }, [qrCodeProduct, toast]);
+  
+  const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (file) {
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        setPreviewImage(reader.result as string);
+      };
+      reader.readAsDataURL(file);
+      editForm.setValue('photoFile', event.target.files);
+    }
+  };
 
 
   return (
@@ -959,6 +996,28 @@ export default function InventoryPage() {
             </DialogHeader>
             <div className="grid md:grid-cols-[2fr_1fr] gap-8">
               <form onSubmit={editForm.handleSubmit(onEditSubmit)} className="space-y-4">
+                  {canEditProduct && (
+                    <div className="flex flex-col items-center gap-2">
+                      <Image 
+                        src={previewImage || '/placeholder.svg'}
+                        alt={editingProduct.name}
+                        width={128}
+                        height={128}
+                        className="rounded-lg object-cover aspect-square"
+                      />
+                      <Input
+                        id="photoFile"
+                        type="file"
+                        className="hidden"
+                        accept="image/*"
+                        onChange={handleFileChange}
+                      />
+                      <Button type="button" variant="link" onClick={() => document.getElementById('photoFile')?.click()}>
+                        Change Photo
+                      </Button>
+                      {editForm.formState.errors.photoFile && <p className="text-sm text-destructive">{editForm.formState.errors.photoFile.message as string}</p>}
+                    </div>
+                  )}
                   <div className="sm:col-span-2 grid grid-cols-1 sm:grid-cols-2 gap-4">
                       <div className="space-y-2 sm:col-span-2">
                           <Label htmlFor="edit-name">Product Name</Label>

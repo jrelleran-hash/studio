@@ -1824,3 +1824,37 @@ export async function deleteBackorder(backorderId: string): Promise<void> {
         throw new Error("Failed to delete reorder request.");
     }
 }
+
+export async function uploadProfilePicture(file: File, uid: string): Promise<string> {
+  if (!uid) throw new Error("User not authenticated for photo upload.");
+  const filePath = `profile-pictures/${uid}/${file.name}`;
+  const storageRef = ref(storage, filePath);
+  try {
+    await uploadBytes(storageRef, file);
+    const downloadURL = await getDownloadURL(storageRef);
+    // Also update the photoURL in the user's document in Firestore
+    const userDocRef = doc(db, "users", uid);
+    await updateDoc(userDocRef, { photoURL: downloadURL });
+    return downloadURL;
+  } catch (error) {
+    console.error("Error uploading profile picture: ", error);
+    throw new Error("Failed to upload image.");
+  }
+}
+
+export async function uploadProductPicture(file: File, productId: string): Promise<string> {
+  if (!productId) throw new Error("Product ID is required for photo upload.");
+  const filePath = `product-images/${productId}/${file.name}`;
+  const storageRef = ref(storage, filePath);
+  try {
+    await uploadBytes(storageRef, file);
+    const downloadURL = await getDownloadURL(storageRef);
+    // Update the photoURL in the product's document in Firestore
+    const productDocRef = doc(db, "inventory", productId);
+    await updateDoc(productDocRef, { photoURL: downloadURL });
+    return downloadURL;
+  } catch (error) {
+    console.error("Error uploading product picture: ", error);
+    throw new Error("Failed to upload image.");
+  }
+}

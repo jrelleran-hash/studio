@@ -624,7 +624,7 @@ export default function SettingsPage() {
             <CardHeader className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4">
               <div className="flex items-center gap-4">
                  <Avatar className="h-16 w-16">
-                    <AvatarImage src={user?.photoURL || undefined} alt={user?.email || '@user'} />
+                    <AvatarImage src={userProfile?.photoURL || user?.photoURL || undefined} alt={user?.email || '@user'} />
                     <AvatarFallback>{user?.displayName?.[0].toUpperCase() || user?.email?.[0].toUpperCase() || "U"}</AvatarFallback>
                 </Avatar>
                 <div>
@@ -784,6 +784,7 @@ export default function SettingsPage() {
     </div>
   );
 }
+
 
 
 

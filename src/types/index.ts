@@ -215,4 +215,5 @@ export interface UserProfile {
     lastName: string;
     role: UserRole;
     permissions: PagePermission[];
+    photoURL?: string;
 }

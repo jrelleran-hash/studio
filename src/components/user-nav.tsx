@@ -18,7 +18,7 @@ import { useEffect, useState } from "react";
 import { ThemeToggle } from "./theme-toggle";
 
 export function UserNav() {
-  const { user, logout } = useAuth();
+  const { user, userProfile, logout } = useAuth();
   const [isClient, setIsClient] = useState(false);
 
   useEffect(() => {
@@ -26,13 +26,15 @@ export function UserNav() {
   }, []);
 
   if (!isClient) return null;
+  
+  const photoUrl = userProfile?.photoURL || user?.photoURL || undefined;
 
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
         <Button variant="ghost" className="relative h-8 w-8 rounded-full">
           <Avatar className="h-9 w-9">
-            <AvatarImage src={user?.photoURL || undefined} alt={user?.email || '@user'} />
+            <AvatarImage src={photoUrl} alt={user?.email || '@user'} />
             <AvatarFallback>{user?.displayName?.[0].toUpperCase() || user?.email?.[0].toUpperCase() || "U"}</AvatarFallback>
           </Avatar>
         </Button>

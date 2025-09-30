@@ -81,10 +81,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const refetchUserProfile = useCallback(async () => {
     if (user) {
         setLoading(true);
-        await fetchUserProfile(user);
+        const profile = await getUserProfile(user.uid);
+        setUserProfile(profile);
         setLoading(false);
     }
-  }, [user, fetchUserProfile]);
+  }, [user]);
 
   const value = useMemo(() => ({
      user, userProfile, loading, logout, refetchUserProfile
