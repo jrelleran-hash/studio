@@ -53,7 +53,7 @@ const supplierSchema = z.object({
   name: z.string().min(1, "Supplier name is required."),
   contactPerson: z.string().min(1, "Contact person is required."),
   email: z.string().email("Invalid email address.").optional().or(z.literal('')),
-  phone: z.string().min(1, "Phone number is required."),
+  phone: z.string().optional(),
   cellphoneNumber: z.string().optional(),
   address: z.string().min(1, "Address is required."),
 });
@@ -265,7 +265,7 @@ export default function SuppliersPage() {
             </div>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div className="space-y-2">
-                    <Label htmlFor="phone">Phone</Label>
+                    <Label htmlFor="phone">Phone (Optional)</Label>
                     <Input id="phone" type="tel" {...supplierForm.register("phone")} />
                     {supplierForm.formState.errors.phone && <p className="text-sm text-destructive">{supplierForm.formState.errors.phone.message}</p>}
                 </div>
@@ -427,7 +427,7 @@ export default function SuppliersPage() {
             </div>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div className="space-y-2">
-                    <Label htmlFor="edit-phone">Phone</Label>
+                    <Label htmlFor="edit-phone">Phone (Optional)</Label>
                     <Input id="edit-phone" type="tel" {...editSupplierForm.register("phone")} />
                     {editSupplierForm.formState.errors.phone && <p className="text-sm text-destructive">{editSupplierForm.formState.errors.phone.message}</p>}
                 </div>

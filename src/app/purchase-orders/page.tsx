@@ -117,7 +117,7 @@ const supplierSchema = z.object({
   name: z.string().min(1, "Supplier name is required."),
   contactPerson: z.string().min(1, "Contact person is required."),
   email: z.string().email("Invalid email address.").optional().or(z.literal('')),
-  phone: z.string().min(1, "Phone number is required."),
+  phone: z.string().optional(),
   cellphoneNumber: z.string().optional(),
   address: z.string().min(1, "Address is required."),
 });

@@ -105,7 +105,7 @@ const supplierSchema = z.object({
   name: z.string().min(1, "Supplier name is required."),
   contactPerson: z.string().min(1, "Contact person is required."),
   email: z.string().email("Invalid email address.").optional().or(z.literal('')),
-  phone: z.string().min(1, "Phone number is required."),
+  phone: z.string().optional(),
   cellphoneNumber: z.string().optional(),
   address: z.string().min(1, "Address is required."),
 });
@@ -967,7 +967,7 @@ export default function OrdersPage() {
             {supplierForm.formState.errors.email && <p className="text-sm text-destructive">{supplierForm.formState.errors.email.message}</p>}
         </div>
         <div className="space-y-2">
-            <Label htmlFor="phone-dash-sup">Phone</Label>
+            <Label htmlFor="phone-dash-sup">Phone (Optional)</Label>
             <Input id="phone-dash-sup" type="tel" {...supplierForm.register("phone")} />
             {supplierForm.formState.errors.phone && <p className="text-sm text-destructive">{supplierForm.formState.errors.phone.message}</p>}
         </div>
