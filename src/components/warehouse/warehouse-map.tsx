@@ -1,5 +1,4 @@
 
-
 "use client";
 
 import React, { useMemo, useState } from "react";
@@ -52,7 +51,7 @@ const Breadcrumbs = ({ path, onNavigate }: { path: string[], onNavigate: (index:
         <div className="flex items-center gap-2 text-sm text-muted-foreground mb-4">
             <Button variant="link" className="p-0 h-auto" onClick={() => onNavigate(-1)}>Warehouse</Button>
             {path.map((item, index) => (
-                <React.Fragment key={item}>
+                <React.Fragment key={index}>
                     <ChevronRight className="h-4 w-4" />
                     <Button 
                         variant="link" 
