@@ -17,7 +17,7 @@ export interface Notification {
   href: string;
   timestamp: Timestamp;
   read: boolean;
-  icon?: "ShoppingCart" | "UserPlus" | "Package" | "Truck" | "RefreshCcw" | "ClipboardCheck";
+  icon?: "ShoppingCart" | "UserPlus" | "Package" | "Truck" | "RefreshCcw" | "ClipboardCheck" | "Map";
 }
 
 export interface Client {
@@ -206,7 +206,7 @@ export interface OutboundReturn {
 }
 
 export type UserRole = "Admin" | "Manager" | "Staff";
-export type PagePermission = "/" | "/clients" | "/logistics" | "/analytics" | "/orders" | "/purchase-orders" | "/suppliers" | "/inventory" | "/issuance" | "/returns" | "/quality-control" | "/reports";
+export type PagePermission = "/" | "/clients" | "/logistics" | "/analytics" | "/orders" | "/purchase-orders" | "/suppliers" | "/inventory" | "/issuance" | "/returns" | "/quality-control" | "/reports" | "/warehouse";
 
 export interface UserProfile {
     uid: string;

@@ -18,6 +18,7 @@ import {
   Building,
   Receipt,
   ChevronDown,
+  Map,
 } from "lucide-react";
 import { CoreFlowLogo } from "@/components/icons";
 import { cn } from "@/lib/utils";
@@ -44,6 +45,7 @@ const procurementNavItems = [
 const inventoryNavItems = [
     { href: "/inventory", label: "Products", icon: Package },
     { href: "/issuance", label: "Issuance", icon: FileText },
+    { href: "/warehouse", label: "Warehouse Map", icon: Map },
 ];
 
 const assuranceNavItems = [
