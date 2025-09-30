@@ -1,11 +1,11 @@
 
 "use client";
 
-import { useState, useEffect, useMemo, useRef } from "react";
+import { useState, useEffect, useMemo, useRef, useCallback } from "react";
 import { useForm, Controller } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
-import { PlusCircle, MoreHorizontal, Package, ChevronsUpDown, Check, Printer, FileDown, SlidersHorizontal, QrCode, Camera } from "lucide-react";
+import { PlusCircle, MoreHorizontal, Package, ChevronsUpDown, Check, Printer, FileDown, SlidersHorizontal, QrCode, Camera, Download } from "lucide-react";
 import { Button, buttonVariants } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
@@ -67,6 +67,7 @@ import QRCode from "react-qr-code";
 import { useZxing } from "react-zxing";
 import { Alert, AlertTitle, AlertDescription } from "@/components/ui/alert";
 import { CoreFlowLogo } from "@/components/icons";
+import { toPng } from 'html-to-image';
 
 
 const categories: ProductCategory[] = ["Tools", "Consumables", "Raw Materials", "Finished Goods", "Other"];
@@ -221,6 +222,7 @@ export default function InventoryPage() {
   const [isAddSupplierOpen, setIsAddSupplierOpen] = useState(false);
   const [qrCodeProduct, setQrCodeProduct] = useState<Product | null>(null);
   const [isScannerOpen, setIsScannerOpen] = useState(false);
+  const qrCodeLabelRef = useRef<HTMLDivElement>(null);
 
   const productSchema = useMemo(() => createProductSchema(autoGenerateSku), [autoGenerateSku]);
 
@@ -491,6 +493,29 @@ export default function InventoryPage() {
           });
       }
   };
+
+  const handleExportAsImage = useCallback(() => {
+    if (qrCodeLabelRef.current === null || !qrCodeProduct) {
+      return;
+    }
+
+    toPng(qrCodeLabelRef.current, { cacheBust: true, pixelRatio: 2 })
+      .then((dataUrl) => {
+        const link = document.createElement('a');
+        link.download = `${qrCodeProduct.sku || 'product-label'}.png`;
+        link.href = dataUrl;
+        link.click();
+      })
+      .catch((err) => {
+        console.error(err);
+        toast({
+            variant: "destructive",
+            title: "Export Failed",
+            description: "Could not export the label as an image.",
+        });
+      });
+  }, [qrCodeProduct, toast]);
+
 
   return (
     <>
@@ -1153,12 +1178,12 @@ export default function InventoryPage() {
             <DialogHeader className="sr-only print-hidden">
                 <DialogTitle>Product QR Code</DialogTitle>
             </DialogHeader>
-            <div className="printable-content flex flex-col items-center justify-center text-center p-4 bg-white text-black">
+            <div ref={qrCodeLabelRef} className="printable-content flex flex-col items-center justify-center p-4 bg-white text-black">
                 <div className="flex items-center gap-2 font-semibold">
                     <CoreFlowLogo className="h-6 w-6 text-black" />
                     <span>CoreFlow</span>
                 </div>
-                <p className="text-lg font-bold mt-2">{qrCodeProduct?.name}</p>
+                <p className="text-lg font-bold mt-2 text-center">{qrCodeProduct?.name}</p>
                 <div className="p-2 inline-block my-2">
                     <QRCode value={qrCodeProduct?.id || ""} size={128} />
                 </div>
@@ -1166,6 +1191,10 @@ export default function InventoryPage() {
             </div>
             <DialogFooter className="print-hidden mt-4">
                 <Button variant="outline" onClick={() => setQrCodeProduct(null)}>Close</Button>
+                <Button onClick={handleExportAsImage}>
+                    <Download className="mr-2 h-4 w-4" />
+                    Export
+                </Button>
                 <Button onClick={() => window.print()}>
                     <Printer className="mr-2 h-4 w-4" />
                     Print
@@ -1173,8 +1202,23 @@ export default function InventoryPage() {
             </DialogFooter>
         </DialogContent>
       </Dialog>
+      <div className="hidden">
+        <div ref={qrCodeLabelRef}>
+            {qrCodeProduct && (
+                 <div className="flex flex-col items-center justify-center text-center p-4 bg-white text-black w-[300px]">
+                    <div className="flex items-center gap-2 font-semibold">
+                        <CoreFlowLogo className="h-6 w-6 text-black" />
+                        <span>CoreFlow</span>
+                    </div>
+                    <p className="text-lg font-bold mt-2">{qrCodeProduct?.name}</p>
+                    <div className="p-2 inline-block my-2">
+                        <QRCode value={qrCodeProduct?.id || ""} size={128} />
+                    </div>
+                    <p className="text-sm font-mono text-gray-600">SKU: {qrCodeProduct?.sku}</p>
+                </div>
+            )}
+        </div>
+      </div>
     </>
   );
 }
-
-    
