@@ -66,6 +66,7 @@ import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import QRCode from "react-qr-code";
 import { useZxing } from "react-zxing";
 import { Alert, AlertTitle, AlertDescription } from "@/components/ui/alert";
+import { CoreFlowLogo } from "@/components/icons";
 
 
 const categories: ProductCategory[] = ["Tools", "Consumables", "Raw Materials", "Finished Goods", "Other"];
@@ -1149,15 +1150,19 @@ export default function InventoryPage() {
       </Dialog>
       <Dialog open={!!qrCodeProduct} onOpenChange={(open) => !open && setQrCodeProduct(null)}>
         <DialogContent className="sm:max-w-sm">
-            <DialogHeader className="sr-only print-hidden">
+             <DialogHeader className="sr-only print-hidden">
                 <DialogTitle>Product QR Code</DialogTitle>
             </DialogHeader>
-            <div className="printable-content flex flex-col items-center justify-center p-4 bg-white text-black">
-                <h3 className="text-lg font-semibold">{qrCodeProduct?.name}</h3>
-                <p className="text-sm text-gray-600 mb-2">SKU: {qrCodeProduct?.sku} | {qrCodeProduct?.category}</p>
-                <div className="p-2 inline-block">
-                    <QRCode value={qrCodeProduct?.id || ""} size={200} />
+            <div className="printable-content flex flex-col items-center justify-center p-4 bg-white text-black text-center">
+                <div className="flex items-center gap-2">
+                    <CoreFlowLogo className="h-6 w-6 text-black" />
+                    <span className="font-semibold">CoreFlow</span>
                 </div>
+                <p className="text-lg font-semibold mt-2">{qrCodeProduct?.name}</p>
+                <div className="p-2 inline-block my-2">
+                    <QRCode value={qrCodeProduct?.id || ""} size={128} />
+                </div>
+                <p className="text-sm text-gray-600">SKU: {qrCodeProduct?.sku}</p>
             </div>
             <DialogFooter className="print-hidden mt-4">
                 <Button variant="outline" onClick={() => setQrCodeProduct(null)}>Close</Button>
