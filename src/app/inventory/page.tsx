@@ -145,11 +145,38 @@ const toTitleCase = (str: string) => {
 };
 
 const Scanner = ({ onResult, onClose }: { onResult: (text: string) => void; onClose: () => void }) => {
+    const { toast } = useToast();
+    const [hasCameraPermission, setHasCameraPermission] = useState<boolean | null>(null);
+    const videoRef = useRef<HTMLVideoElement>(null);
+
     const { ref } = useZxing({
         onDecodeResult(result) {
             onResult(result.getText());
         },
+        videoRef,
     });
+    
+     useEffect(() => {
+        const getCameraPermission = async () => {
+        try {
+            const stream = await navigator.mediaDevices.getUserMedia({ video: true });
+            setHasCameraPermission(true);
+            if (videoRef.current) {
+                videoRef.current.srcObject = stream;
+            }
+        } catch (error) {
+            console.error('Error accessing camera:', error);
+            setHasCameraPermission(false);
+            toast({
+            variant: 'destructive',
+            title: 'Camera Access Denied',
+            description: 'Please enable camera permissions in your browser settings to use this app.',
+            });
+        }
+        };
+        getCameraPermission();
+    }, [toast]);
+
 
     return (
         <Dialog open onOpenChange={(open) => !open && onClose()}>
@@ -157,7 +184,19 @@ const Scanner = ({ onResult, onClose }: { onResult: (text: string) => void; onCl
                 <DialogHeader>
                     <DialogTitle>Scan Product QR Code</DialogTitle>
                 </DialogHeader>
-                <video ref={ref} className="w-full rounded-md" />
+                <div className="relative">
+                    <video ref={videoRef} className="w-full aspect-video rounded-md" autoPlay muted />
+                     {hasCameraPermission === false && (
+                        <div className="absolute inset-0 flex items-center justify-center bg-background/80 rounded-md">
+                            <Alert variant="destructive" className="w-auto">
+                                <AlertTitle>Camera Access Required</AlertTitle>
+                                <AlertDescription>
+                                    Please allow camera access to use this feature.
+                                </AlertDescription>
+                            </Alert>
+                        </div>
+                    )}
+                </div>
             </DialogContent>
         </Dialog>
     );
@@ -1139,6 +1178,7 @@ export default function InventoryPage() {
     
 
     
+
 
 
 
