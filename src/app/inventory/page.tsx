@@ -6,7 +6,7 @@ import { useState, useEffect, useMemo, useRef } from "react";
 import { useForm, Controller } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
-import { PlusCircle, MoreHorizontal, Package, ChevronsUpDown, Check, Printer, FileDown, SlidersHorizontal, QrCode } from "lucide-react";
+import { PlusCircle, MoreHorizontal, Package, ChevronsUpDown, Check, Printer, FileDown, SlidersHorizontal, QrCode, Camera } from "lucide-react";
 import { Button, buttonVariants } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
@@ -62,6 +62,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Textarea } from "@/components/ui/textarea";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import QRCode from "react-qr-code";
+import { useZxing } from "react-zxing";
 import { Alert, AlertTitle, AlertDescription } from "@/components/ui/alert";
 
 
@@ -125,6 +126,26 @@ const toTitleCase = (str: string) => {
   );
 };
 
+const Scanner = ({ onResult, onClose }: { onResult: (text: string) => void; onClose: () => void }) => {
+    const { ref } = useZxing({
+        onDecodeResult(result) {
+            onResult(result.getText());
+        },
+    });
+
+    return (
+        <Dialog open onOpenChange={(open) => !open && onClose()}>
+            <DialogContent>
+                <DialogHeader>
+                    <DialogTitle>Scan Product QR Code</DialogTitle>
+                </DialogHeader>
+                <video ref={ref} className="w-full rounded-md" />
+            </DialogContent>
+        </Dialog>
+    );
+};
+
+
 export default function InventoryPage() {
   const { products, suppliers, loading, refetchData } = useData();
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
@@ -141,6 +162,7 @@ export default function InventoryPage() {
   const [isSupplierPopoverOpen, setIsSupplierPopoverOpen] = useState(false);
   const [isAddSupplierOpen, setIsAddSupplierOpen] = useState(false);
   const [qrCodeProduct, setQrCodeProduct] = useState<Product | null>(null);
+  const [isScannerOpen, setIsScannerOpen] = useState(false);
 
   const productSchema = useMemo(() => createProductSchema(autoGenerateSku), [autoGenerateSku]);
 
@@ -362,9 +384,29 @@ export default function InventoryPage() {
     link.click();
     document.body.removeChild(link);
   }
+  
+  const handleScanResult = (text: string) => {
+      setIsScannerOpen(false);
+      const product = products.find(p => p.id === text);
+      if (product) {
+          handleEditClick(product);
+      } else {
+          toast({
+              variant: "destructive",
+              title: "Product Not Found",
+              description: "The scanned QR code does not match any product in your inventory.",
+          });
+      }
+  };
 
   return (
     <>
+      {isScannerOpen && (
+        <Scanner 
+            onResult={handleScanResult}
+            onClose={() => setIsScannerOpen(false)}
+        />
+      )}
       <Card className="printable-content">
         <CardHeader className="flex flex-col md:flex-row md:items-start md:justify-between gap-4">
           <div>
@@ -421,6 +463,10 @@ export default function InventoryPage() {
                 </Button>
             </div>
             <div className="flex items-center gap-2">
+                <Button size="sm" variant="outline" className="gap-1 w-full md:w-auto" onClick={() => setIsScannerOpen(true)}>
+                  <Camera />
+                  Scan Product
+                </Button>
                 <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>
                 <DialogTrigger asChild className="print-hidden">
                     <Button size="sm" className="gap-1 w-full md:w-auto">
@@ -1005,6 +1051,7 @@ export default function InventoryPage() {
     
 
     
+
 
 
 
