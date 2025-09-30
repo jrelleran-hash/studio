@@ -531,7 +531,7 @@ export default function InventoryPage() {
             onClose={() => setIsScannerOpen(false)}
         />
       )}
-      <Card>
+      <Card className="printable-content">
         <CardHeader className="flex flex-col md:flex-row md:items-start md:justify-between gap-4 print-hidden">
           <div>
             <CardTitle>Inventory</CardTitle>
@@ -1212,3 +1212,4 @@ export default function InventoryPage() {
   );
 }
 
+    
