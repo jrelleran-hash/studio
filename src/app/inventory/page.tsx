@@ -149,35 +149,40 @@ const toTitleCase = (str: string) => {
 const Scanner = ({ onResult, onClose }: { onResult: (text: string) => void; onClose: () => void }) => {
     const { toast } = useToast();
     const [hasCameraPermission, setHasCameraPermission] = useState<boolean | null>(null);
-    const videoRef = useRef<HTMLVideoElement>(null);
 
     const { ref } = useZxing({
+        constraints: { video: { facingMode: 'environment' } },
         onDecodeResult(result) {
             onResult(result.getText());
         },
-        videoRef,
-    });
-    
-     useEffect(() => {
-        const getCameraPermission = async () => {
-        try {
-            const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' } });
-            setHasCameraPermission(true);
-            if (videoRef.current) {
-                videoRef.current.srcObject = stream;
-            }
-        } catch (error) {
-            console.error('Error accessing camera:', error);
+        onDecodeError(error) {
+            // Do nothing on decode error
+        },
+        onError(error) {
+            console.error('Camera Error:', error);
             setHasCameraPermission(false);
             toast({
-            variant: 'destructive',
-            title: 'Camera Access Denied',
-            description: 'Please enable camera permissions in your browser settings to use this app.',
+                variant: 'destructive',
+                title: 'Camera Access Denied',
+                description: 'Please enable camera permissions in your browser settings to use this app.',
             });
-        }
+        },
+    });
+
+    // A simple check to see if the stream is active, indicating permission was likely granted.
+    useEffect(() => {
+        // useZxing handles the stream, but we can check for permission status for UI feedback
+        const checkPermission = async () => {
+            try {
+                const stream = await navigator.mediaDevices.getUserMedia({ video: true });
+                stream.getTracks().forEach(track => track.stop()); // Stop the stream immediately
+                setHasCameraPermission(true);
+            } catch (error) {
+                setHasCameraPermission(false);
+            }
         };
-        getCameraPermission();
-    }, [toast]);
+        checkPermission();
+    }, []);
 
 
     return (
@@ -187,7 +192,7 @@ const Scanner = ({ onResult, onClose }: { onResult: (text: string) => void; onCl
                     <DialogTitle>Scan Product QR Code</DialogTitle>
                 </DialogHeader>
                 <div className="relative">
-                    <video ref={videoRef} className="w-full aspect-video rounded-md" autoPlay muted />
+                    <video ref={ref} className="w-full aspect-video rounded-md" />
                      {hasCameraPermission === false && (
                         <div className="absolute inset-0 flex items-center justify-center bg-background/80 rounded-md">
                             <Alert variant="destructive" className="w-auto">
@@ -1206,3 +1211,4 @@ export default function InventoryPage() {
     </>
   );
 }
+
