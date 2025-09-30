@@ -17,6 +17,9 @@ import {
   DropdownMenuLabel,
   DropdownMenuTrigger,
   DropdownMenuSeparator,
+  DropdownMenuCheckboxItem,
+  DropdownMenuRadioGroup,
+  DropdownMenuRadioItem,
 } from "@/components/ui/dropdown-menu";
 import {
   Dialog,
@@ -400,33 +403,43 @@ export default function InventoryPage() {
           <div>
             <CardTitle>Inventory</CardTitle>
             <CardDescription>Manage your product inventory.</CardDescription>
-            <div className="flex items-center gap-2 mt-4 flex-wrap print-hidden">
-                <p className="text-sm font-medium mr-2">Status:</p>
-              {(["all", "in-stock", "low-stock", "out-of-stock"] as StatusFilter[]).map((filter) => (
-                <Button
-                  key={filter}
-                  variant={statusFilter === filter ? "secondary" : "outline"}
-                  size="sm"
-                  onClick={() => setStatusFilter(filter)}
-                  className="capitalize"
-                >
-                  {filter.replace("-", " ")}
-                </Button>
-              ))}
-            </div>
-             <div className="flex items-center gap-2 mt-2 flex-wrap print-hidden">
-                <p className="text-sm font-medium mr-2">Category:</p>
-                {(["all", ...categories] as (CategoryFilter)[]).map((filter) => (
-                    <Button
-                    key={filter}
-                    variant={categoryFilter === filter ? "secondary" : "outline"}
-                    size="sm"
-                    onClick={() => setCategoryFilter(filter)}
-                    className="capitalize"
-                    >
-                    {filter.replace("-", " ")}
-                    </Button>
-                ))}
+             <div className="flex items-center gap-2 mt-4 print-hidden">
+                <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                        <Button variant="outline" size="sm" className="gap-2 capitalize">
+                           <SlidersHorizontal className="h-4 w-4" />
+                           Status: {statusFilter.replace("-", " ")}
+                        </Button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="start">
+                        <DropdownMenuLabel>Filter by Status</DropdownMenuLabel>
+                        <DropdownMenuRadioGroup value={statusFilter} onValueChange={(value) => setStatusFilter(value as StatusFilter)}>
+                          {(["all", "in-stock", "low-stock", "out-of-stock"] as StatusFilter[]).map((filter) => (
+                            <DropdownMenuRadioItem key={filter} value={filter} className="capitalize">
+                                {filter.replace("-", " ")}
+                            </DropdownMenuRadioItem>
+                          ))}
+                        </DropdownMenuRadioGroup>
+                    </DropdownMenuContent>
+                </DropdownMenu>
+                 <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                        <Button variant="outline" size="sm" className="gap-2 capitalize">
+                           <SlidersHorizontal className="h-4 w-4" />
+                           Category: {categoryFilter}
+                        </Button>
+                    </DropdownMenuTrigger>
+                     <DropdownMenuContent align="start">
+                        <DropdownMenuLabel>Filter by Category</DropdownMenuLabel>
+                        <DropdownMenuRadioGroup value={categoryFilter} onValueChange={(value) => setCategoryFilter(value as CategoryFilter)}>
+                            {(["all", ...categories] as CategoryFilter[]).map((filter) => (
+                                <DropdownMenuRadioItem key={filter} value={filter} className="capitalize">
+                                    {filter}
+                                </DropdownMenuRadioItem>
+                            ))}
+                        </DropdownMenuRadioGroup>
+                    </DropdownMenuContent>
+                </DropdownMenu>
             </div>
           </div>
           <div className="flex flex-col items-end gap-2">
