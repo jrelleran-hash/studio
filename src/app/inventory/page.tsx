@@ -20,6 +20,9 @@ import {
   DropdownMenuCheckboxItem,
   DropdownMenuRadioGroup,
   DropdownMenuRadioItem,
+  DropdownMenuSub,
+  DropdownMenuSubContent,
+  DropdownMenuSubTrigger,
 } from "@/components/ui/dropdown-menu";
 import {
   Dialog,
@@ -45,7 +48,7 @@ import { Label } from "@/components/ui/label";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useToast } from "@/hooks/use-toast";
 import { addProduct, updateProduct, deleteProduct, addSupplier, adjustStock } from "@/services/data-service";
-import type { Product, Supplier, ProductCategory } from "@/types";
+import type { Product, Supplier, ProductCategory, ProductLocation } from "@/types";
 import { Badge } from "@/components/ui/badge";
 import { Switch } from "@/components/ui/switch";
 import { cn } from "@/lib/utils";
@@ -68,6 +71,13 @@ import { Alert, AlertTitle, AlertDescription } from "@/components/ui/alert";
 
 const categories: ProductCategory[] = ["Tools", "Consumables", "Raw Materials", "Finished Goods", "Other"];
 
+const locationSchema = z.object({
+  zone: z.string().optional(),
+  aisle: z.string().optional(),
+  rack: z.string().optional(),
+  level: z.string().optional(),
+  bin: z.string().optional(),
+}).optional();
 
 const createProductSchema = (isSkuAuto: boolean) => z.object({
   name: z.string().min(1, "Product name is required."),
@@ -77,7 +87,7 @@ const createProductSchema = (isSkuAuto: boolean) => z.object({
   stock: z.coerce.number().int().nonnegative("Stock must be a non-negative integer.").optional(),
   reorderLimit: z.coerce.number().int().nonnegative("Reorder limit must be a non-negative integer."),
   maxStockLevel: z.coerce.number().int().nonnegative("Max stock must be a non-negative integer."),
-  location: z.string().optional(),
+  location: locationSchema,
   supplierId: z.string().optional(),
 }).refine(data => isSkuAuto || (data.sku && data.sku.length > 0), {
     message: "SKU is required when not auto-generated.",
@@ -92,7 +102,7 @@ const editProductSchema = z.object({
   stock: z.coerce.number().int().nonnegative("Stock must be a non-negative integer."),
   reorderLimit: z.coerce.number().int().nonnegative("Reorder limit must be a non-negative integer."),
   maxStockLevel: z.coerce.number().int().nonnegative("Max stock must be a non-negative integer."),
-  location: z.string().optional(),
+  location: locationSchema,
   supplierId: z.string().optional(),
 });
 
@@ -118,6 +128,14 @@ type SupplierFormValues = z.infer<typeof supplierSchema>;
 type ProductFormValues = z.infer<ReturnType<typeof createProductSchema>>;
 type StatusFilter = "all" | "in-stock" | "low-stock" | "out-of-stock";
 type CategoryFilter = "all" | ProductCategory;
+
+type LocationFilter = {
+    zone?: string;
+    aisle?: string;
+    rack?: string;
+    level?: string;
+    bin?: string;
+};
 
 const toTitleCase = (str: string) => {
   return str.replace(
@@ -158,6 +176,7 @@ export default function InventoryPage() {
   const { toast } = useToast();
   const [statusFilter, setStatusFilter] = useState<StatusFilter>("all");
   const [categoryFilter, setCategoryFilter] = useState<CategoryFilter>("all");
+  const [locationFilter, setLocationFilter] = useState<LocationFilter>({});
   const [autoGenerateSku, setAutoGenerateSku] = useState(true);
   const [isSupplierPopoverOpen, setIsSupplierPopoverOpen] = useState(false);
   const [isAddSupplierOpen, setIsAddSupplierOpen] = useState(false);
@@ -176,7 +195,7 @@ export default function InventoryPage() {
       stock: undefined,
       reorderLimit: 10,
       maxStockLevel: 100,
-      location: "",
+      location: { zone: "", aisle: "", rack: "", level: "", bin: "" },
       supplierId: "",
     },
   });
@@ -234,10 +253,40 @@ export default function InventoryPage() {
       const statusCheck = statusFilter === "all" || getStatus(product).text.replace(' ', '-')
 .toLowerCase() === statusFilter;
       const categoryCheck = categoryFilter === "all" || product.category === categoryFilter;
-      return statusCheck && categoryCheck;
-    });
-  }, [products, statusFilter, categoryFilter]);
 
+      const locationCheck = Object.entries(locationFilter).every(([key, value]) => 
+        !value || (product.location && product.location[key as keyof ProductLocation] === value)
+      );
+
+      return statusCheck && categoryCheck && locationCheck;
+    });
+  }, [products, statusFilter, categoryFilter, locationFilter]);
+
+  const locationOptions = useMemo(() => {
+    const options: { [key in keyof ProductLocation]: Set<string> } = {
+        zone: new Set(),
+        aisle: new Set(),
+        rack: new Set(),
+        level: new Set(),
+        bin: new Set(),
+    };
+    products.forEach(p => {
+        if (p.location) {
+            (Object.keys(p.location) as (keyof ProductLocation)[]).forEach(key => {
+                if (p.location![key]) {
+                    options[key].add(p.location![key]!);
+                }
+            });
+        }
+    });
+    return {
+        zone: Array.from(options.zone).sort(),
+        aisle: Array.from(options.aisle).sort(),
+        rack: Array.from(options.rack).sort(),
+        level: Array.from(options.level).sort(),
+        bin: Array.from(options.bin).sort(),
+    };
+}, [products]);
   
   const onAddSubmit = async (data: ProductFormValues) => {
     try {
@@ -343,6 +392,11 @@ export default function InventoryPage() {
     return format(timestamp.toDate(), 'PPpp');
   }
 
+  const formatLocation = (location?: ProductLocation) => {
+    if (!location) return 'N/A';
+    return Object.values(location).filter(Boolean).join(' - ');
+  }
+
   const onAddSupplierSubmit = async (data: SupplierFormValues) => {
     try {
       await addSupplier(data);
@@ -361,15 +415,15 @@ export default function InventoryPage() {
   };
 
   const handleExport = () => {
-    const headers = ["SKU", "Name", "Category", "Price", "Stock", "Status", "Supplier", "Last Updated"];
+    const headers = ["SKU", "Name", "Category", "Price", "Stock", "Status", "Supplier", "Location", "Last Updated"];
     const rows = filteredProducts.map(p => {
         const status = getStatus(p);
         const lastUpdated = p.lastUpdated ? formatDate(p.lastUpdated) : 'N/A';
-        // Escape commas in names or other fields
         const name = `"${p.name.replace(/"/g, '""')}"`;
         const supplier = `"${(p.supplier || 'N/A').replace(/"/g, '""')}"`;
+        const location = `"${formatLocation(p.location)}"`;
 
-        return [p.sku, name, p.category, p.price, p.stock, status.text, supplier, lastUpdated].join(',');
+        return [p.sku, name, p.category, p.price, p.stock, status.text, supplier, location, lastUpdated].join(',');
     });
 
     const csvContent = "data:text/csv;charset=utf-8," 
@@ -447,6 +501,32 @@ export default function InventoryPage() {
                                 </DropdownMenuRadioItem>
                             ))}
                         </DropdownMenuRadioGroup>
+                    </DropdownMenuContent>
+                </DropdownMenu>
+                <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                        <Button variant="outline" size="sm" className="gap-2">
+                            <SlidersHorizontal className="h-4 w-4" />
+                            Location
+                        </Button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="start">
+                        <DropdownMenuLabel>Filter by Location</DropdownMenuLabel>
+                        {(Object.keys(locationOptions) as (keyof ProductLocation)[]).map((key) => (
+                            <DropdownMenuSub key={key}>
+                                <DropdownMenuSubTrigger>{key.charAt(0).toUpperCase() + key.slice(1)}: {locationFilter[key] || 'Any'}</DropdownMenuSubTrigger>
+                                <DropdownMenuSubContent>
+                                    <DropdownMenuRadioGroup value={locationFilter[key]} onValueChange={(value) => setLocationFilter(prev => ({ ...prev, [key]: value }))}>
+                                        <DropdownMenuRadioItem value="">Any</DropdownMenuRadioItem>
+                                        {locationOptions[key].map(opt => (
+                                            <DropdownMenuRadioItem key={opt} value={opt}>{opt}</DropdownMenuRadioItem>
+                                        ))}
+                                    </DropdownMenuRadioGroup>
+                                </DropdownMenuSubContent>
+                            </DropdownMenuSub>
+                        ))}
+                         <DropdownMenuSeparator />
+                        <DropdownMenuItem onSelect={() => setLocationFilter({})}>Clear Filters</DropdownMenuItem>
                     </DropdownMenuContent>
                 </DropdownMenu>
             </div>
@@ -545,59 +625,63 @@ export default function InventoryPage() {
                         {addForm.formState.errors.maxStockLevel && <p className="text-sm text-destructive">{addForm.formState.errors.maxStockLevel.message}</p>}
                         </div>
                     </div>
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                        <div className="space-y-2">
-                            <Label htmlFor="location">Location</Label>
-                            <Input id="location" placeholder="e.g. 'Warehouse A'" {...addForm.register("location")} />
+                    <div className="space-y-4 rounded-md border p-4">
+                        <Label className="text-base">Storage Location</Label>
+                        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-2">
+                            <Input placeholder="Zone" {...addForm.register("location.zone")} />
+                            <Input placeholder="Aisle" {...addForm.register("location.aisle")} />
+                            <Input placeholder="Rack" {...addForm.register("location.rack")} />
+                            <Input placeholder="Level" {...addForm.register("location.level")} />
+                            <Input placeholder="Bin" {...addForm.register("location.bin")} />
                         </div>
-                        <div className="space-y-2">
-                            <Label>Supplier</Label>
-                            <Controller
-                                control={addForm.control}
-                                name="supplierId"
-                                render={({ field }) => (
-                                    <Popover open={isSupplierPopoverOpen} onOpenChange={setIsSupplierPopoverOpen}>
-                                        <PopoverTrigger asChild>
-                                            <Button
-                                                variant="outline"
-                                                role="combobox"
-                                                className={cn("w-full justify-between", !field.value && "text-muted-foreground")}
-                                            >
-                                                {field.value ? suppliers.find(s => s.id === field.value)?.name : "Select supplier"}
-                                                <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
-                                            </Button>
-                                        </PopoverTrigger>
-                                        <PopoverContent className="w-[--radix-popover-trigger-width] p-0">
-                                            <Command>
-                                                <CommandInput placeholder="Search supplier..." />
-                                                <CommandList>
-                                                    <CommandEmpty>
-                                                        <Button variant="ghost" className="w-full" onClick={() => { setIsSupplierPopoverOpen(false); setIsAddSupplierOpen(true); }}>
-                                                            Add new supplier
-                                                        </Button>
-                                                    </CommandEmpty>
-                                                    <CommandGroup>
-                                                        {suppliers.map(s => (
-                                                            <CommandItem
-                                                                key={s.id}
-                                                                value={s.name}
-                                                                onSelect={() => {
-                                                                    field.onChange(s.id);
-                                                                    setIsSupplierPopoverOpen(false);
-                                                                }}
-                                                            >
-                                                                <Check className={cn("mr-2 h-4 w-4", field.value === s.id ? "opacity-100" : "opacity-0")} />
-                                                                {s.name}
-                                                            </CommandItem>
-                                                        ))}
-                                                    </CommandGroup>
-                                                </CommandList>
-                                            </Command>
-                                        </PopoverContent>
-                                    </Popover>
-                                )}
-                            />
-                        </div>
+                    </div>
+                    <div className="space-y-2">
+                        <Label>Supplier</Label>
+                        <Controller
+                            control={addForm.control}
+                            name="supplierId"
+                            render={({ field }) => (
+                                <Popover open={isSupplierPopoverOpen} onOpenChange={setIsSupplierPopoverOpen}>
+                                    <PopoverTrigger asChild>
+                                        <Button
+                                            variant="outline"
+                                            role="combobox"
+                                            className={cn("w-full justify-between", !field.value && "text-muted-foreground")}
+                                        >
+                                            {field.value ? suppliers.find(s => s.id === field.value)?.name : "Select supplier"}
+                                            <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                                        </Button>
+                                    </PopoverTrigger>
+                                    <PopoverContent className="w-[--radix-popover-trigger-width] p-0">
+                                        <Command>
+                                            <CommandInput placeholder="Search supplier..." />
+                                            <CommandList>
+                                                <CommandEmpty>
+                                                    <Button variant="ghost" className="w-full" onClick={() => { setIsSupplierPopoverOpen(false); setIsAddSupplierOpen(true); }}>
+                                                        Add new supplier
+                                                    </Button>
+                                                </CommandEmpty>
+                                                <CommandGroup>
+                                                    {suppliers.map(s => (
+                                                        <CommandItem
+                                                            key={s.id}
+                                                            value={s.name}
+                                                            onSelect={() => {
+                                                                field.onChange(s.id);
+                                                                setIsSupplierPopoverOpen(false);
+                                                            }}
+                                                        >
+                                                            <Check className={cn("mr-2 h-4 w-4", field.value === s.id ? "opacity-100" : "opacity-0")} />
+                                                            {s.name}
+                                                        </CommandItem>
+                                                    ))}
+                                                </CommandGroup>
+                                            </CommandList>
+                                        </Command>
+                                    </PopoverContent>
+                                </Popover>
+                            )}
+                        />
                     </div>
                     <DialogFooter>
                         <Button type="button" variant="outline" onClick={() => setIsAddDialogOpen(false)}>Cancel</Button>
@@ -622,7 +706,7 @@ export default function InventoryPage() {
                     <TableHead>Price</TableHead>
                     <TableHead>Stock</TableHead>
                     <TableHead>Status</TableHead>
-                    <TableHead>Supplier</TableHead>
+                    <TableHead>Location</TableHead>
                     <TableHead>Last Updated</TableHead>
                     <TableHead className="print-hidden">
                       <span className="sr-only">Actions</span>
@@ -659,7 +743,7 @@ export default function InventoryPage() {
                           <TableCell>
                             <Badge variant={status.variant} className={status.className}>{status.text}</Badge>
                           </TableCell>
-                          <TableCell>{product.supplier || 'N/A'}</TableCell>
+                          <TableCell>{formatLocation(product.location)}</TableCell>
                            <TableCell>{formatDate(product.lastUpdated)}</TableCell>
                           <TableCell className="print-hidden">
                             <DropdownMenu>
@@ -757,9 +841,9 @@ export default function InventoryPage() {
                                         <p className="font-medium">Status</p>
                                         <p><Badge variant={status.variant} className={status.className}>{status.text}</Badge></p>
                                     </div>
-                                    <div>
-                                        <p className="font-medium">Supplier</p>
-                                        <p>{product.supplier || 'N/A'}</p>
+                                    <div className="col-span-2">
+                                        <p className="font-medium">Location</p>
+                                        <p>{formatLocation(product.location)}</p>
                                     </div>
                                 </CardContent>
                                 <CardFooter className="text-xs text-muted-foreground">
@@ -841,59 +925,63 @@ export default function InventoryPage() {
                         {editForm.formState.errors.maxStockLevel && <p className="text-sm text-destructive">{editForm.formState.errors.maxStockLevel.message}</p>}
                     </div>
                 </div>
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                    <div className="space-y-2">
-                      <Label htmlFor="edit-location">Location</Label>
-                      <Input id="edit-location" {...editForm.register("location")} />
+                 <div className="space-y-4 rounded-md border p-4">
+                    <Label className="text-base">Storage Location</Label>
+                    <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-2">
+                        <Input placeholder="Zone" {...editForm.register("location.zone")} />
+                        <Input placeholder="Aisle" {...editForm.register("location.aisle")} />
+                        <Input placeholder="Rack" {...editForm.register("location.rack")} />
+                        <Input placeholder="Level" {...editForm.register("location.level")} />
+                        <Input placeholder="Bin" {...editForm.register("location.bin")} />
                     </div>
-                    <div className="space-y-2">
-                       <Label>Supplier</Label>
-                        <Controller
-                            control={editForm.control}
-                            name="supplierId"
-                            render={({ field }) => (
-                                <Popover open={isSupplierPopoverOpen} onOpenChange={setIsSupplierPopoverOpen}>
-                                    <PopoverTrigger asChild>
-                                        <Button
-                                            variant="outline"
-                                            role="combobox"
-                                            className={cn("w-full justify-between", !field.value && "text-muted-foreground")}
-                                        >
-                                            {field.value ? suppliers.find(s => s.id === field.value)?.name : "Select supplier"}
-                                            <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
-                                        </Button>
-                                    </PopoverTrigger>
-                                    <PopoverContent className="w-[--radix-popover-trigger-width] p-0">
-                                        <Command>
-                                            <CommandInput placeholder="Search supplier..." />
-                                            <CommandList>
-                                                <CommandEmpty>
-                                                    <Button variant="ghost" className="w-full" onClick={() => { setIsSupplierPopoverOpen(false); setIsAddSupplierOpen(true); }}>
-                                                        Add new supplier
-                                                    </Button>
-                                                </CommandEmpty>
-                                                <CommandGroup>
-                                                    {suppliers.map(s => (
-                                                        <CommandItem
-                                                            key={s.id}
-                                                            value={s.name}
-                                                            onSelect={() => {
-                                                                field.onChange(s.id);
-                                                                setIsSupplierPopoverOpen(false);
-                                                            }}
-                                                        >
-                                                            <Check className={cn("mr-2 h-4 w-4", field.value === s.id ? "opacity-100" : "opacity-0")} />
-                                                            {s.name}
-                                                        </CommandItem>
-                                                    ))}
-                                                </CommandGroup>
-                                            </CommandList>
-                                        </Command>
-                                    </PopoverContent>
-                                </Popover>
-                            )}
-                        />
-                    </div>
+                </div>
+                <div className="space-y-2">
+                    <Label>Supplier</Label>
+                    <Controller
+                        control={editForm.control}
+                        name="supplierId"
+                        render={({ field }) => (
+                            <Popover open={isSupplierPopoverOpen} onOpenChange={setIsSupplierPopoverOpen}>
+                                <PopoverTrigger asChild>
+                                    <Button
+                                        variant="outline"
+                                        role="combobox"
+                                        className={cn("w-full justify-between", !field.value && "text-muted-foreground")}
+                                    >
+                                        {field.value ? suppliers.find(s => s.id === field.value)?.name : "Select supplier"}
+                                        <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                                    </Button>
+                                </PopoverTrigger>
+                                <PopoverContent className="w-[--radix-popover-trigger-width] p-0">
+                                    <Command>
+                                        <CommandInput placeholder="Search supplier..." />
+                                        <CommandList>
+                                            <CommandEmpty>
+                                                <Button variant="ghost" className="w-full" onClick={() => { setIsSupplierPopoverOpen(false); setIsAddSupplierOpen(true); }}>
+                                                    Add new supplier
+                                                </Button>
+                                            </CommandEmpty>
+                                            <CommandGroup>
+                                                {suppliers.map(s => (
+                                                    <CommandItem
+                                                        key={s.id}
+                                                        value={s.name}
+                                                        onSelect={() => {
+                                                            field.onChange(s.id);
+                                                            setIsSupplierPopoverOpen(false);
+                                                        }}
+                                                    >
+                                                        <Check className={cn("mr-2 h-4 w-4", field.value === s.id ? "opacity-100" : "opacity-0")} />
+                                                        {s.name}
+                                                    </CommandItem>
+                                                ))}
+                                            </CommandGroup>
+                                        </CommandList>
+                                    </Command>
+                                </PopoverContent>
+                            </Popover>
+                        )}
+                    />
                 </div>
               <DialogFooter>
                 <Button type="button" variant="outline" onClick={() => setIsEditDialogOpen(false)}>Cancel</Button>
@@ -1051,6 +1139,7 @@ export default function InventoryPage() {
     
 
     
+
 
 
 

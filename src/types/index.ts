@@ -49,6 +49,14 @@ export interface ProductHistory {
 
 export type ProductCategory = "Tools" | "Consumables" | "Raw Materials" | "Finished Goods" | "Other";
 
+export interface ProductLocation {
+    zone?: string;
+    aisle?: string;
+    rack?: string;
+    level?: string;
+    bin?: string;
+}
+
 export interface Product {
     id:string;
     name: string;
@@ -58,7 +66,7 @@ export interface Product {
     price: number;
     reorderLimit: number;
     maxStockLevel: number;
-    location?: string;
+    location?: ProductLocation;
     supplier?: string;
     history?: ProductHistory[];
     lastUpdated?: Timestamp;

@@ -4,7 +4,7 @@ import { db, storage, auth } from "@/lib/firebase";
 import { collection, getDocs, getDoc, doc, orderBy, query, limit, Timestamp, where, DocumentReference, addDoc, updateDoc, deleteDoc, arrayUnion, runTransaction, writeBatch, setDoc } from "firebase/firestore";
 import { ref, uploadBytes, getDownloadURL } from "firebase/storage";
 import { EmailAuthProvider, reauthenticateWithCredential, updatePassword } from "firebase/auth";
-import type { Activity, Notification, Order, Product, Client, Issuance, Supplier, PurchaseOrder, Shipment, Return, ReturnItem, OutboundReturn, OutboundReturnItem, UserProfile, OrderItem, PurchaseOrderItem, IssuanceItem, Backorder, UserRole, PagePermission, ProductCategory } from "@/types";
+import type { Activity, Notification, Order, Product, Client, Issuance, Supplier, PurchaseOrder, Shipment, Return, ReturnItem, OutboundReturn, OutboundReturnItem, UserProfile, OrderItem, PurchaseOrderItem, IssuanceItem, Backorder, UserRole, PagePermission, ProductCategory, ProductLocation } from "@/types";
 import { format, subDays } from 'date-fns';
 
 function timeSince(date: Date) {
@@ -218,7 +218,7 @@ async function checkStockAndCreateNotification(product: Omit<Product, 'id' | 'hi
   }
 }
 
-export async function addProduct(product: Partial<Omit<Product, 'id' | 'lastUpdated' | 'history' | 'maxStockLevel'>> & { maxStockLevel?: number }): Promise<DocumentReference> {
+export async function addProduct(product: Partial<Omit<Product, 'id' | 'lastUpdated' | 'history' | 'maxStockLevel'>> & { maxStockLevel?: number, location?: Partial<ProductLocation> }): Promise<DocumentReference> {
   try {
     const now = Timestamp.now();
     
@@ -233,7 +233,7 @@ export async function addProduct(product: Partial<Omit<Product, 'id' | 'lastUpda
       price: product.price || 0,
       reorderLimit: product.reorderLimit || 10,
       maxStockLevel: product.maxStockLevel || 100,
-      location: product.location || "",
+      location: product.location || {},
       supplier: product.supplier || "",
       lastUpdated: now,
       history: [],
