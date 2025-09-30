@@ -1,4 +1,5 @@
 
+
 "use client";
 
 import React, { useMemo, useState } from "react";
@@ -130,84 +131,98 @@ export function WarehouseMap({ products, onProductSelect }: WarehouseMapProps) {
 
   return (
     <TooltipProvider>
-      <div className="p-4 border rounded-lg min-h-[500px]">
+      <div className="p-4 border rounded-lg min-h-[600px] flex flex-col [perspective:2000px]">
         <Breadcrumbs path={path} onNavigate={handleBreadcrumbNav} />
         
-        <div className="relative">
-            {/* Level 1: Zones */}
-            <div className={cn("grid grid-cols-2 md:grid-cols-4 gap-4 transition-all duration-300", selectedZone ? "opacity-0 scale-95 pointer-events-none" : "opacity-100 scale-100")}>
-                {Object.keys(locationTree).sort().map(zone => (
-                    <div key={zone} onClick={() => setSelectedZone(zone)} className="p-6 border rounded-lg cursor-pointer hover:bg-muted/50 hover:border-primary/50 transition-colors flex items-center justify-center h-32">
-                        <h2 className="text-xl font-bold font-headline">{zone}</h2>
+        <div className="flex-1 flex items-center justify-center">
+            <div 
+              className="w-full h-full relative transition-transform duration-500 ease-in-out"
+              style={{ transformStyle: 'preserve-3d', transform: 'rotateX(55deg) rotateZ(0deg) rotateY(-45deg)'}}
+            >
+                {/* Level 1: Zones */}
+                <div className={cn(
+                    "absolute inset-0 grid grid-cols-2 gap-8 p-8 transition-all duration-500", 
+                    selectedZone ? "opacity-0 scale-95 pointer-events-none" : "opacity-100 scale-100"
+                )}>
+                    {Object.keys(locationTree).sort().map(zone => (
+                        <div key={zone} onClick={() => setSelectedZone(zone)} className="p-6 border rounded-lg cursor-pointer bg-background/80 backdrop-blur-sm hover:bg-muted/80 hover:border-primary/50 transition-all flex items-center justify-center h-48 shadow-lg transform hover:-translate-y-2">
+                            <h2 className="text-2xl font-bold font-headline">{zone}</h2>
+                        </div>
+                    ))}
+                </div>
+                
+                {/* Level 2: Aisles */}
+                {selectedZone && (
+                     <div className={cn(
+                        "absolute inset-0 grid grid-cols-2 gap-6 p-4 transition-all duration-500", 
+                        selectedZone && !selectedAisle ? "opacity-100 scale-100" : "opacity-0 scale-95 pointer-events-none"
+                    )}>
+                        {Object.keys(locationTree[selectedZone]).sort().map(aisle => (
+                            <div key={aisle} onClick={() => setSelectedAisle(aisle)} className="p-6 border rounded-lg cursor-pointer bg-background/80 backdrop-blur-sm hover:bg-muted/80 hover:border-primary/50 transition-all flex items-center justify-center h-40 shadow-md transform hover:-translate-y-1">
+                                <h3 className="text-xl font-semibold">{aisle}</h3>
+                            </div>
+                        ))}
                     </div>
-                ))}
-            </div>
-            
-            {/* Level 2: Aisles */}
-            {selectedZone && (
-                 <div className={cn("grid grid-cols-2 md:grid-cols-4 gap-4 transition-all duration-300 absolute top-0 w-full", selectedZone && !selectedAisle ? "opacity-100 scale-100" : "opacity-0 scale-95 pointer-events-none")}>
-                    {Object.keys(locationTree[selectedZone]).sort().map(aisle => (
-                        <div key={aisle} onClick={() => setSelectedAisle(aisle)} className="p-6 border rounded-lg cursor-pointer hover:bg-muted/50 hover:border-primary/50 transition-colors flex items-center justify-center h-32">
-                            <h3 className="text-lg font-semibold">{aisle}</h3>
-                        </div>
-                    ))}
-                </div>
-            )}
-            
-            {/* Level 3: Racks and Bins */}
-            {selectedZone && selectedAisle && (
-                <div className="space-y-8 animate-in fade-in duration-500">
-                    {Object.keys(rackStructure).sort().map(rack => (
-                        <div key={rack}>
-                            <h4 className="font-semibold text-lg mb-2">Rack: {rack}</h4>
-                             <div className="flex flex-col-reverse gap-1 p-2 border rounded-lg bg-muted/20">
-                                {Object.keys(rackStructure[rack]).sort().reverse().map(level => (
-                                    <div key={level} className="flex items-center">
-                                        <div className="w-16 text-xs text-muted-foreground text-center font-semibold">Level {level}</div>
-                                        <div className="flex-1 grid grid-cols-6 gap-1">
-                                             {Array.from(rackStructure[rack][level]).sort().map(bin => {
-                                                const productsInBin = getProductsInBin(selectedZone, selectedAisle!, rack, level, bin);
-                                                const status = getBinStatus(productsInBin);
-                                                return (
-                                                <Tooltip key={bin} delayDuration={100}>
-                                                    <TooltipTrigger asChild>
-                                                        <div className={cn(
-                                                            "h-16 border rounded-md flex items-center justify-center cursor-pointer transition-colors",
-                                                            binStatusClasses[status]
-                                                        )}>
-                                                        <p className="text-xs font-mono text-center text-muted-foreground">Bin {bin}</p>
-                                                        </div>
-                                                    </TooltipTrigger>
-                                                    <TooltipContent>
-                                                        {productsInBin.length > 0 ? (
-                                                            <div className="space-y-2 p-1">
-                                                            {productsInBin.map(p => (
-                                                                <div key={p.id} className="flex items-center gap-2" onClick={() => onProductSelect(p)}>
-                                                                    <div className="flex-1">
-                                                                    <p className="text-sm font-medium">{p.name}</p>
-                                                                    <p className="text-xs text-muted-foreground">{p.sku}</p>
-                                                                    </div>
-                                                                    <Badge variant="secondary">{p.stock}</Badge>
-                                                                </div>
-                                                            ))}
+                )}
+                
+                {/* Level 3: Racks and Bins */}
+                {selectedZone && selectedAisle && (
+                    <div className="absolute inset-0 space-y-12 animate-in fade-in duration-500">
+                        {Object.keys(rackStructure).sort().map(rack => (
+                            <div key={rack}>
+                                <h4 className="font-semibold text-lg mb-2 text-center">{rack}</h4>
+                                 <div className="flex flex-col-reverse gap-1 p-2 border rounded-lg bg-background/50 shadow-inner">
+                                    {Object.keys(rackStructure[rack]).sort((a,b) => parseInt(b) - parseInt(a)).map(level => (
+                                        <div key={level} className="flex items-center gap-2">
+                                            <div className="w-10 text-xs text-muted-foreground/50 text-center font-semibold -rotate-90">L{level}</div>
+                                            <div className="flex-1 grid grid-cols-6 gap-1">
+                                                 {Array.from(rackStructure[rack][level]).sort((a,b) => parseInt(a) - parseInt(b)).map(bin => {
+                                                    const productsInBin = getProductsInBin(selectedZone, selectedAisle!, rack, level, bin);
+                                                    const status = getBinStatus(productsInBin);
+                                                    return (
+                                                    <Tooltip key={bin} delayDuration={100}>
+                                                        <TooltipTrigger asChild>
+                                                            <div className={cn(
+                                                                "h-16 border rounded-md flex items-center justify-center cursor-pointer transition-colors shadow-sm",
+                                                                binStatusClasses[status]
+                                                            )}>
+                                                            <p className="text-xs font-mono text-center text-muted-foreground/70">B{bin}</p>
                                                             </div>
-                                                        ) : (
-                                                            <p className="text-sm text-muted-foreground p-1">Empty Bin</p>
-                                                        )}
-                                                    </TooltipContent>
-                                                </Tooltip>
-                                                )
-                                            })}
+                                                        </TooltipTrigger>
+                                                        <TooltipContent>
+                                                            {productsInBin.length > 0 ? (
+                                                                <div className="space-y-2 p-1">
+                                                                {productsInBin.map(p => (
+                                                                    <div key={p.id} className="flex items-center gap-2" onClick={() => onProductSelect(p)}>
+                                                                        <div className="flex-1">
+                                                                        <p className="text-sm font-medium">{p.name}</p>
+                                                                        <p className="text-xs text-muted-foreground">{p.sku}</p>
+                                                                        </div>
+                                                                        <Badge variant="secondary">{p.stock}</Badge>
+                                                                    </div>
+                                                                ))}
+                                                                </div>
+                                                            ) : (
+                                                                <p className="text-sm text-muted-foreground p-1">Empty Bin</p>
+                                                            )}
+                                                        </TooltipContent>
+                                                    </Tooltip>
+                                                    )
+                                                })}
+                                            </div>
                                         </div>
-                                    </div>
-                                ))}
-                             </div>
-                        </div>
-                    ))}
-                </div>
-            )}
+                                    ))}
+                                 </div>
+                            </div>
+                        ))}
+                    </div>
+                )}
+            </div>
         </div>
       </div>
     </TooltipProvider>
   );
 }
+
+
+    
