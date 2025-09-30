@@ -1,5 +1,3 @@
-
-
 "use client";
 
 import { useState, useEffect, useMemo, useRef } from "react";
@@ -1151,6 +1149,9 @@ export default function InventoryPage() {
 
       <Dialog open={!!qrCodeProduct} onOpenChange={(open) => !open && setQrCodeProduct(null)}>
         <DialogContent className="sm:max-w-sm">
+            <DialogHeader className="sr-only print-hidden">
+                <DialogTitle>Product QR Code</DialogTitle>
+            </DialogHeader>
             <div className="printable-content flex flex-col items-center justify-center p-4">
                 <h3 className="text-lg font-semibold text-center text-black print:text-black">{qrCodeProduct?.name}</h3>
                 <p className="text-sm text-gray-600 print:text-gray-600 mb-2">SKU: {qrCodeProduct?.sku} | {qrCodeProduct?.category}</p>
@@ -1187,3 +1188,6 @@ export default function InventoryPage() {
 
 
 
+
+
+    
