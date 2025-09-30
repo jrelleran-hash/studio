@@ -2,7 +2,6 @@
 
 import { db, storage, auth } from "@/lib/firebase";
 import { collection, getDocs, getDoc, doc, orderBy, query, limit, Timestamp, where, DocumentReference, addDoc, updateDoc, deleteDoc, arrayUnion, runTransaction, writeBatch, setDoc } from "firebase/firestore";
-import { ref, uploadBytes, getDownloadURL } from "firebase/storage";
 import { EmailAuthProvider, reauthenticateWithCredential, updatePassword } from "firebase/auth";
 import type { Activity, Notification, Order, Product, Client, Issuance, Supplier, PurchaseOrder, Shipment, Return, ReturnItem, OutboundReturn, OutboundReturnItem, UserProfile, OrderItem, PurchaseOrderItem, IssuanceItem, Backorder, UserRole, PagePermission, ProductCategory, ProductLocation } from "@/types";
 import { format, subDays } from 'date-fns';
@@ -1823,38 +1822,4 @@ export async function deleteBackorder(backorderId: string): Promise<void> {
         console.error("Error deleting backorder:", error);
         throw new Error("Failed to delete reorder request.");
     }
-}
-
-export async function uploadProfilePicture(file: File, uid: string): Promise<string> {
-  if (!uid) throw new Error("User not authenticated for photo upload.");
-  const filePath = `profile-pictures/${uid}/${file.name}`;
-  const storageRef = ref(storage, filePath);
-  try {
-    await uploadBytes(storageRef, file);
-    const downloadURL = await getDownloadURL(storageRef);
-    // Also update the photoURL in the user's document in Firestore
-    const userDocRef = doc(db, "users", uid);
-    await updateDoc(userDocRef, { photoURL: downloadURL });
-    return downloadURL;
-  } catch (error) {
-    console.error("Error uploading profile picture: ", error);
-    throw new Error("Failed to upload image.");
-  }
-}
-
-export async function uploadProductPicture(file: File, productId: string): Promise<string> {
-  if (!productId) throw new Error("Product ID is required for photo upload.");
-  const filePath = `product-images/${productId}/${file.name}`;
-  const storageRef = ref(storage, filePath);
-  try {
-    await uploadBytes(storageRef, file);
-    const downloadURL = await getDownloadURL(storageRef);
-    // Update the photoURL in the product's document in Firestore
-    const productDocRef = doc(db, "inventory", productId);
-    await updateDoc(productDocRef, { photoURL: downloadURL });
-    return downloadURL;
-  } catch (error) {
-    console.error("Error uploading product picture: ", error);
-    throw new Error("Failed to upload image.");
-  }
 }

@@ -51,8 +51,7 @@ import { useAuth } from "@/hooks/use-auth";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { Switch } from "@/components/ui/switch";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { uploadProfilePicture, type UserProfile, updateUserProfile, deleteUser, changePassword } from "@/services/data-service";
-import Image from "next/image";
+import { type UserProfile, updateUserProfile, deleteUser, changePassword } from "@/services/data-service";
 import { useSearchParams, useRouter } from "next/navigation";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
@@ -66,9 +65,6 @@ import { Badge } from "@/components/ui/badge";
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 
-
-const MAX_FILE_SIZE = 5 * 1024 * 1024; // 5MB
-const ACCEPTED_IMAGE_TYPES = ["image/jpeg", "image/jpg", "image/png", "image/webp"];
 
 const allPermissions: { group: string; permissions: { value: PagePermission; label: string }[] }[] = [
     { group: "Core", permissions: [
@@ -95,14 +91,6 @@ const allPermissions: { group: string; permissions: { value: PagePermission; lab
 const profileFormSchema = z.object({
   firstName: z.string().min(1, "First name is required."),
   lastName: z.string().min(1, "Last name is required."),
-  photoFile: z
-    .any()
-    .optional()
-    .refine((files) => !files?.[0] || files?.[0]?.size <= MAX_FILE_SIZE, `Max file size is 5MB.`)
-    .refine(
-      (files) => !files || (files?.[0] && ACCEPTED_IMAGE_TYPES.includes(files?.[0]?.type)),
-      ".jpg, .jpeg, .png and .webp files are accepted."
-    ),
   phone: z.string().optional(),
 });
 
@@ -500,8 +488,6 @@ export default function SettingsPage() {
 
   const [isProfileDialogOpen, setIsProfileDialogOpen] = useState(false);
   
-  const fileInputRef = useRef<HTMLInputElement>(null);
-  const [previewImage, setPreviewImage] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState(searchParams.get("tab") || "profile");
 
   const isAdmin = userProfile?.role === 'Admin';
@@ -524,9 +510,7 @@ export default function SettingsPage() {
             firstName: firstName,
             lastName: lastName,
             phone: user.phoneNumber || "",
-            photoFile: undefined,
         });
-        setPreviewImage(user.photoURL);
     }
   }, [user, profileForm, isProfileDialogOpen]);
 
@@ -541,18 +525,10 @@ export default function SettingsPage() {
       return;
     }
     try {
-      let photoURL = user.photoURL;
-      
-      const file = data.photoFile?.[0];
-      if (file) {
-        photoURL = await uploadProfilePicture(file, user.uid);
-      }
-
       const displayName = `${data.firstName} ${data.lastName}`.trim();
       
       await updateProfile(user, {
         displayName: displayName,
-        photoURL: photoURL,
       });
       
       await updateUserProfile(user.uid, {
@@ -585,17 +561,6 @@ export default function SettingsPage() {
       title: "Notifications Updated",
       description: "Your notification settings have been saved.",
     });
-  };
-
-  const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
-    const file = event.target.files?.[0];
-    if (file) {
-      const reader = new FileReader();
-      reader.onloadend = () => {
-        setPreviewImage(reader.result as string);
-      };
-      reader.readAsDataURL(file);
-    }
   };
 
   const handleTabChange = (value: string) => {
@@ -646,41 +611,6 @@ export default function SettingsPage() {
                     </DialogDescription>
                   </DialogHeader>
                   <form onSubmit={profileForm.handleSubmit(onProfileSubmit)} className="space-y-4">
-                    <div className="space-y-2 text-center">
-                        <div className="relative w-24 h-24 mx-auto">
-                            <Avatar className="w-24 h-24 text-4xl">
-                                {previewImage ? (
-                                    <Image
-                                        src={previewImage}
-                                        alt="Profile preview"
-                                        width={96}
-                                        height={96}
-                                        className="rounded-full object-cover aspect-square"
-                                    />
-                                ) : (
-                                    <AvatarImage src={undefined} alt="User preview" />
-                                )}
-                                <AvatarFallback>
-                                    {profileForm.getValues('firstName')?.[0]?.toUpperCase() || user?.email?.[0].toUpperCase() || 'U'}
-                                </AvatarFallback>
-                            </Avatar>
-                        </div>
-                         <Button type="button" variant="link" onClick={() => fileInputRef.current?.click()}>
-                           Change Photo
-                         </Button>
-                         <Input
-                           type="file"
-                           className="hidden"
-                           {...profileForm.register("photoFile")}
-                           ref={fileInputRef}
-                           onChange={(e) => {
-                            handleFileChange(e);
-                            profileForm.trigger("photoFile");
-                           }}
-                           accept="image/png, image/jpeg, image/webp"
-                         />
-                         {profileForm.formState.errors.photoFile && <p className="text-sm text-destructive">{profileForm.formState.errors.photoFile.message as string}</p>}
-                    </div>
                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                         <div className="space-y-2">
                           <Label htmlFor="firstName">First Name</Label>
@@ -784,8 +714,3 @@ export default function SettingsPage() {
     </div>
   );
 }
-
-
-
-
-
