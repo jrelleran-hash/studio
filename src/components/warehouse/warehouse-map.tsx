@@ -18,8 +18,8 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 
 interface LocationTree {
   [zone: string]: {
-    [aisle: string]: {
-      [rack: string]: Product[];
+    [rack: string]: {
+      [aisle: string]: Product[];
     };
   };
 }
@@ -46,7 +46,7 @@ const binStatusClasses = {
     "out-of-stock": "bg-destructive/20 border-destructive/50 hover:bg-destructive/30",
 };
 
-const Breadcrumbs = ({ path, onNavigate }: { path: string[], onNavigate: (index: number) => void }) => {
+const Breadcrumbs = ({ path, onNavigate }: { path: {key: string, value: string}[], onNavigate: (index: number) => void }) => {
     return (
         <div className="flex items-center gap-2 text-sm text-muted-foreground mb-4">
             <Button variant="link" className="p-0 h-auto" onClick={() => onNavigate(-1)}>Warehouse</Button>
@@ -59,7 +59,7 @@ const Breadcrumbs = ({ path, onNavigate }: { path: string[], onNavigate: (index:
                         onClick={() => onNavigate(index)}
                         disabled={index === path.length -1}
                     >
-                        {item}
+                        {item.key}: {item.value}
                     </Button>
                 </React.Fragment>
             ))}
@@ -69,7 +69,7 @@ const Breadcrumbs = ({ path, onNavigate }: { path: string[], onNavigate: (index:
 
 export function WarehouseMap({ products, onProductSelect }: WarehouseMapProps) {
   const [selectedZone, setSelectedZone] = useState<string | null>(null);
-  const [selectedAisle, setSelectedAisle] = useState<string | null>(null);
+  const [selectedRack, setSelectedRack] = useState<string | null>(null);
 
   const locationTree: LocationTree = useMemo(() => {
     const tree: LocationTree = {};
@@ -77,58 +77,58 @@ export function WarehouseMap({ products, onProductSelect }: WarehouseMapProps) {
         const loc = product.location;
         if (loc) {
             const zone = loc.zone || 'Un-Zoned';
-            const aisle = loc.aisle || 'Un-Aisled';
             const rack = loc.rack || 'Un-Racked';
+            const aisle = loc.aisle || 'Un-Aisled';
             
             if (!tree[zone]) tree[zone] = {};
-            if (!tree[zone][aisle]) tree[zone][aisle] = {};
-            if (!tree[zone][aisle][rack]) tree[zone][aisle][rack] = [];
+            if (!tree[zone][rack]) tree[zone][rack] = {};
+            if (!tree[zone][rack][aisle]) tree[zone][rack][aisle] = [];
             
-            tree[zone][aisle][rack].push(product);
+            tree[zone][rack][aisle].push(product);
         }
     });
     return tree;
   }, [products]);
   
-  const getProductsInBin = (zone: string, aisle: string, rack: string, level: string, bin: string): Product[] => {
+  const getProductsInBin = (zone: string, rack: string, aisle: string, level: string, bin: string): Product[] => {
     return products.filter(p => 
         p.location?.zone === zone && 
-        p.location?.aisle === aisle && 
         p.location?.rack === rack &&
+        p.location?.aisle === aisle &&
         p.location?.level === level &&
         p.location?.bin === bin
     );
   }
-
-  const racksInAisle = selectedZone && selectedAisle ? locationTree[selectedZone]?.[selectedAisle] || {} : {};
   
-  const rackStructure = useMemo(() => {
-    const structure: { [rack: string]: { [level: string]: Set<string> }} = {};
-    if(selectedZone && selectedAisle) {
+  const aisleStructure = useMemo(() => {
+    const structure: { [aisle: string]: { [level: string]: Set<string> }} = {};
+    if(selectedZone && selectedRack) {
         products.forEach(p => {
             const loc = p.location;
-            if(loc?.zone === selectedZone && loc?.aisle === selectedAisle && loc?.rack) {
-                if(!structure[loc.rack]) structure[loc.rack] = {};
+            if(loc?.zone === selectedZone && loc?.rack === selectedRack && loc?.aisle) {
+                if(!structure[loc.aisle]) structure[loc.aisle] = {};
                 if(loc.level) {
-                    if(!structure[loc.rack][loc.level]) structure[loc.rack][loc.level] = new Set();
-                    if(loc.bin) structure[loc.rack][loc.level].add(loc.bin);
+                    if(!structure[loc.aisle][loc.level]) structure[loc.aisle][loc.level] = new Set();
+                    if(loc.bin) structure[loc.aisle][loc.level].add(loc.bin);
                 }
             }
         });
     }
     return structure;
-  }, [selectedZone, selectedAisle, products]);
+  }, [selectedZone, selectedRack, products]);
 
   const handleBreadcrumbNav = (index: number) => {
     if(index === -1) {
         setSelectedZone(null);
-        setSelectedAisle(null);
+        setSelectedRack(null);
     } else if (index === 0) {
-        setSelectedAisle(null);
+        setSelectedRack(null);
     }
   }
 
-  const path = [selectedZone, selectedAisle].filter(Boolean) as string[];
+  const path: {key: string, value: string}[] = [];
+  if (selectedZone) path.push({ key: 'Z', value: selectedZone});
+  if (selectedRack) path.push({ key: 'R', value: selectedRack});
 
   return (
     <TooltipProvider>
@@ -142,43 +142,43 @@ export function WarehouseMap({ products, onProductSelect }: WarehouseMapProps) {
                     {Object.keys(locationTree).sort().map(zone => (
                         <Card key={zone} onClick={() => setSelectedZone(zone)} className="cursor-pointer hover:border-primary transition-colors">
                             <CardHeader>
-                                <CardTitle>{zone}</CardTitle>
-                                <CardDescription>{Object.keys(locationTree[zone]).length} aisles</CardDescription>
+                                <CardTitle>Z: {zone}</CardTitle>
+                                <CardDescription>{Object.keys(locationTree[zone]).length} racks</CardDescription>
                             </CardHeader>
                         </Card>
                     ))}
                  </div>
             )}
             
-            {/* Level 2: Aisles */}
-            {selectedZone && !selectedAisle && (
+            {/* Level 2: Racks */}
+            {selectedZone && !selectedRack && (
                 <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-4 animate-in fade-in duration-300">
-                    {Object.keys(locationTree[selectedZone]).sort().map(aisle => (
-                        <Card key={aisle} onClick={() => setSelectedAisle(aisle)} className="cursor-pointer hover:border-primary transition-colors">
+                    {Object.keys(locationTree[selectedZone]).sort().map(rack => (
+                        <Card key={rack} onClick={() => setSelectedRack(rack)} className="cursor-pointer hover:border-primary transition-colors">
                              <CardHeader>
-                                <CardTitle>{aisle}</CardTitle>
-                                <CardDescription>{Object.keys(locationTree[selectedZone][aisle]).length} racks</CardDescription>
+                                <CardTitle>R: {rack}</CardTitle>
+                                <CardDescription>{Object.keys(locationTree[selectedZone][rack]).length} aisles</CardDescription>
                             </CardHeader>
                         </Card>
                     ))}
                 </div>
             )}
             
-            {/* Level 3: Racks and Bins */}
-            {selectedZone && selectedAisle && (
+            {/* Level 3: Aisles and Bins */}
+            {selectedZone && selectedRack && (
                 <div className="space-y-8 animate-in fade-in duration-300">
-                    {Object.keys(rackStructure).sort().map(rack => (
-                        <Card key={rack}>
+                    {Object.keys(aisleStructure).sort().map(aisle => (
+                        <Card key={aisle}>
                              <CardHeader>
-                                <CardTitle>{rack}</CardTitle>
+                                <CardTitle>A: {aisle}</CardTitle>
                             </CardHeader>
                             <CardContent className="flex flex-col-reverse gap-2">
-                                {Object.keys(rackStructure[rack]).sort((a,b) => parseInt(b) - parseInt(a)).map(level => (
+                                {Object.keys(aisleStructure[aisle]).sort((a,b) => parseInt(b) - parseInt(a)).map(level => (
                                     <div key={level} className="flex items-center gap-4">
-                                        <div className="w-12 text-sm text-muted-foreground font-semibold">Level {level}</div>
+                                        <div className="w-16 text-sm text-muted-foreground font-semibold">L: {level}</div>
                                         <div className="flex-1 grid grid-cols-4 md:grid-cols-8 lg:grid-cols-12 gap-2">
-                                            {Array.from(rackStructure[rack][level]).sort((a,b) => parseInt(a) - parseInt(b)).map(bin => {
-                                                const productsInBin = getProductsInBin(selectedZone, selectedAisle!, rack, level, bin);
+                                            {Array.from(aisleStructure[aisle][level]).sort((a,b) => parseInt(a) - parseInt(b)).map(bin => {
+                                                const productsInBin = getProductsInBin(selectedZone, selectedRack, aisle, level, bin);
                                                 const status = getBinStatus(productsInBin);
                                                 return (
                                                 <Tooltip key={bin} delayDuration={100}>
@@ -187,7 +187,7 @@ export function WarehouseMap({ products, onProductSelect }: WarehouseMapProps) {
                                                             "h-16 border rounded-md flex items-center justify-center cursor-pointer transition-colors shadow-inner",
                                                             binStatusClasses[status]
                                                         )}>
-                                                        <p className="text-sm font-mono text-center text-muted-foreground">{bin}</p>
+                                                        <p className="text-sm font-mono text-center text-muted-foreground">B: {bin}</p>
                                                         </div>
                                                     </TooltipTrigger>
                                                     <TooltipContent>
