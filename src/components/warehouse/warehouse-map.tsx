@@ -131,98 +131,94 @@ export function WarehouseMap({ products, onProductSelect }: WarehouseMapProps) {
 
   return (
     <TooltipProvider>
-      <div className="p-4 border rounded-lg min-h-[600px] flex flex-col [perspective:2000px]">
+      <div className="p-4 border rounded-lg min-h-[600px] flex flex-col">
         <Breadcrumbs path={path} onNavigate={handleBreadcrumbNav} />
         
-        <div className="flex-1 flex items-center justify-center">
-            <div 
-              className="w-full h-full relative transition-transform duration-500 ease-in-out"
-              style={{ transformStyle: 'preserve-3d', transform: 'rotateX(55deg) rotateZ(0deg) rotateY(-45deg)'}}
-            >
-                {/* Level 1: Zones */}
-                <div className={cn(
-                    "absolute inset-0 grid grid-cols-2 gap-8 p-8 transition-all duration-500", 
-                    selectedZone ? "opacity-0 scale-95 pointer-events-none" : "opacity-100 scale-100"
-                )}>
+        <div className="flex-1">
+            {/* Level 1: Zones */}
+            {!selectedZone && (
+                 <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-4 animate-in fade-in duration-300">
                     {Object.keys(locationTree).sort().map(zone => (
-                        <div key={zone} onClick={() => setSelectedZone(zone)} className="p-6 border rounded-lg cursor-pointer bg-background/80 backdrop-blur-sm hover:bg-muted/80 hover:border-primary/50 transition-all flex items-center justify-center h-48 shadow-lg transform hover:-translate-y-2">
-                            <h2 className="text-2xl font-bold font-headline">{zone}</h2>
-                        </div>
+                        <Card key={zone} onClick={() => setSelectedZone(zone)} className="cursor-pointer hover:border-primary transition-colors">
+                            <CardHeader>
+                                <CardTitle>{zone}</CardTitle>
+                                <CardDescription>{Object.keys(locationTree[zone]).length} aisles</CardDescription>
+                            </CardHeader>
+                        </Card>
+                    ))}
+                 </div>
+            )}
+            
+            {/* Level 2: Aisles */}
+            {selectedZone && !selectedAisle && (
+                <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-4 animate-in fade-in duration-300">
+                    {Object.keys(locationTree[selectedZone]).sort().map(aisle => (
+                        <Card key={aisle} onClick={() => setSelectedAisle(aisle)} className="cursor-pointer hover:border-primary transition-colors">
+                             <CardHeader>
+                                <CardTitle>{aisle}</CardTitle>
+                                <CardDescription>{Object.keys(locationTree[selectedZone][aisle]).length} racks</CardDescription>
+                            </CardHeader>
+                        </Card>
                     ))}
                 </div>
-                
-                {/* Level 2: Aisles */}
-                {selectedZone && (
-                     <div className={cn(
-                        "absolute inset-0 grid grid-cols-2 gap-6 p-4 transition-all duration-500", 
-                        selectedZone && !selectedAisle ? "opacity-100 scale-100" : "opacity-0 scale-95 pointer-events-none"
-                    )}>
-                        {Object.keys(locationTree[selectedZone]).sort().map(aisle => (
-                            <div key={aisle} onClick={() => setSelectedAisle(aisle)} className="p-6 border rounded-lg cursor-pointer bg-background/80 backdrop-blur-sm hover:bg-muted/80 hover:border-primary/50 transition-all flex items-center justify-center h-40 shadow-md transform hover:-translate-y-1">
-                                <h3 className="text-xl font-semibold">{aisle}</h3>
-                            </div>
-                        ))}
-                    </div>
-                )}
-                
-                {/* Level 3: Racks and Bins */}
-                {selectedZone && selectedAisle && (
-                    <div className="absolute inset-0 space-y-12 animate-in fade-in duration-500">
-                        {Object.keys(rackStructure).sort().map(rack => (
-                            <div key={rack}>
-                                <h4 className="font-semibold text-lg mb-2 text-center">{rack}</h4>
-                                 <div className="flex flex-col-reverse gap-1 p-2 border rounded-lg bg-background/50 shadow-inner">
-                                    {Object.keys(rackStructure[rack]).sort((a,b) => parseInt(b) - parseInt(a)).map(level => (
-                                        <div key={level} className="flex items-center gap-2">
-                                            <div className="w-10 text-xs text-muted-foreground/50 text-center font-semibold -rotate-90">L{level}</div>
-                                            <div className="flex-1 grid grid-cols-6 gap-1">
-                                                 {Array.from(rackStructure[rack][level]).sort((a,b) => parseInt(a) - parseInt(b)).map(bin => {
-                                                    const productsInBin = getProductsInBin(selectedZone, selectedAisle!, rack, level, bin);
-                                                    const status = getBinStatus(productsInBin);
-                                                    return (
-                                                    <Tooltip key={bin} delayDuration={100}>
-                                                        <TooltipTrigger asChild>
-                                                            <div className={cn(
-                                                                "h-16 border rounded-md flex items-center justify-center cursor-pointer transition-colors shadow-sm",
-                                                                binStatusClasses[status]
-                                                            )}>
-                                                            <p className="text-xs font-mono text-center text-muted-foreground/70">B{bin}</p>
-                                                            </div>
-                                                        </TooltipTrigger>
-                                                        <TooltipContent>
-                                                            {productsInBin.length > 0 ? (
-                                                                <div className="space-y-2 p-1">
-                                                                {productsInBin.map(p => (
-                                                                    <div key={p.id} className="flex items-center gap-2" onClick={() => onProductSelect(p)}>
-                                                                        <div className="flex-1">
-                                                                        <p className="text-sm font-medium">{p.name}</p>
-                                                                        <p className="text-xs text-muted-foreground">{p.sku}</p>
-                                                                        </div>
-                                                                        <Badge variant="secondary">{p.stock}</Badge>
+            )}
+            
+            {/* Level 3: Racks and Bins */}
+            {selectedZone && selectedAisle && (
+                <div className="space-y-8 animate-in fade-in duration-300">
+                    {Object.keys(rackStructure).sort().map(rack => (
+                        <Card key={rack}>
+                             <CardHeader>
+                                <CardTitle>{rack}</CardTitle>
+                            </CardHeader>
+                            <CardContent className="flex flex-col-reverse gap-2">
+                                {Object.keys(rackStructure[rack]).sort((a,b) => parseInt(b) - parseInt(a)).map(level => (
+                                    <div key={level} className="flex items-center gap-4">
+                                        <div className="w-12 text-sm text-muted-foreground font-semibold">Level {level}</div>
+                                        <div className="flex-1 grid grid-cols-4 md:grid-cols-8 lg:grid-cols-12 gap-2">
+                                            {Array.from(rackStructure[rack][level]).sort((a,b) => parseInt(a) - parseInt(b)).map(bin => {
+                                                const productsInBin = getProductsInBin(selectedZone, selectedAisle!, rack, level, bin);
+                                                const status = getBinStatus(productsInBin);
+                                                return (
+                                                <Tooltip key={bin} delayDuration={100}>
+                                                    <TooltipTrigger asChild>
+                                                        <div className={cn(
+                                                            "h-16 border rounded-md flex items-center justify-center cursor-pointer transition-colors shadow-inner",
+                                                            binStatusClasses[status]
+                                                        )}>
+                                                        <p className="text-sm font-mono text-center text-muted-foreground">{bin}</p>
+                                                        </div>
+                                                    </TooltipTrigger>
+                                                    <TooltipContent>
+                                                        {productsInBin.length > 0 ? (
+                                                            <div className="space-y-2 p-1">
+                                                            {productsInBin.map(p => (
+                                                                <div key={p.id} className="flex items-center gap-2" onClick={() => onProductSelect(p)}>
+                                                                    <div className="flex-1">
+                                                                    <p className="text-sm font-medium">{p.name}</p>
+                                                                    <p className="text-xs text-muted-foreground">{p.sku}</p>
                                                                     </div>
-                                                                ))}
+                                                                    <Badge variant="secondary">{p.stock}</Badge>
                                                                 </div>
-                                                            ) : (
-                                                                <p className="text-sm text-muted-foreground p-1">Empty Bin</p>
-                                                            )}
-                                                        </TooltipContent>
-                                                    </Tooltip>
-                                                    )
-                                                })}
-                                            </div>
+                                                            ))}
+                                                            </div>
+                                                        ) : (
+                                                            <p className="text-sm text-muted-foreground p-1">Empty Bin</p>
+                                                        )}
+                                                    </TooltipContent>
+                                                </Tooltip>
+                                                )
+                                            })}
                                         </div>
-                                    ))}
-                                 </div>
-                            </div>
-                        ))}
-                    </div>
-                )}
-            </div>
+                                    </div>
+                                ))}
+                            </CardContent>
+                        </Card>
+                    ))}
+                </div>
+            )}
         </div>
       </div>
     </TooltipProvider>
   );
 }
-
-
-    
