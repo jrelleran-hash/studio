@@ -130,7 +130,7 @@ export default function InventoryPage() {
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
   const [editingProduct, setEditingProduct] = useState<Product | null>(null);
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
-  const [deletingProductId, setDeletingProductId]_useState<string | null>(null);
+  const [deletingProductId, setDeletingProductId] = useState<string | null>(null);
   const [isAdjustmentOpen, setIsAdjustmentOpen] = useState(false);
   const [adjustmentProduct, setAdjustmentProduct] = useState<Product | null>(null);
   const { toast } = useToast();
