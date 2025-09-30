@@ -79,7 +79,6 @@ const createProductSchema = (isSkuAuto: boolean) => z.object({
   maxStockLevel: z.coerce.number().int().nonnegative("Max stock must be a non-negative integer."),
   location: z.string().optional(),
   supplierId: z.string().optional(),
-  photoFile: z.any().optional(),
 }).refine(data => isSkuAuto || (data.sku && data.sku.length > 0), {
     message: "SKU is required when not auto-generated.",
     path: ["sku"],
@@ -95,7 +94,6 @@ const editProductSchema = z.object({
   maxStockLevel: z.coerce.number().int().nonnegative("Max stock must be a non-negative integer."),
   location: z.string().optional(),
   supplierId: z.string().optional(),
-  photoFile: z.any().optional(),
 });
 
 const supplierSchema = z.object({
@@ -141,9 +139,6 @@ export default function InventoryPage() {
   const [statusFilter, setStatusFilter] = useState<StatusFilter>("all");
   const [categoryFilter, setCategoryFilter] = useState<CategoryFilter>("all");
   const [autoGenerateSku, setAutoGenerateSku] = useState(true);
-  const [previewImage, setPreviewImage] = useState<string | null>(null);
-  const addFileInputRef = useRef<HTMLInputElement>(null);
-  const editFileInputRef = useRef<HTMLInputElement>(null);
   const [isSupplierPopoverOpen, setIsSupplierPopoverOpen] = useState(false);
   const [isAddSupplierOpen, setIsAddSupplierOpen] = useState(false);
   const [qrCodeProduct, setQrCodeProduct] = useState<Product | null>(null);
@@ -186,7 +181,6 @@ export default function InventoryPage() {
     if (isAddDialogOpen) {
       addForm.reset();
       setAutoGenerateSku(true);
-      setPreviewImage(null);
     }
   }, [isAddDialogOpen, addForm]);
 
@@ -196,9 +190,6 @@ export default function InventoryPage() {
         ...editingProduct,
         supplierId: suppliers.find(s => s.name === editingProduct.supplier)?.id || '',
       });
-      setPreviewImage(editingProduct.photoURL || null);
-    } else {
-      setPreviewImage(null);
     }
   }, [editingProduct, editForm, suppliers]);
 
@@ -240,9 +231,6 @@ export default function InventoryPage() {
         const randomPart = Math.floor(1000 + Math.random() * 9000);
         finalProductData.sku = `${namePart}-${randomPart}`;
       }
-      if (data.photoFile?.[0]) {
-        finalProductData.photoFile = data.photoFile[0];
-      }
 
       await addProduct(finalProductData);
       toast({ title: "Success", description: "Product added successfully." });
@@ -265,10 +253,6 @@ export default function InventoryPage() {
       const { sku, supplierId, ...updateData } = data;
       const supplierName = suppliers.find(s => s.id === supplierId)?.name || '';
       const payload: any = { ...updateData, supplier: supplierName };
-
-      if (data.photoFile?.[0]) {
-        payload.photoFile = data.photoFile[0];
-      }
       
       await updateProduct(editingProduct.id, payload);
       toast({ title: "Success", description: "Product updated successfully." });
@@ -337,22 +321,6 @@ export default function InventoryPage() {
     if (!timestamp) return 'N/A';
     return format(timestamp.toDate(), 'PPpp');
   }
-
-  const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>, formType: 'add' | 'edit') => {
-    const file = event.target.files?.[0];
-    if (file) {
-      const reader = new FileReader();
-      reader.onloadend = () => {
-        setPreviewImage(reader.result as string);
-      };
-      reader.readAsDataURL(file);
-      if (formType === 'add') {
-        addForm.setValue('photoFile', event.target.files);
-      } else {
-        editForm.setValue('photoFile', event.target.files);
-      }
-    }
-  };
 
   const onAddSupplierSubmit = async (data: SupplierFormValues) => {
     try {
@@ -466,38 +434,6 @@ export default function InventoryPage() {
                   <DialogDescription>Fill in the details for the new product.</DialogDescription>
                 </DialogHeader>
                 <form onSubmit={addForm.handleSubmit(onAddSubmit)} className="space-y-4">
-                  <div className="space-y-2 text-center">
-                      <div className="relative w-24 h-24 mx-auto">
-                          <Avatar className="w-24 h-24 text-4xl rounded-md">
-                              {previewImage ? (
-                                  <Image
-                                      src={previewImage}
-                                      alt="Product preview"
-                                      width={96}
-                                      height={96}
-                                      className="rounded-md object-cover aspect-square"
-                                  />
-                              ) : (
-                                  <AvatarImage src={undefined} alt="Product preview" />
-                              )}
-                              <AvatarFallback className="rounded-md">
-                                  {addForm.getValues('name')?.[0]?.toUpperCase() || <Package />}
-                              </AvatarFallback>
-                          </Avatar>
-                      </div>
-                        <Button type="button" variant="link" onClick={() => addFileInputRef.current?.click()}>
-                          Upload Photo
-                        </Button>
-                        <Input
-                          type="file"
-                          className="hidden"
-                          {...addForm.register("photoFile")}
-                          ref={addFileInputRef}
-                          onChange={(e) => handleFileChange(e, 'add')}
-                          accept="image/png, image/jpeg, image/webp"
-                        />
-                        {addForm.formState.errors.photoFile && <p className="text-sm text-destructive">{addForm.formState.errors.photoFile.message as string}</p>}
-                  </div>
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                     <div className="space-y-2">
                         <Label htmlFor="name">Product Name</Label>
@@ -637,7 +573,6 @@ export default function InventoryPage() {
               <Table>
                 <TableHeader>
                   <TableRow>
-                    <TableHead className="w-16 print-hidden">Image</TableHead>
                     <TableHead>Name</TableHead>
                     <TableHead>SKU</TableHead>
                     <TableHead>Category</TableHead>
@@ -655,7 +590,6 @@ export default function InventoryPage() {
                   {loading ? (
                     Array.from({ length: 5 }).map((_, i) => (
                       <TableRow key={i}>
-                        <TableCell className="print-hidden"><Skeleton className="h-12 w-12 rounded-md" /></TableCell>
                         <TableCell><Skeleton className="h-4 w-48" /></TableCell>
                         <TableCell><Skeleton className="h-4 w-24" /></TableCell>
                         <TableCell><Skeleton className="h-4 w-24" /></TableCell>
@@ -672,15 +606,6 @@ export default function InventoryPage() {
                       const status = getStatus(product);
                       return (
                         <TableRow key={product.id}>
-                          <TableCell className="print-hidden">
-                            <Image
-                              alt={product.name}
-                              className="aspect-square rounded-md object-cover"
-                              height="48"
-                              src={product.photoURL || `https://picsum.photos/seed/${product.id}/48/48`}
-                              width="48"
-                            />
-                          </TableCell>
                           <TableCell className="font-medium">{product.name}</TableCell>
                           <TableCell>{product.sku}</TableCell>
                           <TableCell>{product.category}</TableCell>
@@ -728,7 +653,6 @@ export default function InventoryPage() {
                         <Card key={i}>
                             <CardHeader>
                                  <div className="flex items-center gap-4">
-                                    <Skeleton className="h-12 w-12 rounded-md" />
                                     <div className="flex-1 space-y-2">
                                         <Skeleton className="h-5 w-3/4" />
                                         <Skeleton className="h-4 w-1/4" />
@@ -747,18 +671,9 @@ export default function InventoryPage() {
                         return (
                             <Card key={product.id}>
                                 <CardHeader className="flex flex-row items-center justify-between">
-                                    <div className="flex items-center gap-4">
-                                        <Image
-                                          alt={product.name}
-                                          className="aspect-square rounded-md object-cover"
-                                          height="48"
-                                          src={product.photoURL || `https://picsum.photos/seed/${product.id}/48/48`}
-                                          width="48"
-                                        />
-                                        <div>
-                                            <CardTitle className="text-base">{product.name}</CardTitle>
-                                            <CardDescription>{product.sku}</CardDescription>
-                                        </div>
+                                    <div>
+                                        <CardTitle className="text-base">{product.name}</CardTitle>
+                                        <CardDescription>{product.sku}</CardDescription>
                                     </div>
                                     <DropdownMenu>
                                         <DropdownMenuTrigger asChild>
@@ -821,38 +736,6 @@ export default function InventoryPage() {
               <DialogDescription>Update the details for {editingProduct.name}.</DialogDescription>
             </DialogHeader>
             <form onSubmit={editForm.handleSubmit(onEditSubmit)} className="space-y-4">
-              <div className="space-y-2 text-center">
-                  <div className="relative w-24 h-24 mx-auto">
-                      <Avatar className="w-24 h-24 text-4xl rounded-md">
-                          {previewImage ? (
-                              <Image
-                                  src={previewImage}
-                                  alt="Product preview"
-                                  width={96}
-                                  height={96}
-                                  className="rounded-md object-cover aspect-square"
-                              />
-                          ) : (
-                              <AvatarImage src={undefined} alt="Product preview" />
-                          )}
-                          <AvatarFallback className="rounded-md">
-                              {editForm.getValues('name')?.[0]?.toUpperCase() || <Package />}
-                          </AvatarFallback>
-                      </Avatar>
-                  </div>
-                    <Button type="button" variant="link" onClick={() => editFileInputRef.current?.click()}>
-                      Change Photo
-                    </Button>
-                    <Input
-                      type="file"
-                      className="hidden"
-                      {...editForm.register("photoFile")}
-                      ref={editFileInputRef}
-                      onChange={(e) => handleFileChange(e, 'edit')}
-                      accept="image/png, image/jpeg, image/webp"
-                    />
-                    {editForm.formState.errors.photoFile && <p className="text-sm text-destructive">{editForm.formState.errors.photoFile.message as string}</p>}
-              </div>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                     <div className="space-y-2">
                         <Label htmlFor="edit-name">Product Name</Label>

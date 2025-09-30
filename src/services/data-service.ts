@@ -218,37 +218,14 @@ async function checkStockAndCreateNotification(product: Omit<Product, 'id' | 'hi
   }
 }
 
-export async function uploadProductPicture(file: File, productId: string): Promise<string> {
-    try {
-        const fileExtension = file.name.split('.').pop();
-        const fileName = `${productId}.${fileExtension}`;
-        const storageRef = ref(storage, `product-pictures/${fileName}`);
-
-        const snapshot = await uploadBytes(storageRef, file);
-        const downloadURL = await getDownloadURL(snapshot.ref);
-        
-        return downloadURL;
-    } catch (error) {
-        console.error("Error uploading product picture:", error);
-        throw new Error("Failed to upload product picture.");
-    }
-}
-
-export async function addProduct(product: Partial<Omit<Product, 'id' | 'lastUpdated' | 'history' | 'maxStockLevel'>> & { maxStockLevel?: number, photoFile?: File }): Promise<DocumentReference> {
+export async function addProduct(product: Partial<Omit<Product, 'id' | 'lastUpdated' | 'history' | 'maxStockLevel'>> & { maxStockLevel?: number }): Promise<DocumentReference> {
   try {
     const now = Timestamp.now();
     
     const docRef = doc(collection(db, "inventory")); 
     
-    let photoURL = "";
-    if (product.photoFile) {
-        photoURL = await uploadProductPicture(product.photoFile, docRef.id);
-    }
-    
-    const { photoFile, ...productData } = product;
-
     const productWithDefaults = {
-      ...productData,
+      ...product,
       name: product.name || "Unnamed Product",
       sku: product.sku || "",
       category: product.category || "Other",
@@ -258,7 +235,6 @@ export async function addProduct(product: Partial<Omit<Product, 'id' | 'lastUpda
       maxStockLevel: product.maxStockLevel || 100,
       location: product.location || "",
       supplier: product.supplier || "",
-      photoURL: photoURL,
       lastUpdated: now,
       history: [],
     };
@@ -281,7 +257,7 @@ export async function addProduct(product: Partial<Omit<Product, 'id' | 'lastUpda
 }
 
 
-export async function updateProduct(productId: string, productData: Partial<Omit<Product, 'id' | 'sku'>> & { photoFile?: File }): Promise<void> {
+export async function updateProduct(productId: string, productData: Partial<Omit<Product, 'id' | 'sku'>>): Promise<void> {
   try {
     const productRef = doc(db, "inventory", productId);
     const originalDoc = await getDoc(productRef);
@@ -289,12 +265,7 @@ export async function updateProduct(productId: string, productData: Partial<Omit
     const originalData = originalDoc.data() as Product;
 
     const now = Timestamp.now();
-    const { photoFile, ...restOfData } = productData;
-    const updatePayload: any = { ...restOfData, lastUpdated: now };
-
-    if (photoFile) {
-        updatePayload.photoURL = await uploadProductPicture(photoFile, productId);
-    }
+    const updatePayload: any = { ...productData, lastUpdated: now };
 
     if (productData.stock !== undefined && productData.stock !== originalData?.stock) {
         const newHistoryEntry = {
@@ -884,22 +855,6 @@ export async function deleteSupplier(supplierId: string): Promise<void> {
     console.error("Error deleting supplier:", error);
     throw new Error("Failed to delete supplier.");
   }
-}
-
-export async function uploadProfilePicture(file: File, userId: string): Promise<string> {
-    try {
-        const fileExtension = file.name.split('.').pop();
-        const fileName = `${userId}.${fileExtension}`;
-        const storageRef = ref(storage, `profile-pictures/${fileName}`);
-
-        const snapshot = await uploadBytes(storageRef, file);
-        const downloadURL = await getDownloadURL(snapshot.ref);
-        
-        return downloadURL;
-    } catch (error) {
-        console.error("Error uploading profile picture:", error);
-        throw new Error("Failed to upload profile picture.");
-    }
 }
 
 export async function getPurchaseOrders(): Promise<PurchaseOrder[]> {
