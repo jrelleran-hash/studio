@@ -155,35 +155,24 @@ const Scanner = ({ onResult, onClose }: { onResult: (text: string) => void; onCl
         onDecodeResult(result) {
             onResult(result.getText());
         },
-        onDecodeError(error) {
-            // Do nothing on decode error
+        onDecodeError() {
+            // Can be ignored
         },
         onError(error) {
             console.error('Camera Error:', error);
             setHasCameraPermission(false);
-            toast({
-                variant: 'destructive',
-                title: 'Camera Access Denied',
-                description: 'Please enable camera permissions in your browser settings to use this app.',
-            });
-        },
-    });
-
-    // A simple check to see if the stream is active, indicating permission was likely granted.
-    useEffect(() => {
-        // useZxing handles the stream, but we can check for permission status for UI feedback
-        const checkPermission = async () => {
-            try {
-                const stream = await navigator.mediaDevices.getUserMedia({ video: true });
-                stream.getTracks().forEach(track => track.stop()); // Stop the stream immediately
-                setHasCameraPermission(true);
-            } catch (error) {
-                setHasCameraPermission(false);
+            if (error.name === "NotAllowedError") {
+                toast({
+                    variant: 'destructive',
+                    title: 'Camera Access Denied',
+                    description: 'Please enable camera permissions in your browser settings.',
+                });
             }
-        };
-        checkPermission();
-    }, []);
-
+        },
+        onPlay() {
+            setHasCameraPermission(true);
+        }
+    });
 
     return (
         <Dialog open onOpenChange={(open) => !open && onClose()}>
@@ -531,401 +520,403 @@ export default function InventoryPage() {
             onClose={() => setIsScannerOpen(false)}
         />
       )}
-      <Card className="printable-content">
-        <CardHeader className="flex flex-col md:flex-row md:items-start md:justify-between gap-4 print-hidden">
-          <div>
-            <CardTitle>Inventory</CardTitle>
-            <CardDescription>Manage your product inventory.</CardDescription>
-             <div className="flex items-center gap-2 mt-4 print-hidden">
-                <DropdownMenu>
-                    <DropdownMenuTrigger asChild>
-                        <Button variant="outline" size="sm" className="gap-2 capitalize">
-                           <SlidersHorizontal className="h-4 w-4" />
-                           Status: {statusFilter.replace("-", " ")}
-                        </Button>
-                    </DropdownMenuTrigger>
-                    <DropdownMenuContent align="start">
-                        <DropdownMenuLabel>Filter by Status</DropdownMenuLabel>
-                        <DropdownMenuRadioGroup value={statusFilter} onValueChange={(value) => setStatusFilter(value as StatusFilter)}>
-                          {(["all", "in-stock", "low-stock", "out-of-stock"] as StatusFilter[]).map((filter) => (
-                            <DropdownMenuRadioItem key={filter} value={filter} className="capitalize">
-                                {filter.replace("-", " ")}
-                            </DropdownMenuRadioItem>
-                          ))}
-                        </DropdownMenuRadioGroup>
-                    </DropdownMenuContent>
-                </DropdownMenu>
-                 <DropdownMenu>
-                    <DropdownMenuTrigger asChild>
-                        <Button variant="outline" size="sm" className="gap-2 capitalize">
-                           <SlidersHorizontal className="h-4 w-4" />
-                           Category: {categoryFilter}
-                        </Button>
-                    </DropdownMenuTrigger>
-                     <DropdownMenuContent align="start">
-                        <DropdownMenuLabel>Filter by Category</DropdownMenuLabel>
-                        <DropdownMenuRadioGroup value={categoryFilter} onValueChange={(value) => setCategoryFilter(value as CategoryFilter)}>
-                            {(["all", ...categories] as CategoryFilter[]).map((filter) => (
-                                <DropdownMenuRadioItem key={filter} value={filter} className="capitalize">
-                                    {filter}
-                                </DropdownMenuRadioItem>
-                            ))}
-                        </DropdownMenuRadioGroup>
-                    </DropdownMenuContent>
-                </DropdownMenu>
-                <DropdownMenu>
-                    <DropdownMenuTrigger asChild>
-                        <Button variant="outline" size="sm" className="gap-2">
+      <div className="printable-content">
+        <Card>
+          <CardHeader className="flex flex-col md:flex-row md:items-start md:justify-between gap-4 print-hidden">
+            <div>
+              <CardTitle>Inventory</CardTitle>
+              <CardDescription>Manage your product inventory.</CardDescription>
+              <div className="flex items-center gap-2 mt-4 print-hidden">
+                  <DropdownMenu>
+                      <DropdownMenuTrigger asChild>
+                          <Button variant="outline" size="sm" className="gap-2 capitalize">
                             <SlidersHorizontal className="h-4 w-4" />
-                            Location
-                        </Button>
-                    </DropdownMenuTrigger>
-                    <DropdownMenuContent align="start">
-                        <DropdownMenuLabel>Filter by Location</DropdownMenuLabel>
-                        {(Object.keys(locationOptions) as (keyof ProductLocation)[]).map((key) => (
-                            <DropdownMenuSub key={key}>
-                                <DropdownMenuSubTrigger>{key.charAt(0).toUpperCase() + key.slice(1)}: {locationFilter[key] || 'Any'}</DropdownMenuSubTrigger>
-                                <DropdownMenuSubContent>
-                                    <DropdownMenuRadioGroup value={locationFilter[key]} onValueChange={(value) => setLocationFilter(prev => ({ ...prev, [key]: value }))}>
-                                        <DropdownMenuRadioItem value="">Any</DropdownMenuRadioItem>
-                                        {locationOptions[key].map(opt => (
-                                            <DropdownMenuRadioItem key={opt} value={opt}>{opt}</DropdownMenuRadioItem>
-                                        ))}
-                                    </DropdownMenuRadioGroup>
-                                </DropdownMenuSubContent>
-                            </DropdownMenuSub>
-                        ))}
-                         <DropdownMenuSeparator />
-                        <DropdownMenuItem onSelect={() => setLocationFilter({})}>Clear Filters</DropdownMenuItem>
-                    </DropdownMenuContent>
-                </DropdownMenu>
+                            Status: {statusFilter.replace("-", " ")}
+                          </Button>
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent align="start">
+                          <DropdownMenuLabel>Filter by Status</DropdownMenuLabel>
+                          <DropdownMenuRadioGroup value={statusFilter} onValueChange={(value) => setStatusFilter(value as StatusFilter)}>
+                            {(["all", "in-stock", "low-stock", "out-of-stock"] as StatusFilter[]).map((filter) => (
+                              <DropdownMenuRadioItem key={filter} value={filter} className="capitalize">
+                                  {filter.replace("-", " ")}
+                              </DropdownMenuRadioItem>
+                            ))}
+                          </DropdownMenuRadioGroup>
+                      </DropdownMenuContent>
+                  </DropdownMenu>
+                  <DropdownMenu>
+                      <DropdownMenuTrigger asChild>
+                          <Button variant="outline" size="sm" className="gap-2 capitalize">
+                            <SlidersHorizontal className="h-4 w-4" />
+                            Category: {categoryFilter}
+                          </Button>
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent align="start">
+                          <DropdownMenuLabel>Filter by Category</DropdownMenuLabel>
+                          <DropdownMenuRadioGroup value={categoryFilter} onValueChange={(value) => setCategoryFilter(value as CategoryFilter)}>
+                              {(["all", ...categories] as CategoryFilter[]).map((filter) => (
+                                  <DropdownMenuRadioItem key={filter} value={filter} className="capitalize">
+                                      {filter}
+                                  </DropdownMenuRadioItem>
+                              ))}
+                          </DropdownMenuRadioGroup>
+                      </DropdownMenuContent>
+                  </DropdownMenu>
+                  <DropdownMenu>
+                      <DropdownMenuTrigger asChild>
+                          <Button variant="outline" size="sm" className="gap-2">
+                              <SlidersHorizontal className="h-4 w-4" />
+                              Location
+                          </Button>
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent align="start">
+                          <DropdownMenuLabel>Filter by Location</DropdownMenuLabel>
+                          {(Object.keys(locationOptions) as (keyof ProductLocation)[]).map((key) => (
+                              <DropdownMenuSub key={key}>
+                                  <DropdownMenuSubTrigger>{key.charAt(0).toUpperCase() + key.slice(1)}: {locationFilter[key] || 'Any'}</DropdownMenuSubTrigger>
+                                  <DropdownMenuSubContent>
+                                      <DropdownMenuRadioGroup value={locationFilter[key]} onValueChange={(value) => setLocationFilter(prev => ({ ...prev, [key]: value }))}>
+                                          <DropdownMenuRadioItem value="">Any</DropdownMenuRadioItem>
+                                          {locationOptions[key].map(opt => (
+                                              <DropdownMenuRadioItem key={opt} value={opt}>{opt}</DropdownMenuRadioItem>
+                                          ))}
+                                      </DropdownMenuRadioGroup>
+                                  </DropdownMenuSubContent>
+                              </DropdownMenuSub>
+                          ))}
+                          <DropdownMenuSeparator />
+                          <DropdownMenuItem onSelect={() => setLocationFilter({})}>Clear Filters</DropdownMenuItem>
+                      </DropdownMenuContent>
+                  </DropdownMenu>
+              </div>
             </div>
-          </div>
-          <div className="flex flex-col items-end gap-2">
-             <div className="flex items-center gap-2 print-hidden">
-                <Button size="sm" variant="outline" className="gap-1" onClick={handleExport}>
-                    <FileDown />
-                    Export to CSV
-                </Button>
-                <Button size="sm" variant="outline" className="gap-1" onClick={() => window.print()}>
-                    <Printer />
-                    Print Report
-                </Button>
+            <div className="flex flex-col items-end gap-2">
+              <div className="flex items-center gap-2 print-hidden">
+                  <Button size="sm" variant="outline" className="gap-1" onClick={handleExport}>
+                      <FileDown />
+                      Export to CSV
+                  </Button>
+                  <Button size="sm" variant="outline" className="gap-1" onClick={() => window.print()}>
+                      <Printer />
+                      Print Report
+                  </Button>
+              </div>
+              <div className="flex items-center gap-2">
+                  <Button size="sm" variant="outline" className="gap-1 w-full md:w-auto" onClick={() => setIsScannerOpen(true)}>
+                    <Camera />
+                    Scan Product
+                  </Button>
+                  <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>
+                  <DialogTrigger asChild className="print-hidden">
+                      <Button size="sm" className="gap-1 w-full md:w-auto">
+                      <PlusCircle />
+                      Add Product
+                      </Button>
+                  </DialogTrigger>
+                  <DialogContent className="sm:max-w-2xl">
+                      <DialogHeader>
+                      <DialogTitle>Add New Product</DialogTitle>
+                      <DialogDescription>Fill in the details for the new product.</DialogDescription>
+                      </DialogHeader>
+                      <form onSubmit={addForm.handleSubmit(onAddSubmit)} className="space-y-4">
+                      <div className="sm:col-span-2 grid grid-cols-1 sm:grid-cols-2 gap-4">
+                          <div className="space-y-2 sm:col-span-2">
+                              <Label htmlFor="name">Product Name</Label>
+                              <Input id="name" {...addForm.register("name")} onChange={(e) => {
+                              const { value } = e.target;
+                              e.target.value = toTitleCase(value);
+                              addForm.setValue("name", e.target.value);
+                              }}/>
+                              {addForm.formState.errors.name && <p className="text-sm text-destructive">{addForm.formState.errors.name.message}</p>}
+                          </div>
+                          <div className="space-y-2">
+                              <Label htmlFor="category">Category</Label>
+                              <Controller
+                                  name="category"
+                                  control={addForm.control}
+                                  render={({ field }) => (
+                                      <Select onValueChange={field.onChange} defaultValue={field.value}>
+                                          <SelectTrigger>
+                                              <SelectValue placeholder="Select a category" />
+                                          </SelectTrigger>
+                                          <SelectContent>
+                                              {categories.map(cat => <SelectItem key={cat} value={cat}>{cat}</SelectItem>)}
+                                          </SelectContent>
+                                      </Select>
+                                  )}
+                              />
+                              {addForm.formState.errors.category && <p className="text-sm text-destructive">{addForm.formState.errors.category.message}</p>}
+                          </div>
+                          <div className="space-y-2">
+                              <div className="flex items-center justify-between">
+                                  <Label htmlFor="sku">SKU</Label>
+                                  <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                                      <Switch id="auto-generate-sku-add" checked={autoGenerateSku} onCheckedChange={setAutoGenerateSku} />
+                                      <Label htmlFor="auto-generate-sku-add">Auto</Label>
+                                  </div>
+                              </div>
+                              <Input id="sku" {...addForm.register("sku")} disabled={autoGenerateSku} placeholder={autoGenerateSku ? "Generated" : "Manual SKU"} />
+                              {addForm.formState.errors.sku && <p className="text-sm text-destructive">{addForm.formState.errors.sku.message}</p>}
+                          </div>
+                      </div>
+                      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                          <div className="space-y-2">
+                          <Label htmlFor="price">Price (Optional)</Label>
+                          <div className="relative">
+                              <span className="absolute inset-y-0 left-0 flex items-center pl-3 text-muted-foreground">{CURRENCY_CONFIG.symbol}</span>
+                              <Input id="price" type="number" step="0.01" className="pl-8" placeholder="0.00" {...addForm.register("price")} />
+                          </div>
+                          {addForm.formState.errors.price && <p className="text-sm text-destructive">{addForm.formState.errors.price.message}</p>}
+                          </div>
+                          <div className="space-y-2">
+                          <Label htmlFor="stock">Initial Stock</Label>
+                          <Input id="stock" type="number" placeholder="0" {...addForm.register("stock")} />
+                          {addForm.formState.errors.stock && <p className="text-sm text-destructive">{addForm.formState.errors.stock.message}</p>}
+                          </div>
+                          <div className="space-y-2">
+                          <Label htmlFor="reorderLimit">Reorder At</Label>
+                          <Input id="reorderLimit" type="number" {...addForm.register("reorderLimit")} />
+                          {addForm.formState.errors.reorderLimit && <p className="text-sm text-destructive">{addForm.formState.errors.reorderLimit.message}</p>}
+                          </div>
+                          <div className="space-y-2">
+                          <Label htmlFor="maxStockLevel">Max Stock</Label>
+                          <Input id="maxStockLevel" type="number" {...addForm.register("maxStockLevel")} />
+                          {addForm.formState.errors.maxStockLevel && <p className="text-sm text-destructive">{addForm.formState.errors.maxStockLevel.message}</p>}
+                          </div>
+                      </div>
+                      <div className="space-y-4 rounded-md border p-4">
+                          <Label className="text-base">Storage Location</Label>
+                          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-2">
+                              <Input placeholder="Zone" {...addForm.register("location.zone")} />
+                              <Input placeholder="Aisle" {...addForm.register("location.aisle")} />
+                              <Input placeholder="Rack" {...addForm.register("location.rack")} />
+                              <Input placeholder="Level" {...addForm.register("location.level")} />
+                              <Input placeholder="Bin" {...addForm.register("location.bin")} />
+                          </div>
+                      </div>
+                      <div className="space-y-2">
+                          <Label>Supplier</Label>
+                          <Controller
+                              control={addForm.control}
+                              name="supplierId"
+                              render={({ field }) => (
+                                  <Popover open={isSupplierPopoverOpen} onOpenChange={setIsSupplierPopoverOpen}>
+                                      <PopoverTrigger asChild>
+                                          <Button
+                                              variant="outline"
+                                              role="combobox"
+                                              className={cn("w-full justify-between", !field.value && "text-muted-foreground")}
+                                          >
+                                              {field.value ? suppliers.find(s => s.id === field.value)?.name : "Select supplier"}
+                                              <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                                          </Button>
+                                      </PopoverTrigger>
+                                      <PopoverContent className="w-[--radix-popover-trigger-width] p-0">
+                                          <Command>
+                                              <CommandInput placeholder="Search supplier..." />
+                                              <CommandList>
+                                                  <CommandEmpty>
+                                                      <Button variant="ghost" className="w-full" onClick={() => { setIsSupplierPopoverOpen(false); setIsAddSupplierOpen(true); }}>
+                                                          Add new supplier
+                                                      </Button>
+                                                  </CommandEmpty>
+                                                  <CommandGroup>
+                                                      {suppliers.map(s => (
+                                                          <CommandItem
+                                                              key={s.id}
+                                                              value={s.name}
+                                                              onSelect={() => {
+                                                                  field.onChange(s.id);
+                                                                  setIsSupplierPopoverOpen(false);
+                                                              }}
+                                                          >
+                                                              <Check className={cn("mr-2 h-4 w-4", field.value === s.id ? "opacity-100" : "opacity-0")} />
+                                                              {s.name}
+                                                          </CommandItem>
+                                                      ))}
+                                                  </CommandGroup>
+                                              </CommandList>
+                                          </Command>
+                                      </PopoverContent>
+                                  </Popover>
+                              )}
+                          />
+                      </div>
+                      <DialogFooter>
+                          <Button type="button" variant="outline" onClick={() => setIsAddDialogOpen(false)}>Cancel</Button>
+                          <Button type="submit" disabled={addForm.formState.isSubmitting}>
+                          {addForm.formState.isSubmitting ? "Adding..." : "Add Product"}
+                          </Button>
+                      </DialogFooter>
+                      </form>
+                  </DialogContent>
+                  </Dialog>
+              </div>
             </div>
-            <div className="flex items-center gap-2">
-                <Button size="sm" variant="outline" className="gap-1 w-full md:w-auto" onClick={() => setIsScannerOpen(true)}>
-                  <Camera />
-                  Scan Product
-                </Button>
-                <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>
-                <DialogTrigger asChild className="print-hidden">
-                    <Button size="sm" className="gap-1 w-full md:w-auto">
-                    <PlusCircle />
-                    Add Product
-                    </Button>
-                </DialogTrigger>
-                <DialogContent className="sm:max-w-2xl">
-                    <DialogHeader>
-                    <DialogTitle>Add New Product</DialogTitle>
-                    <DialogDescription>Fill in the details for the new product.</DialogDescription>
-                    </DialogHeader>
-                    <form onSubmit={addForm.handleSubmit(onAddSubmit)} className="space-y-4">
-                    <div className="sm:col-span-2 grid grid-cols-1 sm:grid-cols-2 gap-4">
-                        <div className="space-y-2 sm:col-span-2">
-                            <Label htmlFor="name">Product Name</Label>
-                            <Input id="name" {...addForm.register("name")} onChange={(e) => {
-                            const { value } = e.target;
-                            e.target.value = toTitleCase(value);
-                            addForm.setValue("name", e.target.value);
-                            }}/>
-                            {addForm.formState.errors.name && <p className="text-sm text-destructive">{addForm.formState.errors.name.message}</p>}
-                        </div>
-                        <div className="space-y-2">
-                            <Label htmlFor="category">Category</Label>
-                            <Controller
-                                name="category"
-                                control={addForm.control}
-                                render={({ field }) => (
-                                    <Select onValueChange={field.onChange} defaultValue={field.value}>
-                                        <SelectTrigger>
-                                            <SelectValue placeholder="Select a category" />
-                                        </SelectTrigger>
-                                        <SelectContent>
-                                            {categories.map(cat => <SelectItem key={cat} value={cat}>{cat}</SelectItem>)}
-                                        </SelectContent>
-                                    </Select>
-                                )}
-                            />
-                            {addForm.formState.errors.category && <p className="text-sm text-destructive">{addForm.formState.errors.category.message}</p>}
-                        </div>
-                        <div className="space-y-2">
-                            <div className="flex items-center justify-between">
-                                <Label htmlFor="sku">SKU</Label>
-                                <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                                    <Switch id="auto-generate-sku-add" checked={autoGenerateSku} onCheckedChange={setAutoGenerateSku} />
-                                    <Label htmlFor="auto-generate-sku-add">Auto</Label>
-                                </div>
-                            </div>
-                            <Input id="sku" {...addForm.register("sku")} disabled={autoGenerateSku} placeholder={autoGenerateSku ? "Generated" : "Manual SKU"} />
-                            {addForm.formState.errors.sku && <p className="text-sm text-destructive">{addForm.formState.errors.sku.message}</p>}
-                        </div>
-                    </div>
-                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-                        <div className="space-y-2">
-                        <Label htmlFor="price">Price (Optional)</Label>
-                        <div className="relative">
-                            <span className="absolute inset-y-0 left-0 flex items-center pl-3 text-muted-foreground">{CURRENCY_CONFIG.symbol}</span>
-                            <Input id="price" type="number" step="0.01" className="pl-8" placeholder="0.00" {...addForm.register("price")} />
-                        </div>
-                        {addForm.formState.errors.price && <p className="text-sm text-destructive">{addForm.formState.errors.price.message}</p>}
-                        </div>
-                        <div className="space-y-2">
-                        <Label htmlFor="stock">Initial Stock</Label>
-                        <Input id="stock" type="number" placeholder="0" {...addForm.register("stock")} />
-                        {addForm.formState.errors.stock && <p className="text-sm text-destructive">{addForm.formState.errors.stock.message}</p>}
-                        </div>
-                        <div className="space-y-2">
-                        <Label htmlFor="reorderLimit">Reorder At</Label>
-                        <Input id="reorderLimit" type="number" {...addForm.register("reorderLimit")} />
-                        {addForm.formState.errors.reorderLimit && <p className="text-sm text-destructive">{addForm.formState.errors.reorderLimit.message}</p>}
-                        </div>
-                        <div className="space-y-2">
-                        <Label htmlFor="maxStockLevel">Max Stock</Label>
-                        <Input id="maxStockLevel" type="number" {...addForm.register("maxStockLevel")} />
-                        {addForm.formState.errors.maxStockLevel && <p className="text-sm text-destructive">{addForm.formState.errors.maxStockLevel.message}</p>}
-                        </div>
-                    </div>
-                    <div className="space-y-4 rounded-md border p-4">
-                        <Label className="text-base">Storage Location</Label>
-                        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-2">
-                            <Input placeholder="Zone" {...addForm.register("location.zone")} />
-                            <Input placeholder="Aisle" {...addForm.register("location.aisle")} />
-                            <Input placeholder="Rack" {...addForm.register("location.rack")} />
-                            <Input placeholder="Level" {...addForm.register("location.level")} />
-                            <Input placeholder="Bin" {...addForm.register("location.bin")} />
-                        </div>
-                    </div>
-                    <div className="space-y-2">
-                        <Label>Supplier</Label>
-                        <Controller
-                            control={addForm.control}
-                            name="supplierId"
-                            render={({ field }) => (
-                                <Popover open={isSupplierPopoverOpen} onOpenChange={setIsSupplierPopoverOpen}>
-                                    <PopoverTrigger asChild>
-                                        <Button
-                                            variant="outline"
-                                            role="combobox"
-                                            className={cn("w-full justify-between", !field.value && "text-muted-foreground")}
-                                        >
-                                            {field.value ? suppliers.find(s => s.id === field.value)?.name : "Select supplier"}
-                                            <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
-                                        </Button>
-                                    </PopoverTrigger>
-                                    <PopoverContent className="w-[--radix-popover-trigger-width] p-0">
-                                        <Command>
-                                            <CommandInput placeholder="Search supplier..." />
-                                            <CommandList>
-                                                <CommandEmpty>
-                                                    <Button variant="ghost" className="w-full" onClick={() => { setIsSupplierPopoverOpen(false); setIsAddSupplierOpen(true); }}>
-                                                        Add new supplier
-                                                    </Button>
-                                                </CommandEmpty>
-                                                <CommandGroup>
-                                                    {suppliers.map(s => (
-                                                        <CommandItem
-                                                            key={s.id}
-                                                            value={s.name}
-                                                            onSelect={() => {
-                                                                field.onChange(s.id);
-                                                                setIsSupplierPopoverOpen(false);
-                                                            }}
-                                                        >
-                                                            <Check className={cn("mr-2 h-4 w-4", field.value === s.id ? "opacity-100" : "opacity-0")} />
-                                                            {s.name}
-                                                        </CommandItem>
-                                                    ))}
-                                                </CommandGroup>
-                                            </CommandList>
-                                        </Command>
-                                    </PopoverContent>
-                                </Popover>
-                            )}
-                        />
-                    </div>
-                    <DialogFooter>
-                        <Button type="button" variant="outline" onClick={() => setIsAddDialogOpen(false)}>Cancel</Button>
-                        <Button type="submit" disabled={addForm.formState.isSubmitting}>
-                        {addForm.formState.isSubmitting ? "Adding..." : "Add Product"}
-                        </Button>
-                    </DialogFooter>
-                    </form>
-                </DialogContent>
-                </Dialog>
-            </div>
-          </div>
-        </CardHeader>
-        <CardContent>
-           <div className="hidden md:block">
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Name</TableHead>
-                    <TableHead>SKU</TableHead>
-                    <TableHead>Category</TableHead>
-                    <TableHead>Price</TableHead>
-                    <TableHead>Stock</TableHead>
-                    <TableHead>Status</TableHead>
-                    <TableHead>Location</TableHead>
-                    <TableHead>Last Updated</TableHead>
-                    <TableHead className="print-hidden">
-                      <span className="sr-only">Actions</span>
-                    </TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {loading ? (
-                    Array.from({ length: 5 }).map((_, i) => (
-                      <TableRow key={i}>
-                        <TableCell><Skeleton className="h-4 w-48" /></TableCell>
-                        <TableCell><Skeleton className="h-4 w-24" /></TableCell>
-                        <TableCell><Skeleton className="h-4 w-24" /></TableCell>
-                        <TableCell><Skeleton className="h-4 w-16" /></TableCell>
-                        <TableCell><Skeleton className="h-4 w-12" /></TableCell>
-                        <TableCell><Skeleton className="h-6 w-24 rounded-full" /></TableCell>
-                        <TableCell><Skeleton className="h-4 w-24" /></TableCell>
-                        <TableCell><Skeleton className="h-4 w-32" /></TableCell>
-                        <TableCell className="print-hidden"><Skeleton className="h-8 w-8" /></TableCell>
-                      </TableRow>
-                    ))
-                  ) : (
-                    filteredProducts.map((product) => {
-                      const status = getStatus(product);
-                      return (
-                        <TableRow key={product.id} onClick={() => handleEditClick(product)} className="cursor-pointer">
-                          <TableCell className="font-medium">
-                            {product.name}
-                          </TableCell>
-                          <TableCell>{product.sku}</TableCell>
-                          <TableCell>{product.category}</TableCell>
-                          <TableCell>{formatCurrency(product.price)}</TableCell>
-                          <TableCell>{product.stock}</TableCell>
-                          <TableCell>
-                            <Badge variant={status.variant} className={status.className}>{status.text}</Badge>
-                          </TableCell>
-                          <TableCell>{formatLocation(product.location)}</TableCell>
-                           <TableCell>{formatDate(product.lastUpdated)}</TableCell>
-                          <TableCell className="print-hidden">
-                            <DropdownMenu>
-                              <DropdownMenuTrigger asChild>
-                                <Button aria-haspopup="true" size="icon" variant="ghost" onClick={(e) => e.stopPropagation()}>
-                                  <MoreHorizontal />
-                                  <span className="sr-only">Toggle menu</span>
-                                </Button>
-                              </DropdownMenuTrigger>
-                              <DropdownMenuContent align="end" onClick={(e) => e.stopPropagation()}>
-                                <DropdownMenuLabel>Actions</DropdownMenuLabel>
-                                <DropdownMenuItem onClick={() => handleEditClick(product)}>Edit</DropdownMenuItem>
-                                <DropdownMenuItem onClick={() => setAdjustmentProduct(product)}>
-                                    <SlidersHorizontal className="mr-2 h-4 w-4" />
-                                    <span>Adjust Stock</span>
-                                </DropdownMenuItem>
-                                <DropdownMenuItem onClick={() => setQrCodeProduct(product)}>
-                                    <QrCode className="mr-2 h-4 w-4" />
-                                    <span>View QR Code</span>
-                                </DropdownMenuItem>
-                                <DropdownMenuSeparator />
-                                <DropdownMenuItem onClick={() => handleDeleteClick(product.id)} className="text-destructive">Delete</DropdownMenuItem>
-                              </DropdownMenuContent>
-                            </DropdownMenu>
-                          </TableCell>
+          </CardHeader>
+          <CardContent>
+            <div className="hidden md:block">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Name</TableHead>
+                      <TableHead>SKU</TableHead>
+                      <TableHead>Category</TableHead>
+                      <TableHead>Price</TableHead>
+                      <TableHead>Stock</TableHead>
+                      <TableHead>Status</TableHead>
+                      <TableHead>Location</TableHead>
+                      <TableHead>Last Updated</TableHead>
+                      <TableHead className="print-hidden">
+                        <span className="sr-only">Actions</span>
+                      </TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {loading ? (
+                      Array.from({ length: 5 }).map((_, i) => (
+                        <TableRow key={i}>
+                          <TableCell><Skeleton className="h-4 w-48" /></TableCell>
+                          <TableCell><Skeleton className="h-4 w-24" /></TableCell>
+                          <TableCell><Skeleton className="h-4 w-24" /></TableCell>
+                          <TableCell><Skeleton className="h-4 w-16" /></TableCell>
+                          <TableCell><Skeleton className="h-4 w-12" /></TableCell>
+                          <TableCell><Skeleton className="h-6 w-24 rounded-full" /></TableCell>
+                          <TableCell><Skeleton className="h-4 w-24" /></TableCell>
+                          <TableCell><Skeleton className="h-4 w-32" /></TableCell>
+                          <TableCell className="print-hidden"><Skeleton className="h-8 w-8" /></TableCell>
                         </TableRow>
-                      )
-                    })
-                  )}
-                </TableBody>
-              </Table>
-            </div>
-            <div className="grid gap-4 md:hidden">
-                 {loading ? (
-                    Array.from({ length: 5 }).map((_, i) => (
-                        <Card key={i}>
-                            <CardHeader>
-                                 <div className="flex items-center gap-4">
-                                    <div className="flex-1 space-y-2">
-                                        <Skeleton className="h-5 w-3/4" />
-                                        <Skeleton className="h-4 w-1/4" />
-                                    </div>
-                                </div>
-                            </CardHeader>
-                            <CardContent className="space-y-2">
-                                <Skeleton className="h-4 w-full" />
-                                <Skeleton className="h-4 w-full" />
-                            </CardContent>
-                        </Card>
-                    ))
-                ) : (
-                    filteredProducts.map((product) => {
+                      ))
+                    ) : (
+                      filteredProducts.map((product) => {
                         const status = getStatus(product);
                         return (
-                            <Card key={product.id} onClick={() => handleEditClick(product)} className="cursor-pointer">
-                                <CardHeader className="flex flex-row items-center justify-between">
-                                    <div>
-                                        <CardTitle className="text-base">{product.name}</CardTitle>
-                                        <CardDescription>{product.sku}</CardDescription>
-                                    </div>
-                                    <DropdownMenu>
-                                        <DropdownMenuTrigger asChild>
-                                            <Button size="icon" variant="ghost" onClick={(e) => e.stopPropagation()}><MoreHorizontal /></Button>
-                                        </DropdownMenuTrigger>
-                                        <DropdownMenuContent>
-                                            <DropdownMenuLabel>Actions</DropdownMenuLabel>
-                                            <DropdownMenuItem onClick={() => handleEditClick(product)}>Edit</DropdownMenuItem>
-                                             <DropdownMenuItem onClick={() => setAdjustmentProduct(product)}>
-                                                <SlidersHorizontal className="mr-2 h-4 w-4" />
-                                                <span>Adjust Stock</span>
-                                            </DropdownMenuItem>
-                                            <DropdownMenuItem onClick={() => setQrCodeProduct(product)}>
-                                                <QrCode className="mr-2 h-4 w-4" />
-                                                <span>View QR Code</span>
-                                            </DropdownMenuItem>
-                                            <DropdownMenuSeparator />
-                                            <DropdownMenuItem onClick={() => handleDeleteClick(product.id)} className="text-destructive">Delete</DropdownMenuItem>
-                                        </DropdownMenuContent>
-                                    </DropdownMenu>
-                                </CardHeader>
-                                <CardContent className="grid grid-cols-2 gap-4 text-sm">
-                                    <div>
-                                        <p className="font-medium">Category</p>
-                                        <p>{product.category}</p>
-                                    </div>
-                                     <div>
-                                        <p className="font-medium">Price</p>
-                                        <p>{formatCurrency(product.price)}</p>
-                                    </div>
-                                     <div>
-                                        <p className="font-medium">Stock</p>
-                                        <p>{product.stock}</p>
-                                    </div>
-                                    <div>
-                                        <p className="font-medium">Status</p>
-                                        <p><Badge variant={status.variant} className={status.className}>{status.text}</Badge></p>
-                                    </div>
-                                    <div className="col-span-2">
-                                        <p className="font-medium">Location</p>
-                                        <p>{formatLocation(product.location)}</p>
-                                    </div>
-                                </CardContent>
-                                <CardFooter className="text-xs text-muted-foreground">
-                                    Last Updated: {formatDate(product.lastUpdated)}
-                                </CardFooter>
-                            </Card>
+                          <TableRow key={product.id} onClick={() => handleEditClick(product)} className="cursor-pointer">
+                            <TableCell className="font-medium">
+                              {product.name}
+                            </TableCell>
+                            <TableCell>{product.sku}</TableCell>
+                            <TableCell>{product.category}</TableCell>
+                            <TableCell>{formatCurrency(product.price)}</TableCell>
+                            <TableCell>{product.stock}</TableCell>
+                            <TableCell>
+                              <Badge variant={status.variant} className={status.className}>{status.text}</Badge>
+                            </TableCell>
+                            <TableCell>{formatLocation(product.location)}</TableCell>
+                            <TableCell>{formatDate(product.lastUpdated)}</TableCell>
+                            <TableCell className="print-hidden">
+                              <DropdownMenu>
+                                <DropdownMenuTrigger asChild>
+                                  <Button aria-haspopup="true" size="icon" variant="ghost" onClick={(e) => e.stopPropagation()}>
+                                    <MoreHorizontal />
+                                    <span className="sr-only">Toggle menu</span>
+                                  </Button>
+                                </DropdownMenuTrigger>
+                                <DropdownMenuContent align="end" onClick={(e) => e.stopPropagation()}>
+                                  <DropdownMenuLabel>Actions</DropdownMenuLabel>
+                                  <DropdownMenuItem onClick={() => handleEditClick(product)}>Edit</DropdownMenuItem>
+                                  <DropdownMenuItem onClick={() => setAdjustmentProduct(product)}>
+                                      <SlidersHorizontal className="mr-2 h-4 w-4" />
+                                      <span>Adjust Stock</span>
+                                  </DropdownMenuItem>
+                                  <DropdownMenuItem onClick={() => setQrCodeProduct(product)}>
+                                      <QrCode className="mr-2 h-4 w-4" />
+                                      <span>View QR Code</span>
+                                  </DropdownMenuItem>
+                                  <DropdownMenuSeparator />
+                                  <DropdownMenuItem onClick={() => handleDeleteClick(product.id)} className="text-destructive">Delete</DropdownMenuItem>
+                                </DropdownMenuContent>
+                              </DropdownMenu>
+                            </TableCell>
+                          </TableRow>
                         )
-                    })
-                )}
-            </div>
-        </CardContent>
-      </Card>
+                      })
+                    )}
+                  </TableBody>
+                </Table>
+              </div>
+              <div className="grid gap-4 md:hidden">
+                  {loading ? (
+                      Array.from({ length: 5 }).map((_, i) => (
+                          <Card key={i}>
+                              <CardHeader>
+                                  <div className="flex items-center gap-4">
+                                      <div className="flex-1 space-y-2">
+                                          <Skeleton className="h-5 w-3/4" />
+                                          <Skeleton className="h-4 w-1/4" />
+                                      </div>
+                                  </div>
+                              </CardHeader>
+                              <CardContent className="space-y-2">
+                                  <Skeleton className="h-4 w-full" />
+                                  <Skeleton className="h-4 w-full" />
+                              </CardContent>
+                          </Card>
+                      ))
+                  ) : (
+                      filteredProducts.map((product) => {
+                          const status = getStatus(product);
+                          return (
+                              <Card key={product.id} onClick={() => handleEditClick(product)} className="cursor-pointer">
+                                  <CardHeader className="flex flex-row items-center justify-between">
+                                      <div>
+                                          <CardTitle className="text-base">{product.name}</CardTitle>
+                                          <CardDescription>{product.sku}</CardDescription>
+                                      </div>
+                                      <DropdownMenu>
+                                          <DropdownMenuTrigger asChild>
+                                              <Button size="icon" variant="ghost" onClick={(e) => e.stopPropagation()}><MoreHorizontal /></Button>
+                                          </DropdownMenuTrigger>
+                                          <DropdownMenuContent>
+                                              <DropdownMenuLabel>Actions</DropdownMenuLabel>
+                                              <DropdownMenuItem onClick={() => handleEditClick(product)}>Edit</DropdownMenuItem>
+                                              <DropdownMenuItem onClick={() => setAdjustmentProduct(product)}>
+                                                  <SlidersHorizontal className="mr-2 h-4 w-4" />
+                                                  <span>Adjust Stock</span>
+                                              </DropdownMenuItem>
+                                              <DropdownMenuItem onClick={() => setQrCodeProduct(product)}>
+                                                  <QrCode className="mr-2 h-4 w-4" />
+                                                  <span>View QR Code</span>
+                                              </DropdownMenuItem>
+                                              <DropdownMenuSeparator />
+                                              <DropdownMenuItem onClick={() => handleDeleteClick(product.id)} className="text-destructive">Delete</DropdownMenuItem>
+                                          </DropdownMenuContent>
+                                      </DropdownMenu>
+                                  </CardHeader>
+                                  <CardContent className="grid grid-cols-2 gap-4 text-sm">
+                                      <div>
+                                          <p className="font-medium">Category</p>
+                                          <p>{product.category}</p>
+                                      </div>
+                                      <div>
+                                          <p className="font-medium">Price</p>
+                                          <p>{formatCurrency(product.price)}</p>
+                                      </div>
+                                      <div>
+                                          <p className="font-medium">Stock</p>
+                                          <p>{product.stock}</p>
+                                      </div>
+                                      <div>
+                                          <p className="font-medium">Status</p>
+                                          <p><Badge variant={status.variant} className={status.className}>{status.text}</Badge></p>
+                                      </div>
+                                      <div className="col-span-2">
+                                          <p className="font-medium">Location</p>
+                                          <p>{formatLocation(product.location)}</p>
+                                      </div>
+                                  </CardContent>
+                                  <CardFooter className="text-xs text-muted-foreground">
+                                      Last Updated: {formatDate(product.lastUpdated)}
+                                  </CardFooter>
+                              </Card>
+                          )
+                      })
+                  )}
+              </div>
+          </CardContent>
+        </Card>
+      </div>
       
       {editingProduct && (
         <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
@@ -1184,7 +1175,7 @@ export default function InventoryPage() {
             <DialogHeader className="print-hidden sr-only">
                 <DialogTitle>Product QR Code</DialogTitle>
             </DialogHeader>
-            <div ref={qrCodeLabelRef} className="printable-content flex flex-col items-center justify-center p-4 bg-white text-black rounded-lg">
+            <div ref={qrCodeLabelRef} className="printable-content flex flex-col items-center justify-center p-4 bg-white text-black">
                 <div className="flex items-center gap-2 font-semibold">
                     <CoreFlowLogo className="h-6 w-6 text-black" />
                     <span>CoreFlow</span>
