@@ -1,63 +1,19 @@
 
 "use client";
 
-import { useState, useMemo } from "react";
-import Image from "next/image";
+import { useState } from "react";
 import { useData } from "@/context/data-context";
-import type { Product, ProductLocation } from "@/types";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
+import { WarehouseMap } from "@/components/warehouse/warehouse-map";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Badge } from "@/components/ui/badge";
+import type { Product } from "@/types";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { formatCurrency } from "@/lib/currency";
-
-interface LocationTree {
-  [zone: string]: {
-    [aisle: string]: {
-      [rack: string]: {
-        [level: string]: {
-          [bin: string]: Product[];
-        };
-      };
-    };
-  };
-}
-
-const getStatus = (product: Product): { text: string; variant: "default" | "secondary" | "destructive" } => {
-    if (product.stock === 0) return { text: "Out of Stock", variant: "destructive" };
-    if (product.stock <= product.reorderLimit) return { text: "Low Stock", variant: "secondary" };
-    return { text: "In Stock", variant: "default" };
-};
-
+import Image from "next/image";
 
 export default function WarehousePage() {
     const { products, loading } = useData();
     const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
-
-    const locationTree = useMemo(() => {
-        const tree: LocationTree = {};
-        products.forEach(product => {
-            const loc = product.location;
-            if (loc && (loc.zone || loc.aisle || loc.rack || loc.level || loc.bin)) {
-                const zone = loc.zone || 'Unzoned';
-                const aisle = loc.aisle || 'No Aisle';
-                const rack = loc.rack || 'No Rack';
-                const level = loc.level || 'No Level';
-                const bin = loc.bin || 'No Bin';
-
-                if (!tree[zone]) tree[zone] = {};
-                if (!tree[zone][aisle]) tree[zone][aisle] = {};
-                if (!tree[zone][aisle][rack]) tree[zone][aisle][rack] = {};
-                if (!tree[zone][aisle][rack][level]) tree[zone][aisle][rack][level] = {};
-                if (!tree[zone][aisle][rack][level][bin]) tree[zone][aisle][rack][level][bin] = [];
-                
-                tree[zone][aisle][rack][level][bin].push(product);
-            }
-        });
-        return tree;
-    }, [products]);
 
     return (
         <div className="space-y-6">
@@ -66,75 +22,9 @@ export default function WarehousePage() {
                 <p className="text-muted-foreground">A virtual representation of your inventory storage.</p>
             </div>
              {loading ? (
-                <div className="space-y-4">
-                    <Skeleton className="h-16 w-full" />
-                    <Skeleton className="h-16 w-full" />
-                    <Skeleton className="h-16 w-full" />
-                </div>
+                <Skeleton className="h-[500px] w-full" />
             ) : (
-                <Accordion type="multiple" className="w-full space-y-2">
-                {Object.keys(locationTree).sort().map(zone => (
-                    <AccordionItem key={zone} value={zone} className="border-none">
-                        <Card className="bg-card/50">
-                            <AccordionTrigger className="p-4 hover:no-underline">
-                                <CardTitle className="text-lg">Zone: {zone}</CardTitle>
-                            </AccordionTrigger>
-                            <AccordionContent className="px-4 pb-4">
-                                 <Accordion type="multiple" className="w-full space-y-2">
-                                    {Object.keys(locationTree[zone]).sort().map(aisle => (
-                                        <AccordionItem key={aisle} value={aisle} className="border-none">
-                                            <Card className="bg-card/70">
-                                                <AccordionTrigger className="p-3 hover:no-underline">
-                                                    <CardTitle className="text-base">Aisle: {aisle}</CardTitle>
-                                                </AccordionTrigger>
-                                                <AccordionContent className="px-3 pb-3">
-                                                    {Object.keys(locationTree[zone][aisle]).sort().map(rack => (
-                                                         <div key={rack} className="mt-2">
-                                                            <h4 className="font-semibold px-1">Rack: {rack}</h4>
-                                                            {Object.keys(locationTree[zone][aisle][rack]).sort().map(level => (
-                                                                <div key={level} className="mt-1 ml-2">
-                                                                    <h5 className="text-sm font-medium px-1">Level: {level}</h5>
-                                                                     {Object.keys(locationTree[zone][aisle][rack][level]).sort().map(bin => (
-                                                                        <div key={bin} className="ml-4 my-2 p-3 rounded-lg border">
-                                                                            <h6 className="font-semibold text-sm">Bin: {bin}</h6>
-                                                                            <div className="mt-2 space-y-3">
-                                                                                {locationTree[zone][aisle][rack][level][bin].map(product => (
-                                                                                    <div 
-                                                                                        key={product.id} 
-                                                                                        className="flex items-center gap-3 cursor-pointer group"
-                                                                                        onClick={() => setSelectedProduct(product)}
-                                                                                    >
-                                                                                        <Image
-                                                                                            alt={product.name}
-                                                                                            className="rounded-md aspect-square object-cover"
-                                                                                            height={32}
-                                                                                            width={32}
-                                                                                            src={product.photoURL || `https://picsum.photos/seed/${product.id}/100/100`}
-                                                                                        />
-                                                                                        <div className="flex-1">
-                                                                                            <p className="text-sm font-medium group-hover:underline">{product.name}</p>
-                                                                                            <p className="text-xs text-muted-foreground">{product.sku}</p>
-                                                                                        </div>
-                                                                                        <Badge variant={getStatus(product).variant}>{product.stock}</Badge>
-                                                                                    </div>
-                                                                                ))}
-                                                                            </div>
-                                                                        </div>
-                                                                     ))}
-                                                                </div>
-                                                             ))}
-                                                        </div>
-                                                    ))}
-                                                </AccordionContent>
-                                            </Card>
-                                        </AccordionItem>
-                                    ))}
-                                 </Accordion>
-                            </AccordionContent>
-                        </Card>
-                    </AccordionItem>
-                ))}
-                </Accordion>
+                <WarehouseMap products={products} onProductSelect={setSelectedProduct} />
             )}
 
              {selectedProduct && (
