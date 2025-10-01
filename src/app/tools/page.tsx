@@ -396,7 +396,7 @@ export default function ToolManagementPage() {
                             </DropdownMenuSub>
 
                             <DropdownMenuSub>
-                                <DropdownMenuSubTrigger disabled={tool.status === 'Available'}>
+                                <DropdownMenuSubTrigger disabled={tool.status === 'Available' || tool.status === 'Under Maintenance'}>
                                     <ArrowDownLeft className="mr-2 h-4 w-4" /> Retrieve Tool
                                 </DropdownMenuSubTrigger>
                                 <DropdownMenuSubContent>
@@ -686,5 +686,3 @@ export default function ToolManagementPage() {
     </>
   );
 }
-
-    
