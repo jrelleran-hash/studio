@@ -8,7 +8,7 @@ import { LowStockItems } from "@/components/dashboard/low-stock-items";
 import { ActiveOrders } from "@/components/dashboard/active-orders";
 import { RevenueChart, type FilterType } from "@/components/dashboard/revenue-chart";
 import { InventoryStatusChart, type InventoryFilterType } from "@/components/dashboard/inventory-status-chart";
-import { Package, ShoppingCart, Users } from "lucide-react";
+import { Package, ShoppingCart, Users, Camera } from "lucide-react";
 import { useAuth } from "@/hooks/use-auth";
 import { useRouter } from "next/navigation";
 import { useEffect, useState, useMemo } from "react";
@@ -19,6 +19,8 @@ import { subDays, subWeeks, subMonths, subYears, startOfDay, endOfDay, startOfWe
 import type { Order } from "@/types";
 import { Button } from "@/components/ui/button";
 import { StartupAnimation } from "@/components/layout/startup-animation";
+import { Scanner } from "@/components/scanner";
+import { useToast } from "@/hooks/use-toast";
 
 const getRevenueData = (orders: Order[], filter: FilterType) => {
     const now = new Date();
@@ -110,9 +112,11 @@ export default function DashboardPage() {
   const { user, loading: authLoading } = useAuth();
   const router = useRouter();
   const { products, clients, orders, loading: dataLoading } = useData();
+  const { toast } = useToast();
   
   const [revenueFilter, setRevenueFilter] = useState<FilterType>("month");
   const [inventoryFilter, setInventoryFilter] = useState<InventoryFilterType>("all");
+  const [isScannerOpen, setIsScannerOpen] = useState(false);
 
   useEffect(() => {
     if (!authLoading && !user) {
@@ -194,83 +198,105 @@ export default function DashboardPage() {
     };
   }, [orders]);
 
+  const handleScanResult = (text: string) => {
+      setIsScannerOpen(false);
+      const product = products.find(p => p.id === text);
+      if (product) {
+          router.push(`/inventory?edit=${product.id}`);
+      } else {
+          toast({
+              variant: "destructive",
+              title: "Product Not Found",
+              description: "The scanned QR code does not match any product in your inventory.",
+          });
+      }
+  };
+
 
   if (authLoading || !user) {
     return <StartupAnimation />;
   }
 
   return (
-    <div className="flex flex-col gap-6">
-      <WelcomeCard />
-      <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-4">
-        <KpiCard
-          title={revenueTitle}
-          value={totalRevenue}
-          change={revenueChangeText}
-          icon={<PesoSign className="size-5 text-primary" />}
-          loading={dataLoading}
-          href="/analytics"
-          children={<RevenueChart data={revenueChartData} />}
-          footer={
-             <div className="flex justify-end gap-1 mt-2">
-              {(["day", "week", "month", "year"] as FilterType[]).map((f) => (
-                <Button key={f} variant={revenueFilter === f ? "secondary" : "ghost"} size="sm" className="capitalize h-7 px-2" onClick={() => setRevenueFilter(f)}>
-                  {f}
-                </Button>
-              ))}
-            </div>
-          }
+    <>
+      {isScannerOpen && (
+        <Scanner 
+            onResult={handleScanResult}
+            onClose={() => setIsScannerOpen(false)}
         />
-        <KpiCard
-          title={inventoryTitle}
-          value={inventoryValue}
-          change={inventoryChangeText}
-          icon={<Package className="size-5 text-primary" />}
-          loading={dataLoading}
-          href="/inventory"
-          children={<InventoryStatusChart products={products} filter={inventoryFilter} />}
-          footer={
-            <div className="flex justify-end gap-1 mt-2">
-              {(["all", "in-stock", "low-stock", "out-of-stock"] as InventoryFilterType[]).map((f) => (
-                <Button 
-                  key={f} 
-                  variant={inventoryFilter === f ? "secondary" : "ghost"} 
-                  size="sm" 
-                  className="capitalize h-7 px-2 text-xs" 
-                  onClick={() => setInventoryFilter(f)}
-                >
-                  {f.replace('-', ' ')}
-                </Button>
-              ))}
-            </div>
-          }
-        />
-        <KpiCard
-          title="Active Orders"
-          value={activeOrdersData.count.toLocaleString()}
-          change={activeOrdersData.change}
-          icon={<ShoppingCart className="size-5 text-primary" />}
-          loading={dataLoading}
-          href="/orders"
-        />
-        <KpiCard
-          title="New Clients"
-          value={`+${newClientsData.count}`}
-          change={newClientsData.change}
-          icon={<Users className="size-5 text-primary" />}
-          loading={dataLoading}
-          href="/clients"
-        />
-      </div>
-      <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
-        <div className="lg:col-span-2">
-          <RecentActivity />
+      )}
+      <div className="flex flex-col gap-6">
+        <WelcomeCard onScanClick={() => setIsScannerOpen(true)} />
+        <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-4">
+          <KpiCard
+            title={revenueTitle}
+            value={totalRevenue}
+            change={revenueChangeText}
+            icon={<PesoSign className="size-5 text-primary" />}
+            loading={dataLoading}
+            href="/analytics"
+            children={<RevenueChart data={revenueChartData} />}
+            footer={
+              <div className="flex justify-end gap-1 mt-2">
+                {(["day", "week", "month", "year"] as FilterType[]).map((f) => (
+                  <Button key={f} variant={revenueFilter === f ? "secondary" : "ghost"} size="sm" className="capitalize h-7 px-2" onClick={() => setRevenueFilter(f)}>
+                    {f}
+                  </Button>
+                ))}
+              </div>
+            }
+          />
+          <KpiCard
+            title={inventoryTitle}
+            value={inventoryValue}
+            change={inventoryChangeText}
+            icon={<Package className="size-5 text-primary" />}
+            loading={dataLoading}
+            href="/inventory"
+            children={<InventoryStatusChart products={products} filter={inventoryFilter} />}
+            footer={
+              <div className="flex justify-end gap-1 mt-2">
+                {(["all", "in-stock", "low-stock", "out-of-stock"] as InventoryFilterType[]).map((f) => (
+                  <Button 
+                    key={f} 
+                    variant={inventoryFilter === f ? "secondary" : "ghost"} 
+                    size="sm" 
+                    className="capitalize h-7 px-2 text-xs" 
+                    onClick={() => setInventoryFilter(f)}
+                  >
+                    {f.replace('-', ' ')}
+                  </Button>
+                ))}
+              </div>
+            }
+          />
+          <KpiCard
+            title="Active Orders"
+            value={activeOrdersData.count.toLocaleString()}
+            change={activeOrdersData.change}
+            icon={<ShoppingCart className="size-5 text-primary" />}
+            loading={dataLoading}
+            href="/orders"
+          />
+          <KpiCard
+            title="New Clients"
+            value={`+${newClientsData.count}`}
+            change={newClientsData.change}
+            icon={<Users className="size-5 text-primary" />}
+            loading={dataLoading}
+            href="/clients"
+          />
         </div>
-        <div className="lg:col-span-1">
-          <LowStockItems />
+        <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
+          <div className="lg:col-span-2">
+            <RecentActivity />
+          </div>
+          <div className="lg:col-span-1">
+            <LowStockItems />
+          </div>
         </div>
+        <ActiveOrders />
       </div>
-      <ActiveOrders />
-    </div>
+    </>
   );
 }

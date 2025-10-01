@@ -64,12 +64,11 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Textarea } from "@/components/ui/textarea";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import QRCode from "react-qr-code";
-import { useZxing } from "react-zxing";
-import { Alert, AlertTitle, AlertDescription } from "@/components/ui/alert";
 import { CoreFlowLogo } from "@/components/icons";
 import { toPng } from 'html-to-image';
 import { useSearchParams } from "next/navigation";
 import { useAuth } from "@/hooks/use-auth";
+import { Scanner } from "@/components/scanner";
 
 const categories: ProductCategory[] = ["Tools", "Consumables", "Raw Materials", "Finished Goods", "Other"];
 
@@ -145,83 +144,6 @@ const toTitleCase = (str: string) => {
     /\w\S*/g,
     (txt) => txt.charAt(0).toUpperCase() + txt.substring(1).toLowerCase()
   );
-};
-
-const Scanner = ({ onResult, onClose }: { onResult: (text: string) => void; onClose: () => void }) => {
-    const { toast } = useToast();
-    const [hasCameraPermission, setHasCameraPermission] = useState<boolean | null>(null);
-    const videoRef = useRef<HTMLVideoElement>(null);
-
-    const { ref } = useZxing({
-        constraints: { video: { facingMode: 'environment' } },
-        videoRef,
-        onDecodeResult(result) {
-            onResult(result.getText());
-        },
-        onDecodeError() {
-            // Can be ignored
-        },
-    });
-
-    useEffect(() => {
-        const getCameraPermission = async () => {
-            if (!navigator?.mediaDevices?.getUserMedia) {
-                console.error("getUserMedia is not supported by this browser.");
-                setHasCameraPermission(false);
-                toast({ variant: 'destructive', title: 'Unsupported Browser', description: 'Your browser does not support camera access.' });
-                return;
-            }
-            try {
-                const stream = await navigator.mediaDevices.getUserMedia({ video: true });
-                if (videoRef.current) {
-                    videoRef.current.srcObject = stream;
-                }
-                setHasCameraPermission(true);
-            } catch (error) {
-                console.error('Error accessing camera:', error);
-                setHasCameraPermission(false);
-                 if ((error as Error).name === 'NotAllowedError') {
-                    toast({
-                        variant: 'destructive',
-                        title: 'Camera Access Denied',
-                        description: 'Please enable camera permissions in your browser settings to use this feature.',
-                    });
-                } else {
-                     toast({
-                        variant: 'destructive',
-                        title: 'Camera Error',
-                        description: 'Could not access the camera. Please ensure it is not being used by another application.',
-                    });
-                }
-            }
-        };
-
-        getCameraPermission();
-    }, [toast]);
-
-
-    return (
-        <Dialog open onOpenChange={(open) => !open && onClose()}>
-            <DialogContent>
-                <DialogHeader>
-                    <DialogTitle>Scan Product QR Code</DialogTitle>
-                </DialogHeader>
-                <div className="relative">
-                    <video ref={videoRef} className="w-full aspect-video rounded-md" autoPlay muted />
-                     {hasCameraPermission === false && (
-                        <div className="absolute inset-0 flex items-center justify-center bg-background/80 rounded-md">
-                            <Alert variant="destructive" className="w-auto">
-                                <AlertTitle>Camera Access Required</AlertTitle>
-                                <AlertDescription>
-                                    Please allow camera access to use this feature.
-                                </AlertDescription>
-                            </Alert>
-                        </div>
-                    )}
-                </div>
-            </DialogContent>
-        </Dialog>
-    );
 };
 
 
@@ -1245,5 +1167,6 @@ export default function InventoryPage() {
     
 
   
+
 
 

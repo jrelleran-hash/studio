@@ -5,8 +5,13 @@ import { useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
 import Link from "next/link";
 import { useAuth } from "@/hooks/use-auth";
+import { Camera } from "lucide-react";
 
-export function WelcomeCard() {
+interface WelcomeCardProps {
+  onScanClick: () => void;
+}
+
+export function WelcomeCard({ onScanClick }: WelcomeCardProps) {
   const { user } = useAuth();
   const [currentDate, setCurrentDate] = useState("");
 
@@ -42,9 +47,10 @@ export function WelcomeCard() {
         <p className="text-muted-foreground">{currentDate}</p>
       </div>
       <div className="flex items-center gap-2 w-full sm:w-auto">
-        <Link href="/settings" className="flex-1 sm:flex-initial">
-          <Button variant="outline" className="w-full">View Profile</Button>
-        </Link>
+        <Button variant="outline" className="w-full flex-1 sm:flex-initial" onClick={onScanClick}>
+            <Camera className="mr-2 h-4 w-4" />
+            Scan Product
+        </Button>
         <Link href="/analytics" className="flex-1 sm:flex-initial">
           <Button className="w-full">View Analytics</Button>
         </Link>
