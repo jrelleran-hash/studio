@@ -1941,9 +1941,9 @@ export async function returnTool(borrowRecordId: string, toolId: string, conditi
 
 export async function getToolHistory(toolId: string): Promise<ToolBorrowRecord[]> {
     try {
-        const q = query(collection(db, "toolBorrowRecords"), where("toolId", "==", toolId), orderBy("dateBorrowed", "desc"));
+        const q = query(collection(db, "toolBorrowRecords"), where("toolId", "==", toolId));
         const snapshot = await getDocs(q);
-        return snapshot.docs.map(doc => {
+        const records = snapshot.docs.map(doc => {
             const data = doc.data() as Omit<ToolBorrowRecord, 'id' | 'dateBorrowed' | 'dateReturned'> & { dateBorrowed: Timestamp, dateReturned?: Timestamp };
              return { 
                 id: doc.id, 
@@ -1952,6 +1952,8 @@ export async function getToolHistory(toolId: string): Promise<ToolBorrowRecord[]
                 dateReturned: data.dateReturned?.toDate(),
             } as ToolBorrowRecord;
         });
+        // Sort in application code to avoid composite index
+        return records.sort((a, b) => b.dateBorrowed.getTime() - a.dateBorrowed.getTime());
     } catch (error) {
         console.error("Error fetching tool history:", error);
         return [];
@@ -2007,5 +2009,3 @@ export async function recallTool(toolId: string, condition: Tool['condition'], n
         });
     });
 }
-
-    
