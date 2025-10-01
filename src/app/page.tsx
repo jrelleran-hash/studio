@@ -21,6 +21,7 @@ import { Button } from "@/components/ui/button";
 import { StartupAnimation } from "@/components/layout/startup-animation";
 import { Scanner } from "@/components/scanner";
 import { useToast } from "@/hooks/use-toast";
+import { getProductByIdAction } from "@/app/inventory/actions";
 
 const getRevenueData = (orders: Order[], filter: FilterType) => {
     const now = new Date();
@@ -198,18 +199,26 @@ export default function DashboardPage() {
     };
   }, [orders]);
 
-  const handleScanResult = (text: string | null) => {
+  const handleScanResult = async (text: string | null) => {
     if (text) {
       setIsScannerOpen(false);
-      const product = products.find(p => p.id === text);
-      if (product) {
+      try {
+        const product = await getProductByIdAction(text);
+        if (product) {
           router.push(`/inventory?edit=${product.id}`);
-      } else {
+        } else {
           toast({
-              variant: "destructive",
-              title: "Product Not Found",
-              description: "The scanned QR code does not match any product in your inventory.",
+            variant: "destructive",
+            title: "Product Not Found",
+            description: "The scanned QR code does not match any product in your inventory.",
           });
+        }
+      } catch (error) {
+         toast({
+            variant: "destructive",
+            title: "Scan Error",
+            description: "Could not verify product. Please try again.",
+        });
       }
     }
   };

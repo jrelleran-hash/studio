@@ -69,6 +69,7 @@ import { toPng } from 'html-to-image';
 import { useSearchParams } from "next/navigation";
 import { useAuth } from "@/hooks/use-auth";
 import { Scanner } from "@/components/scanner";
+import { getProductByIdAction } from "./actions";
 
 const categories: ProductCategory[] = ["Tools", "Consumables", "Raw Materials", "Finished Goods", "Other"];
 
@@ -437,18 +438,28 @@ export default function InventoryPage() {
     document.body.removeChild(link);
   }
   
-  const handleScanResult = (text: string) => {
+  const handleScanResult = async (text: string | null) => {
+    if (text) {
       setIsScannerOpen(false);
-      const product = products.find(p => p.id === text);
-      if (product) {
+      try {
+        const product = await getProductByIdAction(text);
+        if (product) {
           handleEditClick(product);
-      } else {
+        } else {
           toast({
-              variant: "destructive",
-              title: "Product Not Found",
-              description: "The scanned QR code does not match any product in your inventory.",
+            variant: "destructive",
+            title: "Product Not Found",
+            description: "The scanned QR code does not match any product in your inventory.",
           });
+        }
+      } catch (error) {
+        toast({
+            variant: "destructive",
+            title: "Scan Error",
+            description: "Could not verify product. Please try again.",
+        });
       }
+    }
   };
 
   const handleExportAsImage = useCallback(() => {
