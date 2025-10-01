@@ -1,47 +1,41 @@
 "use client";
 
-import React, { useEffect } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
-import { Html5QrcodeScanner } from 'html5-qrcode';
-import type { Html5QrcodeError, QrCodeSuccessCallback } from 'html5-qrcode/esm/core';
+import { useToast } from '@/hooks/use-toast';
+import { useZxing } from 'react-zxing';
 
 interface ScannerProps {
     onResult: (text: string) => void;
     onClose: () => void;
 }
 
-const qrcodeRegionId = "html5qr-code-full-region";
-
 export function Scanner({ onResult, onClose }: ScannerProps) {
-    useEffect(() => {
-        const config = {
-            fps: 10,
-            qrbox: { width: 250, height: 250 },
-            rememberLastUsedCamera: true,
-            supportedScanTypes: [],
-            aspectRatio: 1.0,
-        };
-
-        const html5QrcodeScanner = new Html5QrcodeScanner(qrcodeRegionId, config, false);
-
-        const qrCodeSuccessCallback: QrCodeSuccessCallback = (decodedText, decodedResult) => {
-            onResult(decodedText);
-            html5QrcodeScanner.clear();
-        };
-        const qrCodeErrorCallback: Html5QrcodeError = (errorMessage) => {
-           // This callback can be very noisy.
-           // console.error(`QR Code no longer in front of camera.`, errorMessage);
-        };
-
-        html5QrcodeScanner.render(qrCodeSuccessCallback, qrCodeErrorCallback);
-        
-        // Cleanup function to stop the scanner
-        return () => {
-             html5QrcodeScanner.clear().catch(error => {
-                console.error("Failed to clear html5QrcodeScanner. ", error);
-            });
-        };
-    }, [onResult]);
+    const { toast } = useToast();
+    const { ref } = useZxing({
+        onDecodeResult(result) {
+            onResult(result.getText());
+        },
+        onError(error) {
+            if (error?.name === 'NotAllowedError') {
+                 toast({
+                    variant: 'destructive',
+                    title: 'Camera Access Denied',
+                    description: 'Please enable camera permissions in your browser settings.',
+                });
+            } else if (error) {
+                 toast({
+                    variant: 'destructive',
+                    title: 'Camera Error',
+                    description: 'Could not initialize camera. Please try again.',
+                });
+            }
+        },
+        constraints: {
+            video: {
+                facingMode: 'environment'
+            }
+        },
+    });
 
     return (
         <Dialog open onOpenChange={(open) => !open && onClose()}>
@@ -49,7 +43,7 @@ export function Scanner({ onResult, onClose }: ScannerProps) {
                 <DialogHeader>
                     <DialogTitle>Scan Product QR Code</DialogTitle>
                 </DialogHeader>
-                <div id={qrcodeRegionId} className="w-full" />
+                <video ref={ref} className="w-full aspect-video rounded-md bg-black" />
             </DialogContent>
         </Dialog>
     );
