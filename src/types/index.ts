@@ -205,7 +205,7 @@ export interface OutboundReturn {
 }
 
 export type UserRole = "Admin" | "Manager" | "Staff";
-export type PagePermission = "/" | "/clients" | "/logistics" | "/analytics" | "/orders" | "/purchase-orders" | "/suppliers" | "/inventory" | "/issuance" | "/returns" | "/quality-control" | "/reports" | "/warehouse";
+export type PagePermission = "/" | "/clients" | "/logistics" | "/analytics" | "/orders" | "/purchase-orders" | "/suppliers" | "/inventory" | "/issuance" | "/returns" | "/quality-control" | "/reports" | "/warehouse" | "/tools";
 
 export interface UserProfile {
     uid: string;
@@ -214,4 +214,22 @@ export interface UserProfile {
     lastName: string;
     role: UserRole;
     permissions: PagePermission[];
+}
+
+export interface Tool {
+    id: string;
+    name: string;
+    serialNumber: string;
+    status: 'Available' | 'In Use' | 'Under Maintenance';
+    condition: 'Good' | 'Needs Repair' | 'Damaged';
+    purchaseDate: Timestamp;
+}
+
+export interface ToolBorrowRecord {
+    id: string;
+    toolId: string;
+    borrowedBy: string; // Could be a user ID
+    dateBorrowed: Timestamp;
+    dateReturned?: Timestamp;
+    notes?: string;
 }

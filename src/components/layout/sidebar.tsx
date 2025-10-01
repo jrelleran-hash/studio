@@ -21,6 +21,7 @@ import {
   Map,
   ChevronLeft,
   ChevronRight,
+  Wrench,
 } from "lucide-react";
 import { CoreFlowLogo } from "@/components/icons";
 import { cn } from "@/lib/utils";
@@ -45,9 +46,10 @@ const procurementNavItems = [
     { href: "/suppliers", label: "Suppliers", icon: Building },
 ];
 
-const inventoryNavItems = [
+const warehouseNavItems = [
     { href: "/inventory", label: "Products", icon: Package },
     { href: "/issuance", label: "Issuance", icon: FileText },
+    { href: "/tools", label: "Tool Management", icon: Wrench },
     { href: "/warehouse", label: "Warehouse Map", icon: Map },
 ];
 
@@ -170,7 +172,7 @@ export function Sidebar({ className, inSheet, isCollapsed, setIsCollapsed }: Sid
         return [
             ...navItems.map(i => i.href),
             ...procurementNavItems.map(i => i.href),
-            ...inventoryNavItems.map(i => i.href),
+            ...warehouseNavItems.map(i => i.href),
             ...assuranceNavItems.map(i => i.href),
             "/settings"
         ] as PagePermission[];
@@ -213,7 +215,7 @@ export function Sidebar({ className, inSheet, isCollapsed, setIsCollapsed }: Sid
             ))}
             
             <NavSection title="Procurement" items={procurementNavItems as any} pathname={pathname} inSheet={inSheet} userPermissions={userPermissions} isCollapsed={isCollapsed} />
-            <NavSection title="Inventory" items={inventoryNavItems as any} pathname={pathname} inSheet={inSheet} userPermissions={userPermissions} isCollapsed={isCollapsed} />
+            <NavSection title="Warehouse" items={warehouseNavItems as any} pathname={pathname} inSheet={inSheet} userPermissions={userPermissions} isCollapsed={isCollapsed} />
             <NavSection title="Assurance" items={assuranceNavItems as any} pathname={pathname} inSheet={inSheet} userPermissions={userPermissions} isCollapsed={isCollapsed} />
             
           </nav>
