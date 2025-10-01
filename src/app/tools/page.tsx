@@ -1,7 +1,8 @@
 
+
 "use client";
 
-import { useState, useEffect, useMemo } from "react";
+import React, { useState, useEffect, useMemo } from "react";
 import { useForm, Controller } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
@@ -120,8 +121,13 @@ export default function ToolManagementPage() {
   }, [isAddDialogOpen, toolForm]);
 
   useEffect(() => {
-    if (editingTool) toolForm.reset(editingTool);
-  }, [editingTool, toolForm]);
+    if (editingTool) {
+        toolForm.reset({
+            ...editingTool,
+            purchaseDate: editingTool.purchaseDate ? new Date(editingTool.purchaseDate) : undefined,
+        });
+    }
+}, [editingTool, toolForm]);
 
   useEffect(() => {
     if (borrowingTool) borrowForm.reset();
@@ -207,9 +213,10 @@ export default function ToolManagementPage() {
     }
   };
   
-  const formatDate = (timestamp?: Timestamp) => {
+  const formatDate = (timestamp?: Timestamp | Date) => {
     if (!timestamp) return 'N/A';
-    return format(timestamp.toDate(), 'PP');
+    const date = timestamp instanceof Timestamp ? timestamp.toDate() : timestamp;
+    return format(date, 'PP');
   }
 
   return (

@@ -1838,11 +1838,11 @@ export async function getTools(): Promise<Tool[]> {
         });
 
         return toolSnapshot.docs.map(doc => {
-            const data = doc.data() as Omit<Tool, 'id'>;
+            const data = doc.data() as Omit<Tool, 'id' | 'purchaseDate'> & { purchaseDate?: Timestamp };
             return { 
                 id: doc.id, 
                 ...data,
-                purchaseDate: data.purchaseDate,
+                purchaseDate: data.purchaseDate ? data.purchaseDate.toDate() : undefined,
                 currentBorrowRecord: activeBorrowsMap.get(doc.id) || null
             } as Tool;
         });
