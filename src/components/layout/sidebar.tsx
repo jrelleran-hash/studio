@@ -152,10 +152,16 @@ function NavSection({ title, items, pathname, inSheet, userPermissions, isCollap
 }
 
 
-export function Sidebar({ className, inSheet }: { className?: string, inSheet?: boolean }) {
+interface SidebarProps {
+  className?: string;
+  inSheet?: boolean;
+  isCollapsed: boolean;
+  setIsCollapsed: (isCollapsed: boolean) => void;
+}
+
+export function Sidebar({ className, inSheet, isCollapsed, setIsCollapsed }: SidebarProps) {
   const pathname = usePathname();
   const { userProfile } = useAuth();
-  const [isCollapsed, setIsCollapsed] = useState(false);
   
   const userPermissions = useMemo(() => {
     if (!userProfile) return [];
@@ -182,7 +188,7 @@ export function Sidebar({ className, inSheet }: { className?: string, inSheet?: 
         className
     )}>
       <div className="flex h-full max-h-screen flex-col gap-2 relative">
-        <div className={cn("hidden h-16 items-center border-b px-6", inSheet ? "flex" : "lg:flex")}>
+        <div className={cn("flex h-16 items-center border-b px-6", inSheet ? "flex" : "lg:flex", isCollapsed && "justify-center px-2")}>
           <Link href="/" className="flex items-center gap-2 font-semibold font-headline">
             <CoreFlowLogo className="h-6 w-6 text-primary" />
             <span className={cn(isCollapsed && "hidden")}>CoreFlow</span>
