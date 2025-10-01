@@ -5,6 +5,9 @@ import { useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
 import Link from "next/link";
 import { useAuth } from "@/hooks/use-auth";
+import { Input } from "../ui/input";
+import { Search } from "lucide-react";
+import { GlobalSearch } from "../layout/global-search";
 
 export function WelcomeCard() {
   const { user } = useAuth();
@@ -41,7 +44,8 @@ export function WelcomeCard() {
         </h1>
         <p className="text-muted-foreground">{currentDate}</p>
       </div>
-      <div className="flex items-center gap-2 w-full sm:w-auto">
+       <div className="flex items-center gap-2 w-full sm:w-auto">
+         <GlobalSearch />
         <Link href="/analytics" className="flex-1 sm:flex-initial">
           <Button className="w-full">View Analytics</Button>
         </Link>

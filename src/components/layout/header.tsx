@@ -2,7 +2,7 @@
 "use client";
 
 import Link from "next/link";
-import { Menu } from "lucide-react";
+import { Menu, Search } from "lucide-react";
 import { useEffect, useState } from "react";
 
 import { Button } from "@/components/ui/button";
@@ -18,6 +18,7 @@ import { UserNav } from "@/components/user-nav";
 import { NotificationsMenu } from "@/components/notifications-menu";
 import { Sidebar } from "./sidebar";
 import { CoreFlowLogo } from "../icons";
+import { GlobalSearch } from "./global-search";
 
 export function Header() {
   const [isClient, setIsClient] = useState(false);
@@ -43,7 +44,9 @@ export function Header() {
       </div>
       
       <div className="w-full flex-1">
-        {/* Search bar removed */}
+        <div className="hidden lg:block">
+            <GlobalSearch />
+        </div>
       </div>
 
       <div className="flex items-center gap-4">
