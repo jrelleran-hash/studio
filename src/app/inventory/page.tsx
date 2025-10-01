@@ -6,7 +6,7 @@ import { useState, useEffect, useMemo, useRef, useCallback } from "react";
 import { useForm, Controller } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
-import { PlusCircle, MoreHorizontal, Package, ChevronsUpDown, Check, Printer, FileDown, SlidersHorizontal, QrCode, Camera, Download, User } from "lucide-react";
+import { PlusCircle, MoreHorizontal, Package, ChevronsUpDown, Check, Printer, FileDown, SlidersHorizontal, QrCode, Camera, Download, User, Search } from "lucide-react";
 import { Button, buttonVariants } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
@@ -162,6 +162,7 @@ export default function InventoryPage() {
   const [statusFilter, setStatusFilter] = useState<StatusFilter>("all");
   const [categoryFilter, setCategoryFilter] = useState<CategoryFilter>("all");
   const [locationFilter, setLocationFilter] = useState<LocationFilter>({});
+  const [searchQuery, setSearchQuery] = useState("");
   const [autoGenerateSku, setAutoGenerateSku] = useState(true);
   const [isSupplierPopoverOpen, setIsSupplierPopoverOpen] = useState(false);
   const [isAddSupplierOpen, setIsAddSupplierOpen] = useState(false);
@@ -257,9 +258,13 @@ export default function InventoryPage() {
         !value || (product.location && product.location[key as keyof ProductLocation] === value)
       );
 
-      return statusCheck && categoryCheck && locationCheck;
+      const searchCheck = !searchQuery || 
+        product.name.toLowerCase().includes(searchQuery.toLowerCase()) || 
+        product.sku.toLowerCase().includes(searchQuery.toLowerCase());
+
+      return statusCheck && categoryCheck && locationCheck && searchCheck;
     });
-  }, [products, statusFilter, categoryFilter, locationFilter]);
+  }, [products, statusFilter, categoryFilter, locationFilter, searchQuery]);
 
   const locationOptions = useMemo(() => {
     const options: { [key in keyof ProductLocation]: Set<string> } = {
@@ -509,69 +514,55 @@ export default function InventoryPage() {
             <div>
               <CardTitle>Inventory</CardTitle>
               <CardDescription>Manage your product inventory.</CardDescription>
-              <div className="flex items-center gap-2 mt-4 print-hidden">
-                  <DropdownMenu>
-                      <DropdownMenuTrigger asChild>
-                          <Button variant="outline" size="sm" className="gap-2 capitalize">
-                            <SlidersHorizontal className="h-4 w-4" />
-                            Status: {statusFilter.replace("-", " ")}
-                          </Button>
-                      </DropdownMenuTrigger>
-                      <DropdownMenuContent align="start">
-                          <DropdownMenuLabel>Filter by Status</DropdownMenuLabel>
-                          <DropdownMenuRadioGroup value={statusFilter} onValueChange={(value) => setStatusFilter(value as StatusFilter)}>
-                            {(["all", "in-stock", "low-stock", "out-of-stock"] as StatusFilter[]).map((filter) => (
-                              <DropdownMenuRadioItem key={filter} value={filter} className="capitalize">
-                                  {filter.replace("-", " ")}
-                              </DropdownMenuRadioItem>
-                            ))}
-                          </DropdownMenuRadioGroup>
-                      </DropdownMenuContent>
-                  </DropdownMenu>
-                  <DropdownMenu>
-                      <DropdownMenuTrigger asChild>
-                          <Button variant="outline" size="sm" className="gap-2 capitalize">
-                            <SlidersHorizontal className="h-4 w-4" />
-                            Category: {categoryFilter}
-                          </Button>
-                      </DropdownMenuTrigger>
-                      <DropdownMenuContent align="start">
-                          <DropdownMenuLabel>Filter by Category</DropdownMenuLabel>
-                          <DropdownMenuRadioGroup value={categoryFilter} onValueChange={(value) => setCategoryFilter(value as CategoryFilter)}>
-                              {(["all", ...categories] as CategoryFilter[]).map((filter) => (
-                                  <DropdownMenuRadioItem key={filter} value={filter} className="capitalize">
-                                      {filter}
-                                  </DropdownMenuRadioItem>
-                              ))}
-                          </DropdownMenuRadioGroup>
-                      </DropdownMenuContent>
-                  </DropdownMenu>
-                  <DropdownMenu>
-                      <DropdownMenuTrigger asChild>
-                          <Button variant="outline" size="sm" className="gap-2">
+               <div className="mt-4 flex items-center gap-2">
+                <div className="relative flex-1">
+                  <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
+                  <Input
+                    type="search"
+                    placeholder="Search by name or SKU..."
+                    className="w-full rounded-lg bg-background pl-8 md:w-[200px] lg:w-[320px]"
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                  />
+                </div>
+                <div className="flex items-center gap-2 print-hidden">
+                    <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                            <Button variant="outline" size="sm" className="gap-2 capitalize">
                               <SlidersHorizontal className="h-4 w-4" />
-                              Location
-                          </Button>
-                      </DropdownMenuTrigger>
-                      <DropdownMenuContent align="start">
-                          <DropdownMenuLabel>Filter by Location</DropdownMenuLabel>
-                          {(Object.keys(locationOptions) as (keyof ProductLocation)[]).map((key) => (
-                              <DropdownMenuSub key={key}>
-                                  <DropdownMenuSubTrigger>{key.charAt(0).toUpperCase() + key.slice(1)}: {locationFilter[key] || 'Any'}</DropdownMenuSubTrigger>
-                                  <DropdownMenuSubContent>
-                                      <DropdownMenuRadioGroup value={locationFilter[key]} onValueChange={(value) => setLocationFilter(prev => ({ ...prev, [key]: value }))}>
-                                          <DropdownMenuRadioItem value="">Any</DropdownMenuRadioItem>
-                                          {locationOptions[key].map(opt => (
-                                              <DropdownMenuRadioItem key={opt} value={opt}>{opt}</DropdownMenuRadioItem>
-                                          ))}
-                                      </DropdownMenuRadioGroup>
-                                  </DropdownMenuSubContent>
-                              </DropdownMenuSub>
-                          ))}
-                          <DropdownMenuSeparator />
-                          <DropdownMenuItem onSelect={() => setLocationFilter({})}>Clear Filters</DropdownMenuItem>
-                      </DropdownMenuContent>
-                  </DropdownMenu>
+                              <span className="hidden sm:inline">Status: {statusFilter.replace("-", " ")}</span>
+                            </Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="start">
+                            <DropdownMenuLabel>Filter by Status</DropdownMenuLabel>
+                            <DropdownMenuRadioGroup value={statusFilter} onValueChange={(value) => setStatusFilter(value as StatusFilter)}>
+                              {(["all", "in-stock", "low-stock", "out-of-stock"] as StatusFilter[]).map((filter) => (
+                                <DropdownMenuRadioItem key={filter} value={filter} className="capitalize">
+                                    {filter.replace("-", " ")}
+                                </DropdownMenuRadioItem>
+                              ))}
+                            </DropdownMenuRadioGroup>
+                        </DropdownMenuContent>
+                    </DropdownMenu>
+                    <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                            <Button variant="outline" size="sm" className="gap-2 capitalize">
+                              <SlidersHorizontal className="h-4 w-4" />
+                              <span className="hidden sm:inline">Category: {categoryFilter}</span>
+                            </Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="start">
+                            <DropdownMenuLabel>Filter by Category</DropdownMenuLabel>
+                            <DropdownMenuRadioGroup value={categoryFilter} onValueChange={(value) => setCategoryFilter(value as CategoryFilter)}>
+                                {(['all', ...categories] as CategoryFilter[]).map((filter) => (
+                                    <DropdownMenuRadioItem key={filter} value={filter} className="capitalize">
+                                        {filter}
+                                    </DropdownMenuRadioItem>
+                                ))}
+                            </DropdownMenuRadioGroup>
+                        </DropdownMenuContent>
+                    </DropdownMenu>
+                </div>
               </div>
             </div>
             <div className="flex flex-col items-end gap-2">
@@ -1194,3 +1185,4 @@ export default function InventoryPage() {
 
 
     
+
