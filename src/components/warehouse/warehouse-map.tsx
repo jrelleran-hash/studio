@@ -47,12 +47,6 @@ const binStatusClasses = {
 };
 
 const Breadcrumbs = ({ path, onNavigate }: { path: {key: string, value: string}[], onNavigate: (index: number) => void }) => {
-    const keyToLabel: { [key: string]: string } = {
-        Z: 'Zone',
-        R: 'Rack',
-        A: 'Aisle',
-    };
-
     return (
         <div className="flex items-center gap-2 text-sm text-muted-foreground mb-4">
             <Button variant="link" className="p-0 h-auto" onClick={() => onNavigate(-1)}>Warehouse</Button>
@@ -65,7 +59,7 @@ const Breadcrumbs = ({ path, onNavigate }: { path: {key: string, value: string}[
                         onClick={() => onNavigate(index)}
                         disabled={index === path.length -1}
                     >
-                        {keyToLabel[item.key]}: {item.value}
+                        {item.key}: {item.value}
                     </Button>
                 </React.Fragment>
             ))}
@@ -77,21 +71,21 @@ export function WarehouseMap({ products, onProductSelect }: WarehouseMapProps) {
   const [selectedZone, setSelectedZone] = useState<string | null>(null);
   const [selectedRack, setSelectedRack] = useState<string | null>(null);
 
-  const locationTree: LocationTree = useMemo(() => {
+  const locationTree = useMemo(() => {
     const tree: LocationTree = {};
     products.forEach(product => {
-        const loc = product.location;
-        if (loc) {
-            const zone = loc.zone || 'Un-Zoned';
-            const rack = loc.rack || 'Un-Racked';
-            const aisle = loc.aisle || 'Un-Aisled';
-            
-            if (!tree[zone]) tree[zone] = {};
-            if (!tree[zone][rack]) tree[zone][rack] = {};
-            if (!tree[zone][rack][aisle]) tree[zone][rack][aisle] = [];
-            
-            tree[zone][rack][aisle].push(product);
-        }
+      const loc = product.location;
+      if (loc) {
+        const zone = loc.zone || 'Un-Zoned';
+        const rack = loc.rack || 'Un-Racked';
+        const aisle = loc.aisle || 'Un-Aisled';
+        
+        if (!tree[zone]) tree[zone] = {};
+        if (!tree[zone][rack]) tree[zone][rack] = {};
+        if (!tree[zone][rack][aisle]) tree[zone][rack][aisle] = [];
+        
+        tree[zone][rack][aisle].push(product);
+      }
     });
     return tree;
   }, [products]);
@@ -133,8 +127,8 @@ export function WarehouseMap({ products, onProductSelect }: WarehouseMapProps) {
   }
 
   const path: {key: string, value: string}[] = [];
-  if (selectedZone) path.push({ key: 'Z', value: selectedZone});
-  if (selectedRack) path.push({ key: 'R', value: selectedRack});
+  if (selectedZone) path.push({ key: 'Zone', value: selectedZone});
+  if (selectedRack) path.push({ key: 'Rack', value: selectedRack});
 
   return (
     <TooltipProvider>

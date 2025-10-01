@@ -6,7 +6,7 @@ import { useState, useEffect, useMemo, useRef, useCallback } from "react";
 import { useForm, Controller } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
-import { PlusCircle, MoreHorizontal, Package, ChevronsUpDown, Check, Printer, FileDown, SlidersHorizontal, QrCode, Camera, Download } from "lucide-react";
+import { PlusCircle, MoreHorizontal, Package, ChevronsUpDown, Check, Printer, FileDown, SlidersHorizontal, QrCode, Camera, Download, User } from "lucide-react";
 import { Button, buttonVariants } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
@@ -149,7 +149,6 @@ const toTitleCase = (str: string) => {
 
 const Scanner = ({ onResult, onClose }: { onResult: (text: string) => void; onClose: () => void }) => {
     const { toast } = useToast();
-    const videoRef = useRef<HTMLVideoElement>(null);
     const [hasCameraPermission, setHasCameraPermission] = useState<boolean | null>(null);
 
     const { ref } = useZxing({
@@ -162,8 +161,8 @@ const Scanner = ({ onResult, onClose }: { onResult: (text: string) => void; onCl
         },
         onError(error) {
             console.error('Camera Error:', error);
-            setHasCameraPermission(false);
             if (error.name === "NotAllowedError") {
+                setHasCameraPermission(false);
                 toast({
                     variant: 'destructive',
                     title: 'Camera Access Denied',
@@ -180,20 +179,25 @@ const Scanner = ({ onResult, onClose }: { onResult: (text: string) => void; onCl
             return;
           }
           try {
+            // This is just to prompt for permission, useZxing handles the stream
             const stream = await navigator.mediaDevices.getUserMedia({video: true});
             setHasCameraPermission(true);
-    
-            if (videoRef.current) {
-              videoRef.current.srcObject = stream;
-            }
+            stream.getTracks().forEach(track => track.stop()); // Stop the track immediately
           } catch (error) {
             console.error('Error accessing camera:', error);
             setHasCameraPermission(false);
+            if ((error as Error).name === 'NotAllowedError') {
+              toast({
+                variant: 'destructive',
+                title: 'Camera Access Denied',
+                description: 'Please enable camera permissions in your browser settings to use this feature.',
+              });
+            }
           }
         };
     
         getCameraPermission();
-      }, []);
+      }, [toast]);
 
     return (
         <Dialog open onOpenChange={(open) => !open && onClose()}>
@@ -1240,3 +1244,4 @@ export default function InventoryPage() {
     
 
   
+

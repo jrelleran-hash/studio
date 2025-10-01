@@ -50,7 +50,6 @@ import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/use-auth";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { Switch } from "@/components/ui/switch";
-import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { type UserProfile, updateUserProfile, deleteUser, changePassword } from "@/services/data-service";
 import { useSearchParams, useRouter } from "next/navigation";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -59,7 +58,7 @@ import { DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuIte
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import type { UserRole, PagePermission } from "@/types";
 import { cn } from "@/lib/utils";
-import { Check, MoreHorizontal, X, ChevronsUpDown } from "lucide-react";
+import { Check, MoreHorizontal, X, ChevronsUpDown, User } from "lucide-react";
 import { useData } from "@/context/data-context";
 import { Badge } from "@/components/ui/badge";
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
@@ -588,9 +587,9 @@ export default function SettingsPage() {
           <Card>
             <CardHeader className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4">
               <div className="flex items-center gap-4">
-                 <Avatar className="h-16 w-16">
-                    <AvatarFallback>{user?.displayName?.[0].toUpperCase() || user?.email?.[0].toUpperCase() || "U"}</AvatarFallback>
-                </Avatar>
+                 <div className="h-16 w-16 rounded-full flex items-center justify-center bg-muted">
+                    <User className="h-8 w-8 text-muted-foreground" />
+                </div>
                 <div>
                   <CardTitle>Profile Information</CardTitle>
                   <CardDescription>
