@@ -1906,7 +1906,7 @@ export async function borrowTool(toolId: string, borrowedBy: string, notes?: str
         if (toolData.status !== 'Available') throw new Error("Tool is not available for borrowing.");
 
         const userData = userDoc.data() as UserProfile;
-        const newBorrowRecord: Omit<ToolBorrowRecord, 'id'> = {
+        const newBorrowRecord: Omit<ToolBorrowRecord, 'id'|'dateReturned'|'returnCondition'> = {
             toolId: toolId,
             borrowedBy: borrowedBy,
             borrowedByName: `${userData.firstName} ${userData.lastName}`,

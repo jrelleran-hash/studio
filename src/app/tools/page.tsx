@@ -1,5 +1,4 @@
 
-
 "use client";
 
 import React, { useState, useEffect, useMemo } from "react";
@@ -107,6 +106,7 @@ export default function ToolManagementPage() {
   const [returningTool, setReturningTool] = useState<Tool | null>(null);
   const [historyTool, setHistoryTool] = useState<Tool | null>(null);
   const [toolHistory, setToolHistory] = useState<ToolBorrowRecord[]>([]);
+  const [historyLoading, setHistoryLoading] = useState(false);
 
   const toolForm = useForm<ToolFormValues>({
     resolver: zodResolver(toolSchema),
@@ -140,8 +140,10 @@ export default function ToolManagementPage() {
   useEffect(() => {
     if (historyTool) {
       const fetchHistory = async () => {
+        setHistoryLoading(true);
         const history = await getToolHistory(historyTool.id);
         setToolHistory(history);
+        setHistoryLoading(false);
       };
       fetchHistory();
     }
@@ -179,7 +181,8 @@ export default function ToolManagementPage() {
         setIsBorrowDialogOpen(false);
         await refetchData();
     } catch (error) {
-        toast({ variant: "destructive", title: "Error", description: "Failed to check out tool." });
+        const errorMessage = error instanceof Error ? error.message : "Failed to check out tool.";
+        toast({ variant: "destructive", title: "Error", description: errorMessage });
     }
   };
   
@@ -196,7 +199,8 @@ export default function ToolManagementPage() {
         setIsReturnDialogOpen(false);
         await refetchData();
     } catch (error) {
-        toast({ variant: "destructive", title: "Error", description: "Failed to return tool." });
+        const errorMessage = error instanceof Error ? error.message : "Failed to return tool.";
+        toast({ variant: "destructive", title: "Error", description: errorMessage });
     }
   };
 
@@ -501,21 +505,29 @@ export default function ToolManagementPage() {
                 <DialogDescription>A log of who has borrowed this tool.</DialogDescription>
             </DialogHeader>
             <div className="max-h-96 overflow-y-auto -mx-6 px-6">
-                <ul className="space-y-4">
-                    {toolHistory.map(record => (
-                        <li key={record.id} className="flex items-start gap-4">
-                            <div className="flex-shrink-0 mt-1">
-                                {record.dateReturned ? <CheckCircle className="h-5 w-5 text-green-500" /> : <XCircle className="h-5 w-5 text-yellow-500" />}
-                            </div>
-                            <div className="flex-1">
-                                <p className="font-medium">{record.borrowedByName}</p>
-                                <p className="text-sm text-muted-foreground">Borrowed: {formatDate(record.dateBorrowed)}</p>
-                                {record.dateReturned && <p className="text-sm text-muted-foreground">Returned: {formatDate(record.dateReturned)}</p>}
-                                {record.notes && <p className="text-xs text-muted-foreground mt-1 border-l-2 pl-2">Note: {record.notes}</p>}
-                            </div>
-                        </li>
-                    ))}
-                </ul>
+                 {historyLoading ? (
+                    <div className="space-y-4">
+                        {Array.from({ length: 3 }).map((_, i) => <Skeleton key={i} className="h-12 w-full" />)}
+                    </div>
+                ) : toolHistory.length > 0 ? (
+                     <ul className="space-y-4">
+                        {toolHistory.map(record => (
+                            <li key={record.id} className="flex items-start gap-4">
+                                <div className="flex-shrink-0 mt-1">
+                                    {record.dateReturned ? <CheckCircle className="h-5 w-5 text-green-500" /> : <XCircle className="h-5 w-5 text-yellow-500" />}
+                                </div>
+                                <div className="flex-1">
+                                    <p className="font-medium">{record.borrowedByName}</p>
+                                    <p className="text-sm text-muted-foreground">Borrowed: {formatDate(record.dateBorrowed)}</p>
+                                    {record.dateReturned && <p className="text-sm text-muted-foreground">Returned: {formatDate(record.dateReturned)}</p>}
+                                    {record.notes && <p className="text-xs text-muted-foreground mt-1 border-l-2 pl-2">Note: {record.notes}</p>}
+                                </div>
+                            </li>
+                        ))}
+                    </ul>
+                ) : (
+                    <p className="text-center text-muted-foreground py-8">No borrow history for this tool.</p>
+                )}
             </div>
              <DialogFooter>
                 <Button type="button" variant="outline" onClick={() => setIsHistoryDialogOpen(false)}>Close</Button>
