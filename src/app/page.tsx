@@ -198,7 +198,8 @@ export default function DashboardPage() {
     };
   }, [orders]);
 
-  const handleScanResult = (text: string) => {
+  const handleScanResult = (text: string | null) => {
+    if (text) {
       setIsScannerOpen(false);
       const product = products.find(p => p.id === text);
       if (product) {
@@ -210,6 +211,7 @@ export default function DashboardPage() {
               description: "The scanned QR code does not match any product in your inventory.",
           });
       }
+    }
   };
 
 

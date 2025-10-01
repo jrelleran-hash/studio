@@ -11,7 +11,7 @@ import { CameraOff } from 'lucide-react';
 import { Skeleton } from './ui/skeleton';
 
 interface ScannerProps {
-  onResult: (text: string) => void;
+  onResult: (text: string | null) => void;
   onClose: () => void;
 }
 
