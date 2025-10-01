@@ -150,54 +150,55 @@ const toTitleCase = (str: string) => {
 const Scanner = ({ onResult, onClose }: { onResult: (text: string) => void; onClose: () => void }) => {
     const { toast } = useToast();
     const [hasCameraPermission, setHasCameraPermission] = useState<boolean | null>(null);
+    const videoRef = useRef<HTMLVideoElement>(null);
 
     const { ref } = useZxing({
         constraints: { video: { facingMode: 'environment' } },
+        videoRef,
         onDecodeResult(result) {
             onResult(result.getText());
         },
         onDecodeError() {
             // Can be ignored
         },
-        onError(error) {
-            console.error('Camera Error:', error);
-            if (error.name === "NotAllowedError") {
-                setHasCameraPermission(false);
-                toast({
-                    variant: 'destructive',
-                    title: 'Camera Access Denied',
-                    description: 'Please enable camera permissions in your browser settings.',
-                });
-            }
-        },
     });
 
     useEffect(() => {
         const getCameraPermission = async () => {
-          if (!navigator?.mediaDevices) {
-            setHasCameraPermission(false);
-            return;
-          }
-          try {
-            // This is just to prompt for permission, useZxing handles the stream
-            const stream = await navigator.mediaDevices.getUserMedia({video: true});
-            setHasCameraPermission(true);
-            stream.getTracks().forEach(track => track.stop()); // Stop the track immediately
-          } catch (error) {
-            console.error('Error accessing camera:', error);
-            setHasCameraPermission(false);
-            if ((error as Error).name === 'NotAllowedError') {
-              toast({
-                variant: 'destructive',
-                title: 'Camera Access Denied',
-                description: 'Please enable camera permissions in your browser settings to use this feature.',
-              });
+            if (!navigator?.mediaDevices?.getUserMedia) {
+                console.error("getUserMedia is not supported by this browser.");
+                setHasCameraPermission(false);
+                toast({ variant: 'destructive', title: 'Unsupported Browser', description: 'Your browser does not support camera access.' });
+                return;
             }
-          }
+            try {
+                const stream = await navigator.mediaDevices.getUserMedia({ video: true });
+                if (videoRef.current) {
+                    videoRef.current.srcObject = stream;
+                }
+                setHasCameraPermission(true);
+            } catch (error) {
+                console.error('Error accessing camera:', error);
+                setHasCameraPermission(false);
+                 if ((error as Error).name === 'NotAllowedError') {
+                    toast({
+                        variant: 'destructive',
+                        title: 'Camera Access Denied',
+                        description: 'Please enable camera permissions in your browser settings to use this feature.',
+                    });
+                } else {
+                     toast({
+                        variant: 'destructive',
+                        title: 'Camera Error',
+                        description: 'Could not access the camera. Please ensure it is not being used by another application.',
+                    });
+                }
+            }
         };
-    
+
         getCameraPermission();
-      }, [toast]);
+    }, [toast]);
+
 
     return (
         <Dialog open onOpenChange={(open) => !open && onClose()}>
@@ -206,7 +207,7 @@ const Scanner = ({ onResult, onClose }: { onResult: (text: string) => void; onCl
                     <DialogTitle>Scan Product QR Code</DialogTitle>
                 </DialogHeader>
                 <div className="relative">
-                    <video ref={ref} className="w-full aspect-video rounded-md" />
+                    <video ref={videoRef} className="w-full aspect-video rounded-md" autoPlay muted />
                      {hasCameraPermission === false && (
                         <div className="absolute inset-0 flex items-center justify-center bg-background/80 rounded-md">
                             <Alert variant="destructive" className="w-auto">
@@ -1244,4 +1245,5 @@ export default function InventoryPage() {
     
 
   
+
 
