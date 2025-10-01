@@ -30,16 +30,11 @@ export function Scanner({ onResult, onClose }: ScannerProps) {
                 });
             }
         },
-        constraints: {
-            video: {
-                facingMode: 'environment'
-            }
-        },
     });
 
     return (
         <Dialog open onOpenChange={(open) => !open && onClose()}>
-            <DialogContent className="sm:max-w-md">
+            <DialogContent className="sm:max-w-md light bg-background">
                 <DialogHeader>
                     <DialogTitle>Scan Product QR Code</DialogTitle>
                 </DialogHeader>
