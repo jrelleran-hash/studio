@@ -63,13 +63,10 @@ import React from 'react';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
-import QRCode from "react-qr-code";
 import { CoreFlowLogo } from "@/components/icons";
 import { toPng } from 'html-to-image';
 import { useSearchParams } from "next/navigation";
 import { useAuth } from "@/hooks/use-auth";
-import { Scanner } from "@/components/scanner";
-import { getProductByIdAction } from "./actions";
 
 const categories: ProductCategory[] = ["Tools", "Consumables", "Raw Materials", "Finished Goods", "Other"];
 
@@ -167,7 +164,6 @@ export default function InventoryPage() {
   const [isSupplierPopoverOpen, setIsSupplierPopoverOpen] = useState(false);
   const [isAddSupplierOpen, setIsAddSupplierOpen] = useState(false);
   const [qrCodeProduct, setQrCodeProduct] = useState<Product | null>(null);
-  const [isScannerOpen, setIsScannerOpen] = useState(false);
   const qrCodeLabelRef = useRef<HTMLDivElement>(null);
   const searchParams = useSearchParams();
 
@@ -442,41 +438,6 @@ export default function InventoryPage() {
     link.click();
     document.body.removeChild(link);
   }
-  
-  const handleScanResult = async (text: string | null) => {
-    if (text) {
-      setIsScannerOpen(false);
-      const { id: toastId } = toast({
-        title: "Searching...",
-        description: `Looking for product with ID: ${text.substring(0, 10)}...`,
-      });
-      try {
-        const product = await getProductByIdAction(text);
-        if (product) {
-          toast({
-            id: toastId,
-            title: "Product Found",
-            description: `Showing details for ${product.name}.`,
-          });
-          handleEditClick(product);
-        } else {
-          toast({
-            id: toastId,
-            variant: "destructive",
-            title: "Product Not Found",
-            description: "The scanned QR code does not match any product in your inventory.",
-          });
-        }
-      } catch (error) {
-        toast({
-            id: toastId,
-            variant: "destructive",
-            title: "Scan Error",
-            description: "Could not verify product. Please try again.",
-        });
-      }
-    }
-  };
 
   const handleExportAsImage = useCallback(() => {
     if (qrCodeLabelRef.current === null || !qrCodeProduct) {
@@ -502,12 +463,6 @@ export default function InventoryPage() {
 
   return (
     <>
-      {isScannerOpen && (
-        <Scanner 
-            onResult={handleScanResult}
-            onClose={() => setIsScannerOpen(false)}
-        />
-      )}
       <div className="printable-content">
         <Card>
           <CardHeader className="flex flex-col md:flex-row md:items-start md:justify-between gap-4 print-hidden">
@@ -577,9 +532,6 @@ export default function InventoryPage() {
                   </Button>
               </div>
               <div className="flex items-center gap-2">
-                  <Button size="sm" variant="outline" className="gap-1 w-full md:w-auto" onClick={() => setIsScannerOpen(true)}>
-                    <QrCode />
-                  </Button>
                   <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>
                   <DialogTrigger asChild className="print-hidden">
                       <Button size="sm" className="gap-1 w-full md:w-auto">
@@ -1024,15 +976,6 @@ export default function InventoryPage() {
                 </Button>
               </DialogFooter>
             </form>
-            <div className="flex flex-col items-center justify-center space-y-2 border-l pl-8">
-                <div className="bg-white p-2 inline-block rounded-md">
-                  <QRCode value={editingProduct.id || ""} size={128} />
-                </div>
-                <p className="text-sm text-muted-foreground">ID: {editingProduct.id}</p>
-                <Button variant="outline" size="sm" onClick={() => setQrCodeProduct(editingProduct)}>
-                  <Printer className="mr-2 h-4 w-4" /> Print
-                </Button>
-            </div>
             </div>
           </DialogContent>
         </Dialog>
@@ -1154,9 +1097,11 @@ export default function InventoryPage() {
                     <span>CoreFlow</span>
                 </div>
                 <p className="text-lg font-bold mt-4 text-center">{qrCodeProduct?.name}</p>
-                <div className="p-2 inline-block my-2">
-                    <QRCode value={qrCodeProduct?.id || ""} size={128} />
-                </div>
+                {qrCodeProduct && (
+                  <div className="p-2 inline-block my-2">
+                    {/* QR Code component was here */}
+                  </div>
+                )}
                 <p className="text-sm font-mono text-gray-600">SKU: {qrCodeProduct?.sku}</p>
             </div>
             <DialogFooter className="print-hidden mt-4">
@@ -1185,4 +1130,5 @@ export default function InventoryPage() {
 
 
     
+
 

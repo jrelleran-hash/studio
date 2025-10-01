@@ -19,9 +19,6 @@ import { subDays, subWeeks, subMonths, subYears, startOfDay, endOfDay, startOfWe
 import type { Order } from "@/types";
 import { Button } from "@/components/ui/button";
 import { StartupAnimation } from "@/components/layout/startup-animation";
-import { Scanner } from "@/components/scanner";
-import { useToast } from "@/hooks/use-toast";
-import { getProductByIdAction } from "@/app/inventory/actions";
 
 const getRevenueData = (orders: Order[], filter: FilterType) => {
     const now = new Date();
@@ -113,11 +110,9 @@ export default function DashboardPage() {
   const { user, loading: authLoading } = useAuth();
   const router = useRouter();
   const { products, clients, orders, loading: dataLoading } = useData();
-  const { toast } = useToast();
   
   const [revenueFilter, setRevenueFilter] = useState<FilterType>("month");
   const [inventoryFilter, setInventoryFilter] = useState<InventoryFilterType>("all");
-  const [isScannerOpen, setIsScannerOpen] = useState(false);
 
   useEffect(() => {
     if (!authLoading && !user) {
@@ -199,56 +194,14 @@ export default function DashboardPage() {
     };
   }, [orders]);
 
-  const handleScanResult = async (text: string | null) => {
-    if (text) {
-      setIsScannerOpen(false);
-      const { id: toastId } = toast({
-        title: "Searching...",
-        description: `Looking for product with ID: ${text.substring(0, 10)}...`,
-      });
-      try {
-        const product = await getProductByIdAction(text);
-        if (product) {
-          toast({
-            id: toastId,
-            title: "Product Found",
-            description: `Navigating to details for ${product.name}.`,
-          });
-          router.push(`/inventory?edit=${product.id}`);
-        } else {
-          toast({
-            id: toastId,
-            variant: "destructive",
-            title: "Product Not Found",
-            description: "The scanned QR code does not match any product in your inventory.",
-          });
-        }
-      } catch (error) {
-        toast({
-          id: toastId,
-          variant: "destructive",
-          title: "Scan Error",
-          description: "Could not verify product. Please try again.",
-        });
-      }
-    }
-  };
-
-
   if (authLoading || !user) {
     return <StartupAnimation />;
   }
 
   return (
     <>
-      {isScannerOpen && (
-        <Scanner 
-            onResult={handleScanResult}
-            onClose={() => setIsScannerOpen(false)}
-        />
-      )}
       <div className="flex flex-col gap-6">
-        <WelcomeCard onScanClick={() => setIsScannerOpen(true)} />
+        <WelcomeCard />
         <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-4">
           <KpiCard
             title={revenueTitle}
