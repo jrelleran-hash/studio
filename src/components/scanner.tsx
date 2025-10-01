@@ -44,7 +44,8 @@ export function Scanner({ onResult, onClose }: ScannerProps) {
 
     return (
         <Dialog open onOpenChange={(open) => !open && onClose()}>
-            <DialogContent className="bg-white">
+            <div className="light">
+            <DialogContent>
                 <DialogHeader>
                     <DialogTitle>Scan Product QR Code</DialogTitle>
                 </DialogHeader>
@@ -62,6 +63,7 @@ export function Scanner({ onResult, onClose }: ScannerProps) {
                     )}
                 </div>
             </DialogContent>
+            </div>
         </Dialog>
     );
 }
