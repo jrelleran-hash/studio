@@ -259,9 +259,21 @@ export default function ToolManagementPage() {
   
   const getCurrentUser = (tool: Tool) => {
     if (tool.status === 'Assigned') return tool.assignedToUserName;
-    if (tool.status === 'In Use') return tool.currentBorrowRecord?.borrowedByName;
+    if (tool.status === 'In Use' && tool.currentBorrowRecord) return tool.currentBorrowRecord.borrowedByName;
     return 'N/A';
   }
+
+  const handleRetrieveClick = () => {
+    if (!historyTool) return;
+    setIsHistoryDialogOpen(false); // Close history dialog
+    
+    if(historyTool.status === 'In Use') {
+        setReturningTool(historyTool);
+    } else if (historyTool.status === 'Assigned') {
+        setRecallingTool(historyTool);
+    }
+  };
+
 
   return (
     <>
@@ -368,7 +380,7 @@ export default function ToolManagementPage() {
                 <TableCell><Badge variant={statusVariant[tool.status]}>{tool.status}</Badge></TableCell>
                 <TableCell><Badge variant={conditionVariant[tool.condition]}>{tool.condition}</Badge></TableCell>
                 <TableCell>{getCurrentUser(tool)}</TableCell>
-                <TableCell>{tool.status === 'In Use' ? formatDate(tool.currentBorrowRecord?.dateBorrowed as Date) : 'N/A'}</TableCell>
+                <TableCell>{tool.status === 'In Use' && tool.currentBorrowRecord ? formatDate(tool.currentBorrowRecord?.dateBorrowed as Date) : 'N/A'}</TableCell>
                 <TableCell className="text-right">
                      <DropdownMenu>
                         <DropdownMenuTrigger asChild>
@@ -388,22 +400,6 @@ export default function ToolManagementPage() {
                                         </DropdownMenuItem>
                                         <DropdownMenuItem onClick={() => setAssigningTool(tool)}>
                                             <UserCheck className="mr-2" /> Assign Accountability
-                                        </DropdownMenuItem>
-                                    </DropdownMenuSubContent>
-                                </DropdownMenuSub>
-                            )}
-
-                            {(tool.status === 'In Use' || tool.status === 'Assigned') && (
-                                <DropdownMenuSub>
-                                    <DropdownMenuSubTrigger>
-                                        <ArrowDownLeft className="mr-2 h-4 w-4" /> Retrieve Tool
-                                    </DropdownMenuSubTrigger>
-                                    <DropdownMenuSubContent>
-                                        <DropdownMenuItem onClick={() => setReturningTool(tool)} disabled={tool.status !== 'In Use'}>
-                                            <ArrowDownLeft className="mr-2" /> Return (from Borrow)
-                                        </DropdownMenuItem>
-                                        <DropdownMenuItem onClick={() => setRecallingTool(tool)} disabled={tool.status !== 'Assigned'}>
-                                            <Recycle className="mr-2" /> Recall (from Accountability)
                                         </DropdownMenuItem>
                                     </DropdownMenuSubContent>
                                 </DropdownMenuSub>
@@ -657,6 +653,9 @@ export default function ToolManagementPage() {
                                     {record.dateReturned && <p className="text-sm text-muted-foreground">Returned: {formatDate(record.dateReturned)}</p>}
                                     {record.notes && <p className="text-xs text-muted-foreground mt-1 border-l-2 pl-2">Note: {record.notes}</p>}
                                 </div>
+                                {!record.dateReturned && (
+                                    <Button size="sm" onClick={handleRetrieveClick}>Retrieve</Button>
+                                )}
                             </li>
                         ))}
                     </ul>
