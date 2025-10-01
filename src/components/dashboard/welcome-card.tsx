@@ -5,7 +5,7 @@ import { useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
 import Link from "next/link";
 import { useAuth } from "@/hooks/use-auth";
-import { Camera } from "lucide-react";
+import { QrCode } from "lucide-react";
 
 interface WelcomeCardProps {
   onScanClick: () => void;
@@ -47,9 +47,9 @@ export function WelcomeCard({ onScanClick }: WelcomeCardProps) {
         <p className="text-muted-foreground">{currentDate}</p>
       </div>
       <div className="flex items-center gap-2 w-full sm:w-auto">
-        <Button variant="outline" className="w-full flex-1 sm:flex-initial" onClick={onScanClick}>
-            <Camera className="mr-2 h-4 w-4" />
-            Scan Product
+        <Button variant="outline" size="icon" className="w-full flex-1 sm:flex-initial" onClick={onScanClick}>
+            <QrCode className="h-4 w-4" />
+            <span className="sr-only">Scan Product</span>
         </Button>
         <Link href="/analytics" className="flex-1 sm:flex-initial">
           <Button className="w-full">View Analytics</Button>
