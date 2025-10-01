@@ -64,14 +64,13 @@ export function Scanner({ onResult, onClose }: ScannerProps) {
           <QrReader
             onLoad={() => setLoading(false)}
             onError={handleError}
-            onResult={handleResult}
+            onScan={handleResult}
             constraints={{
               audio: false,
               video: { facingMode: 'environment' },
             }}
             className={cn("w-full h-full object-cover", error && "hidden")}
-            videoContainerStyle={{ width: '100%', height: '100%', paddingTop: 0 }}
-            videoStyle={{ width: '100%', height: '100%', objectFit: 'cover' }}
+            style={{ width: '100%', height: '100%'}}
           />
         </div>
       </DialogContent>
