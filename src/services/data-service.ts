@@ -1829,6 +1829,7 @@ export async function getTools(): Promise<Tool[]> {
         const toolsCol = collection(db, "tools");
         const toolSnapshot = await getDocs(query(toolsCol, orderBy("name", "asc")));
         
+        // Fetch all active borrow records in a separate query
         const borrowRecordsCol = collection(db, "toolBorrowRecords");
         const activeBorrowsSnapshot = await getDocs(query(borrowRecordsCol, where("dateReturned", "==", null)));
         const activeBorrowsMap = new Map<string, ToolBorrowRecord>();
@@ -1842,13 +1843,17 @@ export async function getTools(): Promise<Tool[]> {
             });
         });
 
+        // Map over tools and attach the active borrow record if it exists
         return toolSnapshot.docs.map(doc => {
             const data = doc.data() as Omit<Tool, 'id' | 'purchaseDate'> & { purchaseDate?: Timestamp };
+            const toolId = doc.id;
+            const currentBorrowRecord = activeBorrowsMap.get(toolId) || null;
+
             return { 
-                id: doc.id, 
+                id: toolId, 
                 ...data,
                 purchaseDate: data.purchaseDate?.toDate(),
-                currentBorrowRecord: activeBorrowsMap.get(doc.id) || null
+                currentBorrowRecord: currentBorrowRecord
             } as Tool;
         });
     } catch (error) {
@@ -1920,13 +1925,23 @@ export async function borrowTool(toolId: string, borrowedBy: string, notes?: str
     });
 }
 
-export async function returnTool(borrowRecordId: string, toolId: string, condition: Tool['condition'], notes?: string): Promise<void> {
-    const borrowRecordRef = doc(db, "toolBorrowRecords", borrowRecordId);
+export async function returnTool(toolId: string, condition: Tool['condition'], notes?: string): Promise<void> {
     const toolRef = doc(db, "tools", toolId);
-
+    
     await runTransaction(db, async (transaction) => {
-        const borrowDoc = await transaction.get(borrowRecordRef);
-        if (!borrowDoc.exists()) throw new Error("Borrow record not found.");
+        const toolDoc = await transaction.get(toolRef);
+        if (!toolDoc.exists()) throw new Error("Tool not found.");
+        if (toolDoc.data().status !== 'In Use') throw new Error("Tool is not currently 'In Use'.");
+
+        const q = query(collection(db, "toolBorrowRecords"), where("toolId", "==", toolId), where("dateReturned", "==", null), limit(1));
+        const borrowSnapshot = await getDocs(q);
+
+        if (borrowSnapshot.empty) {
+            throw new Error("No active borrow record found for this tool.");
+        }
+        
+        const borrowRecordDoc = borrowSnapshot.docs[0];
+        const borrowRecordRef = borrowRecordDoc.ref;
 
         const status = condition === 'Good' ? 'Available' : 'Under Maintenance';
 
@@ -1938,6 +1953,7 @@ export async function returnTool(borrowRecordId: string, toolId: string, conditi
         transaction.update(toolRef, { status, condition });
     });
 }
+
 
 export async function getToolHistory(toolId: string): Promise<ToolBorrowRecord[]> {
     try {
@@ -2009,3 +2025,4 @@ export async function recallTool(toolId: string, condition: Tool['condition'], n
         });
     });
 }
+

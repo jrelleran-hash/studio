@@ -200,13 +200,8 @@ export default function ToolManagementPage() {
   
   const onReturnSubmit = async (data: ReturnFormValues) => {
     if (!returningTool) return;
-     const borrowRecord = returningTool.currentBorrowRecord;
-     if (!borrowRecord) {
-        toast({ variant: "destructive", title: "Error", description: "No active borrow record found for this tool." });
-        return;
-     }
     try {
-        await returnTool(borrowRecord.id, returningTool.id, data.condition, data.notes);
+        await returnTool(returningTool.id, data.condition, data.notes);
         toast({ title: "Success", description: "Tool returned successfully." });
         setReturningTool(null);
         await refetchData();
@@ -373,7 +368,7 @@ export default function ToolManagementPage() {
                 <TableCell><Badge variant={statusVariant[tool.status]}>{tool.status}</Badge></TableCell>
                 <TableCell><Badge variant={conditionVariant[tool.condition]}>{tool.condition}</Badge></TableCell>
                 <TableCell>{getCurrentUser(tool)}</TableCell>
-                <TableCell>{tool.status === 'In Use' ? formatDate(tool.currentBorrowRecord?.dateBorrowed) : 'N/A'}</TableCell>
+                <TableCell>{tool.status === 'In Use' ? formatDate(tool.currentBorrowRecord?.dateBorrowed as Date) : 'N/A'}</TableCell>
                 <TableCell className="text-right">
                      <DropdownMenu>
                         <DropdownMenuTrigger asChild>
@@ -381,6 +376,7 @@ export default function ToolManagementPage() {
                         </DropdownMenuTrigger>
                         <DropdownMenuContent align="end">
                             <DropdownMenuLabel>Actions</DropdownMenuLabel>
+                            
                             {tool.status === 'Available' && (
                                 <DropdownMenuSub>
                                     <DropdownMenuSubTrigger>
