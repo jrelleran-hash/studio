@@ -1829,25 +1829,30 @@ export async function getTools(): Promise<Tool[]> {
         const toolsCol = collection(db, "tools");
         const toolSnapshot = await getDocs(query(toolsCol, orderBy("name", "asc")));
         
-        // Fetch all active borrow records in a separate query
-        const borrowRecordsCol = collection(db, "toolBorrowRecords");
-        const activeBorrowsSnapshot = await getDocs(query(borrowRecordsCol, where("dateReturned", "==", null)));
-        const activeBorrowsMap = new Map<string, ToolBorrowRecord>();
-        activeBorrowsSnapshot.forEach(doc => {
-            const data = doc.data() as Omit<ToolBorrowRecord, 'id' | 'dateBorrowed' | 'dateReturned'> & { dateBorrowed: Timestamp, dateReturned?: Timestamp };
-            activeBorrowsMap.set(data.toolId, { 
-                id: doc.id, 
-                ...data,
-                dateBorrowed: data.dateBorrowed.toDate(),
-                dateReturned: data.dateReturned?.toDate(),
-            });
-        });
-
-        // Map over tools and attach the active borrow record if it exists
-        return toolSnapshot.docs.map(doc => {
-            const data = doc.data() as Omit<Tool, 'id' | 'purchaseDate'> & { purchaseDate?: Timestamp };
+        const tools = await Promise.all(toolSnapshot.docs.map(async (doc) => {
+            const data = doc.data() as Omit<Tool, 'id' | 'purchaseDate' | 'currentBorrowRecord'> & { purchaseDate?: Timestamp };
             const toolId = doc.id;
-            const currentBorrowRecord = activeBorrowsMap.get(toolId) || null;
+            
+            let currentBorrowRecord: ToolBorrowRecord | null = null;
+            if (data.status === 'In Use') {
+                const borrowRecordsCol = collection(db, "toolBorrowRecords");
+                const activeBorrowsSnapshot = await getDocs(query(
+                    borrowRecordsCol, 
+                    where("toolId", "==", toolId), 
+                    where("dateReturned", "==", null),
+                    limit(1)
+                ));
+                if (!activeBorrowsSnapshot.empty) {
+                    const borrowDoc = activeBorrowsSnapshot.docs[0];
+                    const borrowData = borrowDoc.data() as Omit<ToolBorrowRecord, 'id' | 'dateBorrowed' | 'dateReturned'> & { dateBorrowed: Timestamp, dateReturned?: Timestamp };
+                    currentBorrowRecord = { 
+                        id: borrowDoc.id, 
+                        ...borrowData,
+                        dateBorrowed: borrowData.dateBorrowed.toDate(),
+                        dateReturned: borrowData.dateReturned?.toDate(),
+                    };
+                }
+            }
 
             return { 
                 id: toolId, 
@@ -1855,7 +1860,9 @@ export async function getTools(): Promise<Tool[]> {
                 purchaseDate: data.purchaseDate?.toDate(),
                 currentBorrowRecord: currentBorrowRecord
             } as Tool;
-        });
+        }));
+        
+        return tools;
     } catch (error) {
         console.error("Error fetching tools:", error);
         return [];
@@ -2025,4 +2032,5 @@ export async function recallTool(toolId: string, condition: Tool['condition'], n
         });
     });
 }
+
 

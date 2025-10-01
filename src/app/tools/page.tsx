@@ -142,7 +142,7 @@ export default function ToolManagementPage() {
   const recallForm = useForm<RecallFormValues>();
 
   useEffect(() => { if (isAddDialogOpen) toolForm.reset({ condition: "Good" }); }, [isAddDialogOpen, toolForm]);
-  useEffect(() => { if (editingTool) { toolForm.reset({ ...editingTool, purchaseDate: editingTool.purchaseDate }); setIsEditDialogOpen(true); } else { setIsEditDialogOpen(false); } }, [editingTool, toolForm]);
+  useEffect(() => { if (editingTool) { toolForm.reset({ ...editingTool, purchaseDate: editingTool.purchaseDate ? new Date(editingTool.purchaseDate) : undefined }); setIsEditDialogOpen(true); } else { setIsEditDialogOpen(false); } }, [editingTool, toolForm]);
   useEffect(() => { if (borrowingTool) { borrowForm.reset(); setIsBorrowDialogOpen(true); } else { setIsBorrowDialogOpen(false); } }, [borrowingTool, borrowForm]);
   useEffect(() => { if (returningTool) { returnForm.reset({ condition: returningTool.condition }); setIsReturnDialogOpen(true); } else { setIsReturnDialogOpen(false); } }, [returningTool, returnForm]);
   useEffect(() => { if (assigningTool) { assignForm.reset(); setIsAssignDialogOpen(true); } else { setIsAssignDialogOpen(false); } }, [assigningTool, assignForm]);
@@ -653,7 +653,7 @@ export default function ToolManagementPage() {
                                     {record.dateReturned && <p className="text-sm text-muted-foreground">Returned: {formatDate(record.dateReturned)}</p>}
                                     {record.notes && <p className="text-xs text-muted-foreground mt-1 border-l-2 pl-2">Note: {record.notes}</p>}
                                 </div>
-                                {!record.dateReturned && (
+                                {!record.dateReturned && historyTool && (
                                     <Button size="sm" onClick={handleRetrieveClick}>Retrieve</Button>
                                 )}
                             </li>
