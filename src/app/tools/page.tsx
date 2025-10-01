@@ -381,33 +381,37 @@ export default function ToolManagementPage() {
                         </DropdownMenuTrigger>
                         <DropdownMenuContent align="end">
                             <DropdownMenuLabel>Actions</DropdownMenuLabel>
-                            <DropdownMenuSub>
-                                <DropdownMenuSubTrigger disabled={tool.status !== 'Available'}>
-                                    <ArrowUpRight className="mr-2 h-4 w-4" /> Issue Tool
-                                </DropdownMenuSubTrigger>
-                                <DropdownMenuSubContent>
-                                    <DropdownMenuItem onClick={() => setBorrowingTool(tool)}>
-                                        <ArrowUpRight className="mr-2" /> Borrow (Temporary)
-                                    </DropdownMenuItem>
-                                    <DropdownMenuItem onClick={() => setAssigningTool(tool)}>
-                                        <UserCheck className="mr-2" /> Assign Accountability
-                                    </DropdownMenuItem>
-                                </DropdownMenuSubContent>
-                            </DropdownMenuSub>
+                            {tool.status === 'Available' && (
+                                <DropdownMenuSub>
+                                    <DropdownMenuSubTrigger>
+                                        <ArrowUpRight className="mr-2 h-4 w-4" /> Issue Tool
+                                    </DropdownMenuSubTrigger>
+                                    <DropdownMenuSubContent>
+                                        <DropdownMenuItem onClick={() => setBorrowingTool(tool)}>
+                                            <ArrowUpRight className="mr-2" /> Borrow (Temporary)
+                                        </DropdownMenuItem>
+                                        <DropdownMenuItem onClick={() => setAssigningTool(tool)}>
+                                            <UserCheck className="mr-2" /> Assign Accountability
+                                        </DropdownMenuItem>
+                                    </DropdownMenuSubContent>
+                                </DropdownMenuSub>
+                            )}
 
-                            <DropdownMenuSub>
-                                <DropdownMenuSubTrigger disabled={tool.status === 'Available' || tool.status === 'Under Maintenance'}>
-                                    <ArrowDownLeft className="mr-2 h-4 w-4" /> Retrieve Tool
-                                </DropdownMenuSubTrigger>
-                                <DropdownMenuSubContent>
-                                    <DropdownMenuItem onClick={() => setReturningTool(tool)} disabled={tool.status !== 'In Use'}>
-                                        <ArrowDownLeft className="mr-2" /> Return (from Borrow)
-                                    </DropdownMenuItem>
-                                    <DropdownMenuItem onClick={() => setRecallingTool(tool)} disabled={tool.status !== 'Assigned'}>
-                                        <Recycle className="mr-2" /> Recall (from Accountability)
-                                    </DropdownMenuItem>
-                                </DropdownMenuSubContent>
-                            </DropdownMenuSub>
+                            {(tool.status === 'In Use' || tool.status === 'Assigned') && (
+                                <DropdownMenuSub>
+                                    <DropdownMenuSubTrigger>
+                                        <ArrowDownLeft className="mr-2 h-4 w-4" /> Retrieve Tool
+                                    </DropdownMenuSubTrigger>
+                                    <DropdownMenuSubContent>
+                                        <DropdownMenuItem onClick={() => setReturningTool(tool)} disabled={tool.status !== 'In Use'}>
+                                            <ArrowDownLeft className="mr-2" /> Return (from Borrow)
+                                        </DropdownMenuItem>
+                                        <DropdownMenuItem onClick={() => setRecallingTool(tool)} disabled={tool.status !== 'Assigned'}>
+                                            <Recycle className="mr-2" /> Recall (from Accountability)
+                                        </DropdownMenuItem>
+                                    </DropdownMenuSubContent>
+                                </DropdownMenuSub>
+                            )}
                             
                             <DropdownMenuItem onClick={() => setEditingTool(tool)}>Edit</DropdownMenuItem>
                             <DropdownMenuItem onClick={() => setHistoryTool(tool)}>History</DropdownMenuItem>
