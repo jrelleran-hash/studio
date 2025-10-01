@@ -565,8 +565,7 @@ export default function InventoryPage() {
               </div>
               <div className="flex items-center gap-2">
                   <Button size="sm" variant="outline" className="gap-1 w-full md:w-auto" onClick={() => setIsScannerOpen(true)}>
-                    <Camera />
-                    Scan Product
+                    <QrCode />
                   </Button>
                   <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>
                   <DialogTrigger asChild className="print-hidden">
@@ -1170,3 +1169,6 @@ export default function InventoryPage() {
 
 
 
+
+
+    
