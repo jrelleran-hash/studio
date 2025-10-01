@@ -142,7 +142,7 @@ export default function ToolManagementPage() {
   const recallForm = useForm<RecallFormValues>();
 
   useEffect(() => { if (isAddDialogOpen) toolForm.reset({ condition: "Good" }); }, [isAddDialogOpen, toolForm]);
-  useEffect(() => { if (editingTool) toolForm.reset({ ...editingTool, purchaseDate: editingTool.purchaseDate }); }, [editingTool, toolForm]);
+  useEffect(() => { if (editingTool) { toolForm.reset({ ...editingTool, purchaseDate: editingTool.purchaseDate }); setIsEditDialogOpen(true); } else { setIsEditDialogOpen(false); } }, [editingTool, toolForm]);
   useEffect(() => { if (borrowingTool) { borrowForm.reset(); setIsBorrowDialogOpen(true); } else { setIsBorrowDialogOpen(false); } }, [borrowingTool, borrowForm]);
   useEffect(() => { if (returningTool) { returnForm.reset({ condition: returningTool.condition }); setIsReturnDialogOpen(true); } else { setIsReturnDialogOpen(false); } }, [returningTool, returnForm]);
   useEffect(() => { if (assigningTool) { assignForm.reset(); setIsAssignDialogOpen(true); } else { setIsAssignDialogOpen(false); } }, [assigningTool, assignForm]);
@@ -178,7 +178,7 @@ export default function ToolManagementPage() {
     try {
       await updateTool(editingTool.id, data);
       toast({ title: "Success", description: "Tool updated successfully." });
-      setIsEditDialogOpen(false);
+      setEditingTool(null);
       await refetchData();
     } catch (error) {
       toast({ variant: "destructive", title: "Error", description: "Failed to update tool." });
@@ -253,6 +253,7 @@ export default function ToolManagementPage() {
       toast({ variant: "destructive", title: "Error", description: "Failed to delete tool." });
     } finally {
       setIsDeleteDialogOpen(false);
+      setDeletingToolId(null);
     }
   };
   
@@ -408,7 +409,7 @@ export default function ToolManagementPage() {
                                 </DropdownMenuSubContent>
                             </DropdownMenuSub>
                             
-                            <DropdownMenuItem onClick={() => { setEditingTool(tool); setIsEditDialogOpen(true); }}>Edit</DropdownMenuItem>
+                            <DropdownMenuItem onClick={() => setEditingTool(tool)}>Edit</DropdownMenuItem>
                             <DropdownMenuItem onClick={() => setHistoryTool(tool)}>History</DropdownMenuItem>
                             <DropdownMenuSeparator />
                             <DropdownMenuItem className="text-destructive" onClick={() => { setDeletingToolId(tool.id); setIsDeleteDialogOpen(true);}}>Delete</DropdownMenuItem>
@@ -423,7 +424,7 @@ export default function ToolManagementPage() {
     </Card>
 
     {/* Edit Dialog */}
-    <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
+    <Dialog open={isEditDialogOpen} onOpenChange={(open) => !open && setEditingTool(null)}>
         <DialogContent>
             <DialogHeader>
                 <DialogTitle>Edit Tool</DialogTitle>
@@ -478,7 +479,7 @@ export default function ToolManagementPage() {
                         </div>
                     </div>
                     <DialogFooter>
-                        <Button type="button" variant="outline" onClick={() => setIsEditDialogOpen(false)}>Cancel</Button>
+                        <Button type="button" variant="outline" onClick={() => setEditingTool(null)}>Cancel</Button>
                         <Button type="submit" disabled={toolForm.formState.isSubmitting}>Save Changes</Button>
                     </DialogFooter>
                 </form>

@@ -1847,7 +1847,7 @@ export async function getTools(): Promise<Tool[]> {
             return { 
                 id: doc.id, 
                 ...data,
-                purchaseDate: data.purchaseDate ? data.purchaseDate.toDate() : undefined,
+                purchaseDate: data.purchaseDate?.toDate(),
                 currentBorrowRecord: activeBorrowsMap.get(doc.id) || null
             } as Tool;
         });
@@ -1857,7 +1857,7 @@ export async function getTools(): Promise<Tool[]> {
     }
 }
 
-export async function addTool(tool: Omit<Tool, 'id' | 'status' | 'currentBorrowRecord'>): Promise<DocumentReference> {
+export async function addTool(tool: Omit<Tool, 'id' | 'status' | 'currentBorrowRecord' | 'assignedToUserId' | 'assignedToUserName'>): Promise<DocumentReference> {
     try {
         const toolWithDefaults = {
             ...tool,
@@ -1958,7 +1958,7 @@ export async function getToolHistory(toolId: string): Promise<ToolBorrowRecord[]
     }
 }
 
-export async function assignToolForAccountability(toolId: string, userId: string, notes?: string): Promise<void> {
+export async function assignToolForAccountability(toolId: string, userId: string): Promise<void> {
     const toolRef = doc(db, "tools", toolId);
     const userRef = doc(db, "users", userId);
 
@@ -1982,9 +1982,10 @@ export async function assignToolForAccountability(toolId: string, userId: string
 export async function recallTool(toolId: string, condition: Tool['condition'], notes?: string): Promise<void> {
     const toolRef = doc(db, "tools", toolId);
     
-    return runTransaction(db, async (transaction) => {
+    await runTransaction(db, async (transaction) => {
         const toolDoc = await transaction.get(toolRef);
         if (!toolDoc.exists()) throw new Error("Tool not found.");
+        if (toolDoc.data().status !== 'Assigned') throw new Error("Can only recall an assigned tool.");
         
         const newStatus = condition === 'Good' ? 'Available' : 'Under Maintenance';
         
@@ -1993,6 +1994,16 @@ export async function recallTool(toolId: string, condition: Tool['condition'], n
             condition: condition,
             assignedToUserId: null,
             assignedToUserName: null,
+        });
+
+        // Optionally, create a history record for the recall
+        const historyRef = doc(collection(db, "toolHistory"));
+        transaction.set(historyRef, {
+            toolId: toolId,
+            type: "Recall",
+            date: Timestamp.now(),
+            notes: `Recalled with condition: ${condition}. ${notes || ''}`,
+            userId: toolDoc.data().assignedToUserId
         });
     });
 }
