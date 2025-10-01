@@ -1833,8 +1833,13 @@ export async function getTools(): Promise<Tool[]> {
         const activeBorrowsSnapshot = await getDocs(query(borrowRecordsCol, where("dateReturned", "==", null)));
         const activeBorrowsMap = new Map<string, ToolBorrowRecord>();
         activeBorrowsSnapshot.forEach(doc => {
-            const data = doc.data() as ToolBorrowRecord;
-            activeBorrowsMap.set(data.toolId, { id: doc.id, ...data });
+            const data = doc.data() as Omit<ToolBorrowRecord, 'id' | 'dateBorrowed' | 'dateReturned'> & { dateBorrowed: Timestamp, dateReturned?: Timestamp };
+            activeBorrowsMap.set(data.toolId, { 
+                id: doc.id, 
+                ...data,
+                dateBorrowed: data.dateBorrowed.toDate(),
+                dateReturned: data.dateReturned?.toDate(),
+            });
         });
 
         return toolSnapshot.docs.map(doc => {
@@ -1938,7 +1943,15 @@ export async function getToolHistory(toolId: string): Promise<ToolBorrowRecord[]
     try {
         const q = query(collection(db, "toolBorrowRecords"), where("toolId", "==", toolId), orderBy("dateBorrowed", "desc"));
         const snapshot = await getDocs(q);
-        return snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as ToolBorrowRecord));
+        return snapshot.docs.map(doc => {
+            const data = doc.data() as Omit<ToolBorrowRecord, 'id' | 'dateBorrowed' | 'dateReturned'> & { dateBorrowed: Timestamp, dateReturned?: Timestamp };
+             return { 
+                id: doc.id, 
+                ...data,
+                dateBorrowed: data.dateBorrowed.toDate(),
+                dateReturned: data.dateReturned?.toDate(),
+            } as ToolBorrowRecord;
+        });
     } catch (error) {
         console.error("Error fetching tool history:", error);
         return [];
