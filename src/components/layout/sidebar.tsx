@@ -219,14 +219,16 @@ export function Sidebar({ className, inSheet, isCollapsed, setIsCollapsed }: Sid
           </nav>
         </div>
         <div className={cn("mt-auto", isCollapsed ? "px-2" : "p-4")}>
-            <SidebarLink 
-              href="/settings"
-              label="Settings"
-              icon={Settings}
-              pathname={pathname}
-              inSheet={inSheet}
-              isCollapsed={isCollapsed}
-            />
+             {canAccess("/settings" as PagePermission) && (
+                <SidebarLink 
+                  href="/settings"
+                  label="Settings"
+                  icon={Settings}
+                  pathname={pathname}
+                  inSheet={inSheet}
+                  isCollapsed={isCollapsed}
+                />
+            )}
         </div>
       </div>
     </aside>
