@@ -27,8 +27,8 @@ export function AppContent({ children }: { children: ReactNode }) {
 
   return (
     <div className="flex min-h-screen w-full bg-background">
-      <Sidebar className="hidden lg:flex" />
-      <div className="flex flex-1 flex-col lg:pl-64">
+      <Sidebar className="hidden lg:flex fixed h-full z-50" />
+      <div className="flex flex-1 flex-col transition-all duration-300 lg:pl-64" id="main-content">
         <Header />
         <main className="flex-1 p-4 sm:p-6">
             <div className="w-full max-w-7xl mx-auto">
@@ -36,6 +36,11 @@ export function AppContent({ children }: { children: ReactNode }) {
             </div>
         </main>
       </div>
+       <style jsx>{`
+        #main-content.collapsed {
+            padding-left: 64px;
+        }
+       `}</style>
     </div>
   );
 }
