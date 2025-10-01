@@ -202,22 +202,33 @@ export default function DashboardPage() {
   const handleScanResult = async (text: string | null) => {
     if (text) {
       setIsScannerOpen(false);
+      const { id: toastId } = toast({
+        title: "Searching...",
+        description: `Looking for product with ID: ${text.substring(0, 10)}...`,
+      });
       try {
         const product = await getProductByIdAction(text);
         if (product) {
+          toast({
+            id: toastId,
+            title: "Product Found",
+            description: `Navigating to details for ${product.name}.`,
+          });
           router.push(`/inventory?edit=${product.id}`);
         } else {
           toast({
+            id: toastId,
             variant: "destructive",
             title: "Product Not Found",
             description: "The scanned QR code does not match any product in your inventory.",
           });
         }
       } catch (error) {
-         toast({
-            variant: "destructive",
-            title: "Scan Error",
-            description: "Could not verify product. Please try again.",
+        toast({
+          id: toastId,
+          variant: "destructive",
+          title: "Scan Error",
+          description: "Could not verify product. Please try again.",
         });
       }
     }

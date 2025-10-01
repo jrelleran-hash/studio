@@ -21,26 +21,23 @@ export function Scanner({ onResult, onClose }: ScannerProps) {
   const [loading, setLoading] = useState(true);
 
   const handleResult = (result: any) => {
-    if (result?.text) {
-      onResult(result.text);
+    // The library can return the string directly or in a `text` property.
+    const scannedText = result?.text || (typeof result === 'string' ? result : null);
+    if (scannedText) {
+      onResult(scannedText);
     }
   };
 
   const handleError = (err: any) => {
     console.error(err);
     let errorMessage = 'An unexpected error occurred with the camera.';
-    if (err.name === 'NotAllowedError') {
+    if (err?.name === 'NotAllowedError') {
       errorMessage = 'Camera permission denied. Please allow camera access in your browser settings.';
-    } else if (err.name === 'NotFoundError' || err.name === 'DevicesNotFoundError') {
-        errorMessage = 'No camera found. Please try on a device with a camera.';
+    } else if (err?.name === 'NotFoundError' || err?.name === 'DevicesNotFoundError') {
+        errorMessage = 'No camera found. Please connect a camera and try again.';
     }
     
     setError(errorMessage);
-    toast({
-      variant: 'destructive',
-      title: 'Scanner Error',
-      description: errorMessage,
-    });
     setLoading(false);
   };
 
@@ -62,16 +59,18 @@ export function Scanner({ onResult, onClose }: ScannerProps) {
               </AlertDescription>
             </Alert>
           )}
-          <QrReader
-            onScan={handleResult}
-            onError={handleError}
-            constraints={{
-              video: { facingMode: 'environment' },
-            }}
-            onLoad={() => setLoading(false)}
-            className={cn("w-full h-full object-cover", error && "hidden")}
-            style={{ width: '100%', height: '100%'}}
-          />
+          {!error && (
+             <QrReader
+                onLoad={() => setLoading(false)}
+                onError={handleError}
+                onScan={handleResult}
+                constraints={{
+                    video: { facingMode: 'environment' },
+                }}
+                className={cn("w-full h-full object-cover", loading && "opacity-0")}
+                style={{ width: '100%', height: '100%'}}
+            />
+          )}
         </div>
       </DialogContent>
     </Dialog>
