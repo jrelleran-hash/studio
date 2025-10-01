@@ -41,6 +41,7 @@ export function Scanner({ onResult, onClose }: ScannerProps) {
       title: 'Scanner Error',
       description: errorMessage,
     });
+    setLoading(false);
   };
 
   return (
@@ -62,13 +63,12 @@ export function Scanner({ onResult, onClose }: ScannerProps) {
             </Alert>
           )}
           <QrReader
-            onLoad={() => setLoading(false)}
-            onError={handleError}
             onScan={handleResult}
+            onError={handleError}
             constraints={{
-              audio: false,
               video: { facingMode: 'environment' },
             }}
+            onLoad={() => setLoading(false)}
             className={cn("w-full h-full object-cover", error && "hidden")}
             style={{ width: '100%', height: '100%'}}
           />
