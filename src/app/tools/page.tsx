@@ -124,17 +124,23 @@ export default function ToolManagementPage() {
     if (editingTool) {
         toolForm.reset({
             ...editingTool,
-            purchaseDate: editingTool.purchaseDate ? new Date(editingTool.purchaseDate) : undefined,
+            purchaseDate: editingTool.purchaseDate,
         });
     }
-}, [editingTool, toolForm]);
+  }, [editingTool, toolForm]);
 
   useEffect(() => {
-    if (borrowingTool) borrowForm.reset();
+    if (borrowingTool) {
+        borrowForm.reset();
+        setIsBorrowDialogOpen(true);
+    }
   }, [borrowingTool, borrowForm]);
 
   useEffect(() => {
-    if (returningTool) returnForm.reset({ condition: returningTool.condition });
+    if (returningTool) {
+        returnForm.reset({ condition: returningTool.condition });
+        setIsReturnDialogOpen(true);
+    }
   }, [returningTool, returnForm]);
 
   useEffect(() => {
@@ -146,6 +152,7 @@ export default function ToolManagementPage() {
         setHistoryLoading(false);
       };
       fetchHistory();
+      setIsHistoryDialogOpen(true);
     }
   }, [historyTool]);
 
@@ -346,7 +353,7 @@ export default function ToolManagementPage() {
                                 </DropdownMenuItem>
                             )}
                             <DropdownMenuItem onClick={() => { setEditingTool(tool); setIsEditDialogOpen(true); }}>Edit</DropdownMenuItem>
-                            <DropdownMenuItem onClick={() => { setHistoryTool(tool); setIsHistoryDialogOpen(true); }}>History</DropdownMenuItem>
+                            <DropdownMenuItem onClick={() => setHistoryTool(tool)}>History</DropdownMenuItem>
                             <DropdownMenuSeparator />
                             <DropdownMenuItem className="text-destructive" onClick={() => { setDeletingToolId(tool.id); setIsDeleteDialogOpen(true);}}>Delete</DropdownMenuItem>
                         </DropdownMenuContent>
@@ -551,3 +558,5 @@ export default function ToolManagementPage() {
     </>
   );
 }
+
+    
