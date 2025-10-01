@@ -6,6 +6,7 @@ import { useZxing } from 'react-zxing';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Alert, AlertTitle, AlertDescription } from '@/components/ui/alert';
 import { useToast } from '@/hooks/use-toast';
+import { cn } from '@/lib/utils';
 
 interface ScannerProps {
     onResult: (text: string) => void;
@@ -43,14 +44,14 @@ export function Scanner({ onResult, onClose }: ScannerProps) {
 
     return (
         <Dialog open onOpenChange={(open) => !open && onClose()}>
-            <DialogContent>
+            <DialogContent className="bg-white">
                 <DialogHeader>
                     <DialogTitle>Scan Product QR Code</DialogTitle>
                 </DialogHeader>
                 <div className="relative">
                     <video ref={ref} className="w-full aspect-video rounded-md bg-black" />
                     {hasPermission === false && (
-                        <div className="absolute inset-0 flex items-center justify-center bg-background/80 rounded-md">
+                        <div className="absolute inset-0 flex items-center justify-center bg-white/80 rounded-md">
                             <Alert variant="destructive" className="w-auto">
                                 <AlertTitle>Camera Access Required</AlertTitle>
                                 <AlertDescription>
