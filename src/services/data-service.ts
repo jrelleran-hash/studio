@@ -1871,7 +1871,7 @@ export async function addTool(tool: Omit<Tool, 'id' | 'status' | 'currentBorrowR
     }
 }
 
-export async function updateTool(toolId: string, data: Partial<Omit<Tool, 'id' | 'status'>>): Promise<void> {
+export async function updateTool(toolId: string, data: Partial<Omit<Tool, 'id'>>): Promise<void> {
     try {
         const toolRef = doc(db, "tools", toolId);
         await updateDoc(toolRef, data);
@@ -1906,7 +1906,7 @@ export async function borrowTool(toolId: string, borrowedBy: string, notes?: str
         if (toolData.status !== 'Available') throw new Error("Tool is not available for borrowing.");
 
         const userData = userDoc.data() as UserProfile;
-        const newBorrowRecord: Omit<ToolBorrowRecord, 'id'|'dateReturned'|'returnCondition'> = {
+        const newBorrowRecord: Omit<ToolBorrowRecord, 'id'|'dateReturned'|'returnCondition'|'dateBorrowed'> & { dateBorrowed: Timestamp } = {
             toolId: toolId,
             borrowedBy: borrowedBy,
             borrowedByName: `${userData.firstName} ${userData.lastName}`,
@@ -1956,4 +1956,43 @@ export async function getToolHistory(toolId: string): Promise<ToolBorrowRecord[]
         console.error("Error fetching tool history:", error);
         return [];
     }
+}
+
+export async function assignToolForAccountability(toolId: string, userId: string, notes?: string): Promise<void> {
+    const toolRef = doc(db, "tools", toolId);
+    const userRef = doc(db, "users", userId);
+
+    return runTransaction(db, async (transaction) => {
+        const toolDoc = await transaction.get(toolRef);
+        if (!toolDoc.exists()) throw new Error("Tool not found.");
+        if (toolDoc.data().status !== 'Available') throw new Error("Tool must be available to be assigned.");
+        
+        const userDoc = await transaction.get(userRef);
+        if (!userDoc.exists()) throw new Error("User not found.");
+        const userData = userDoc.data() as UserProfile;
+
+        transaction.update(toolRef, {
+            status: "Assigned",
+            assignedToUserId: userId,
+            assignedToUserName: `${userData.firstName} ${userData.lastName}`
+        });
+    });
+}
+
+export async function recallTool(toolId: string, condition: Tool['condition'], notes?: string): Promise<void> {
+    const toolRef = doc(db, "tools", toolId);
+    
+    return runTransaction(db, async (transaction) => {
+        const toolDoc = await transaction.get(toolRef);
+        if (!toolDoc.exists()) throw new Error("Tool not found.");
+        
+        const newStatus = condition === 'Good' ? 'Available' : 'Under Maintenance';
+        
+        transaction.update(toolRef, {
+            status: newStatus,
+            condition: condition,
+            assignedToUserId: null,
+            assignedToUserName: null,
+        });
+    });
 }

@@ -220,10 +220,12 @@ export interface Tool {
     id: string;
     name: string;
     serialNumber: string;
-    status: 'Available' | 'In Use' | 'Under Maintenance';
+    status: 'Available' | 'In Use' | 'Under Maintenance' | 'Assigned';
     condition: 'Good' | 'Needs Repair' | 'Damaged';
-    purchaseDate?: Timestamp;
+    purchaseDate?: Date;
     currentBorrowRecord?: ToolBorrowRecord | null;
+    assignedToUserId?: string | null;
+    assignedToUserName?: string | null;
 }
 
 export interface ToolBorrowRecord {
@@ -231,8 +233,8 @@ export interface ToolBorrowRecord {
     toolId: string;
     borrowedBy: string; // User ID
     borrowedByName: string; // User's full name
-    dateBorrowed: Timestamp;
-    dateReturned?: Timestamp;
+    dateBorrowed: Date;
+    dateReturned?: Date;
     notes?: string;
     returnCondition?: Tool['condition'];
 }
