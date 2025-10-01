@@ -1,9 +1,8 @@
 
-
 import { db, storage, auth } from "@/lib/firebase";
 import { collection, getDocs, getDoc, doc, orderBy, query, limit, Timestamp, where, DocumentReference, addDoc, updateDoc, deleteDoc, arrayUnion, runTransaction, writeBatch, setDoc } from "firebase/firestore";
 import { EmailAuthProvider, reauthenticateWithCredential, updatePassword } from "firebase/auth";
-import type { Activity, Notification, Order, Product, Client, Issuance, Supplier, PurchaseOrder, Shipment, Return, ReturnItem, OutboundReturn, OutboundReturnItem, UserProfile, OrderItem, PurchaseOrderItem, IssuanceItem, Backorder, UserRole, PagePermission, ProductCategory, ProductLocation } from "@/types";
+import type { Activity, Notification, Order, Product, Client, Issuance, Supplier, PurchaseOrder, Shipment, Return, ReturnItem, OutboundReturn, OutboundReturnItem, UserProfile, OrderItem, PurchaseOrderItem, IssuanceItem, Backorder, UserRole, PagePermission, ProductCategory, ProductLocation, Tool, ToolBorrowRecord } from "@/types";
 import { format, subDays } from 'date-fns';
 
 function timeSince(date: Date) {
@@ -1821,5 +1820,127 @@ export async function deleteBackorder(backorderId: string): Promise<void> {
     } catch (error) {
         console.error("Error deleting backorder:", error);
         throw new Error("Failed to delete reorder request.");
+    }
+}
+
+// Tool Management
+export async function getTools(): Promise<Tool[]> {
+    try {
+        const toolsCol = collection(db, "tools");
+        const toolSnapshot = await getDocs(query(toolsCol, orderBy("name", "asc")));
+        
+        const borrowRecordsCol = collection(db, "toolBorrowRecords");
+        const activeBorrowsSnapshot = await getDocs(query(borrowRecordsCol, where("dateReturned", "==", null)));
+        const activeBorrowsMap = new Map<string, ToolBorrowRecord>();
+        activeBorrowsSnapshot.forEach(doc => {
+            const data = doc.data() as ToolBorrowRecord;
+            activeBorrowsMap.set(data.toolId, { id: doc.id, ...data });
+        });
+
+        return toolSnapshot.docs.map(doc => {
+            const data = doc.data() as Omit<Tool, 'id'>;
+            return { 
+                id: doc.id, 
+                ...data,
+                purchaseDate: data.purchaseDate,
+                currentBorrowRecord: activeBorrowsMap.get(doc.id) || null
+            } as Tool;
+        });
+    } catch (error) {
+        console.error("Error fetching tools:", error);
+        return [];
+    }
+}
+
+export async function addTool(tool: Omit<Tool, 'id' | 'status' | 'currentBorrowRecord'>): Promise<DocumentReference> {
+    try {
+        const toolWithDefaults = {
+            ...tool,
+            status: 'Available' as const,
+            createdAt: Timestamp.now(),
+        };
+        return await addDoc(collection(db, "tools"), toolWithDefaults);
+    } catch (error) {
+        console.error("Error adding tool:", error);
+        throw new Error("Failed to add tool.");
+    }
+}
+
+export async function updateTool(toolId: string, data: Partial<Omit<Tool, 'id' | 'status'>>): Promise<void> {
+    try {
+        const toolRef = doc(db, "tools", toolId);
+        await updateDoc(toolRef, data);
+    } catch (error) {
+        console.error("Error updating tool:", error);
+        throw new Error("Failed to update tool.");
+    }
+}
+
+export async function deleteTool(toolId: string): Promise<void> {
+    try {
+        const toolRef = doc(db, "tools", toolId);
+        await deleteDoc(toolRef);
+    } catch (error) {
+        console.error("Error deleting tool:", error);
+        throw new Error("Failed to delete tool.");
+    }
+}
+
+export async function borrowTool(toolId: string, borrowedBy: string, notes?: string): Promise<void> {
+    const toolRef = doc(db, "tools", toolId);
+    const userRef = doc(db, "users", borrowedBy);
+
+    await runTransaction(db, async (transaction) => {
+        const toolDoc = await transaction.get(toolRef);
+        const userDoc = await transaction.get(userRef);
+
+        if (!toolDoc.exists()) throw new Error("Tool not found.");
+        if (!userDoc.exists()) throw new Error("User not found.");
+
+        const toolData = toolDoc.data() as Tool;
+        if (toolData.status !== 'Available') throw new Error("Tool is not available for borrowing.");
+
+        const userData = userDoc.data() as UserProfile;
+        const newBorrowRecord: Omit<ToolBorrowRecord, 'id'> = {
+            toolId: toolId,
+            borrowedBy: borrowedBy,
+            borrowedByName: `${userData.firstName} ${userData.lastName}`,
+            dateBorrowed: Timestamp.now(),
+            notes: notes || "",
+        };
+
+        const borrowRecordRef = doc(collection(db, "toolBorrowRecords"));
+        transaction.set(borrowRecordRef, newBorrowRecord);
+        transaction.update(toolRef, { status: "In Use" });
+    });
+}
+
+export async function returnTool(borrowRecordId: string, toolId: string, condition: Tool['condition'], notes?: string): Promise<void> {
+    const borrowRecordRef = doc(db, "toolBorrowRecords", borrowRecordId);
+    const toolRef = doc(db, "tools", toolId);
+
+    await runTransaction(db, async (transaction) => {
+        const borrowDoc = await transaction.get(borrowRecordRef);
+        if (!borrowDoc.exists()) throw new Error("Borrow record not found.");
+
+        const status = condition === 'Good' ? 'Available' : 'Under Maintenance';
+
+        transaction.update(borrowRecordRef, {
+            dateReturned: Timestamp.now(),
+            returnCondition: condition,
+            notes: notes || "",
+        });
+        transaction.update(toolRef, { status, condition });
+    });
+}
+
+export async function getToolHistory(toolId: string): Promise<ToolBorrowRecord[]> {
+    try {
+        const q = query(collection(db, "toolBorrowRecords"), where("toolId", "==", toolId), orderBy("dateBorrowed", "desc"));
+        const snapshot = await getDocs(q);
+        return snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as ToolBorrowRecord));
+    } catch (error) {
+        console.error("Error fetching tool history:", error);
+        return [];
     }
 }

@@ -205,7 +205,7 @@ export interface OutboundReturn {
 }
 
 export type UserRole = "Admin" | "Manager" | "Staff";
-export type PagePermission = "/" | "/clients" | "/logistics" | "/analytics" | "/orders" | "/purchase-orders" | "/suppliers" | "/inventory" | "/issuance" | "/returns" | "/quality-control" | "/reports" | "/warehouse" | "/tools";
+export type PagePermission = "/" | "/clients" | "/logistics" | "/analytics" | "/orders" | "/purchase-orders" | "/suppliers" | "/inventory" | "/issuance" | "/returns" | "/quality-control" | "/settings" | "/warehouse" | "/tools";
 
 export interface UserProfile {
     uid: string;
@@ -222,14 +222,17 @@ export interface Tool {
     serialNumber: string;
     status: 'Available' | 'In Use' | 'Under Maintenance';
     condition: 'Good' | 'Needs Repair' | 'Damaged';
-    purchaseDate: Timestamp;
+    purchaseDate?: Timestamp;
+    currentBorrowRecord?: ToolBorrowRecord | null;
 }
 
 export interface ToolBorrowRecord {
     id: string;
     toolId: string;
-    borrowedBy: string; // Could be a user ID
+    borrowedBy: string; // User ID
+    borrowedByName: string; // User's full name
     dateBorrowed: Timestamp;
     dateReturned?: Timestamp;
     notes?: string;
+    returnCondition?: Tool['condition'];
 }

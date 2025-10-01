@@ -1,12 +1,11 @@
 
-
 "use client";
 
 import { createContext, useContext, useEffect, useState, ReactNode, useCallback, useMemo } from "react";
 import { onAuthStateChanged } from "firebase/auth";
 import { auth } from "@/lib/firebase";
-import { getProducts, getClients, getOrders, getIssuances, getSuppliers, getPurchaseOrders, getShipments, getUnshippedIssuances, getReturns, getOutboundReturns, getBackorders, getAllUsers } from "@/services/data-service";
-import type { Product, Client, Order, Issuance, Supplier, PurchaseOrder, Shipment, Return, OutboundReturn, Backorder, UserProfile } from "@/types";
+import { getProducts, getClients, getOrders, getIssuances, getSuppliers, getPurchaseOrders, getShipments, getUnshippedIssuances, getReturns, getOutboundReturns, getBackorders, getAllUsers, getTools } from "@/services/data-service";
+import type { Product, Client, Order, Issuance, Supplier, PurchaseOrder, Shipment, Return, OutboundReturn, Backorder, UserProfile, Tool } from "@/types";
 
 interface DataContextType {
   products: Product[];
@@ -21,6 +20,7 @@ interface DataContextType {
   outboundReturns: OutboundReturn[];
   backorders: Backorder[];
   users: UserProfile[];
+  tools: Tool[];
   loading: boolean;
   refetchData: () => Promise<void>;
 }
@@ -40,6 +40,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
   const [outboundReturns, setOutboundReturns] = useState<OutboundReturn[]>([]);
   const [backorders, setBackorders] = useState<Backorder[]>([]);
   const [users, setUsers] = useState<UserProfile[]>([]);
+  const [tools, setTools] = useState<Tool[]>([]);
   const [loading, setLoading] = useState(true);
   const [isAuthenticated, setIsAuthenticated] = useState(false);
 
@@ -66,6 +67,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
       setOutboundReturns([]);
       setBackorders([]);
       setUsers([]);
+      setTools([]);
       setLoading(false);
       return;
     };
@@ -85,6 +87,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
         fetchedOutboundReturns,
         fetchedBackorders,
         fetchedUsers,
+        fetchedTools,
       ] = await Promise.all([
         getProducts(),
         getClients(),
@@ -98,6 +101,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
         getOutboundReturns(),
         getBackorders(),
         getAllUsers(),
+        getTools(),
       ]);
       setProducts(fetchedProducts);
       setClients(fetchedClients);
@@ -111,6 +115,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
       setOutboundReturns(fetchedOutboundReturns);
       setBackorders(fetchedBackorders);
       setUsers(fetchedUsers);
+      setTools(fetchedTools);
     } catch (error) {
       console.error("Failed to fetch global data", error);
       // Optionally, set an error state here
@@ -136,9 +141,10 @@ export function DataProvider({ children }: { children: ReactNode }) {
     outboundReturns,
     backorders,
     users,
+    tools,
     loading,
     refetchData: fetchData,
-  }), [products, clients, orders, issuances, suppliers, purchaseOrders, shipments, unshippedIssuances, returns, outboundReturns, backorders, users, loading, fetchData]);
+  }), [products, clients, orders, issuances, suppliers, purchaseOrders, shipments, unshippedIssuances, returns, outboundReturns, backorders, users, tools, loading, fetchData]);
 
   return <DataContext.Provider value={value}>{children}</DataContext.Provider>;
 }

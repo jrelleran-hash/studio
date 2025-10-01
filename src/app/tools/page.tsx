@@ -1,58 +1,534 @@
 
 "use client";
 
+import { useState, useEffect, useMemo } from "react";
+import { useForm, Controller } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
+import * as z from "zod";
+import { PlusCircle, MoreHorizontal, Wrench, Calendar as CalendarIcon, User, History, CheckCircle, XCircle } from "lucide-react";
+import { Timestamp } from "firebase/firestore";
+import { format } from "date-fns";
+
+import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuTrigger,
+  DropdownMenuSeparator,
+} from "@/components/ui/dropdown-menu";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Skeleton } from "@/components/ui/skeleton";
+import { useToast } from "@/hooks/use-toast";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Calendar } from "@/components/ui/calendar";
+import { Textarea } from "@/components/ui/textarea";
+
+import { useData } from "@/context/data-context";
+import { addTool, updateTool, deleteTool, borrowTool, returnTool, getToolHistory } from "@/services/data-service";
+import type { Tool, ToolBorrowRecord, UserProfile } from "@/types";
 import { Badge } from "@/components/ui/badge";
+import { cn } from "@/lib/utils";
+
+const toolSchema = z.object({
+  name: z.string().min(1, "Tool name is required."),
+  serialNumber: z.string().min(1, "Serial number is required."),
+  purchaseDate: z.date().optional(),
+  condition: z.enum(["Good", "Needs Repair", "Damaged"]),
+});
+
+type ToolFormValues = z.infer<typeof toolSchema>;
+
+const borrowSchema = z.object({
+    borrowedBy: z.string().min(1, "Please select who is borrowing the tool."),
+    notes: z.string().optional(),
+});
+
+type BorrowFormValues = z.infer<typeof borrowSchema>;
+
+const returnSchema = z.object({
+    condition: z.enum(["Good", "Needs Repair", "Damaged"]),
+    notes: z.string().optional(),
+});
+
+type ReturnFormValues = z.infer<typeof returnSchema>;
+
+const statusVariant: { [key: string]: "default" | "secondary" | "destructive" | "outline" } = {
+  Available: "default",
+  "In Use": "secondary",
+  "Under Maintenance": "destructive",
+};
+
+const conditionVariant: { [key: string]: "default" | "secondary" | "destructive" | "outline" } = {
+  Good: "default",
+  "Needs Repair": "secondary",
+  Damaged: "destructive",
+};
 
 export default function ToolManagementPage() {
-  // Placeholder data - this will be replaced with data from your database
-  const tools = [
-    { id: "1", name: "Drill", status: "Available", condition: "Good" },
-    { id: "2", name: "Grinder", status: "In Use", condition: "Good", borrowedBy: "John Doe", dateBorrowed: "2023-10-26" },
-    { id: "3", name: "Welding Machine", status: "Available", condition: "Needs Repair" },
-    { id: "4", name: "Ladder", status: "Available", condition: "Good" },
-    { id: "5", name: "Generator", status: "In Use", condition: "Good", borrowedBy: "Jane Smith", dateBorrowed: "2023-10-25" },
-  ];
+  const { tools, users, loading, refetchData } = useData();
+  const { toast } = useToast();
 
-  const statusVariant: { [key: string]: "default" | "secondary" | "destructive" | "outline" } = {
-    "Available": "default",
-    "In Use": "secondary",
-    "Needs Repair": "destructive",
+  const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
+  const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
+  const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
+  const [isBorrowDialogOpen, setIsBorrowDialogOpen] = useState(false);
+  const [isReturnDialogOpen, setIsReturnDialogOpen] = useState(false);
+  const [isHistoryDialogOpen, setIsHistoryDialogOpen] = useState(false);
+
+  const [editingTool, setEditingTool] = useState<Tool | null>(null);
+  const [deletingToolId, setDeletingToolId] = useState<string | null>(null);
+  const [borrowingTool, setBorrowingTool] = useState<Tool | null>(null);
+  const [returningTool, setReturningTool] = useState<Tool | null>(null);
+  const [historyTool, setHistoryTool] = useState<Tool | null>(null);
+  const [toolHistory, setToolHistory] = useState<ToolBorrowRecord[]>([]);
+
+  const toolForm = useForm<ToolFormValues>({
+    resolver: zodResolver(toolSchema),
+    defaultValues: { condition: "Good" },
+  });
+
+  const borrowForm = useForm<BorrowFormValues>();
+  const returnForm = useForm<ReturnFormValues>();
+
+  useEffect(() => {
+    if (isAddDialogOpen) toolForm.reset({ condition: "Good" });
+  }, [isAddDialogOpen, toolForm]);
+
+  useEffect(() => {
+    if (editingTool) toolForm.reset(editingTool);
+  }, [editingTool, toolForm]);
+
+  useEffect(() => {
+    if (borrowingTool) borrowForm.reset();
+  }, [borrowingTool, borrowForm]);
+
+  useEffect(() => {
+    if (returningTool) returnForm.reset({ condition: returningTool.condition });
+  }, [returningTool, returnForm]);
+
+  useEffect(() => {
+    if (historyTool) {
+      const fetchHistory = async () => {
+        const history = await getToolHistory(historyTool.id);
+        setToolHistory(history);
+      };
+      fetchHistory();
+    }
+  }, [historyTool]);
+
+
+  const onAddSubmit = async (data: ToolFormValues) => {
+    try {
+      await addTool(data);
+      toast({ title: "Success", description: "Tool added successfully." });
+      setIsAddDialogOpen(false);
+      await refetchData();
+    } catch (error) {
+      toast({ variant: "destructive", title: "Error", description: "Failed to add tool." });
+    }
   };
 
+  const onEditSubmit = async (data: ToolFormValues) => {
+    if (!editingTool) return;
+    try {
+      await updateTool(editingTool.id, data);
+      toast({ title: "Success", description: "Tool updated successfully." });
+      setIsEditDialogOpen(false);
+      await refetchData();
+    } catch (error) {
+      toast({ variant: "destructive", title: "Error", description: "Failed to update tool." });
+    }
+  };
+
+  const onBorrowSubmit = async (data: BorrowFormValues) => {
+    if (!borrowingTool) return;
+    try {
+        await borrowTool(borrowingTool.id, data.borrowedBy, data.notes);
+        toast({ title: "Success", description: "Tool checked out." });
+        setIsBorrowDialogOpen(false);
+        await refetchData();
+    } catch (error) {
+        toast({ variant: "destructive", title: "Error", description: "Failed to check out tool." });
+    }
+  };
+  
+  const onReturnSubmit = async (data: ReturnFormValues) => {
+    if (!returningTool) return;
+     const borrowRecord = tools.find(t => t.id === returningTool.id)?.currentBorrowRecord;
+     if (!borrowRecord) {
+        toast({ variant: "destructive", title: "Error", description: "No active borrow record found for this tool." });
+        return;
+     }
+    try {
+        await returnTool(borrowRecord.id, returningTool.id, data.condition, data.notes);
+        toast({ title: "Success", description: "Tool returned successfully." });
+        setIsReturnDialogOpen(false);
+        await refetchData();
+    } catch (error) {
+        toast({ variant: "destructive", title: "Error", description: "Failed to return tool." });
+    }
+  };
+
+  const handleDeleteConfirm = async () => {
+    if (!deletingToolId) return;
+    try {
+      await deleteTool(deletingToolId);
+      toast({ title: "Success", description: "Tool deleted successfully." });
+      await refetchData();
+    } catch (error) {
+      toast({ variant: "destructive", title: "Error", description: "Failed to delete tool." });
+    } finally {
+      setIsDeleteDialogOpen(false);
+    }
+  };
+  
+  const formatDate = (timestamp?: Timestamp) => {
+    if (!timestamp) return 'N/A';
+    return format(timestamp.toDate(), 'PP');
+  }
+
   return (
+    <>
     <Card>
-      <CardHeader>
-        <CardTitle>Tool Management</CardTitle>
-        <CardDescription>Track all tools, their status, and who is accountable for them.</CardDescription>
+      <CardHeader className="flex flex-row items-start justify-between">
+        <div>
+            <CardTitle>Tool Management</CardTitle>
+            <CardDescription>Track all tools, their status, and who is accountable for them.</CardDescription>
+        </div>
+        <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>
+            <DialogTrigger asChild>
+                <Button size="sm" className="gap-1"><PlusCircle />Add Tool</Button>
+            </DialogTrigger>
+            <DialogContent>
+                 <DialogHeader>
+                    <DialogTitle>Add New Tool</DialogTitle>
+                </DialogHeader>
+                <form onSubmit={toolForm.handleSubmit(onAddSubmit)} className="space-y-4">
+                    <div className="space-y-2">
+                        <Label htmlFor="name">Tool Name</Label>
+                        <Input id="name" {...toolForm.register("name")} />
+                        {toolForm.formState.errors.name && <p className="text-sm text-destructive">{toolForm.formState.errors.name.message}</p>}
+                    </div>
+                    <div className="space-y-2">
+                        <Label htmlFor="serialNumber">Serial Number</Label>
+                        <Input id="serialNumber" {...toolForm.register("serialNumber")} />
+                        {toolForm.formState.errors.serialNumber && <p className="text-sm text-destructive">{toolForm.formState.errors.serialNumber.message}</p>}
+                    </div>
+                    <div className="grid grid-cols-2 gap-4">
+                        <div className="space-y-2">
+                            <Label>Purchase Date (Optional)</Label>
+                            <Controller
+                                control={toolForm.control}
+                                name="purchaseDate"
+                                render={({ field }) => (
+                                <Popover>
+                                    <PopoverTrigger asChild>
+                                        <Button variant="outline" className={cn("w-full justify-start text-left font-normal", !field.value && "text-muted-foreground")}>
+                                            <CalendarIcon className="mr-2 h-4 w-4" />
+                                            {field.value ? format(field.value, "PPP") : <span>Pick a date</span>}
+                                        </Button>
+                                    </PopoverTrigger>
+                                    <PopoverContent className="w-auto p-0"><Calendar mode="single" selected={field.value} onSelect={field.onChange} /></PopoverContent>
+                                </Popover>
+                                )}
+                            />
+                        </div>
+                        <div className="space-y-2">
+                            <Label htmlFor="condition">Condition</Label>
+                            <Controller
+                                name="condition"
+                                control={toolForm.control}
+                                render={({ field }) => (
+                                    <Select onValueChange={field.onChange} defaultValue={field.value}>
+                                        <SelectTrigger><SelectValue placeholder="Select condition" /></SelectTrigger>
+                                        <SelectContent>
+                                            <SelectItem value="Good">Good</SelectItem>
+                                            <SelectItem value="Needs Repair">Needs Repair</SelectItem>
+                                            <SelectItem value="Damaged">Damaged</SelectItem>
+                                        </SelectContent>
+                                    </Select>
+                                )}
+                            />
+                        </div>
+                    </div>
+                    <DialogFooter>
+                        <Button type="button" variant="outline" onClick={() => setIsAddDialogOpen(false)}>Cancel</Button>
+                        <Button type="submit" disabled={toolForm.formState.isSubmitting}>Add Tool</Button>
+                    </DialogFooter>
+                </form>
+            </DialogContent>
+        </Dialog>
       </CardHeader>
       <CardContent>
         <Table>
           <TableHeader>
             <TableRow>
               <TableHead>Tool</TableHead>
+              <TableHead>Serial #</TableHead>
               <TableHead>Status</TableHead>
               <TableHead>Condition</TableHead>
               <TableHead>Accountability</TableHead>
               <TableHead>Date Borrowed</TableHead>
+              <TableHead className="text-right">Actions</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
-            {tools.map((tool) => (
+            {loading ? (
+                Array.from({length: 5}).map((_, i) => (
+                    <TableRow key={i}>
+                        <TableCell><Skeleton className="h-4 w-32" /></TableCell>
+                        <TableCell><Skeleton className="h-4 w-24" /></TableCell>
+                        <TableCell><Skeleton className="h-6 w-20 rounded-full" /></TableCell>
+                        <TableCell><Skeleton className="h-6 w-20 rounded-full" /></TableCell>
+                        <TableCell><Skeleton className="h-4 w-24" /></TableCell>
+                        <TableCell><Skeleton className="h-4 w-24" /></TableCell>
+                        <TableCell className="text-right"><Skeleton className="h-8 w-8 ml-auto" /></TableCell>
+                    </TableRow>
+                ))
+            ) : tools.map((tool) => (
               <TableRow key={tool.id}>
                 <TableCell className="font-medium">{tool.name}</TableCell>
-                <TableCell>
-                  <Badge variant={statusVariant[tool.status]}>{tool.status}</Badge>
+                <TableCell>{tool.serialNumber}</TableCell>
+                <TableCell><Badge variant={statusVariant[tool.status]}>{tool.status}</Badge></TableCell>
+                <TableCell><Badge variant={conditionVariant[tool.condition]}>{tool.condition}</Badge></TableCell>
+                <TableCell>{tool.currentBorrowRecord?.borrowedByName || 'N/A'}</TableCell>
+                <TableCell>{formatDate(tool.currentBorrowRecord?.dateBorrowed)}</TableCell>
+                <TableCell className="text-right">
+                     <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                            <Button variant="ghost" size="icon"><MoreHorizontal /></Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end">
+                            <DropdownMenuLabel>Actions</DropdownMenuLabel>
+                            {tool.status === 'Available' ? (
+                                <DropdownMenuItem onClick={() => setBorrowingTool(tool)}>
+                                    <ArrowUpRight className="mr-2" /> Borrow
+                                </DropdownMenuItem>
+                            ) : (
+                                <DropdownMenuItem onClick={() => setReturningTool(tool)}>
+                                    <ArrowDownLeft className="mr-2" /> Return
+                                </DropdownMenuItem>
+                            )}
+                            <DropdownMenuItem onClick={() => { setEditingTool(tool); setIsEditDialogOpen(true); }}>Edit</DropdownMenuItem>
+                            <DropdownMenuItem onClick={() => { setHistoryTool(tool); setIsHistoryDialogOpen(true); }}>History</DropdownMenuItem>
+                            <DropdownMenuSeparator />
+                            <DropdownMenuItem className="text-destructive" onClick={() => { setDeletingToolId(tool.id); setIsDeleteDialogOpen(true);}}>Delete</DropdownMenuItem>
+                        </DropdownMenuContent>
+                     </DropdownMenu>
                 </TableCell>
-                <TableCell>{tool.condition}</TableCell>
-                <TableCell>{tool.borrowedBy || 'N/A'}</TableCell>
-                <TableCell>{tool.dateBorrowed || 'N/A'}</TableCell>
               </TableRow>
             ))}
           </TableBody>
         </Table>
       </CardContent>
     </Card>
+
+    {/* Edit Dialog */}
+    <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
+        <DialogContent>
+            <DialogHeader>
+                <DialogTitle>Edit Tool</DialogTitle>
+                <DialogDescription>Update details for {editingTool?.name}</DialogDescription>
+            </DialogHeader>
+             <form onSubmit={toolForm.handleSubmit(onEditSubmit)} className="space-y-4">
+                    <div className="space-y-2">
+                        <Label htmlFor="name">Tool Name</Label>
+                        <Input id="name" {...toolForm.register("name")} />
+                        {toolForm.formState.errors.name && <p className="text-sm text-destructive">{toolForm.formState.errors.name.message}</p>}
+                    </div>
+                    <div className="space-y-2">
+                        <Label htmlFor="serialNumber">Serial Number</Label>
+                        <Input id="serialNumber" {...toolForm.register("serialNumber")} />
+                        {toolForm.formState.errors.serialNumber && <p className="text-sm text-destructive">{toolForm.formState.errors.serialNumber.message}</p>}
+                    </div>
+                    <div className="grid grid-cols-2 gap-4">
+                        <div className="space-y-2">
+                            <Label>Purchase Date (Optional)</Label>
+                            <Controller
+                                control={toolForm.control}
+                                name="purchaseDate"
+                                render={({ field }) => (
+                                <Popover>
+                                    <PopoverTrigger asChild>
+                                        <Button variant="outline" className={cn("w-full justify-start text-left font-normal", !field.value && "text-muted-foreground")}>
+                                            <CalendarIcon className="mr-2 h-4 w-4" />
+                                            {field.value ? format(field.value, "PPP") : <span>Pick a date</span>}
+                                        </Button>
+                                    </PopoverTrigger>
+                                    <PopoverContent className="w-auto p-0"><Calendar mode="single" selected={field.value} onSelect={field.onChange} /></PopoverContent>
+                                </Popover>
+                                )}
+                            />
+                        </div>
+                        <div className="space-y-2">
+                            <Label htmlFor="condition">Condition</Label>
+                            <Controller
+                                name="condition"
+                                control={toolForm.control}
+                                render={({ field }) => (
+                                    <Select onValueChange={field.onChange} defaultValue={field.value}>
+                                        <SelectTrigger><SelectValue placeholder="Select condition" /></SelectTrigger>
+                                        <SelectContent>
+                                            <SelectItem value="Good">Good</SelectItem>
+                                            <SelectItem value="Needs Repair">Needs Repair</SelectItem>
+                                            <SelectItem value="Damaged">Damaged</SelectItem>
+                                        </SelectContent>
+                                    </Select>
+                                )}
+                            />
+                        </div>
+                    </div>
+                    <DialogFooter>
+                        <Button type="button" variant="outline" onClick={() => setIsEditDialogOpen(false)}>Cancel</Button>
+                        <Button type="submit" disabled={toolForm.formState.isSubmitting}>Save Changes</Button>
+                    </DialogFooter>
+                </form>
+        </DialogContent>
+    </Dialog>
+
+    {/* Borrow Dialog */}
+    <Dialog open={isBorrowDialogOpen} onOpenChange={setIsBorrowDialogOpen}>
+        <DialogContent>
+            <DialogHeader>
+                <DialogTitle>Borrow Tool: {borrowingTool?.name}</DialogTitle>
+                <DialogDescription>Assign this tool to a user.</DialogDescription>
+            </DialogHeader>
+            <form onSubmit={borrowForm.handleSubmit(onBorrowSubmit)} className="space-y-4">
+                <div className="space-y-2">
+                    <Label htmlFor="borrowedBy">Borrowed By</Label>
+                    <Controller
+                        name="borrowedBy"
+                        control={borrowForm.control}
+                        render={({ field }) => (
+                            <Select onValueChange={field.onChange} defaultValue={field.value}>
+                                <SelectTrigger><SelectValue placeholder="Select user..." /></SelectTrigger>
+                                <SelectContent>
+                                    {users.map(user => (
+                                        <SelectItem key={user.uid} value={user.uid}>{user.firstName} {user.lastName}</SelectItem>
+                                    ))}
+                                </SelectContent>
+                            </Select>
+                        )}
+                    />
+                    {borrowForm.formState.errors.borrowedBy && <p className="text-sm text-destructive">{borrowForm.formState.errors.borrowedBy.message}</p>}
+                </div>
+                <div className="space-y-2">
+                    <Label htmlFor="notes">Notes (Optional)</Label>
+                    <Textarea id="notes" {...borrowForm.register("notes")} />
+                </div>
+                <DialogFooter>
+                    <Button type="button" variant="outline" onClick={() => setIsBorrowDialogOpen(false)}>Cancel</Button>
+                    <Button type="submit" disabled={borrowForm.formState.isSubmitting}>Confirm Borrow</Button>
+                </DialogFooter>
+            </form>
+        </DialogContent>
+    </Dialog>
+    
+    {/* Return Dialog */}
+     <Dialog open={isReturnDialogOpen} onOpenChange={setIsReturnDialogOpen}>
+        <DialogContent>
+            <DialogHeader>
+                <DialogTitle>Return Tool: {returningTool?.name}</DialogTitle>
+                <DialogDescription>Update the tool's condition upon return.</DialogDescription>
+            </DialogHeader>
+            <form onSubmit={returnForm.handleSubmit(onReturnSubmit)} className="space-y-4">
+                 <div className="space-y-2">
+                    <Label htmlFor="condition-return">Condition</Label>
+                    <Controller
+                        name="condition"
+                        control={returnForm.control}
+                        render={({ field }) => (
+                            <Select onValueChange={field.onChange} defaultValue={field.value}>
+                                <SelectTrigger><SelectValue placeholder="Select condition" /></SelectTrigger>
+                                <SelectContent>
+                                    <SelectItem value="Good">Good</SelectItem>
+                                    <SelectItem value="Needs Repair">Needs Repair</SelectItem>
+                                    <SelectItem value="Damaged">Damaged</SelectItem>
+                                </SelectContent>
+                            </Select>
+                        )}
+                    />
+                </div>
+                <div className="space-y-2">
+                    <Label htmlFor="notes-return">Notes (Optional)</Label>
+                    <Textarea id="notes-return" {...returnForm.register("notes")} />
+                </div>
+                <DialogFooter>
+                    <Button type="button" variant="outline" onClick={() => setIsReturnDialogOpen(false)}>Cancel</Button>
+                    <Button type="submit" disabled={returnForm.formState.isSubmitting}>Confirm Return</Button>
+                </DialogFooter>
+            </form>
+        </DialogContent>
+    </Dialog>
+    
+    {/* History Dialog */}
+    <Dialog open={isHistoryDialogOpen} onOpenChange={setIsHistoryDialogOpen}>
+        <DialogContent>
+            <DialogHeader>
+                <DialogTitle>Borrow History: {historyTool?.name}</DialogTitle>
+                <DialogDescription>A log of who has borrowed this tool.</DialogDescription>
+            </DialogHeader>
+            <div className="max-h-96 overflow-y-auto -mx-6 px-6">
+                <ul className="space-y-4">
+                    {toolHistory.map(record => (
+                        <li key={record.id} className="flex items-start gap-4">
+                            <div className="flex-shrink-0 mt-1">
+                                {record.dateReturned ? <CheckCircle className="h-5 w-5 text-green-500" /> : <XCircle className="h-5 w-5 text-yellow-500" />}
+                            </div>
+                            <div className="flex-1">
+                                <p className="font-medium">{record.borrowedByName}</p>
+                                <p className="text-sm text-muted-foreground">Borrowed: {formatDate(record.dateBorrowed)}</p>
+                                {record.dateReturned && <p className="text-sm text-muted-foreground">Returned: {formatDate(record.dateReturned)}</p>}
+                                {record.notes && <p className="text-xs text-muted-foreground mt-1 border-l-2 pl-2">Note: {record.notes}</p>}
+                            </div>
+                        </li>
+                    ))}
+                </ul>
+            </div>
+             <DialogFooter>
+                <Button type="button" variant="outline" onClick={() => setIsHistoryDialogOpen(false)}>Close</Button>
+            </DialogFooter>
+        </DialogContent>
+    </Dialog>
+
+    {/* Delete Dialog */}
+    <AlertDialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
+      <AlertDialogContent>
+        <AlertDialogHeader>
+          <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
+          <AlertDialogDescription>This action cannot be undone. This will permanently delete this tool.</AlertDialogDescription>
+        </AlertDialogHeader>
+        <AlertDialogFooter>
+          <AlertDialogCancel>Cancel</AlertDialogCancel>
+          <AlertDialogAction onClick={handleDeleteConfirm} className={cn(buttonVariants({variant: "destructive"}))}>Delete</AlertDialogAction>
+        </AlertDialogFooter>
+      </AlertDialogContent>
+    </AlertDialog>
+    </>
   );
 }
