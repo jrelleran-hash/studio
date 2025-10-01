@@ -64,13 +64,12 @@ export function GlobalSearch() {
       <Button
         variant="outline"
         className={cn(
-          "relative h-10 w-full justify-start text-sm text-muted-foreground sm:pr-12 md:w-40 lg:w-64"
+          "relative h-10 w-full justify-start text-sm text-muted-foreground sm:pr-12"
         )}
         onClick={() => setOpen(true)}
       >
-        <Search className="mr-2" />
-        <span className="hidden lg:inline-flex">Search...</span>
-        <span className="inline-flex lg:hidden">Search...</span>
+        <Search className="mr-2 h-4 w-4" />
+        <span className="truncate">Search...</span>
         <kbd className="pointer-events-none absolute right-1.5 top-2.5 hidden h-5 select-none items-center gap-1 rounded border bg-muted px-1.5 font-mono text-[10px] font-medium opacity-100 sm:flex">
           <span className="text-xs">⌘</span>K
         </kbd>

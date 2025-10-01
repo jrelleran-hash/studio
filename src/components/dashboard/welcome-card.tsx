@@ -44,9 +44,11 @@ export function WelcomeCard() {
         </h1>
         <p className="text-muted-foreground">{currentDate}</p>
       </div>
-       <div className="flex items-center gap-2 w-full sm:w-auto">
-         <GlobalSearch />
-        <Link href="/analytics" className="flex-1 sm:flex-initial">
+       <div className="flex items-center gap-2 w-full sm:w-auto sm:max-w-md flex-1">
+         <div className="flex-1">
+            <GlobalSearch />
+         </div>
+        <Link href="/analytics" className="flex-initial">
           <Button className="w-full">View Analytics</Button>
         </Link>
       </div>
