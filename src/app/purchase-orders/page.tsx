@@ -6,7 +6,7 @@ import React, { useState, useEffect, useMemo, useCallback, useRef } from "react"
 import { useForm, useFieldArray, Controller } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
-import { PlusCircle, MoreHorizontal, X, RefreshCcw, ChevronsUpDown, Check, Printer, Trash2, FileDown } from "lucide-react";
+import { PlusCircle, MoreHorizontal, RefreshCcw, ChevronsUpDown, Check, Printer, Trash2, FileDown, X } from "lucide-react";
 import { Timestamp } from "firebase/firestore";
 import { format } from "date-fns";
 
@@ -899,7 +899,7 @@ export default function PurchaseOrdersPage() {
                             {...poForm.register(`items.${index}.quantity`, { valueAsNumber: true })}
                           />
                           <Button variant="ghost" size="icon" onClick={() => poRemove(index)}>
-                              <X />
+                              <X className="h-4 w-4" />
                           </Button>
                           </div>
                           {poForm.formState.errors.items?.[index]?.quantity && <p className="text-sm text-destructive">{poForm.formState.errors.items[index]?.quantity?.message}</p>}
@@ -1646,3 +1646,4 @@ export default function PurchaseOrdersPage() {
 
 
     
+
