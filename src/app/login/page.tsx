@@ -9,7 +9,7 @@ import { signInWithEmailAndPassword } from "firebase/auth";
 import { auth } from "@/lib/firebase";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { Eye, EyeOff, Fingerprint } from "lucide-react";
+import { Eye, EyeOff } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -132,12 +132,6 @@ export default function LoginPage() {
               {isLoading ? "Signing in..." : "Sign In"}
             </Button>
           </form>
-           <div className="mt-4 text-center text-sm">
-            Don&apos;t have an account?{" "}
-            <Link href="/signup" className="underline">
-              Sign up
-            </Link>
-          </div>
         </CardContent>
       </Card>
     </div>
