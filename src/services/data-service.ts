@@ -1941,24 +1941,26 @@ export async function borrowTool(toolId: string, borrowedBy: string, releasedBy:
 }
 
 export async function returnTool(toolId: string, condition: Tool['condition'], notes?: string): Promise<void> {
-    const toolRef = doc(db, "tools", toolId);
+    // First, find the active borrow record
+    const q = query(
+        collection(db, "toolBorrowRecords"),
+        where("toolId", "==", toolId),
+        where("dateReturned", "==", null)
+    );
+    const borrowSnapshot = await getDocs(q);
     
+    if (borrowSnapshot.empty) {
+        throw new Error("No active borrow record found for this tool.");
+    }
+    const activeBorrowDoc = borrowSnapshot.docs[0];
+    const borrowRecordRef = activeBorrowDoc.ref;
+    const toolRef = doc(db, "tools", toolId);
+
+    // Now, perform the update in a transaction
     await runTransaction(db, async (transaction) => {
         const toolDoc = await transaction.get(toolRef);
         if (!toolDoc.exists()) throw new Error("Tool not found.");
-        if (toolDoc.data().status !== 'In Use') throw new Error("Tool is not currently 'In Use'.");
-
-        const q = query(collection(db, "toolBorrowRecords"), where("toolId", "==", toolId));
-        const borrowSnapshot = await getDocs(q);
-
-        const activeBorrowDoc = borrowSnapshot.docs.find(doc => doc.data().dateReturned === null);
-
-        if (!activeBorrowDoc) {
-            throw new Error("No active borrow record found for this tool.");
-        }
         
-        const borrowRecordRef = activeBorrowDoc.ref;
-
         const status = condition === 'Good' ? 'Available' : 'Under Maintenance';
 
         transaction.update(borrowRecordRef, {
@@ -2042,3 +2044,5 @@ export async function recallTool(toolId: string, condition: Tool['condition'], n
         });
     });
 }
+
+    
