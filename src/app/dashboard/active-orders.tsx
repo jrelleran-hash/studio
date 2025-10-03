@@ -4,7 +4,6 @@
 import { useState, useEffect, useMemo, useCallback } from "react";
 import { useForm, useFieldArray, Controller } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-import * as z from "zod";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
@@ -26,6 +25,7 @@ import { Separator } from "../ui/separator";
 import { cn } from "@/lib/utils";
 import { useData } from "@/context/data-context";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "../ui/alert-dialog";
+import { orderSchema, createProductSchema, supplierSchema, type OrderFormValues, type ProductFormValues, type SupplierFormValues } from "@/lib/schemas";
 
 
 const statusVariant: { [key: string]: "default" | "secondary" | "destructive" | "outline" } = {
@@ -36,46 +36,6 @@ const statusVariant: { [key: string]: "default" | "secondary" | "destructive" | 
   Shipped: "outline",
   Cancelled: "destructive",
 };
-
-const orderItemSchema = z.object({
-  productId: z.string().min(1, "Product is required."),
-  quantity: z.number().min(1, "Quantity must be at least 1."),
-});
-
-const orderSchema = z.object({
-  clientId: z.string().min(1, "Client is required."),
-  items: z.array(orderItemSchema).min(1, "At least one item is required."),
-});
-
-type OrderFormValues = z.infer<typeof orderSchema>;
-
-const createProductSchema = (isSkuAuto: boolean) => z.object({
-  name: z.string().min(1, "Product name is required."),
-  sku: z.string().optional(),
-  price: z.coerce.number().nonnegative("Price must be a non-negative number.").optional(),
-  stock: z.coerce.number().int().nonnegative("Stock must be a non-negative integer.").optional(),
-  reorderLimit: z.coerce.number().int().nonnegative("Reorder limit must be a non-negative integer.").optional(),
-  maxStockLevel: z.coerce.number().int().nonnegative("Max stock must be a non-negative integer.").optional(),
-  location: z.string().optional(),
-  supplier: z.string().optional(),
-}).refine(data => isSkuAuto || (data.sku && data.sku.length > 0), {
-    message: "SKU is required when not auto-generated.",
-    path: ["sku"],
-});
-
-
-type ProductFormValues = z.infer<ReturnType<typeof createProductSchema>>;
-
-const supplierSchema = z.object({
-  name: z.string().min(1, "Supplier name is required."),
-  contactPerson: z.string().min(1, "Contact person is required."),
-  email: z.string().email("Invalid email address.").optional().or(z.literal('')),
-  phone: z.string().optional(),
-  address: z.string().min(1, "Address is required."),
-});
-
-type SupplierFormValues = z.infer<typeof supplierSchema>;
-
 
 const toTitleCase = (str: string) => {
   if (!str) return "";
@@ -739,7 +699,7 @@ export function ActiveOrders() {
                 {supplierForm.formState.errors.email && <p className="text-sm text-destructive">{supplierForm.formState.errors.email.message}</p>}
             </div>
             <div className="space-y-2">
-                <Label htmlFor="phone-dash-sup">Phone (Optional)</Label>
+                <Label htmlFor="phone-dash-sup">Phone</Label>
                 <Input id="phone-dash-sup" type="tel" {...supplierForm.register("phone")} />
                 {supplierForm.formState.errors.phone && <p className="text-sm text-destructive">{supplierForm.formState.errors.phone.message}</p>}
             </div>
