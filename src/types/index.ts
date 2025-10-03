@@ -1,4 +1,5 @@
 
+
 import { Timestamp, DocumentReference } from "firebase/firestore";
 
 export interface Activity {
@@ -222,7 +223,10 @@ export interface Tool {
     serialNumber: string;
     status: 'Available' | 'In Use' | 'Under Maintenance' | 'Assigned';
     condition: 'Good' | 'Needs Repair' | 'Damaged';
+    category?: string;
     purchaseDate?: Date;
+    purchaseCost?: number;
+    location?: ProductLocation;
     borrowDuration?: number; // Duration in days
     currentBorrowRecord?: ToolBorrowRecord | null;
     assignedToUserId?: string | null;
