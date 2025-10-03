@@ -456,11 +456,12 @@ export default function ToolManagementPage() {
                                         <TableHead>Serial #</TableHead>
                                         <TableHead>Accountable Person</TableHead>
                                         <TableHead>Condition</TableHead>
+                                        <TableHead className="text-right">Actions</TableHead>
                                     </TableRow>
                                 </TableHeader>
                                 <TableBody>
                                     {loading ? (
-                                        <TableRow><TableCell colSpan={4}><Skeleton className="h-8" /></TableCell></TableRow>
+                                        <TableRow><TableCell colSpan={5}><Skeleton className="h-8" /></TableCell></TableRow>
                                     ) : assignedTools.length > 0 ? (
                                         assignedTools.map(tool => (
                                             <TableRow key={tool.id}>
@@ -468,10 +469,13 @@ export default function ToolManagementPage() {
                                                 <TableCell>{tool.serialNumber}</TableCell>
                                                 <TableCell>{tool.assignedToUserName}</TableCell>
                                                 <TableCell><Badge variant={conditionVariant[tool.condition]}>{tool.condition}</Badge></TableCell>
+                                                <TableCell className="text-right">
+                                                    <Button variant="outline" size="sm" onClick={() => setRecallingTool(tool)}>Recall</Button>
+                                                </TableCell>
                                             </TableRow>
                                         ))
                                     ) : (
-                                        <TableRow><TableCell colSpan={4} className="h-24 text-center">No tools are currently assigned for accountability.</TableCell></TableRow>
+                                        <TableRow><TableCell colSpan={5} className="h-24 text-center">No tools are currently assigned for accountability.</TableCell></TableRow>
                                     )}
                                 </TableBody>
                             </Table>
@@ -489,11 +493,12 @@ export default function ToolManagementPage() {
                                         <TableHead>Borrowed By</TableHead>
                                         <TableHead>Date Borrowed</TableHead>
                                         <TableHead>Due Date</TableHead>
+                                        <TableHead className="text-right">Actions</TableHead>
                                     </TableRow>
                                 </TableHeader>
                                 <TableBody>
                                     {loading ? (
-                                        <TableRow><TableCell colSpan={5}><Skeleton className="h-8" /></TableCell></TableRow>
+                                        <TableRow><TableCell colSpan={6}><Skeleton className="h-8" /></TableCell></TableRow>
                                     ) : borrowedTools.length > 0 ? (
                                         borrowedTools.map(tool => (
                                             <TableRow key={tool.id}>
@@ -502,10 +507,13 @@ export default function ToolManagementPage() {
                                                 <TableCell>{tool.currentBorrowRecord?.borrowedByName}</TableCell>
                                                 <TableCell>{formatDate(tool.currentBorrowRecord?.dateBorrowed)}</TableCell>
                                                 <TableCell>{formatDate(tool.currentBorrowRecord?.dueDate)}</TableCell>
+                                                <TableCell className="text-right">
+                                                    <Button variant="outline" size="sm" onClick={() => setReturningTool(tool)}>Return</Button>
+                                                </TableCell>
                                             </TableRow>
                                         ))
                                     ) : (
-                                        <TableRow><TableCell colSpan={5} className="h-24 text-center">No tools are currently borrowed.</TableCell></TableRow>
+                                        <TableRow><TableCell colSpan={6} className="h-24 text-center">No tools are currently borrowed.</TableCell></TableRow>
                                     )}
                                 </TableBody>
                             </Table>
