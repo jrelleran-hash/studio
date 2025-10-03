@@ -5,14 +5,17 @@ import React, { useMemo, useState } from "react";
 import type { Product, ProductLocation } from "@/types";
 import { cn } from "@/lib/utils";
 import {
-  Tooltip,
-  TooltipContent,
-  TooltipProvider,
-  TooltipTrigger,
-} from "@/components/ui/tooltip";
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+  DialogFooter
+} from "@/components/ui/dialog";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { ChevronRight } from "lucide-react";
+import { ChevronRight, Package } from "lucide-react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 
 
@@ -70,6 +73,7 @@ const Breadcrumbs = ({ path, onNavigate }: { path: {key: string, value: string}[
 export function WarehouseMap({ products, onProductSelect }: WarehouseMapProps) {
   const [selectedZone, setSelectedZone] = useState<string | null>(null);
   const [selectedRack, setSelectedRack] = useState<string | null>(null);
+  const [selectedBinProducts, setSelectedBinProducts] = useState<Product[] | null>(null);
 
   const locationTree = useMemo(() => {
     const tree: LocationTree = {};
@@ -131,7 +135,7 @@ export function WarehouseMap({ products, onProductSelect }: WarehouseMapProps) {
   if (selectedRack) path.push({ key: 'Rack', value: selectedRack});
 
   return (
-    <TooltipProvider>
+    <>
       <div className="p-4 border rounded-lg min-h-[600px] flex flex-col">
         <Breadcrumbs path={path} onNavigate={handleBreadcrumbNav} />
         
@@ -181,33 +185,17 @@ export function WarehouseMap({ products, onProductSelect }: WarehouseMapProps) {
                                                 const productsInBin = getProductsInBin(selectedZone, selectedRack, aisle, level, bin);
                                                 const status = getBinStatus(productsInBin);
                                                 return (
-                                                <Tooltip key={bin} delayDuration={100}>
-                                                    <TooltipTrigger asChild>
-                                                        <div className={cn(
+                                                <DialogTrigger key={bin} asChild>
+                                                    <div 
+                                                        className={cn(
                                                             "h-16 border rounded-md flex items-center justify-center cursor-pointer transition-colors shadow-inner",
                                                             binStatusClasses[status]
-                                                        )}>
-                                                        <p className="text-sm font-mono text-center text-muted-foreground">Bin: {bin}</p>
-                                                        </div>
-                                                    </TooltipTrigger>
-                                                    <TooltipContent>
-                                                        {productsInBin.length > 0 ? (
-                                                            <div className="space-y-2 p-1">
-                                                            {productsInBin.map(p => (
-                                                                <div key={p.id} className="flex items-center gap-2" onClick={() => onProductSelect(p)}>
-                                                                    <div className="flex-1">
-                                                                    <p className="text-sm font-medium">{p.name}</p>
-                                                                    <p className="text-xs text-muted-foreground">{p.sku}</p>
-                                                                    </div>
-                                                                    <Badge variant="secondary">{p.stock}</Badge>
-                                                                </div>
-                                                            ))}
-                                                            </div>
-                                                        ) : (
-                                                            <p className="text-sm text-muted-foreground p-1">Empty Bin</p>
                                                         )}
-                                                    </TooltipContent>
-                                                </Tooltip>
+                                                        onClick={() => setSelectedBinProducts(productsInBin)}
+                                                    >
+                                                        <p className="text-sm font-mono text-center text-muted-foreground">Bin: {bin}</p>
+                                                    </div>
+                                                </DialogTrigger>
                                                 )
                                             })}
                                         </div>
@@ -220,6 +208,46 @@ export function WarehouseMap({ products, onProductSelect }: WarehouseMapProps) {
             )}
         </div>
       </div>
-    </TooltipProvider>
+       <Dialog open={!!selectedBinProducts} onOpenChange={(open) => !open && setSelectedBinProducts(null)}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Bin Contents</DialogTitle>
+            <DialogDescription>
+              Products stored in this bin.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="py-4 max-h-96 overflow-y-auto">
+            {selectedBinProducts && selectedBinProducts.length > 0 ? (
+              <div className="space-y-2">
+                {selectedBinProducts.map(p => (
+                  <div 
+                    key={p.id} 
+                    className="flex items-center gap-4 p-2 rounded-md hover:bg-muted cursor-pointer"
+                    onClick={() => {
+                        onProductSelect(p);
+                        setSelectedBinProducts(null);
+                    }}
+                  >
+                    <div className="p-2 bg-muted/50 rounded-md">
+                        <Package className="h-5 w-5 text-muted-foreground" />
+                    </div>
+                    <div className="flex-1">
+                      <p className="font-medium text-sm">{p.name}</p>
+                      <p className="text-xs text-muted-foreground">{p.sku}</p>
+                    </div>
+                    <Badge variant="secondary">Qty: {p.stock}</Badge>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <p className="text-sm text-muted-foreground text-center py-8">This bin is empty.</p>
+            )}
+          </div>
+           <DialogFooter>
+                <Button variant="outline" onClick={() => setSelectedBinProducts(null)}>Close</Button>
+            </DialogFooter>
+        </DialogContent>
+      </Dialog>
+    </>
   );
 }
