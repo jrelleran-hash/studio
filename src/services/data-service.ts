@@ -1881,7 +1881,7 @@ export async function addTool(tool: Partial<Omit<Tool, 'id' | 'status' | 'curren
       category: tool.category || "Other",
       condition: tool.condition || "Good",
       purchaseDate: tool.purchaseDate || null,
-      purchaseCost: tool.purchaseCost || 0,
+      purchaseCost: typeof tool.purchaseCost === 'number' && !isNaN(tool.purchaseCost) ? tool.purchaseCost : 0,
       borrowDuration: tool.borrowDuration || 7,
       location: tool.location || {},
       status: 'Available' as const,
@@ -1958,6 +1958,11 @@ export async function returnTool(toolId: string, condition: Tool['condition'], n
 
     const snapshot = await getDocs(borrowRecordsQuery);
     if (snapshot.empty) {
+        const toolDoc = await getDoc(doc(db, "tools", toolId));
+        if (toolDoc.exists() && toolDoc.data().status !== "In Use") {
+             console.warn(`Tool ${toolId} is already returned or in a non-borrowed state.`);
+             return;
+        }
         throw new Error("No active borrow record found for this tool.");
     }
     const activeBorrowRecordDoc = snapshot.docs[0];
@@ -2055,6 +2060,7 @@ export async function recallTool(toolId: string, condition: Tool['condition'], n
 }
 
     
+
 
 
 
