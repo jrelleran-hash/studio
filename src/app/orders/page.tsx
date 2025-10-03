@@ -560,7 +560,7 @@ export default function OrdersPage() {
                                     {...orderForm.register(`items.${index}.quantity`, { valueAsNumber: true })}
                                   />
                                   <Button variant="ghost" size="icon" onClick={() => remove(index)}>
-                                      <X />
+                                      <X className="h-4 w-4" />
                                   </Button>
                               </div>
                               {orderForm.formState.errors.items?.[index]?.quantity && <p className="text-sm text-destructive">{orderForm.formState.errors.items[index]?.quantity?.message}</p>}
