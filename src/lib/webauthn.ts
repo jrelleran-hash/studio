@@ -33,7 +33,8 @@ export async function registerPasskey(userId: string, userName: string): Promise
       },
       pubKeyCredParams: [{ alg: -7, type: 'public-key' as const }],
       authenticatorSelection: {
-        authenticatorAttachment: 'platform' as const, // For device-bound keys (Face ID, Fingerprint)
+        // By removing authenticatorAttachment, we allow the browser to pick the best
+        // available method, including the device PIN if biometrics aren't available.
         requireResidentKey: true,
       },
       timeout: 60000,
