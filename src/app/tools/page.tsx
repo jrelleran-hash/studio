@@ -196,7 +196,7 @@ export default function ToolManagementPage() {
   const onBorrowSubmit = async (data: BorrowFormValues) => {
     if (!borrowingTool || !userProfile) return;
     try {
-        const releasedByName = `${userProfile.firstName} ${userProfile.lastName}`;
+        const releasedByName = `${''}${userProfile.firstName} ${userProfile.lastName}`;
         await borrowTool(borrowingTool.id, data.borrowedBy, releasedByName, data.notes);
         toast({ title: "Success", description: "Tool checked out." });
         setBorrowingTool(null);
@@ -222,7 +222,7 @@ export default function ToolManagementPage() {
     }
 
     try {
-        await returnTool(returnVerification.tool, returnVerification.formData.condition, returnVerification.formData.notes);
+        await returnTool(returnVerification.tool.id, returnVerification.formData.condition, returnVerification.formData.notes);
         toast({ title: "Success", description: "Tool returned." });
         setReturnVerification(null);
         setVerificationInput("");
@@ -257,15 +257,6 @@ export default function ToolManagementPage() {
         const errorMessage = error instanceof Error ? error.message : "Failed to recall tool.";
         toast({ variant: "destructive", title: "Error", description: errorMessage });
     }
-  };
-  
-  const handleRetrieveClick = (tool: Tool) => {
-    if (tool.status === 'In Use') {
-        setReturningTool(tool);
-    } else if (tool.status === 'Assigned') {
-        setRecallingTool(tool);
-    }
-    setIsHistoryDialogOpen(false);
   };
 
 
@@ -434,11 +425,6 @@ export default function ToolManagementPage() {
                                                         </DropdownMenuItem>
                                                     </DropdownMenuSubContent>
                                                 </DropdownMenuSub>
-                                            )}
-                                            {(tool.status === 'In Use' || tool.status === 'Assigned') && (
-                                                <DropdownMenuItem onClick={() => handleRetrieveClick(tool)}>
-                                                    <ArrowDownRight className="mr-2 h-4 w-4" /> Retrieve Tool
-                                                </DropdownMenuItem>
                                             )}
                                             <DropdownMenuItem onClick={() => setEditingTool(tool)}>Edit</DropdownMenuItem>
                                             <DropdownMenuItem onClick={() => setHistoryTool(tool)}>History</DropdownMenuItem>
@@ -802,12 +788,6 @@ export default function ToolManagementPage() {
                                         </div>
                                         {record.notes && <p className="text-xs text-muted-foreground mt-1 border-l-2 pl-2">Note: {record.notes}</p>}
                                     </div>
-                                    {isActive && historyTool && (
-                                        <Button size="sm" variant="secondary" onClick={() => handleRetrieveClick(historyTool)}>
-                                            <ArrowDownRight className="mr-2 h-4 w-4" />
-                                            Retrieve
-                                        </Button>
-                                    )}
                                 </li>
                             )
                         })}
@@ -838,4 +818,3 @@ export default function ToolManagementPage() {
     </div>
   );
 }
-
