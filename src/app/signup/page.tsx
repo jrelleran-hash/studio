@@ -2,7 +2,7 @@
 
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useForm, Controller } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
@@ -27,6 +27,7 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
 import { cn } from "@/lib/utils";
 import { Badge } from "@/components/ui/badge";
+import { StartupAnimation } from "@/components/layout/startup-animation";
 
 const allPermissions: { group: string; permissions: { value: PagePermission; label: string }[] }[] = [
     { group: "Core", permissions: [
@@ -75,10 +76,16 @@ export default function SignupPage() {
   const [showPassword, setShowPassword] = useState(false);
   const { toast } = useToast();
   const router = useRouter();
-  const { userProfile } = useAuth();
+  const { userProfile, loading: authLoading } = useAuth();
   
   const isAdmin = userProfile?.role === "Admin";
   const [isPermissionPopoverOpen, setIsPermissionPopoverOpen] = useState(false);
+
+  useEffect(() => {
+    if (!authLoading && !isAdmin) {
+      router.push("/login");
+    }
+  }, [authLoading, isAdmin, router]);
 
   const {
     register,
@@ -120,16 +127,8 @@ export default function SignupPage() {
         permissions: data.permissions as PagePermission[],
       });
 
-      if (isAdmin) {
-        toast({ title: "User Created", description: "New user has been created successfully."});
-        router.push("/settings?tab=users"); 
-      } else {
-        toast({
-          title: "Account Created",
-          description: "Please check your email to verify your account before logging in.",
-        });
-        router.push(`/verify-email?email=${data.email}`);
-      }
+      toast({ title: "User Created", description: "New user has been created successfully."});
+      router.push("/settings?tab=users"); 
 
     } catch (error: any) {
       let errorMessage = "An unexpected error occurred.";
@@ -149,6 +148,10 @@ export default function SignupPage() {
       setIsLoading(false);
     }
   };
+  
+  if (authLoading || !isAdmin) {
+    return <StartupAnimation />;
+  }
 
   return (
     <div className="flex min-h-screen items-center justify-center bg-background p-4">
@@ -157,8 +160,8 @@ export default function SignupPage() {
            <div className="flex justify-center mb-4">
             <CoreFlowLogo className="h-8 w-8 text-primary" />
           </div>
-          <CardTitle className="text-2xl font-headline">Create an Account</CardTitle>
-          <CardDescription>Enter the details to get started</CardDescription>
+          <CardTitle className="text-2xl font-headline">Create New User</CardTitle>
+          <CardDescription>Enter the details for the new user account.</CardDescription>
         </CardHeader>
         <CardContent>
           <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
@@ -229,94 +232,89 @@ export default function SignupPage() {
               </div>
               {errors.password && <p className="text-sm text-destructive">{errors.password.message}</p>}
             </div>
-             {isAdmin && (
-                <div className="grid grid-cols-2 gap-4">
-                    <div className="space-y-2">
-                        <Label htmlFor="role">Role</Label>
-                        <Select onValueChange={(value) => setValue('role', value as UserRole)} defaultValue="Staff">
-                            <SelectTrigger id="role" disabled={isLoading}>
-                                <SelectValue placeholder="Select a role" />
-                            </SelectTrigger>
-                            <SelectContent>
-                                <SelectItem value="Admin">Admin</SelectItem>
-                                <SelectItem value="Manager">Manager</SelectItem>
-                                <SelectItem value="Staff">Staff</SelectItem>
-                            </SelectContent>
-                        </Select>
-                        {errors.role && <p className="text-sm text-destructive">{errors.role.message}</p>}
-                    </div>
-                     <div className="space-y-2">
-                        <Label>Permissions</Label>
-                        <Controller
-                            control={control}
-                            name="permissions"
-                            render={({ field }) => (
-                                <Popover open={isPermissionPopoverOpen} onOpenChange={setIsPermissionPopoverOpen}>
-                                    <PopoverTrigger asChild>
-                                        <Button
-                                            variant="outline"
-                                            role="combobox"
-                                            aria-expanded={isPermissionPopoverOpen}
-                                            className="w-full justify-between"
-                                            disabled={isLoading}
-                                        >
-                                            <span className="truncate">
-                                                {selectedPermissions.length > 0 ? `${selectedPermissions.length} selected` : "Select permissions..."}
-                                            </span>
-                                            <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
-                                        </Button>
-                                    </PopoverTrigger>
-                                    <PopoverContent className="w-[--radix-popover-trigger-width] p-0">
-                                        <Command>
-                                            <CommandInput placeholder="Search permissions..." />
-                                            <CommandEmpty>No permission found.</CommandEmpty>
-                                            <CommandList>
-                                                {allPermissions.map((group) => (
-                                                <CommandGroup key={group.group} heading={group.group}>
-                                                    {group.permissions.map((permission) => (
-                                                        <CommandItem
-                                                            key={permission.value}
-                                                            value={permission.label}
-                                                            onSelect={() => {
-                                                                const newSelection = selectedPermissions.includes(permission.value)
-                                                                    ? selectedPermissions.filter(p => p !== permission.value)
-                                                                    : [...selectedPermissions, permission.value];
-                                                                field.onChange(newSelection);
-                                                            }}
-                                                        >
-                                                            <Check
-                                                                className={cn(
-                                                                    "mr-2 h-4 w-4",
-                                                                    selectedPermissions.includes(permission.value) ? "opacity-100" : "opacity-0"
-                                                                )}
-                                                            />
-                                                            {permission.label}
-                                                        </CommandItem>
-                                                    ))}
-                                                </CommandGroup>
-                                                ))}
-                                            </CommandList>
-                                        </Command>
-                                    </PopoverContent>
-                                </Popover>
-                            )}
-                        />
-                        {errors.permissions && <p className="text-sm text-destructive">{errors.permissions.message}</p>}
-                    </div>
+            <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                    <Label htmlFor="role">Role</Label>
+                    <Select onValueChange={(value) => setValue('role', value as UserRole)} defaultValue="Staff">
+                        <SelectTrigger id="role" disabled={isLoading}>
+                            <SelectValue placeholder="Select a role" />
+                        </SelectTrigger>
+                        <SelectContent>
+                            <SelectItem value="Admin">Admin</SelectItem>
+                            <SelectItem value="Manager">Manager</SelectItem>
+                            <SelectItem value="Staff">Staff</SelectItem>
+                        </SelectContent>
+                    </Select>
+                    {errors.role && <p className="text-sm text-destructive">{errors.role.message}</p>}
                 </div>
-             )}
+                 <div className="space-y-2">
+                    <Label>Permissions</Label>
+                    <Controller
+                        control={control}
+                        name="permissions"
+                        render={({ field }) => (
+                            <Popover open={isPermissionPopoverOpen} onOpenChange={setIsPermissionPopoverOpen}>
+                                <PopoverTrigger asChild>
+                                    <Button
+                                        variant="outline"
+                                        role="combobox"
+                                        aria-expanded={isPermissionPopoverOpen}
+                                        className="w-full justify-between"
+                                        disabled={isLoading}
+                                    >
+                                        <span className="truncate">
+                                            {selectedPermissions.length > 0 ? `${selectedPermissions.length} selected` : "Select permissions..."}
+                                        </span>
+                                        <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                                    </Button>
+                                </PopoverTrigger>
+                                <PopoverContent className="w-[--radix-popover-trigger-width] p-0">
+                                    <Command>
+                                        <CommandInput placeholder="Search permissions..." />
+                                        <CommandEmpty>No permission found.</CommandEmpty>
+                                        <CommandList>
+                                            {allPermissions.map((group) => (
+                                            <CommandGroup key={group.group} heading={group.group}>
+                                                {group.permissions.map((permission) => (
+                                                    <CommandItem
+                                                        key={permission.value}
+                                                        value={permission.label}
+                                                        onSelect={() => {
+                                                            const newSelection = selectedPermissions.includes(permission.value)
+                                                                ? selectedPermissions.filter(p => p !== permission.value)
+                                                                : [...selectedPermissions, permission.value];
+                                                            field.onChange(newSelection);
+                                                        }}
+                                                    >
+                                                        <Check
+                                                            className={cn(
+                                                                "mr-2 h-4 w-4",
+                                                                selectedPermissions.includes(permission.value) ? "opacity-100" : "opacity-0"
+                                                            )}
+                                                        />
+                                                        {permission.label}
+                                                    </CommandItem>
+                                                ))}
+                                            </CommandGroup>
+                                            ))}
+                                        </CommandList>
+                                    </Command>
+                                </PopoverContent>
+                            </Popover>
+                        )}
+                    />
+                    {errors.permissions && <p className="text-sm text-destructive">{errors.permissions.message}</p>}
+                </div>
+            </div>
             <Button type="submit" className="w-full" disabled={isLoading}>
-              {isLoading ? "Creating account..." : "Sign Up"}
+              {isLoading ? "Creating user..." : "Create User"}
             </Button>
           </form>
-          {!isAdmin && (
-            <div className="mt-4 text-center text-sm">
-                Already have an account?{" "}
-                <Link href="/login" className="underline">
-                Sign in
-                </Link>
-            </div>
-          )}
+          <div className="mt-4 text-center text-sm">
+              <Button variant="link" asChild>
+                <Link href="/settings?tab=users">Cancel</Link>
+              </Button>
+          </div>
         </CardContent>
       </Card>
     </div>
