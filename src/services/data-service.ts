@@ -138,6 +138,21 @@ export async function deleteNotification(notificationId: string): Promise<void> 
   }
 }
 
+export async function deleteNotifications(notificationIds: string[]): Promise<void> {
+  if (notificationIds.length === 0) return;
+  try {
+    const batch = writeBatch(db);
+    notificationIds.forEach(id => {
+      const notificationRef = doc(db, "notifications", id);
+      batch.delete(notificationRef);
+    });
+    await batch.commit();
+  } catch (error) {
+    console.error("Error deleting multiple notifications:", error);
+    throw new Error("Failed to delete notifications.");
+  }
+}
+
 
 export async function getLowStockProducts(): Promise<Product[]> {
     try {
@@ -2060,6 +2075,7 @@ export async function recallTool(toolId: string, condition: Tool['condition'], n
 }
 
     
+
 
 
 

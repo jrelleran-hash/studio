@@ -6,12 +6,13 @@ import { ArrowUpRight, ShoppingCart, UserPlus, Package, Truck, RefreshCcw, Clipb
 import Link from "next/link";
 import { Button, buttonVariants } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { getNotifications, deleteNotification } from "@/services/data-service";
+import { getNotifications, deleteNotification, deleteNotifications } from "@/services/data-service";
 import type { Notification, PagePermission } from "@/types";
 import { Skeleton } from "../ui/skeleton";
 import { useAuth } from "@/hooks/use-auth";
 import { useToast } from "@/hooks/use-toast";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
+import { Checkbox } from "../ui/checkbox";
 
 
 type NotificationWithTime = Notification & { time: string };
@@ -50,7 +51,8 @@ export function RecentActivity() {
   const { userProfile } = useAuth();
   const { toast } = useToast();
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
-  const [deletingNotificationId, setDeletingNotificationId] = useState<string | null>(null);
+  const [deletingNotificationIds, setDeletingNotificationIds] = useState<string[]>([]);
+  const [selected, setSelected] = useState<string[]>([]);
 
   const isAdmin = userProfile?.role === "Admin";
   
@@ -77,34 +79,62 @@ export function RecentActivity() {
     fetchActivities();
   }, [userProfile, userPermissions]);
 
+  const handleSelectAll = (checked: boolean) => {
+    if (checked) {
+      setSelected(activities.map(a => a.id));
+    } else {
+      setSelected([]);
+    }
+  };
+
+  const handleSelect = (id: string) => {
+    setSelected(prev => 
+      prev.includes(id) ? prev.filter(i => i !== id) : [...prev, id]
+    );
+  };
 
   const handleDeleteClick = (notificationId: string) => {
-    setDeletingNotificationId(notificationId);
+    setDeletingNotificationIds([notificationId]);
+    setIsDeleteDialogOpen(true);
+  };
+  
+  const handleDeleteSelectedClick = () => {
+    if (selected.length === 0) return;
+    setDeletingNotificationIds(selected);
     setIsDeleteDialogOpen(true);
   };
 
   const handleDeleteConfirm = async () => {
-    if (!deletingNotificationId) return;
+    if (deletingNotificationIds.length === 0) return;
     try {
-        await deleteNotification(deletingNotificationId);
-        toast({ title: "Success", description: "Activity deleted." });
+        await deleteNotifications(deletingNotificationIds);
+        toast({ title: "Success", description: "Selected activities deleted." });
         await fetchActivities();
+        setSelected([]);
     } catch(error) {
-        toast({ variant: "destructive", title: "Error", description: "Failed to delete activity." });
+        toast({ variant: "destructive", title: "Error", description: "Failed to delete activities." });
     } finally {
         setIsDeleteDialogOpen(false);
-        setDeletingNotificationId(null);
+        setDeletingNotificationIds([]);
     }
   };
 
   return (
     <>
       <Card className="card-gradient h-full">
-        <CardHeader>
-          <CardTitle>Recent Activity</CardTitle>
-          <CardDescription>
-            A log of the latest events relevant to your role.
-          </CardDescription>
+        <CardHeader className="flex flex-row items-center justify-between">
+          <div>
+            <CardTitle>Recent Activity</CardTitle>
+            <CardDescription>
+              A log of the latest events relevant to your role.
+            </CardDescription>
+          </div>
+          {isAdmin && selected.length > 0 && (
+             <Button variant="destructive" size="sm" onClick={handleDeleteSelectedClick}>
+                <Trash2 className="mr-2 h-4 w-4" />
+                Delete ({selected.length})
+            </Button>
+          )}
         </CardHeader>
         <CardContent>
             <div className="grid gap-4">
@@ -119,8 +149,27 @@ export function RecentActivity() {
                   </div>
                 ))
               ) : activities.length > 0 ? (
-                activities.map((activity) => (
+                <>
+                {isAdmin && (
+                  <div className="flex items-center gap-3 px-2 py-1 border-b">
+                    <Checkbox
+                      id="select-all"
+                      checked={selected.length === activities.length && activities.length > 0}
+                      onCheckedChange={(checked) => handleSelectAll(!!checked)}
+                      aria-label="Select all"
+                    />
+                    <label htmlFor="select-all" className="text-sm font-medium text-muted-foreground">Select All</label>
+                  </div>
+                )}
+                {activities.map((activity) => (
                   <div key={activity.id} className="group flex items-center gap-4 p-2 -m-2 rounded-lg hover:bg-muted/50">
+                    {isAdmin && (
+                      <Checkbox
+                        checked={selected.includes(activity.id)}
+                        onCheckedChange={() => handleSelect(activity.id)}
+                        aria-label={`Select activity: ${activity.title}`}
+                      />
+                    )}
                     <Link href={activity.href || "#"} className="flex-1">
                       <div className="flex items-center gap-4 cursor-pointer">
                         <div className="p-2 bg-muted/50 rounded-full group-hover:bg-primary/20 transition-colors">
@@ -133,7 +182,7 @@ export function RecentActivity() {
                         <ArrowUpRight className="h-4 w-4 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity" />
                       </div>
                     </Link>
-                     {isAdmin && (
+                     {isAdmin && !selected.length && (
                       <Button
                         variant="ghost"
                         size="icon"
@@ -148,7 +197,8 @@ export function RecentActivity() {
                       </Button>
                     )}
                   </div>
-                ))
+                ))}
+                </>
               ) : (
                   <div className="text-sm text-muted-foreground text-center py-10">
                       No recent activity to display.
@@ -162,7 +212,7 @@ export function RecentActivity() {
           <AlertDialogHeader>
             <AlertDialogTitle>Are you sure?</AlertDialogTitle>
             <AlertDialogDescription>
-              This action cannot be undone. This will permanently delete this activity log item.
+              This action cannot be undone. This will permanently delete {deletingNotificationIds.length} activity log item(s).
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
