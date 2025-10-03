@@ -1,12 +1,11 @@
 
-
 "use client";
 
 import React, { useState, useEffect, useMemo } from "react";
 import { useForm, Controller } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
-import { PlusCircle, MoreHorizontal, Wrench, Calendar as CalendarIcon, User, History, ArrowUpRight, UserCheck, ArrowDownRight } from "lucide-react";
+import { PlusCircle, MoreHorizontal, Wrench, Calendar as CalendarIcon, User, History, ArrowUpRight, UserCheck } from "lucide-react";
 import { Timestamp } from "firebase/firestore";
 import { format } from "date-fns";
 
@@ -447,7 +446,7 @@ export default function ToolManagementPage() {
                                 <TableCell><Badge variant={statusVariant[tool.status]}>{tool.status}</Badge></TableCell>
                                 <TableCell><Badge variant={conditionVariant[tool.condition]}>{tool.condition}</Badge></TableCell>
                                 <TableCell>{user}</TableCell>
-                                <TableCell>{tool.status === 'In Use' && tool.currentBorrowRecord ? formatDate(tool.currentBorrowRecord?.dateBorrowed as Date) : 'N/A'}</TableCell>
+                                <TableCell>{tool.status === 'In Use' && tool.currentBorrowRecord ? formatDate(tool.currentBorrowRecord?.dateBorrowed) : 'N/A'}</TableCell>
                                 <TableCell>{formatLocation(tool.location)}</TableCell>
                                 <TableCell className="text-right">
                                     <DropdownMenu>
@@ -913,4 +912,3 @@ export default function ToolManagementPage() {
     </div>
   );
 }
-
