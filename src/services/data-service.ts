@@ -1945,16 +1945,17 @@ export async function returnTool(toolId: string, condition: Tool['condition'], n
     const borrowRecordsQuery = query(
         collection(db, "toolBorrowRecords"),
         where("toolId", "==", toolId),
-        where("dateReturned", "==", null),
-        limit(1)
+        where("dateReturned", "==", null)
     );
 
     const snapshot = await getDocs(borrowRecordsQuery);
     if (snapshot.empty) {
         throw new Error("No active borrow record found for this tool.");
     }
-
-    const activeBorrowRecordDoc = snapshot.docs[0];
+    // Even with a limit(1) in the original logic, multiple could exist in a race condition.
+    // We should be robust and handle the latest one.
+    const activeBorrowRecordDoc = snapshot.docs.sort((a,b) => b.data().dateBorrowed.toMillis() - a.data().dateBorrowed.toMillis())[0];
+    
     const borrowRecordRef = activeBorrowRecordDoc.ref;
     const toolRef = doc(db, "tools", toolId);
 
@@ -2050,3 +2051,4 @@ export async function recallTool(toolId: string, condition: Tool['condition'], n
     
 
     
+
