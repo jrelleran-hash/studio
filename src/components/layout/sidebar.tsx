@@ -22,7 +22,7 @@ import {
   ChevronLeft,
   ChevronRight,
   Wrench,
-  QrCode,
+  Trash2,
 } from "lucide-react";
 import { CoreFlowLogo } from "@/components/icons";
 import { cn } from "@/lib/utils";
@@ -58,6 +58,7 @@ const assuranceNavItems = [
     { href: "/returns", label: "Returns", icon: RefreshCcw },
     { href: "/quality-control", label: "Quality Control", icon: ClipboardCheck },
     { href: "/tool-maintenance", label: "Tool Maintenance", icon: Wrench },
+    { href: "/waste-management", label: "Waste Management", icon: Trash2 },
 ];
 
 export const navItemsPermissions = [

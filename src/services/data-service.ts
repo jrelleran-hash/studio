@@ -2083,7 +2083,57 @@ export async function recallTool(toolId: string, condition: Tool['condition'], n
     });
 }
 
+export async function getDisposalItems() {
+    const returnsCol = collection(db, "returns");
+    const q = query(returnsCol, where("status", "==", "Completed"));
+    const snapshot = await getDocs(q);
+
+    const disposalItems: any[] = [];
     
+    for (const doc of snapshot.docs) {
+        const returnData = doc.data() as Return;
+        if (returnData.inspection && returnData.inspection.items) {
+            for (const item of returnData.inspection.items) {
+                if (item.disposalQuantity > 0) {
+                     // Need to get product name/sku as it's not stored on the return item
+                    const inspectionItem = returnData.items.find(i => i.productId === item.productId);
+                    disposalItems.push({
+                        returnId: doc.id,
+                        productId: item.productId,
+                        productName: inspectionItem?.name || "Unknown Product",
+                        productSku: inspectionItem?.sku || "N/A",
+                        disposalQuantity: item.disposalQuantity,
+                        inspectionDate: (returnData.inspection.date as Timestamp).toDate(),
+                        rmaNumber: returnData.rmaNumber,
+                    });
+                }
+            }
+        }
+    }
+    return disposalItems;
+}
+
+export async function disposeItemsAndTools(items: { id: string; type: 'product' | 'tool', sourceId: string }[]): Promise<void> {
+    const batch = writeBatch(db);
+
+    for (const item of items) {
+        if (item.type === 'tool') {
+            const toolRef = doc(db, "tools", item.id);
+            batch.delete(toolRef);
+        } else if (item.type === 'product') {
+            // For products, we remove the `inspection` field from the return record
+            // to signify it has been handled. This is an example of how you might "dispose" of the record.
+            const returnRef = doc(db, "returns", item.sourceId);
+            batch.update(returnRef, { "inspection": null });
+        }
+    }
+
+    await batch.commit();
+}
+
+
+    
+
 
 
 
