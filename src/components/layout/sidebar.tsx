@@ -59,6 +59,14 @@ const assuranceNavItems = [
     { href: "/quality-control", label: "Quality Control", icon: ClipboardCheck },
 ];
 
+export const navItemsPermissions = [
+  ...navItems,
+  ...procurementNavItems,
+  ...warehouseNavItems,
+  ...assuranceNavItems,
+  { href: "/settings", label: "Settings", icon: Settings },
+] as const;
+
 
 interface SidebarLinkProps {
   href: string;
@@ -113,12 +121,11 @@ interface NavSectionProps {
 }
 
 function NavSection({ title, items, pathname, inSheet, userPermissions, isCollapsed }: NavSectionProps) {
+    const isActiveSection = items.some(item => pathname.startsWith(item.href) && item.href !== '/');
+    const [isOpen, setIsOpen] = useState(isActiveSection);
     const visibleItems = items.filter(item => userPermissions.includes(item.href));
 
     if (visibleItems.length === 0) return null;
-    
-    const isActiveSection = visibleItems.some(item => pathname.startsWith(item.href) && item.href !== '/');
-    const [isOpen, setIsOpen] = useState(isActiveSection);
     
     if (isCollapsed) {
         return (

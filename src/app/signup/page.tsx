@@ -2,7 +2,7 @@
 
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
@@ -21,6 +21,7 @@ import { CoreFlowLogo } from "@/components/icons";
 import { createUserProfile } from "@/services/data-service";
 import type { UserRole, PagePermission } from "@/types";
 import { FirebaseError } from "firebase/app";
+import { useAuth } from "@/hooks/use-auth";
 
 const signupSchema = z.object({
   firstName: z.string().min(1, "First name is required."),
@@ -37,6 +38,18 @@ export default function SignupPage() {
   const [showPassword, setShowPassword] = useState(false);
   const { toast } = useToast();
   const router = useRouter();
+  const { userProfile, loading: authLoading } = useAuth();
+  
+  useEffect(() => {
+    if (!authLoading && userProfile?.role !== 'Admin') {
+      toast({
+        variant: "destructive",
+        title: "Unauthorized",
+        description: "You do not have permission to create new users.",
+      });
+      router.push('/login');
+    }
+  }, [userProfile, authLoading, router, toast]);
 
   const {
     register,
@@ -53,9 +66,13 @@ export default function SignupPage() {
       const user = userCredential.user;
       const displayName = `${data.firstName} ${data.lastName}`.trim();
 
+      // This will send an email to the new user.
+      await sendEmailVerification(user, {
+        url: `${window.location.origin}/login`,
+      });
+
+      // We still update the profile locally, but the user has to verify.
       await updateProfile(user, { displayName });
-      
-      await sendEmailVerification(user);
 
       await createUserProfile(user.uid, {
         firstName: data.firstName,
@@ -65,8 +82,8 @@ export default function SignupPage() {
         permissions: ["/"], // Default permissions
       });
 
-      toast({ title: "Account Created", description: "A verification email has been sent. Please verify your email before signing in."});
-      router.push(`/verify-email?email=${data.email}`); 
+      toast({ title: "User Created", description: `A verification email has been sent to ${data.email}.`});
+      router.push(`/settings?tab=users`); 
 
     } catch (error: any) {
       let errorMessage = "An unexpected error occurred.";
@@ -84,6 +101,14 @@ export default function SignupPage() {
       setIsLoading(false);
     }
   };
+  
+  if (authLoading || userProfile?.role !== 'Admin') {
+    return (
+        <div className="flex min-h-screen items-center justify-center bg-background p-4">
+            <p>Loading or unauthorized...</p>
+        </div>
+    );
+  }
 
   return (
     <div className="flex min-h-screen items-center justify-center bg-background p-4">
@@ -92,8 +117,8 @@ export default function SignupPage() {
            <div className="flex justify-center mb-4">
             <CoreFlowLogo className="h-8 w-8 text-primary" />
           </div>
-          <CardTitle className="text-2xl font-headline">Create an Account</CardTitle>
-          <CardDescription>Enter your details to get started.</CardDescription>
+          <CardTitle className="text-2xl font-headline">Create New User</CardTitle>
+          <CardDescription>Enter the new user's details. They will receive a verification email.</CardDescription>
         </CardHeader>
         <CardContent>
           <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
@@ -157,13 +182,12 @@ export default function SignupPage() {
               {errors.password && <p className="text-sm text-destructive">{errors.password.message}</p>}
             </div>
             <Button type="submit" className="w-full" disabled={isLoading}>
-              {isLoading ? "Creating account..." : "Create Account"}
+              {isLoading ? "Creating user..." : "Create User"}
             </Button>
           </form>
           <div className="mt-4 text-center text-sm">
-            Already have an account?{" "}
-            <Link href="/login" className="underline">
-              Sign in
+            <Link href="/settings?tab=users" className="underline">
+              Cancel and return to settings
             </Link>
           </div>
         </CardContent>

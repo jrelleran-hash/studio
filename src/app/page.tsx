@@ -8,7 +8,7 @@ import { LowStockItems } from "@/components/dashboard/low-stock-items";
 import { ActiveOrders } from "@/components/dashboard/active-orders";
 import { RevenueChart, type FilterType } from "@/components/dashboard/revenue-chart";
 import { InventoryStatusChart, type InventoryFilterType } from "@/components/dashboard/inventory-status-chart";
-import { Package, ShoppingCart, Users } from "lucide-react";
+import { Package, ShoppingCart, Users, Wrench } from "lucide-react";
 import { useAuth } from "@/hooks/use-auth";
 import { useRouter } from "next/navigation";
 import { useEffect, useState, useMemo } from "react";
@@ -19,6 +19,8 @@ import { subDays, subWeeks, subMonths, subYears, startOfDay, endOfDay, startOfWe
 import type { Order } from "@/types";
 import { Button } from "@/components/ui/button";
 import { StartupAnimation } from "@/components/layout/startup-animation";
+import { ToolStatusChart, type ToolFilterType } from "@/components/dashboard/tool-status-chart";
+
 
 const getRevenueData = (orders: Order[], filter: FilterType) => {
     const now = new Date();
@@ -109,10 +111,12 @@ const getRevenueData = (orders: Order[], filter: FilterType) => {
 export default function DashboardPage() {
   const { user, loading: authLoading } = useAuth();
   const router = useRouter();
-  const { products, clients, orders, loading: dataLoading } = useData();
+  const { products, clients, orders, tools, loading: dataLoading } = useData();
   
   const [revenueFilter, setRevenueFilter] = useState<FilterType>("month");
   const [inventoryFilter, setInventoryFilter] = useState<InventoryFilterType>("all");
+  const [toolFilter, setToolFilter] = useState<ToolFilterType>("all");
+
 
   useEffect(() => {
     if (!authLoading && !user) {
@@ -156,6 +160,15 @@ export default function DashboardPage() {
 
   }, [products, inventoryFilter]);
   
+  const { toolCount, toolChangeText } = useMemo(() => {
+    const totalTools = tools.length;
+    const maintenanceCount = tools.filter(t => t.status === 'Under Maintenance').length;
+    return {
+        toolCount: totalTools.toString(),
+        toolChangeText: `${maintenanceCount} under maintenance`
+    }
+  }, [tools]);
+
   const newClientsData = useMemo(() => {
     const now = new Date();
     const last30DaysStart = subDays(now, 30);
@@ -246,20 +259,36 @@ export default function DashboardPage() {
             }
           />
           <KpiCard
+            title="Tool Status"
+            value={toolCount}
+            change={toolChangeText}
+            icon={<Wrench className="size-5 text-primary" />}
+            loading={dataLoading}
+            href="/tools"
+            children={<ToolStatusChart tools={tools} filter={toolFilter} />}
+            footer={
+                 <div className="flex justify-end gap-1 mt-2">
+                {(["all", "Available", "In Use", "Under Maintenance", "Assigned"] as ToolFilterType[]).map((f) => (
+                  <Button 
+                    key={f} 
+                    variant={toolFilter === f ? "secondary" : "ghost"} 
+                    size="sm" 
+                    className="capitalize h-7 px-2 text-xs" 
+                    onClick={() => setToolFilter(f)}
+                  >
+                    {f.replace('-', ' ')}
+                  </Button>
+                ))}
+              </div>
+            }
+          />
+          <KpiCard
             title="New Clients"
             value={`+${newClientsData.count}`}
             change={newClientsData.change}
             icon={<Users className="size-5 text-primary" />}
             loading={dataLoading}
             href="/clients"
-          />
-          <KpiCard
-            title="Active Orders"
-            value={activeOrdersData.count.toLocaleString()}
-            change={activeOrdersData.change}
-            icon={<ShoppingCart className="size-5 text-primary" />}
-            loading={dataLoading}
-            href="/orders"
           />
         </div>
         <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
