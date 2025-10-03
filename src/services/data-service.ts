@@ -1831,7 +1831,7 @@ export async function getTools(): Promise<Tool[]> {
         const toolSnapshot = await getDocs(query(toolsCol, orderBy("name", "asc")));
         
         const tools = await Promise.all(toolSnapshot.docs.map(async (doc) => {
-            const data = doc.data() as Omit<Tool, 'id' | 'purchaseDate' | 'currentBorrowRecord'> & { purchaseDate?: Timestamp };
+            const data = doc.data();
             const toolId = doc.id;
             
             let currentBorrowRecord: ToolBorrowRecord | null = null;
@@ -1846,21 +1846,21 @@ export async function getTools(): Promise<Tool[]> {
                 const activeBorrowsSnapshot = await getDocs(q);
                 if (!activeBorrowsSnapshot.empty) {
                     const borrowDoc = activeBorrowsSnapshot.docs[0];
-                    const borrowData = borrowDoc.data() as Omit<ToolBorrowRecord, 'id' | 'dateBorrowed' | 'dateReturned' | 'dueDate'> & { dateBorrowed: Timestamp, dateReturned?: Timestamp, dueDate?: Timestamp };
+                    const borrowData = borrowDoc.data();
                     currentBorrowRecord = { 
                         id: borrowDoc.id, 
                         ...borrowData,
-                        dateBorrowed: borrowData.dateBorrowed.toDate(),
-                        dueDate: borrowData.dueDate?.toDate(),
-                        dateReturned: borrowData.dateReturned?.toDate(),
-                    };
+                        dateBorrowed: (borrowData.dateBorrowed as Timestamp).toDate(),
+                        dueDate: borrowData.dueDate ? (borrowData.dueDate as Timestamp).toDate() : undefined,
+                        dateReturned: borrowData.dateReturned ? (borrowData.dateReturned as Timestamp).toDate() : undefined,
+                    } as ToolBorrowRecord;
                 }
             }
 
             return { 
                 id: toolId, 
                 ...data,
-                purchaseDate: data.purchaseDate?.toDate(),
+                purchaseDate: data.purchaseDate ? (data.purchaseDate as Timestamp).toDate() : undefined,
                 currentBorrowRecord: currentBorrowRecord
             } as Tool;
         }));
@@ -1942,17 +1942,22 @@ export async function borrowTool(toolId: string, borrowedBy: string, releasedBy:
 }
 
 export async function returnTool(toolId: string, condition: Tool['condition'], notes?: string): Promise<void> {
-    // 1. Find the active borrow record outside the transaction.
-    const allBorrowRecords = await getToolHistory(toolId);
-    const activeBorrowRecord = allBorrowRecords.find(r => !r.dateReturned);
+    const borrowRecordsQuery = query(
+        collection(db, "toolBorrowRecords"),
+        where("toolId", "==", toolId),
+        where("dateReturned", "==", null),
+        limit(1)
+    );
 
-    if (!activeBorrowRecord) {
+    const snapshot = await getDocs(borrowRecordsQuery);
+    if (snapshot.empty) {
         throw new Error("No active borrow record found for this tool.");
     }
-    const borrowRecordRef = doc(db, "toolBorrowRecords", activeBorrowRecord.id);
+
+    const activeBorrowRecordDoc = snapshot.docs[0];
+    const borrowRecordRef = activeBorrowRecordDoc.ref;
     const toolRef = doc(db, "tools", toolId);
 
-    // 2. Perform the update in a transaction.
     await runTransaction(db, async (transaction) => {
         const toolDoc = await transaction.get(toolRef);
         if (!toolDoc.exists()) throw new Error("Tool not found.");
@@ -1962,7 +1967,7 @@ export async function returnTool(toolId: string, condition: Tool['condition'], n
         transaction.update(borrowRecordRef, {
             dateReturned: Timestamp.now(),
             returnCondition: condition,
-            notes: notes || activeBorrowRecord.notes,
+            notes: notes || activeBorrowRecordDoc.data().notes,
         });
         transaction.update(toolRef, { status, condition });
     });
@@ -1975,13 +1980,13 @@ export async function getToolHistory(toolId: string): Promise<ToolBorrowRecord[]
         const q = query(collection(db, "toolBorrowRecords"), where("toolId", "==", toolId));
         const snapshot = await getDocs(q);
         const records = snapshot.docs.map(doc => {
-            const data = doc.data() as Omit<ToolBorrowRecord, 'id' | 'dateBorrowed' | 'dateReturned' | 'dueDate'> & { dateBorrowed: Timestamp, dateReturned?: Timestamp, dueDate?: Timestamp };
+            const data = doc.data();
              return { 
                 id: doc.id, 
                 ...data,
-                dateBorrowed: data.dateBorrowed.toDate(),
-                dueDate: data.dueDate?.toDate(),
-                dateReturned: data.dateReturned?.toDate(),
+                dateBorrowed: (data.dateBorrowed as Timestamp).toDate(),
+                dueDate: data.dueDate ? (data.dueDate as Timestamp).toDate() : undefined,
+                dateReturned: data.dateReturned ? (data.dateReturned as Timestamp).toDate() : undefined,
             } as ToolBorrowRecord;
         });
         // Sort in application code to avoid composite index
