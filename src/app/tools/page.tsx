@@ -872,7 +872,7 @@ export default function ToolManagementPage() {
     
     {/* History Dialog */}
     <Dialog open={isHistoryDialogOpen} onOpenChange={(open) => !open && setHistoryTool(null)}>
-        <DialogContent>
+        <DialogContent className="max-w-2xl">
             <DialogHeader>
                 <DialogTitle>Borrow History: {historyTool?.name}</DialogTitle>
                 <DialogDescription>A log of who has borrowed this tool.</DialogDescription>
@@ -880,23 +880,26 @@ export default function ToolManagementPage() {
             <div className="max-h-96 overflow-y-auto -mx-6 px-6">
                  {historyLoading ? (
                     <div className="space-y-4">
-                        {Array.from({ length: 3 }).map((_, i) => <Skeleton key={i} className="h-12 w-full" />)}
+                        {Array.from({ length: 3 }).map((_, i) => <Skeleton key={i} className="h-20 w-full" />)}
                     </div>
                 ) : toolHistory.length > 0 ? (
                      <ul className="space-y-4">
                         {toolHistory.map(record => {
                             const isActive = !record.dateReturned;
                             return (
-                                <li key={record.id} className="flex items-start gap-4">
+                                <li key={record.id} className="flex items-start gap-4 p-3 border rounded-md">
                                     <div className="flex-1">
-                                        <p className="font-medium">{record.borrowedByName}</p>
-                                        <div className="text-sm text-muted-foreground space-y-1">
-                                        <p>Borrowed: {formatDate(record.dateBorrowed)}</p>
-                                        {record.dueDate && <p>Due: {formatDate(record.dueDate)}</p>}
-                                        {record.dateReturned && <p>Returned: {formatDate(record.dateReturned)}</p>}
-                                        {record.releasedBy && <p>Released by: {record.releasedBy}</p>}
+                                        <div className="flex justify-between items-start">
+                                            <p className="font-medium">{record.borrowedByName}</p>
+                                            {isActive && <Badge>In Use</Badge>}
                                         </div>
-                                        {record.notes && <p className="text-xs text-muted-foreground mt-1 border-l-2 pl-2">Note: {record.notes}</p>}
+                                        <div className="text-sm text-muted-foreground space-y-1 mt-1">
+                                          <p><strong>Borrowed:</strong> {formatDate(record.dateBorrowed)}</p>
+                                          {record.dueDate && <p><strong>Due:</strong> {formatDate(record.dueDate)}</p>}
+                                          {record.dateReturned && <p><strong>Returned:</strong> {formatDate(record.dateReturned)}</p>}
+                                          {record.releasedBy && <p><strong>Released by:</strong> {record.releasedBy}</p>}
+                                        </div>
+                                        {record.notes && <p className="text-xs text-muted-foreground mt-2 border-l-2 pl-2 italic">Note: {record.notes}</p>}
                                     </div>
                                 </li>
                             )
