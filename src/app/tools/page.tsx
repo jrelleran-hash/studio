@@ -53,7 +53,7 @@ import { Textarea } from "@/components/ui/textarea";
 
 import { useData } from "@/context/data-context";
 import { useAuth } from "@/hooks/use-auth";
-import { addTool, updateTool, deleteTool, borrowTool, returnTool, getToolHistory, assignToolForAccountability, recallTool } from "@/services/data-service";
+import { addTool, updateTool, deleteTool, borrowTool, returnTool, getToolHistory, assignToolForAccountability } from "@/services/data-service";
 import type { Tool, ToolBorrowRecord, UserProfile } from "@/types";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
@@ -119,7 +119,6 @@ export default function ToolManagementPage() {
   const [isBorrowDialogOpen, setIsBorrowDialogOpen] = useState(false);
   const [isReturnDialogOpen, setIsReturnDialogOpen] = useState(false);
   const [isAssignDialogOpen, setIsAssignDialogOpen] = useState(false);
-  const [isRecallDialogOpen, setIsRecallDialogOpen] = useState(false);
   const [isHistoryDialogOpen, setIsHistoryDialogOpen] = useState(false);
 
   const [editingTool, setEditingTool] = useState<Tool | null>(null);
@@ -127,10 +126,11 @@ export default function ToolManagementPage() {
   const [borrowingTool, setBorrowingTool] = useState<Tool | null>(null);
   const [returningTool, setReturningTool] = useState<Tool | null>(null);
   const [assigningTool, setAssigningTool] = useState<Tool | null>(null);
-  const [recallingTool, setRecallingTool] = useState<Tool | null>(null);
   const [historyTool, setHistoryTool] = useState<Tool | null>(null);
   const [toolHistory, setToolHistory] = useState<ToolBorrowRecord[]>([]);
   const [historyLoading, setHistoryLoading] = useState(false);
+  const [returnVerification, setReturnVerification] = useState<{tool: Tool, formData: ReturnFormValues} | null>(null);
+  const [verificationInput, setVerificationInput] = useState("");
 
   const toolForm = useForm<ToolFormValues>({
     resolver: zodResolver(toolSchema),
@@ -147,7 +147,6 @@ export default function ToolManagementPage() {
   useEffect(() => { if (borrowingTool) { borrowForm.reset(); setIsBorrowDialogOpen(true); } else { setIsBorrowDialogOpen(false); } }, [borrowingTool, borrowForm]);
   useEffect(() => { if (returningTool) { returnForm.reset({ condition: returningTool.condition }); setIsReturnDialogOpen(true); } else { setIsReturnDialogOpen(false); } }, [returningTool, returnForm]);
   useEffect(() => { if (assigningTool) { assignForm.reset(); setIsAssignDialogOpen(true); } else { setIsAssignDialogOpen(false); } }, [assigningTool, assignForm]);
-  useEffect(() => { if (recallingTool) { recallForm.reset({ condition: recallingTool.condition }); setIsRecallDialogOpen(true); } else { setIsRecallDialogOpen(false); } }, [recallingTool, recallForm]);
 
   useEffect(() => {
     if (historyTool) {
@@ -199,13 +198,26 @@ export default function ToolManagementPage() {
         toast({ variant: "destructive", title: "Error", description: errorMessage });
     }
   };
-
-  const onReturnSubmit = async (data: ReturnFormValues) => {
+  
+  const handleReturnVerification = (data: ReturnFormValues) => {
     if (!returningTool) return;
+    setReturnVerification({ tool: returningTool, formData: data });
+    setIsReturnDialogOpen(false);
+  };
+
+  const onReturnSubmit = async () => {
+    if (!returnVerification) return;
+    
+    if (verificationInput !== returnVerification.tool.serialNumber) {
+        toast({ variant: "destructive", title: "Verification Failed", description: "Serial number does not match."});
+        return;
+    }
+
     try {
-        await returnTool(returningTool.id, data.condition, data.notes);
+        await returnTool(returnVerification.tool.id, returnVerification.formData.condition, returnVerification.formData.notes);
         toast({ title: "Success", description: "Tool returned." });
-        setReturningTool(null);
+        setReturnVerification(null);
+        setVerificationInput("");
         await refetchData();
     } catch (error) {
         const errorMessage = error instanceof Error ? error.message : "Failed to return tool.";
@@ -222,19 +234,6 @@ export default function ToolManagementPage() {
       await refetchData();
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : "Failed to assign tool.";
-      toast({ variant: "destructive", title: "Error", description: errorMessage });
-    }
-  };
-
-  const onRecallSubmit = async (data: RecallFormValues) => {
-    if (!recallingTool) return;
-    try {
-      await recallTool(recallingTool.id, data.condition, data.notes);
-      toast({ title: "Success", description: "Tool recalled." });
-      setRecallingTool(null);
-      await refetchData();
-    } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : "Failed to recall tool.";
       toast({ variant: "destructive", title: "Error", description: errorMessage });
     }
   };
@@ -262,15 +261,6 @@ export default function ToolManagementPage() {
     if (tool.status === 'Assigned') return tool.assignedToUserName;
     if (tool.status === 'In Use') return tool.currentBorrowRecord?.borrowedByName;
     return 'N/A';
-  }
-
-  const handleRetrieveClick = (tool: Tool) => {
-    if (tool.status === 'In Use') {
-        setReturningTool(tool);
-    } else if (tool.status === 'Assigned') {
-        setRecallingTool(tool);
-    }
-    setIsHistoryDialogOpen(false);
   }
 
   return (
@@ -393,7 +383,7 @@ export default function ToolManagementPage() {
                         </DropdownMenuTrigger>
                         <DropdownMenuContent align="end">
                             <DropdownMenuLabel>Actions</DropdownMenuLabel>
-                             {tool.status === 'Available' ? (
+                            {tool.status === 'Available' && (
                                 <DropdownMenuSub>
                                     <DropdownMenuSubTrigger>
                                         <ArrowUpRight className="mr-2 h-4 w-4" /> Issue Tool
@@ -407,7 +397,12 @@ export default function ToolManagementPage() {
                                         </DropdownMenuItem>
                                     </DropdownMenuSubContent>
                                 </DropdownMenuSub>
-                            ) : null}
+                            )}
+                            {(tool.status === 'In Use' || tool.status === 'Assigned') && (
+                                <DropdownMenuItem onClick={() => setReturningTool(tool)}>
+                                    <ArrowDownRight className="mr-2 h-4 w-4" /> Retrieve Tool
+                                </DropdownMenuItem>
+                            )}
                             <DropdownMenuItem onClick={() => setEditingTool(tool)}>Edit</DropdownMenuItem>
                             <DropdownMenuItem onClick={() => setHistoryTool(tool)}>History</DropdownMenuItem>
                             <DropdownMenuSeparator />
@@ -535,7 +530,7 @@ export default function ToolManagementPage() {
                 <DialogTitle>Return Tool: {returningTool?.name}</DialogTitle>
                 <DialogDescription>Record the condition of the tool upon return.</DialogDescription>
             </DialogHeader>
-            <form onSubmit={returnForm.handleSubmit(onReturnSubmit)} className="space-y-4">
+            <form onSubmit={returnForm.handleSubmit(handleReturnVerification)} className="space-y-4">
                 <div className="space-y-2">
                     <Label htmlFor="return-condition">Return Condition</Label>
                     <Controller
@@ -563,6 +558,35 @@ export default function ToolManagementPage() {
                 </DialogFooter>
             </form>
         </DialogContent>
+    </Dialog>
+
+    {/* Return Verification Dialog */}
+    <Dialog open={!!returnVerification} onOpenChange={(open) => !open && setReturnVerification(null)}>
+      <DialogContent>
+        <DialogHeader>
+          <DialogTitle>Verify Tool Return</DialogTitle>
+          <DialogDescription>
+            To confirm you are returning the correct tool, please enter the serial number for{" "}
+            <strong>{returnVerification?.tool.name}</strong>.
+          </DialogDescription>
+        </DialogHeader>
+        <div className="space-y-4">
+          <p className="text-lg text-center font-mono bg-muted p-4 rounded-md">{returnVerification?.tool.serialNumber}</p>
+          <div className="space-y-2">
+            <Label htmlFor="verification-input">Enter Serial Number</Label>
+            <Input
+              id="verification-input"
+              value={verificationInput}
+              onChange={(e) => setVerificationInput(e.target.value)}
+              placeholder="Enter serial number to verify"
+            />
+          </div>
+        </div>
+        <DialogFooter>
+          <Button variant="outline" onClick={() => { setReturnVerification(null); setVerificationInput(""); }}>Cancel</Button>
+          <Button onClick={onReturnSubmit}>Submit Return</Button>
+        </DialogFooter>
+      </DialogContent>
     </Dialog>
     
     {/* Assign Accountability Dialog */}
@@ -598,43 +622,6 @@ export default function ToolManagementPage() {
             </form>
         </DialogContent>
     </Dialog>
-
-    {/* Recall Dialog */}
-    <Dialog open={isRecallDialogOpen} onOpenChange={(open) => !open && setRecallingTool(null)}>
-        <DialogContent>
-            <DialogHeader>
-                <DialogTitle>Recall Tool: {recallingTool?.name}</DialogTitle>
-                <DialogDescription>Recall this tool from the assigned user and update its condition.</DialogDescription>
-            </DialogHeader>
-            <form onSubmit={recallForm.handleSubmit(onRecallSubmit)} className="space-y-4">
-                <div className="space-y-2">
-                    <Label htmlFor="recall-condition">Condition on Recall</Label>
-                     <Controller
-                        name="condition"
-                        control={recallForm.control}
-                        render={({ field }) => (
-                            <Select onValueChange={field.onChange} defaultValue={field.value}>
-                                <SelectTrigger><SelectValue placeholder="Select condition" /></SelectTrigger>
-                                <SelectContent>
-                                    <SelectItem value="Good">Good</SelectItem>
-                                    <SelectItem value="Needs Repair">Needs Repair</SelectItem>
-                                    <SelectItem value="Damaged">Damaged</SelectItem>
-                                </SelectContent>
-                            </Select>
-                        )}
-                    />
-                </div>
-                 <div className="space-y-2">
-                    <Label htmlFor="recall-notes">Notes (Optional)</Label>
-                    <Textarea id="recall-notes" {...recallForm.register("notes")} />
-                </div>
-                 <DialogFooter>
-                    <Button type="button" variant="outline" onClick={() => setRecallingTool(null)}>Cancel</Button>
-                    <Button type="submit" disabled={recallForm.formState.isSubmitting}>Confirm Recall</Button>
-                </DialogFooter>
-            </form>
-        </DialogContent>
-    </Dialog>
     
     {/* History Dialog */}
     <Dialog open={isHistoryDialogOpen} onOpenChange={(open) => !open && setHistoryTool(null)}>
@@ -665,7 +652,7 @@ export default function ToolManagementPage() {
                                         {record.notes && <p className="text-xs text-muted-foreground mt-1 border-l-2 pl-2">Note: {record.notes}</p>}
                                     </div>
                                     {isActive && historyTool && (
-                                        <Button size="sm" variant="secondary" onClick={() => handleRetrieveClick(historyTool)}>
+                                        <Button size="sm" variant="secondary" onClick={() => setReturningTool(historyTool)}>
                                             <ArrowDownRight className="mr-2 h-4 w-4" />
                                             Retrieve
                                         </Button>
