@@ -1,7 +1,7 @@
 
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { ArrowUpRight, ShoppingCart, UserPlus, Package, Truck, RefreshCcw, ClipboardCheck } from "lucide-react";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
@@ -46,7 +46,7 @@ export function RecentActivity() {
   const [loading, setLoading] = useState(true);
   const { userProfile } = useAuth();
   
-  const userPermissions = React.useMemo(() => {
+  const userPermissions = useMemo(() => {
     if (!userProfile) return [];
     if (userProfile.role === 'Admin' || userProfile.role === 'Manager') {
         return navItemsPermissions.map(i => i.href);
