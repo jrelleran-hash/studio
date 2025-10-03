@@ -1,5 +1,4 @@
 
-
 "use client";
 
 import { useState, useEffect, useMemo, useCallback } from "react";
@@ -15,7 +14,7 @@ import { addOrder, addProduct, updateOrderStatus, deleteOrder, addSupplier } fro
 import type { Order, Client, Product, Supplier } from "@/types";
 import { Skeleton } from "../ui/skeleton";
 import { formatCurrency } from "@/lib/currency";
-import { PlusCircle, Plus, ChevronsUpDown, Check } from "lucide-react";
+import { PlusCircle, X, Plus, ChevronsUpDown, Check } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
@@ -27,7 +26,6 @@ import { Separator } from "../ui/separator";
 import { cn } from "@/lib/utils";
 import { useData } from "@/context/data-context";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "../ui/alert-dialog";
-import { X } from "lucide-react";
 
 
 const statusVariant: { [key: string]: "default" | "secondary" | "destructive" | "outline" } = {

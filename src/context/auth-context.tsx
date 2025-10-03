@@ -1,5 +1,4 @@
 
-
 "use client";
 
 import { createContext, useEffect, useState, ReactNode, useCallback, useMemo } from "react";
@@ -93,3 +92,5 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 }
+
+    
