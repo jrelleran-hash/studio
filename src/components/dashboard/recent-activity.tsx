@@ -1,7 +1,7 @@
 
 "use client";
 
-import { useState, useEffect, useMemo, useCallback } from "react";
+import React, { useState, useEffect, useMemo, useCallback } from "react";
 import { ArrowUpRight, ShoppingCart, UserPlus, Package, Trash2, CheckSquare } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
@@ -34,7 +34,7 @@ export function RecentActivity() {
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
   const { toast } = useToast();
   
-  const userPermissions = React.useMemo(() => {
+  const userPermissions = useMemo(() => {
     if (!userProfile) return [];
     if (userProfile.role === 'Admin' || userProfile.role === 'Manager') {
         return navItemsPermissions.map(i => i.href);
