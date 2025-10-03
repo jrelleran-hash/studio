@@ -61,7 +61,7 @@ export default function WarehousePage() {
                             </div>
                         </div>
                         <DialogFooter className="!justify-between">
-                            <Button variant="outline" onClick={() => setSelectedProduct(null)}>Close</Button>
+                             <Button variant="outline" onClick={() => setSelectedProduct(null)}>Close</Button>
                             <Button asChild>
                                 <Link href={`/inventory?edit=${selectedProduct.id}`}>Edit Product</Link>
                             </Button>
