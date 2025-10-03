@@ -5,7 +5,7 @@ import React, { useState, useEffect, useMemo } from "react";
 import { useForm, Controller } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
-import { PlusCircle, MoreHorizontal, Wrench, Calendar as CalendarIcon, User, History, ArrowUpRight, UserCheck } from "lucide-react";
+import { PlusCircle, MoreHorizontal, Wrench, Calendar as CalendarIcon, User, History, ArrowUpRight, UserCheck, ArrowDownRight } from "lucide-react";
 import { Timestamp } from "firebase/firestore";
 import { format } from "date-fns";
 
@@ -73,12 +73,25 @@ const borrowSchema = z.object({
 
 type BorrowFormValues = z.infer<typeof borrowSchema>;
 
+const returnSchema = z.object({
+    condition: z.enum(["Good", "Needs Repair", "Damaged"]),
+    notes: z.string().optional(),
+})
+type ReturnFormValues = z.infer<typeof returnSchema>;
+
 const assignSchema = z.object({
     assignedTo: z.string().min(1, "Please select who is accountable for the tool."),
     notes: z.string().optional(),
 });
 
 type AssignFormValues = z.infer<typeof assignSchema>;
+
+const recallSchema = z.object({
+    condition: z.enum(["Good", "Needs Repair", "Damaged"]),
+    notes: z.string().optional(),
+});
+type RecallFormValues = z.infer<typeof recallSchema>;
+
 
 const statusVariant: { [key: string]: "default" | "secondary" | "destructive" | "outline" } = {
   Available: "default",
@@ -101,13 +114,17 @@ export default function ToolManagementPage() {
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
   const [isBorrowDialogOpen, setIsBorrowDialogOpen] = useState(false);
+  const [isReturnDialogOpen, setIsReturnDialogOpen] = useState(false);
   const [isAssignDialogOpen, setIsAssignDialogOpen] = useState(false);
+  const [isRecallDialogOpen, setIsRecallDialogOpen] = useState(false);
   const [isHistoryDialogOpen, setIsHistoryDialogOpen] = useState(false);
 
   const [editingTool, setEditingTool] = useState<Tool | null>(null);
   const [deletingToolId, setDeletingToolId] = useState<string | null>(null);
   const [borrowingTool, setBorrowingTool] = useState<Tool | null>(null);
+  const [returningTool, setReturningTool] = useState<Tool | null>(null);
   const [assigningTool, setAssigningTool] = useState<Tool | null>(null);
+  const [recallingTool, setRecallingTool] = useState<Tool | null>(null);
   const [historyTool, setHistoryTool] = useState<Tool | null>(null);
   const [toolHistory, setToolHistory] = useState<ToolBorrowRecord[]>([]);
   const [historyLoading, setHistoryLoading] = useState(false);
@@ -118,12 +135,16 @@ export default function ToolManagementPage() {
   });
 
   const borrowForm = useForm<BorrowFormValues>();
+  const returnForm = useForm<ReturnFormValues>();
   const assignForm = useForm<AssignFormValues>();
+  const recallForm = useForm<RecallFormValues>();
 
   useEffect(() => { if (isAddDialogOpen) toolForm.reset({ condition: "Good" }); }, [isAddDialogOpen, toolForm]);
   useEffect(() => { if (editingTool) { toolForm.reset({ ...editingTool, purchaseDate: editingTool.purchaseDate ? new Date(editingTool.purchaseDate) : undefined }); setIsEditDialogOpen(true); } else { setIsEditDialogOpen(false); } }, [editingTool, toolForm]);
   useEffect(() => { if (borrowingTool) { borrowForm.reset(); setIsBorrowDialogOpen(true); } else { setIsBorrowDialogOpen(false); } }, [borrowingTool, borrowForm]);
+  useEffect(() => { if (returningTool) { returnForm.reset({ condition: returningTool.condition }); setIsReturnDialogOpen(true); } else { setIsReturnDialogOpen(false); } }, [returningTool, returnForm]);
   useEffect(() => { if (assigningTool) { assignForm.reset(); setIsAssignDialogOpen(true); } else { setIsAssignDialogOpen(false); } }, [assigningTool, assignForm]);
+  useEffect(() => { if (recallingTool) { recallForm.reset({ condition: recallingTool.condition }); setIsRecallDialogOpen(true); } else { setIsRecallDialogOpen(false); } }, [recallingTool, recallForm]);
 
   useEffect(() => {
     if (historyTool) {
@@ -175,6 +196,19 @@ export default function ToolManagementPage() {
     }
   };
 
+  const onReturnSubmit = async (data: ReturnFormValues) => {
+    if (!returningTool) return;
+    try {
+        await returnTool(returningTool.id, data.condition, data.notes);
+        toast({ title: "Success", description: "Tool returned." });
+        setReturningTool(null);
+        await refetchData();
+    } catch (error) {
+        const errorMessage = error instanceof Error ? error.message : "Failed to return tool.";
+        toast({ variant: "destructive", title: "Error", description: errorMessage });
+    }
+  };
+
   const onAssignSubmit = async (data: AssignFormValues) => {
     if (!assigningTool) return;
     try {
@@ -184,6 +218,19 @@ export default function ToolManagementPage() {
       await refetchData();
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : "Failed to assign tool.";
+      toast({ variant: "destructive", title: "Error", description: errorMessage });
+    }
+  };
+
+  const onRecallSubmit = async (data: RecallFormValues) => {
+    if (!recallingTool) return;
+    try {
+      await recallTool(recallingTool.id, data.condition, data.notes);
+      toast({ title: "Success", description: "Tool recalled." });
+      setRecallingTool(null);
+      await refetchData();
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : "Failed to recall tool.";
       toast({ variant: "destructive", title: "Error", description: errorMessage });
     }
   };
@@ -209,8 +256,20 @@ export default function ToolManagementPage() {
   
   const getCurrentUser = (tool: Tool) => {
     if (tool.status === 'Assigned') return tool.assignedToUserName;
-    if (tool.status === 'In Use' && tool.currentBorrowRecord) return tool.currentBorrowRecord.borrowedByName;
+    if (tool.status === 'In Use') {
+        const activeRecord = toolHistory.find(r => r.toolId === tool.id && !r.dateReturned);
+        return activeRecord?.borrowedByName;
+    }
     return 'N/A';
+  }
+
+  const handleRetrieveClick = (tool: Tool) => {
+    if (tool.status === 'In Use') {
+        setReturningTool(tool);
+    } else if (tool.status === 'Assigned') {
+        setRecallingTool(tool);
+    }
+    setIsHistoryDialogOpen(false);
   }
 
   return (
@@ -311,13 +370,15 @@ export default function ToolManagementPage() {
                         <TableCell className="text-right"><Skeleton className="h-8 w-8 ml-auto" /></TableCell>
                     </TableRow>
                 ))
-            ) : tools.map((tool) => (
+            ) : tools.map((tool) => {
+              const user = getCurrentUser(tool);
+              return (
               <TableRow key={tool.id}>
                 <TableCell className="font-medium">{tool.name}</TableCell>
                 <TableCell>{tool.serialNumber}</TableCell>
                 <TableCell><Badge variant={statusVariant[tool.status]}>{tool.status}</Badge></TableCell>
                 <TableCell><Badge variant={conditionVariant[tool.condition]}>{tool.condition}</Badge></TableCell>
-                <TableCell>{getCurrentUser(tool)}</TableCell>
+                <TableCell>{user}</TableCell>
                 <TableCell>{tool.status === 'In Use' && tool.currentBorrowRecord ? formatDate(tool.currentBorrowRecord?.dateBorrowed as Date) : 'N/A'}</TableCell>
                 <TableCell className="text-right">
                      <DropdownMenu>
@@ -351,7 +412,7 @@ export default function ToolManagementPage() {
                      </DropdownMenu>
                 </TableCell>
               </TableRow>
-            ))}
+            )})}
           </TableBody>
         </Table>
       </CardContent>
@@ -458,6 +519,43 @@ export default function ToolManagementPage() {
         </DialogContent>
     </Dialog>
     
+     {/* Return Dialog */}
+    <Dialog open={isReturnDialogOpen} onOpenChange={(open) => !open && setReturningTool(null)}>
+        <DialogContent>
+            <DialogHeader>
+                <DialogTitle>Return Tool: {returningTool?.name}</DialogTitle>
+                <DialogDescription>Record the condition of the tool upon return.</DialogDescription>
+            </DialogHeader>
+            <form onSubmit={returnForm.handleSubmit(onReturnSubmit)} className="space-y-4">
+                <div className="space-y-2">
+                    <Label htmlFor="return-condition">Return Condition</Label>
+                    <Controller
+                        name="condition"
+                        control={returnForm.control}
+                        render={({ field }) => (
+                            <Select onValueChange={field.onChange} defaultValue={field.value}>
+                                <SelectTrigger><SelectValue placeholder="Select condition" /></SelectTrigger>
+                                <SelectContent>
+                                    <SelectItem value="Good">Good</SelectItem>
+                                    <SelectItem value="Needs Repair">Needs Repair</SelectItem>
+                                    <SelectItem value="Damaged">Damaged</SelectItem>
+                                </SelectContent>
+                            </Select>
+                        )}
+                    />
+                </div>
+                <div className="space-y-2">
+                    <Label htmlFor="return-notes">Notes (Optional)</Label>
+                    <Textarea id="return-notes" {...returnForm.register("notes")} />
+                </div>
+                <DialogFooter>
+                    <Button type="button" variant="outline" onClick={() => setReturningTool(null)}>Cancel</Button>
+                    <Button type="submit" disabled={returnForm.formState.isSubmitting}>Confirm Return</Button>
+                </DialogFooter>
+            </form>
+        </DialogContent>
+    </Dialog>
+    
     {/* Assign Accountability Dialog */}
     <Dialog open={isAssignDialogOpen} onOpenChange={(open) => !open && setAssigningTool(null)}>
         <DialogContent>
@@ -491,6 +589,43 @@ export default function ToolManagementPage() {
             </form>
         </DialogContent>
     </Dialog>
+
+    {/* Recall Dialog */}
+    <Dialog open={isRecallDialogOpen} onOpenChange={(open) => !open && setRecallingTool(null)}>
+        <DialogContent>
+            <DialogHeader>
+                <DialogTitle>Recall Tool: {recallingTool?.name}</DialogTitle>
+                <DialogDescription>Recall this tool from the assigned user and update its condition.</DialogDescription>
+            </DialogHeader>
+            <form onSubmit={recallForm.handleSubmit(onRecallSubmit)} className="space-y-4">
+                <div className="space-y-2">
+                    <Label htmlFor="recall-condition">Condition on Recall</Label>
+                     <Controller
+                        name="condition"
+                        control={recallForm.control}
+                        render={({ field }) => (
+                            <Select onValueChange={field.onChange} defaultValue={field.value}>
+                                <SelectTrigger><SelectValue placeholder="Select condition" /></SelectTrigger>
+                                <SelectContent>
+                                    <SelectItem value="Good">Good</SelectItem>
+                                    <SelectItem value="Needs Repair">Needs Repair</SelectItem>
+                                    <SelectItem value="Damaged">Damaged</SelectItem>
+                                </SelectContent>
+                            </Select>
+                        )}
+                    />
+                </div>
+                 <div className="space-y-2">
+                    <Label htmlFor="recall-notes">Notes (Optional)</Label>
+                    <Textarea id="recall-notes" {...recallForm.register("notes")} />
+                </div>
+                 <DialogFooter>
+                    <Button type="button" variant="outline" onClick={() => setRecallingTool(null)}>Cancel</Button>
+                    <Button type="submit" disabled={recallForm.formState.isSubmitting}>Confirm Recall</Button>
+                </DialogFooter>
+            </form>
+        </DialogContent>
+    </Dialog>
     
     {/* History Dialog */}
     <Dialog open={isHistoryDialogOpen} onOpenChange={(open) => !open && setHistoryTool(null)}>
@@ -514,6 +649,12 @@ export default function ToolManagementPage() {
                                     {record.dateReturned && <p className="text-sm text-muted-foreground">Returned: {formatDate(record.dateReturned)}</p>}
                                     {record.notes && <p className="text-xs text-muted-foreground mt-1 border-l-2 pl-2">Note: {record.notes}</p>}
                                 </div>
+                                {!record.dateReturned && historyTool && (
+                                     <Button size="sm" variant="outline" onClick={() => handleRetrieveClick(historyTool)}>
+                                        <ArrowDownRight className="mr-2 h-4 w-4" />
+                                        Retrieve
+                                    </Button>
+                                )}
                             </li>
                         ))}
                     </ul>
@@ -543,3 +684,5 @@ export default function ToolManagementPage() {
     </>
   );
 }
+
+    
