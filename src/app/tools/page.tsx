@@ -216,7 +216,7 @@ export default function ToolManagementPage() {
 
     try {
         await returnTool(returnVerification.tool.id, returnVerification.formData.condition, returnVerification.formData.notes);
-        toast({ title: "Success", description: "Tool returned." });
+        toast({ title: "Success", description: `Tool state updated to: ${returnVerification.formData.condition}.` });
         setReturnVerification(null);
         setVerificationInput("");
         await refetchData();
@@ -284,6 +284,14 @@ export default function ToolManagementPage() {
   }
 
   const toolCategories = ["Hand Tool", "Power Tool", "Measuring Tool", "Safety Equipment", "Other"];
+
+  const returnCondition = returnForm.watch("condition");
+  const returnButtonText = useMemo(() => {
+    if (returnCondition === "Good") return "Confirm Return";
+    if (returnCondition === "Needs Repair") return "Transfer to Maintenance";
+    if (returnCondition === "Damaged") return "Forward to Waste Management";
+    return "Confirm Return";
+  }, [returnCondition]);
 
 
   return (
@@ -745,7 +753,7 @@ export default function ToolManagementPage() {
                 </div>
                 <DialogFooter>
                     <Button type="button" variant="outline" onClick={() => setReturningTool(null)}>Cancel</Button>
-                    <Button type="submit" disabled={returnForm.formState.isSubmitting}>Confirm Return</Button>
+                    <Button type="submit" disabled={returnForm.formState.isSubmitting}>{returnButtonText}</Button>
                 </DialogFooter>
             </form>
         </DialogContent>

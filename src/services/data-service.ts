@@ -1989,13 +1989,21 @@ export async function returnTool(toolId: string, condition: Tool['condition'], n
         const toolDoc = await transaction.get(toolRef);
         if (!toolDoc.exists()) throw new Error("Tool not found.");
         
-        const status = condition === 'Good' ? 'Available' : 'Under Maintenance';
+        let status: Tool['status'];
+        if (condition === "Good") {
+            status = "Available";
+        } else if (condition === "Needs Repair") {
+            status = "Under Maintenance";
+        } else { // Damaged
+            status = "Available"; // Or another status like 'Archived' - for now, make it available but damaged.
+        }
 
         transaction.update(borrowRecordRef, {
             dateReturned: Timestamp.now(),
             returnCondition: condition,
             notes: notes || activeBorrowRecordDoc.data().notes,
         });
+
         transaction.update(toolRef, { status, condition });
     });
 }
@@ -2153,6 +2161,7 @@ export async function disposeItemsAndTools(items: { id: string; type: 'product' 
 
 
     
+
 
 
 
