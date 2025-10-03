@@ -5,7 +5,7 @@ import { useState, useEffect, useMemo, useRef, useCallback } from "react";
 import { useForm, Controller } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
-import { PlusCircle, MoreHorizontal, Package, ChevronsUpDown, Check, Printer, FileDown, SlidersHorizontal, User, Search, QrCode } from "lucide-react";
+import { PlusCircle, MoreHorizontal, Package, ChevronsUpDown, Check, Printer, FileDown, SlidersHorizontal, User, Search } from "lucide-react";
 import { Button, buttonVariants } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
@@ -65,8 +65,6 @@ import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { CoreFlowLogo } from "@/components/icons";
 import { useSearchParams } from "next/navigation";
 import { useAuth } from "@/hooks/use-auth";
-import { toPng } from 'html-to-image';
-import QRCode from "qrcode.react";
 
 const categories: ProductCategory[] = ["Tools", "Consumables", "Raw Materials", "Finished Goods", "Other"];
 
@@ -163,10 +161,7 @@ export default function InventoryPage() {
   const [autoGenerateSku, setAutoGenerateSku] = useState(true);
   const [isSupplierPopoverOpen, setIsSupplierPopoverOpen] = useState(false);
   const [isAddSupplierOpen, setIsAddSupplierOpen] = useState(false);
-  const [qrCodeProduct, setQrCodeProduct] = useState<Product | null>(null);
   const searchParams = useSearchParams();
-
-  const qrCodeLabelRef = useRef<HTMLDivElement>(null);
 
   const canEditProduct = userProfile?.role === 'Admin' || userProfile?.role === 'Manager';
 
@@ -439,29 +434,6 @@ export default function InventoryPage() {
     link.click();
     document.body.removeChild(link);
   }
-  
-  const handleExportAsImage = useCallback(() => {
-    if (qrCodeLabelRef.current === null) {
-      return;
-    }
-
-    toPng(qrCodeLabelRef.current, { cacheBust: true, pixelRatio: 2 })
-      .then((dataUrl) => {
-        const link = document.createElement('a');
-        link.download = `${qrCodeProduct?.sku || 'product'}-qrcode.png`;
-        link.href = dataUrl;
-        link.click();
-      })
-      .catch((err) => {
-        console.log(err);
-        toast({
-          variant: "destructive",
-          title: "Export Failed",
-          description: "Could not export QR code as an image.",
-        });
-      });
-  }, [qrCodeLabelRef, qrCodeProduct, toast]);
-
 
   return (
     <>
@@ -747,10 +719,6 @@ export default function InventoryPage() {
                                       <SlidersHorizontal className="mr-2 h-4 w-4" />
                                       <span>Adjust Stock</span>
                                   </DropdownMenuItem>
-                                  <DropdownMenuItem onClick={() => setQrCodeProduct(product)}>
-                                      <QrCode className="mr-2 h-4 w-4" />
-                                      <span>View QR Code</span>
-                                  </DropdownMenuItem>
                                   <DropdownMenuSeparator />
                                   <DropdownMenuItem onClick={() => handleDeleteClick(product.id)} className="text-destructive">Delete</DropdownMenuItem>
                                 </DropdownMenuContent>
@@ -801,10 +769,6 @@ export default function InventoryPage() {
                                               <DropdownMenuItem onClick={() => setAdjustmentProduct(product)}>
                                                   <SlidersHorizontal className="mr-2 h-4 w-4" />
                                                   <span>Adjust Stock</span>
-                                              </DropdownMenuItem>
-                                                <DropdownMenuItem onClick={() => setQrCodeProduct(product)}>
-                                                  <QrCode className="mr-2 h-4 w-4" />
-                                                  <span>View QR Code</span>
                                               </DropdownMenuItem>
                                               <DropdownMenuSeparator />
                                               <DropdownMenuItem onClick={() => handleDeleteClick(product.id)} className="text-destructive">Delete</DropdownMenuItem>
@@ -1086,28 +1050,6 @@ export default function InventoryPage() {
                     </Button>
                 </DialogFooter>
             </form>
-        </DialogContent>
-      </Dialog>
-
-      <Dialog open={!!qrCodeProduct} onOpenChange={(open) => !open && setQrCodeProduct(null)}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>QR Code for {qrCodeProduct?.name}</DialogTitle>
-            <DialogDescription>
-              Scan this code to quickly access product information.
-            </DialogDescription>
-          </DialogHeader>
-          <div className="flex flex-col items-center justify-center p-4">
-              <div ref={qrCodeLabelRef} className="bg-white p-4 rounded-lg flex flex-col items-center gap-2">
-                <QRCode value={qrCodeProduct?.id || ''} size={256} />
-                <p className="font-bold text-black text-center">{qrCodeProduct?.name}</p>
-                <p className="text-sm text-gray-700">{qrCodeProduct?.sku}</p>
-              </div>
-          </div>
-          <DialogFooter>
-              <Button type="button" variant="outline" onClick={() => setQrCodeProduct(null)}>Close</Button>
-              <Button type="button" onClick={handleExportAsImage}>Download</Button>
-          </DialogFooter>
         </DialogContent>
       </Dialog>
     </>
