@@ -1873,18 +1873,25 @@ export async function getTools(): Promise<Tool[]> {
     }
 }
 
-export async function addTool(tool: Omit<Tool, 'id' | 'status' | 'currentBorrowRecord' | 'assignedToUserId' | 'assignedToUserName'>): Promise<DocumentReference> {
-    try {
-        const toolWithDefaults = {
-            ...tool,
-            status: 'Available' as const,
-            createdAt: Timestamp.now(),
-        };
-        return await addDoc(collection(db, "tools"), toolWithDefaults);
-    } catch (error) {
-        console.error("Error adding tool:", error);
-        throw new Error("Failed to add tool.");
-    }
+export async function addTool(tool: Partial<Omit<Tool, 'id' | 'status' | 'currentBorrowRecord' | 'assignedToUserId' | 'assignedToUserName' | 'createdAt'>>): Promise<DocumentReference> {
+  try {
+    const toolWithDefaults = {
+      name: tool.name || "Unnamed Tool",
+      serialNumber: tool.serialNumber || "",
+      category: tool.category || "Other",
+      condition: tool.condition || "Good",
+      purchaseDate: tool.purchaseDate || null,
+      purchaseCost: tool.purchaseCost || 0, // Ensure default value
+      borrowDuration: tool.borrowDuration || 7,
+      location: tool.location || {},
+      status: 'Available' as const,
+      createdAt: Timestamp.now(),
+    };
+    return await addDoc(collection(db, "tools"), toolWithDefaults);
+  } catch (error) {
+    console.error("Error adding tool:", error);
+    throw new Error("Failed to add tool.");
+  }
 }
 
 export async function updateTool(toolId: string, data: Partial<Omit<Tool, 'id'>>): Promise<void> {
@@ -1953,9 +1960,7 @@ export async function returnTool(toolId: string, condition: Tool['condition'], n
     if (snapshot.empty) {
         throw new Error("No active borrow record found for this tool.");
     }
-    // Even with a limit(1) in the original logic, multiple could exist in a race condition.
-    // We should be robust and handle the latest one.
-    const activeBorrowRecordDoc = snapshot.docs.sort((a,b) => b.data().dateBorrowed.toMillis() - a.data().dateBorrowed.toMillis())[0];
+    const activeBorrowRecordDoc = snapshot.docs[0];
     
     const borrowRecordRef = activeBorrowRecordDoc.ref;
     const toolRef = doc(db, "tools", toolId);
@@ -2051,6 +2056,5 @@ export async function recallTool(toolId: string, condition: Tool['condition'], n
 
     
 
-    
 
 
