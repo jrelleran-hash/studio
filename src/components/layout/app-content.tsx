@@ -29,13 +29,13 @@ export function AppContent({ children }: { children: ReactNode }) {
   return (
     <div className="flex min-h-screen w-full bg-background">
       <Sidebar 
-        className="hidden lg:flex fixed h-full z-50"
+        className="hidden md:flex fixed h-full z-50"
         isCollapsed={isCollapsed}
         setIsCollapsed={setIsCollapsed}
       />
       <div className={cn(
           "flex flex-1 flex-col transition-all duration-300",
-          isCollapsed ? "lg:pl-16" : "lg:pl-64"
+          isCollapsed ? "md:pl-16" : "md:pl-64"
         )} 
         id="main-content"
       >

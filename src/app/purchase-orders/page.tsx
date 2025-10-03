@@ -976,164 +976,106 @@ export default function PurchaseOrdersPage() {
                         <TabsTrigger value="reorder-items">Reorder Items ({reorderQueue.length})</TabsTrigger>
                     </TabsList>
                     <TabsContent value="client-orders">
-                         <div className="hidden md:block">
-                            <Table>
-                                <TableHeader>
-                                    <TableRow>
-                                        <TableHead className="w-12"><Checkbox checked={isAllClientQueueSelected} onCheckedChange={(checked) => handleQueueSelectAll(!!checked, clientOrderQueue)} aria-label="Select all client orders" /></TableHead>
-                                        <TableHead>Product</TableHead>
-                                        <TableHead>Client</TableHead>
-                                        <TableHead className="text-center">Needed</TableHead>
-                                        <TableHead>Source Order</TableHead>
-                                        <TableHead>Status</TableHead>
-                                    </TableRow>
-                                </TableHeader>
-                                <TableBody>
-                                    {loading ? (
-                                        Array.from({ length: 2 }).map((_, i) => (
-                                            <TableRow key={i}><TableCell colSpan={6}><Skeleton className="h-8 w-full" /></TableCell></TableRow>
-                                        ))
-                                    ) : clientOrderQueue.length > 0 ? (
-                                        clientOrderQueue.map((item) => (
-                                            <TableRow key={item.id} className={cn(item.status !== 'Pending' && 'text-muted-foreground')}>
-                                                <TableCell>
-                                                    <Checkbox 
-                                                        checked={purchaseQueueSelection[item.id] || false}
-                                                        onCheckedChange={(checked) => handleQueueSelectionChange(item.id, !!checked)}
-                                                        disabled={item.status !== 'Pending'}
-                                                    />
-                                                </TableCell>
-                                                <TableCell className="font-medium">{item.productName}</TableCell>
-                                                <TableCell>{(item as any).client?.clientName || 'N/A'}</TableCell>
-                                                <TableCell className="text-center">{item.quantity}</TableCell>
-                                                <TableCell><Badge variant="secondary" className="font-mono">{item.orderId.substring(0,7)}</Badge></TableCell>
-                                                <TableCell>
-                                                    <Badge variant={statusVariant[item.status] || 'default'}>
-                                                        {item.status}
-                                                    </Badge>
-                                                </TableCell>
-                                            </TableRow>
-                                        ))
-                                    ) : (
-                                        <TableRow><TableCell colSpan={6} className="h-24 text-center">No client backorders.</TableCell></TableRow>
-                                    )}
-                                </TableBody>
-                            </Table>
-                        </div>
-                        <div className="grid gap-4 md:hidden">
-                            {loading ? (
-                                Array.from({ length: 3 }).map((_, i) => (
-                                <Card key={i}><CardContent className="pt-6"><Skeleton className="h-5 w-full" /></CardContent></Card>
-                                ))
-                            ) : (
-                                clientOrderQueue.map((item) => (
-                                    <Card key={item.id}>
-                                    <CardHeader className="flex flex-row items-center gap-4">
-                                        <Checkbox 
-                                            checked={purchaseQueueSelection[item.id] || false}
-                                            onCheckedChange={(checked) => handleQueueSelectionChange(item.id, !!checked)}
-                                            disabled={item.status !== 'Pending'}
-                                        />
-                                        <div>
-                                        <CardTitle className="text-base">{item.productName}</CardTitle>
-                                        <CardDescription>Needed: {item.quantity}</CardDescription>
-                                        </div>
-                                    </CardHeader>
-                                    <CardContent className="text-sm">
-                                        <p>For: {(item as any).client?.clientName || 'N/A'}</p>
-                                        <p>Order: <Badge variant="secondary" className="font-mono">{item.orderId.substring(0,7)}</Badge></p>
-                                    </CardContent>
-                                    </Card>
-                                ))
-                            )}
-                        </div>
+                        <Table>
+                            <TableHeader>
+                                <TableRow>
+                                    <TableHead className="w-12"><Checkbox checked={isAllClientQueueSelected} onCheckedChange={(checked) => handleQueueSelectAll(!!checked, clientOrderQueue)} aria-label="Select all client orders" /></TableHead>
+                                    <TableHead>Product</TableHead>
+                                    <TableHead>Client</TableHead>
+                                    <TableHead className="text-center">Needed</TableHead>
+                                    <TableHead>Source Order</TableHead>
+                                    <TableHead>Status</TableHead>
+                                </TableRow>
+                            </TableHeader>
+                            <TableBody>
+                                {loading ? (
+                                    Array.from({ length: 2 }).map((_, i) => (
+                                        <TableRow key={i}><TableCell colSpan={6}><Skeleton className="h-8 w-full" /></TableCell></TableRow>
+                                    ))
+                                ) : clientOrderQueue.length > 0 ? (
+                                    clientOrderQueue.map((item) => (
+                                        <TableRow key={item.id} className={cn(item.status !== 'Pending' && 'text-muted-foreground')}>
+                                            <TableCell>
+                                                <Checkbox 
+                                                    checked={purchaseQueueSelection[item.id] || false}
+                                                    onCheckedChange={(checked) => handleQueueSelectionChange(item.id, !!checked)}
+                                                    disabled={item.status !== 'Pending'}
+                                                />
+                                            </TableCell>
+                                            <TableCell className="font-medium">{item.productName}</TableCell>
+                                            <TableCell>{(item as any).client?.clientName || 'N/A'}</TableCell>
+                                            <TableCell className="text-center">{item.quantity}</TableCell>
+                                            <TableCell><Badge variant="secondary" className="font-mono">{item.orderId.substring(0,7)}</Badge></TableCell>
+                                            <TableCell>
+                                                <Badge variant={statusVariant[item.status] || 'default'}>
+                                                    {item.status}
+                                                </Badge>
+                                            </TableCell>
+                                        </TableRow>
+                                    ))
+                                ) : (
+                                    <TableRow><TableCell colSpan={6} className="h-24 text-center">No client backorders.</TableCell></TableRow>
+                                )}
+                            </TableBody>
+                        </Table>
                     </TabsContent>
                     <TabsContent value="reorder-items">
-                         <div className="hidden md:block">
-                            <Table>
-                                <TableHeader>
-                                    <TableRow>
-                                        <TableHead className="w-12">
-                                        <Checkbox
-                                            checked={isAllReorderQueueSelected}
-                                            onCheckedChange={(checked) => handleReorderQueueSelectAll(!!checked, selectableReorderItems)}
-                                            aria-label="Select all reorder items"
-                                        />
-                                        </TableHead>
-                                        <TableHead>Product</TableHead>
-                                        <TableHead>SKU</TableHead>
-                                        <TableHead className="text-center">Reorder Qty</TableHead>
-                                        <TableHead>Status</TableHead>
-                                        <TableHead className="text-right">Actions</TableHead>
-                                    </TableRow>
-                                </TableHeader>
-                                <TableBody>
-                                    {loading ? (
-                                        Array.from({ length: 2 }).map((_, i) => (
-                                            <TableRow key={i}><TableCell colSpan={6}><Skeleton className="h-8 w-full" /></TableCell></TableRow>
-                                        ))
-                                    ) : reorderQueue.length > 0 ? (
-                                        reorderQueue.map((item) => (
-                                            <TableRow key={item.id} className={cn(item.status !== 'Pending' && 'text-muted-foreground')}>
-                                                <TableCell>
-                                                    <Checkbox
-                                                        checked={purchaseQueueSelection[item.id] || false}
-                                                        onCheckedChange={(checked) => handleQueueSelectionChange(item.id, !!checked)}
-                                                        disabled={item.status !== 'Pending'}
-                                                    />
-                                                </TableCell>
-                                                <TableCell className="font-medium">{item.productName}</TableCell>
-                                                <TableCell>{item.productSku}</TableCell>
-                                                <TableCell className="text-center">{item.quantity}</TableCell>
-                                                <TableCell>
-                                                    <Badge variant={statusVariant[item.status] || 'default'}>
-                                                        {item.status}
-                                                    </Badge>
-                                                </TableCell>
-                                                <TableCell className="text-right">
-                                                    <Button 
-                                                        variant="ghost" 
-                                                        size="icon"
-                                                        onClick={() => handleDeleteBackorderClick(item.id)}
-                                                    >
-                                                        <Trash2 className="h-4 w-4 text-destructive"/>
-                                                    </Button>
-                                                </TableCell>
-                                            </TableRow>
-                                        ))
-                                    ) : (
-                                        <TableRow><TableCell colSpan={6} className="h-24 text-center">No items need reordering.</TableCell></TableRow>
-                                    )}
-                                </TableBody>
-                            </Table>
-                         </div>
-                         <div className="grid gap-4 md:hidden">
-                            {loading ? (
-                                Array.from({ length: 3 }).map((_, i) => (
-                                    <Card key={i}><CardContent className="pt-6"><Skeleton className="h-5 w-full" /></CardContent></Card>
-                                ))
-                            ) : (
-                                reorderQueue.map((item) => (
-                                <Card key={item.id}>
-                                    <CardHeader className="flex flex-row items-center gap-4">
-                                        <Checkbox 
-                                            checked={purchaseQueueSelection[item.id] || false}
-                                            onCheckedChange={(checked) => handleQueueSelectionChange(item.id, !!checked)}
-                                            disabled={item.status !== 'Pending'}
-                                        />
-                                        <div>
-                                            <CardTitle className="text-base">{item.productName}</CardTitle>
-                                            <CardDescription>Reorder: {item.quantity}</CardDescription>
-                                        </div>
-                                    </CardHeader>
-                                    <CardContent className="text-sm">
-                                        <p>SKU: {item.productSku}</p>
-                                        <p>Status: <Badge variant={statusVariant[item.status] || 'default'}>{item.status}</Badge></p>
-                                    </CardContent>
-                                </Card>
-                                ))
-                            )}
-                        </div>
+                        <Table>
+                            <TableHeader>
+                                <TableRow>
+                                    <TableHead className="w-12">
+                                    <Checkbox
+                                        checked={isAllReorderQueueSelected}
+                                        onCheckedChange={(checked) => handleReorderQueueSelectAll(!!checked, selectableReorderItems)}
+                                        aria-label="Select all reorder items"
+                                    />
+                                    </TableHead>
+                                    <TableHead>Product</TableHead>
+                                    <TableHead>SKU</TableHead>
+                                    <TableHead className="text-center">Reorder Qty</TableHead>
+                                    <TableHead>Status</TableHead>
+                                    <TableHead className="text-right">Actions</TableHead>
+                                </TableRow>
+                            </TableHeader>
+                            <TableBody>
+                                {loading ? (
+                                    Array.from({ length: 2 }).map((_, i) => (
+                                        <TableRow key={i}><TableCell colSpan={6}><Skeleton className="h-8 w-full" /></TableCell></TableRow>
+                                    ))
+                                ) : reorderQueue.length > 0 ? (
+                                    reorderQueue.map((item) => (
+                                        <TableRow key={item.id} className={cn(item.status !== 'Pending' && 'text-muted-foreground')}>
+                                            <TableCell>
+                                                <Checkbox
+                                                    checked={purchaseQueueSelection[item.id] || false}
+                                                    onCheckedChange={(checked) => handleQueueSelectionChange(item.id, !!checked)}
+                                                    disabled={item.status !== 'Pending'}
+                                                />
+                                            </TableCell>
+                                            <TableCell className="font-medium">{item.productName}</TableCell>
+                                            <TableCell>{item.productSku}</TableCell>
+                                            <TableCell className="text-center">{item.quantity}</TableCell>
+                                            <TableCell>
+                                                <Badge variant={statusVariant[item.status] || 'default'}>
+                                                    {item.status}
+                                                </Badge>
+                                            </TableCell>
+                                            <TableCell className="text-right">
+                                                <Button 
+                                                    variant="ghost" 
+                                                    size="icon"
+                                                    onClick={() => handleDeleteBackorderClick(item.id)}
+                                                >
+                                                    <Trash2 className="h-4 w-4 text-destructive"/>
+                                                </Button>
+                                            </TableCell>
+                                        </TableRow>
+                                    ))
+                                ) : (
+                                    <TableRow><TableCell colSpan={6} className="h-24 text-center">No items need reordering.</TableCell></TableRow>
+                                )}
+                            </TableBody>
+                        </Table>
                     </TabsContent>
                  </Tabs>
               </CardContent>
@@ -1159,128 +1101,93 @@ export default function PurchaseOrdersPage() {
                 </div>
             </CardHeader>
             <CardContent>
-                <div className="hidden md:block">
-                  <Table>
-                    <TableHeader>
-                      <TableRow>
-                        <TableHead>PO Number</TableHead>
-                        <TableHead>Supplier</TableHead>
-                        <TableHead>Client / Project</TableHead>
-                        <TableHead>Order Date</TableHead>
-                        <TableHead>Status</TableHead>
-                        <TableHead className="text-right print-hidden">
-                          <span className="sr-only">Actions</span>
-                        </TableHead>
-                      </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                      {loading ? (
-                        Array.from({ length: 8 }).map((_, i) => (
-                          <TableRow key={i}>
-                            <TableCell><Skeleton className="h-4 w-24" /></TableCell>
-                            <TableCell><Skeleton className="h-4 w-32" /></TableCell>
-                              <TableCell><Skeleton className="h-4 w-32" /></TableCell>
-                            <TableCell><Skeleton className="h-4 w-24" /></TableCell>
-                            <TableCell><Skeleton className="h-6 w-20 rounded-full" /></TableCell>
-                            <TableCell className="text-right print-hidden"><Skeleton className="h-8 w-8 ml-auto" /></TableCell>
-                          </TableRow>
-                        ))
-                      ) : (
-                        purchaseOrders.map((po) => {
-                          const associatedReturn = outboundReturns.find(r => r.purchaseOrderId === po.id);
-                          const isReturnCompleted = associatedReturn?.status === 'Completed' || associatedReturn?.status === 'Cancelled';
-                          const displayStatus = associatedReturn && !isReturnCompleted ? `Return ${associatedReturn.status}` : po.status;
-                          const finalVariant = associatedReturn && !isReturnCompleted ? outboundReturnStatusVariant[associatedReturn.status] : statusVariant[po.status];
-                          
-                          return (
-                            <TableRow key={po.id} onClick={() => setSelectedPO(po)} className="cursor-pointer">
-                              <TableCell className="font-medium">{po.poNumber}</TableCell>
-                              <TableCell>{po.supplier.name}</TableCell>
-                              <TableCell>{po.client?.clientName || 'N/A'}</TableCell>
-                              <TableCell>{formatDateSimple(po.orderDate)}</TableCell>
-                              <TableCell>
-                                <Badge variant={finalVariant || "default"}>{displayStatus}</Badge>
-                              </TableCell>
-                              <TableCell className="text-right print-hidden">
-                                <DropdownMenu>
-                                  <DropdownMenuTrigger asChild>
-                                    <Button aria-haspopup="true" size="icon" variant="ghost" onClick={(e) => e.stopPropagation()}>
-                                      <MoreHorizontal />
-                                      <span className="sr-only">Toggle menu</span>
-                                    </Button>
-                                  </DropdownMenuTrigger>
-                                  <DropdownMenuContent align="end" onClick={(e) => e.stopPropagation()}>
-                                    <DropdownMenuLabel>Actions</DropdownMenuLabel>
-                                    <DropdownMenuItem onClick={() => setSelectedPO(po)}>View Details</DropdownMenuItem>
-                                    <DropdownMenuItem onClick={() => triggerPreview(po)}>
-                                      <Printer className="mr-2" />
-                                      Print PO
-                                    </DropdownMenuItem>
-                                    <DropdownMenuSeparator />
-                                    {po.status === 'Pending' && (
-                                        <DropdownMenuItem onClick={() => handlePOStatusChange(po.id, 'Shipped')}>
-                                        Mark as Shipped
-                                        </DropdownMenuItem>
-                                    )}
-                                    {po.status === 'Shipped' && (
-                                        <DropdownMenuItem onClick={() => handlePOStatusChange(po.id, 'Delivered')}>
-                                        Mark as Delivered
-                                        </DropdownMenuItem>
-                                    )}
-                                    {po.status === 'Delivered' && <DropdownMenuItem disabled>Awaiting Inspection</DropdownMenuItem>}
-                                    {po.status === 'Completed' && (
-                                        <DropdownMenuItem onClick={() => setPoForReturn(po)}>
-                                          <RefreshCcw className="mr-2" />
-                                          Return Items
-                                        </DropdownMenuItem>
-                                    )}
-                                    <DropdownMenuSeparator />
-                                    <DropdownMenuItem onClick={() => handleDeletePOClick(po.id)} className="text-destructive">
-                                        Delete
-                                    </DropdownMenuItem>
-                                  </DropdownMenuContent>
-                                </DropdownMenu>
-                              </TableCell>
-                            </TableRow>
-                          )
-                        })
-                      )}
-                    </TableBody>
-                  </Table>
-                </div>
-                <div className="grid gap-4 md:hidden">
-                  {loading ? (
-                        Array.from({ length: 5 }).map((_, i) => (
-                          <Card key={i}><CardHeader><Skeleton className="h-5 w-3/4" /></CardHeader><CardContent><Skeleton className="h-4 w-full" /></CardContent></Card>
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>PO Number</TableHead>
+                      <TableHead>Supplier</TableHead>
+                      <TableHead className="hidden md:table-cell">Client / Project</TableHead>
+                      <TableHead className="hidden sm:table-cell">Order Date</TableHead>
+                      <TableHead>Status</TableHead>
+                      <TableHead className="text-right print-hidden">
+                        <span className="sr-only">Actions</span>
+                      </TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {loading ? (
+                      Array.from({ length: 8 }).map((_, i) => (
+                        <TableRow key={i}>
+                          <TableCell><Skeleton className="h-4 w-24" /></TableCell>
+                          <TableCell><Skeleton className="h-4 w-32" /></TableCell>
+                            <TableCell className="hidden md:table-cell"><Skeleton className="h-4 w-32" /></TableCell>
+                          <TableCell className="hidden sm:table-cell"><Skeleton className="h-4 w-24" /></TableCell>
+                          <TableCell><Skeleton className="h-6 w-20 rounded-full" /></TableCell>
+                          <TableCell className="text-right print-hidden"><Skeleton className="h-8 w-8 ml-auto" /></TableCell>
+                        </TableRow>
                       ))
-                  ): (
+                    ) : (
                       purchaseOrders.map((po) => {
-                          const associatedReturn = outboundReturns.find(r => r.purchaseOrderId === po.id);
-                          const isReturnCompleted = associatedReturn?.status === 'Completed' || associatedReturn?.status === 'Cancelled';
-                          const displayStatus = associatedReturn && !isReturnCompleted ? `Return ${associatedReturn.status}` : po.status;
-                          const finalVariant = associatedReturn && !isReturnCompleted ? outboundReturnStatusVariant[associatedReturn.status] : statusVariant[po.status];
-                          return (
-                              <Card key={po.id} onClick={() => setSelectedPO(po)} className="cursor-pointer">
-                                  <CardHeader>
-                                      <div className="flex justify-between items-start">
-                                          <div>
-                                              <CardTitle className="text-base">{po.poNumber}</CardTitle>
-                                              <CardDescription>{po.supplier.name}</CardDescription>
-                                          </div>
-                                            <Badge variant={finalVariant || "default"}>{displayStatus}</Badge>
-                                      </div>
-                                  </CardHeader>
-                                  <CardContent>
-                                      <p className="text-sm">For: {po.client?.clientName || 'Stock'}</p>
-                                  </CardContent>
-                                  <CardFooter className="text-xs text-muted-foreground">
-                                      Ordered: {formatDateSimple(po.orderDate)}
-                                  </CardFooter>
-                              </Card>
-                          )
+                        const associatedReturn = outboundReturns.find(r => r.purchaseOrderId === po.id);
+                        const isReturnCompleted = associatedReturn?.status === 'Completed' || associatedReturn?.status === 'Cancelled';
+                        const displayStatus = associatedReturn && !isReturnCompleted ? `Return ${associatedReturn.status}` : po.status;
+                        const finalVariant = associatedReturn && !isReturnCompleted ? outboundReturnStatusVariant[associatedReturn.status] : statusVariant[po.status];
+                        
+                        return (
+                          <TableRow key={po.id} onClick={() => setSelectedPO(po)} className="cursor-pointer">
+                            <TableCell className="font-medium">{po.poNumber}</TableCell>
+                            <TableCell>{po.supplier.name}</TableCell>
+                            <TableCell className="hidden md:table-cell">{po.client?.clientName || 'N/A'}</TableCell>
+                            <TableCell className="hidden sm:table-cell">{formatDateSimple(po.orderDate)}</TableCell>
+                            <TableCell>
+                              <Badge variant={finalVariant || "default"}>{displayStatus}</Badge>
+                            </TableCell>
+                            <TableCell className="text-right print-hidden">
+                              <DropdownMenu>
+                                <DropdownMenuTrigger asChild>
+                                  <Button aria-haspopup="true" size="icon" variant="ghost" onClick={(e) => e.stopPropagation()}>
+                                    <MoreHorizontal />
+                                    <span className="sr-only">Toggle menu</span>
+                                  </Button>
+                                </DropdownMenuTrigger>
+                                <DropdownMenuContent align="end" onClick={(e) => e.stopPropagation()}>
+                                  <DropdownMenuLabel>Actions</DropdownMenuLabel>
+                                  <DropdownMenuItem onClick={() => setSelectedPO(po)}>View Details</DropdownMenuItem>
+                                  <DropdownMenuItem onClick={() => triggerPreview(po)}>
+                                    <Printer className="mr-2" />
+                                    Print PO
+                                  </DropdownMenuItem>
+                                  <DropdownMenuSeparator />
+                                  {po.status === 'Pending' && (
+                                      <DropdownMenuItem onClick={() => handlePOStatusChange(po.id, 'Shipped')}>
+                                      Mark as Shipped
+                                      </DropdownMenuItem>
+                                  )}
+                                  {po.status === 'Shipped' && (
+                                      <DropdownMenuItem onClick={() => handlePOStatusChange(po.id, 'Delivered')}>
+                                      Mark as Delivered
+                                      </DropdownMenuItem>
+                                  )}
+                                  {po.status === 'Delivered' && <DropdownMenuItem disabled>Awaiting Inspection</DropdownMenuItem>}
+                                  {po.status === 'Completed' && (
+                                      <DropdownMenuItem onClick={() => setPoForReturn(po)}>
+                                        <RefreshCcw className="mr-2" />
+                                        Return Items
+                                      </DropdownMenuItem>
+                                  )}
+                                  <DropdownMenuSeparator />
+                                  <DropdownMenuItem onClick={() => handleDeletePOClick(po.id)} className="text-destructive">
+                                      Delete
+                                  </DropdownMenuItem>
+                                </DropdownMenuContent>
+                              </DropdownMenu>
+                            </TableCell>
+                          </TableRow>
+                        )
                       })
-                  )}
-                </div>
+                    )}
+                  </TableBody>
+                </Table>
             </CardContent>
           </Card>
       )}

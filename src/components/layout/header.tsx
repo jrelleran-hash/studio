@@ -29,7 +29,7 @@ export function Header() {
 
   return (
     <header className="flex h-16 items-center gap-4 border-b bg-card px-4 md:px-6 sticky top-0 z-40">
-      <div className="lg:hidden">
+      <div className="md:hidden">
           <Sheet>
             <SheetTrigger asChild>
               <Button variant="outline" size="icon" className="shrink-0">
@@ -44,7 +44,7 @@ export function Header() {
       </div>
       
       <div className="w-full flex-1">
-        <div className="hidden lg:block">
+        <div className="hidden md:block">
             <GlobalSearch />
         </div>
       </div>

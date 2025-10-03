@@ -295,98 +295,59 @@ export default function SuppliersPage() {
           <CardDescription>A list of all your product suppliers.</CardDescription>
         </CardHeader>
         <CardContent>
-            <div className="hidden md:block">
-                <Table>
-                <TableHeader>
-                    <TableRow>
-                    <TableHead>Supplier Name</TableHead>
-                    <TableHead>Contact Person</TableHead>
-                    <TableHead>Email</TableHead>
-                    <TableHead>Phone</TableHead>
-                    <TableHead>Cellphone #</TableHead>
-                    <TableHead>Date Added</TableHead>
-                    <TableHead className="text-right">
-                        <span className="sr-only">Actions</span>
-                    </TableHead>
-                    </TableRow>
-                </TableHeader>
-                <TableBody>
-                    {loading ? (
-                    Array.from({ length: 8 }).map((_, i) => (
-                        <TableRow key={i}>
-                        <TableCell><Skeleton className="h-4 w-48" /></TableCell>
-                        <TableCell><Skeleton className="h-4 w-32" /></TableCell>
-                        <TableCell><Skeleton className="h-4 w-48" /></TableCell>
-                        <TableCell><Skeleton className="h-4 w-24" /></TableCell>
-                        <TableCell><Skeleton className="h-4 w-24" /></TableCell>
-                        <TableCell><Skeleton className="h-4 w-24" /></TableCell>
-                        <TableCell><Skeleton className="h-8 w-8 ml-auto" /></TableCell>
-                        </TableRow>
-                    ))
-                    ) : (
-                    suppliers.map((supplier) => (
-                        <TableRow key={supplier.id} onClick={() => handleEditSupplierClick(supplier)} className="cursor-pointer">
-                        <TableCell className="font-medium">{supplier.name}</TableCell>
-                        <TableCell>{supplier.contactPerson}</TableCell>
-                        <TableCell>{supplier.email}</TableCell>
-                        <TableCell>{supplier.phone}</TableCell>
-                        <TableCell>{supplier.cellphoneNumber || 'N/A'}</TableCell>
-                        <TableCell>{formatDate(supplier.createdAt)}</TableCell>
-                        <TableCell className="text-right">
-                            <DropdownMenu>
-                            <DropdownMenuTrigger asChild>
-                                <Button aria-haspopup="true" size="icon" variant="ghost" onClick={(e) => e.stopPropagation()}>
-                                <MoreHorizontal />
-                                <span className="sr-only">Toggle menu</span>
-                                </Button>
-                            </DropdownMenuTrigger>
-                            <DropdownMenuContent align="end" onClick={(e) => e.stopPropagation()}>
-                                <DropdownMenuLabel>Actions</DropdownMenuLabel>
-                                <DropdownMenuItem onClick={() => handleEditSupplierClick(supplier)}>Edit</DropdownMenuItem>
-                                <DropdownMenuItem onClick={() => handleDeleteSupplierClick(supplier.id)} className="text-destructive">Delete</DropdownMenuItem>
-                            </DropdownMenuContent>
-                            </DropdownMenu>
-                        </TableCell>
-                        </TableRow>
-                    ))
-                    )}
-                </TableBody>
-                </Table>
-            </div>
-              <div className="grid gap-4 md:hidden">
+            <Table>
+              <TableHeader>
+                  <TableRow>
+                  <TableHead>Supplier Name</TableHead>
+                  <TableHead className="hidden sm:table-cell">Contact Person</TableHead>
+                  <TableHead className="hidden lg:table-cell">Email</TableHead>
+                  <TableHead className="hidden md:table-cell">Phone</TableHead>
+                  <TableHead>
+                      <span className="sr-only">Actions</span>
+                  </TableHead>
+                  </TableRow>
+              </TableHeader>
+              <TableBody>
                   {loading ? (
-                    Array.from({ length: 5 }).map((_, i) => (
-                        <Card key={i}><CardHeader><Skeleton className="h-5 w-3/4" /></CardHeader><CardContent><Skeleton className="h-4 w-full" /></CardContent></Card>
-                    ))
-                ) : (
-                    suppliers.map((supplier) => (
-                        <Card key={supplier.id} onClick={() => handleEditSupplierClick(supplier)} className="cursor-pointer">
-                            <CardHeader>
-                                <div className="flex justify-between items-start">
-                                    <div>
-                                        <CardTitle className="text-base">{supplier.name}</CardTitle>
-                                        <CardDescription>{supplier.contactPerson}</CardDescription>
-                                    </div>
-                                    <DropdownMenu>
-                                        <DropdownMenuTrigger asChild>
-                                            <Button size="icon" variant="ghost" onClick={(e) => e.stopPropagation()}><MoreHorizontal /></Button>
-                                        </DropdownMenuTrigger>
-                                        <DropdownMenuContent align="end" onClick={(e) => e.stopPropagation()}>
-                                            <DropdownMenuLabel>Actions</DropdownMenuLabel>
-                                            <DropdownMenuItem onClick={() => handleEditSupplierClick(supplier)}>Edit</DropdownMenuItem>
-                                            <DropdownMenuItem onClick={() => handleDeleteSupplierClick(supplier.id)} className="text-destructive">Delete</DropdownMenuItem>
-                                        </DropdownMenuContent>
-                                    </DropdownMenu>
-                                </div>
-                            </CardHeader>
-                            <CardContent className="text-sm">
-                                <p>{supplier.email}</p>
-                                <p>{supplier.phone}</p>
-                            </CardContent>
-                          </Card>
-                    ))
-                )}
-              </div>
+                  Array.from({ length: 8 }).map((_, i) => (
+                      <TableRow key={i}>
+                      <TableCell><Skeleton className="h-4 w-48" /></TableCell>
+                      <TableCell className="hidden sm:table-cell"><Skeleton className="h-4 w-32" /></TableCell>
+                      <TableCell className="hidden lg:table-cell"><Skeleton className="h-4 w-48" /></TableCell>
+                      <TableCell className="hidden md:table-cell"><Skeleton className="h-4 w-24" /></TableCell>
+                      <TableCell><Skeleton className="h-8 w-8 ml-auto" /></TableCell>
+                      </TableRow>
+                  ))
+                  ) : (
+                  suppliers.map((supplier) => (
+                      <TableRow key={supplier.id} onClick={() => handleEditSupplierClick(supplier)} className="cursor-pointer">
+                      <TableCell>
+                          <div className="font-medium">{supplier.name}</div>
+                          <div className="text-sm text-muted-foreground sm:hidden">{supplier.contactPerson}</div>
+                      </TableCell>
+                      <TableCell className="hidden sm:table-cell">{supplier.contactPerson}</TableCell>
+                      <TableCell className="hidden lg:table-cell">{supplier.email}</TableCell>
+                      <TableCell className="hidden md:table-cell">{supplier.phone || supplier.cellphoneNumber}</TableCell>
+                      <TableCell className="text-right">
+                          <DropdownMenu>
+                          <DropdownMenuTrigger asChild>
+                              <Button aria-haspopup="true" size="icon" variant="ghost" onClick={(e) => e.stopPropagation()}>
+                              <MoreHorizontal />
+                              <span className="sr-only">Toggle menu</span>
+                              </Button>
+                          </DropdownMenuTrigger>
+                          <DropdownMenuContent align="end" onClick={(e) => e.stopPropagation()}>
+                              <DropdownMenuLabel>Actions</DropdownMenuLabel>
+                              <DropdownMenuItem onClick={() => handleEditSupplierClick(supplier)}>Edit</DropdownMenuItem>
+                              <DropdownMenuItem onClick={() => handleDeleteSupplierClick(supplier.id)} className="text-destructive">Delete</DropdownMenuItem>
+                          </DropdownMenuContent>
+                          </DropdownMenu>
+                      </TableCell>
+                      </TableRow>
+                  ))
+                  )}
+              </TableBody>
+            </Table>
         </CardContent>
     </Card>
       

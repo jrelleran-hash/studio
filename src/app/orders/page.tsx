@@ -551,112 +551,86 @@ export default function OrdersPage() {
         <CardDescription>A complete history of all requisitions, new and old.</CardDescription>
       </CardHeader>
       <CardContent>
-        <div className="hidden md:block">
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Order</TableHead>
-                  <TableHead>Client</TableHead>
-                  <TableHead>Date</TableHead>
-                  <TableHead>Status</TableHead>
-                  <TableHead className="text-right">Total</TableHead>
-                  <TableHead>
-                    <span className="sr-only">Actions</span>
-                  </TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {loading ? (
-                  Array.from({ length: 8 }).map((_, i) => (
-                    <TableRow key={i}>
-                      <TableCell><Skeleton className="h-4 w-24" /></TableCell>
-                      <TableCell><Skeleton className="h-4 w-32" /></TableCell>
-                      <TableCell><Skeleton className="h-4 w-24" /></TableCell>
-                      <TableCell><Skeleton className="h-6 w-20 rounded-full" /></TableCell>
-                      <TableCell className="text-right"><Skeleton className="h-4 w-16 ml-auto" /></TableCell>
-                      <TableCell><Skeleton className="h-8 w-8 ml-auto" /></TableCell>
-                    </TableRow>
-                  ))
-                ) : (
-                  orders.map((order) => (
-                    <TableRow key={order.id} onClick={() => setSelectedOrder(order)} className="cursor-pointer">
-                      <TableCell className="font-medium">{order.id.substring(0, 7)}</TableCell>
-                      <TableCell>{order.client.clientName}</TableCell>
-                      <TableCell>{formatDateSimple(order.date)}</TableCell>
-                      <TableCell>
-                        <Badge variant={statusVariant[order.status] || "default"}>{order.status}</Badge>
-                      </TableCell>
-                      <TableCell className="text-right">{formatCurrency(order.total)}</TableCell>
-                      <TableCell className="text-right">
-                        <DropdownMenu>
-                          <DropdownMenuTrigger asChild>
-                            <Button aria-haspopup="true" size="icon" variant="ghost" onClick={(e) => e.stopPropagation()}>
-                              <MoreHorizontal />
-                              <span className="sr-only">Toggle menu</span>
-                            </Button>
-                          </DropdownMenuTrigger>
-                          <DropdownMenuContent align="end" onClick={(e) => e.stopPropagation()}>
-                            <DropdownMenuLabel>Actions</DropdownMenuLabel>
-                            <DropdownMenuItem onClick={() => setSelectedOrder(order)}>
-                                View Details
-                            </DropdownMenuItem>
-                            <DropdownMenuItem
-                              onClick={() => handleViewIssuance(order)}
-                              disabled={!['Fulfilled', 'Partially Fulfilled', 'Shipped', 'Completed', 'Delivered'].includes(order.status)}
-                            >
-                                View Issuance Details
-                            </DropdownMenuItem>
-                            <DropdownMenuSeparator />
-                              {order.status === 'Cancelled' ? (
-                                <DropdownMenuItem 
-                                  onClick={() => handleReorder(order)} 
-                                  disabled={isReordered}
-                                >
-                                  {isReordered ? 'Already Reordered' : 'Reorder'}
-                                </DropdownMenuItem>
-                            ) : (
-                                <></>
-                            )}
-                              <DropdownMenuSeparator />
-                              <DropdownMenuItem onClick={() => handleDeleteOrderClick(order.id)} className="text-destructive">
-                                Delete
-                            </DropdownMenuItem>
-                          </DropdownMenuContent>
-                        </DropdownMenu>
-                      </TableCell>
-                    </TableRow>
-                  ))
-                )}
-              </TableBody>
-            </Table>
-        </div>
-        <div className="grid gap-4 md:hidden">
-            {loading ? (
-                Array.from({ length: 5 }).map((_, i) => (
-                    <Card key={i}><CardHeader><Skeleton className="h-5 w-3/4" /></CardHeader><CardContent><Skeleton className="h-4 w-full" /></CardContent></Card>
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>Order</TableHead>
+                <TableHead>Client</TableHead>
+                <TableHead className="hidden sm:table-cell">Date</TableHead>
+                <TableHead className="hidden md:table-cell">Status</TableHead>
+                <TableHead className="text-right">Total</TableHead>
+                <TableHead>
+                  <span className="sr-only">Actions</span>
+                </TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {loading ? (
+                Array.from({ length: 8 }).map((_, i) => (
+                  <TableRow key={i}>
+                    <TableCell><Skeleton className="h-4 w-24" /></TableCell>
+                    <TableCell><Skeleton className="h-4 w-32" /></TableCell>
+                    <TableCell className="hidden sm:table-cell"><Skeleton className="h-4 w-24" /></TableCell>
+                    <TableCell className="hidden md:table-cell"><Skeleton className="h-6 w-20 rounded-full" /></TableCell>
+                    <TableCell className="text-right"><Skeleton className="h-4 w-16 ml-auto" /></TableCell>
+                    <TableCell><Skeleton className="h-8 w-8 ml-auto" /></TableCell>
+                  </TableRow>
                 ))
-            ) : (
+              ) : (
                 orders.map((order) => (
-                    <Card key={order.id} onClick={() => setSelectedOrder(order)} className="cursor-pointer">
-                        <CardHeader>
-                            <div className="flex justify-between items-start">
-                                <div>
-                                    <CardTitle className="text-base">Order {order.id.substring(0, 7)}</CardTitle>
-                                    <CardDescription>{order.client.clientName}</CardDescription>
-                                </div>
-                                <Badge variant={statusVariant[order.status] || "default"}>{order.status}</Badge>
-                            </div>
-                        </CardHeader>
-                        <CardContent>
-                            <p className="font-semibold">{formatCurrency(order.total)}</p>
-                        </CardContent>
-                        <CardFooter className="text-xs text-muted-foreground">
-                            {formatDateSimple(order.date)}
-                        </CardFooter>
-                    </Card>
+                  <TableRow key={order.id} onClick={() => setSelectedOrder(order)} className="cursor-pointer">
+                    <TableCell>
+                      <div className="font-medium">{order.id.substring(0, 7)}</div>
+                      <div className="text-sm text-muted-foreground md:hidden">{order.status}</div>
+                    </TableCell>
+                    <TableCell>{order.client.clientName}</TableCell>
+                    <TableCell className="hidden sm:table-cell">{formatDateSimple(order.date)}</TableCell>
+                    <TableCell className="hidden md:table-cell">
+                      <Badge variant={statusVariant[order.status] || "default"}>{order.status}</Badge>
+                    </TableCell>
+                    <TableCell className="text-right">{formatCurrency(order.total)}</TableCell>
+                    <TableCell className="text-right">
+                      <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                          <Button aria-haspopup="true" size="icon" variant="ghost" onClick={(e) => e.stopPropagation()}>
+                            <MoreHorizontal />
+                            <span className="sr-only">Toggle menu</span>
+                          </Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end" onClick={(e) => e.stopPropagation()}>
+                          <DropdownMenuLabel>Actions</DropdownMenuLabel>
+                          <DropdownMenuItem onClick={() => setSelectedOrder(order)}>
+                              View Details
+                          </DropdownMenuItem>
+                          <DropdownMenuItem
+                            onClick={() => handleViewIssuance(order)}
+                            disabled={!['Fulfilled', 'Partially Fulfilled', 'Shipped', 'Completed', 'Delivered'].includes(order.status)}
+                          >
+                              View Issuance Details
+                          </DropdownMenuItem>
+                          <DropdownMenuSeparator />
+                            {order.status === 'Cancelled' ? (
+                              <DropdownMenuItem 
+                                onClick={() => handleReorder(order)} 
+                                disabled={isReordered}
+                              >
+                                {isReordered ? 'Already Reordered' : 'Reorder'}
+                              </DropdownMenuItem>
+                          ) : (
+                              <></>
+                          )}
+                            <DropdownMenuSeparator />
+                            <DropdownMenuItem onClick={() => handleDeleteOrderClick(order.id)} className="text-destructive">
+                              Delete
+                          </DropdownMenuItem>
+                        </DropdownMenuContent>
+                      </DropdownMenu>
+                    </TableCell>
+                  </TableRow>
                 ))
-            )}
-        </div>
+              )}
+            </TableBody>
+          </Table>
       </CardContent>
     </Card>
     
@@ -1009,5 +983,3 @@ export default function OrdersPage() {
     </>
   );
 }
-
-    

@@ -190,7 +190,7 @@ export function Sidebar({ className, inSheet, isCollapsed, setIsCollapsed }: Sid
         className
     )}>
       <div className="flex h-full max-h-screen flex-col gap-2 relative">
-        <div className={cn("flex h-16 items-center border-b px-6", inSheet ? "flex" : "lg:flex", isCollapsed && "justify-center px-2")}>
+        <div className={cn("flex h-16 items-center border-b px-6", inSheet ? "flex" : "md:flex", isCollapsed && "justify-center px-2")}>
           <Link href="/" className="flex items-center gap-2 font-semibold font-headline">
             <CoreFlowLogo className="h-6 w-6 text-primary" />
             <span className={cn(isCollapsed && "hidden")}>CoreFlow</span>
@@ -201,7 +201,7 @@ export function Sidebar({ className, inSheet, isCollapsed, setIsCollapsed }: Sid
              <Button 
                 variant="ghost" 
                 size="icon" 
-                className="absolute -right-4 top-16 h-8 w-8 rounded-full border bg-card hover:bg-card z-10 hidden lg:flex"
+                className="absolute -right-4 top-16 h-8 w-8 rounded-full border bg-card hover:bg-card z-10 hidden md:flex"
                 onClick={() => setIsCollapsed(!isCollapsed)}
             >
                 {isCollapsed ? <ChevronRight className="h-4 w-4" /> : <ChevronLeft className="h-4 w-4" />}
