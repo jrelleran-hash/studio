@@ -56,4 +56,28 @@ export const clientSchema = z.object({
 
 export type ClientFormValues = z.infer<typeof clientSchema>;
 
+// Tool Schemas
+const toolCategories = ["Hand Tool", "Power Tool", "Measuring Tool", "Safety Equipment", "Other"];
+
+const locationSchema = z.object({
+  zone: z.string().optional(),
+  aisle: z.string().optional(),
+  rack: z.string().optional(),
+  level: z.string().optional(),
+  bin: z.string().optional(),
+}).optional();
+
+export const toolSchema = z.object({
+  name: z.string().min(1, "Tool name is required."),
+  serialNumber: z.string().min(1, "Serial number is required."),
+  category: z.string().min(1, "Category is required."),
+  purchaseDate: z.date().optional(),
+  purchaseCost: z.coerce.number().nonnegative("Cost must be a positive number.").optional(),
+  borrowDuration: z.coerce.number().int().positive("Duration must be a positive number.").optional(),
+  condition: z.enum(["Good", "Needs Repair", "Damaged"]),
+  location: locationSchema,
+});
+
+export type ToolFormValues = z.infer<typeof toolSchema>;
+
     

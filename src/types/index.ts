@@ -228,6 +228,7 @@ export interface Tool {
     purchaseCost?: number;
     location?: ProductLocation;
     borrowDuration?: number; // Duration in days
+    createdAt: Timestamp;
     currentBorrowRecord?: ToolBorrowRecord | null;
     assignedToUserId?: string | null;
     assignedToUserName?: string | null;
@@ -245,3 +246,4 @@ export interface ToolBorrowRecord {
     returnCondition?: Tool['condition'];
     releasedBy?: string; // Name of the user who released the tool
 }
+

@@ -1861,6 +1861,7 @@ export async function getTools(): Promise<Tool[]> {
                 id: toolId, 
                 ...data,
                 purchaseDate: data.purchaseDate ? (data.purchaseDate as Timestamp).toDate() : undefined,
+                createdAt: data.createdAt ? (data.createdAt as Timestamp).toDate() : undefined,
                 currentBorrowRecord: currentBorrowRecord
             } as Tool;
         }));
@@ -1887,13 +1888,13 @@ export async function addTool(tool: Omit<Tool, 'id' | 'status' | 'currentBorrowR
 }
 
 export async function updateTool(toolId: string, data: Partial<Omit<Tool, 'id'>>): Promise<void> {
-    try {
-        const toolRef = doc(db, "tools", toolId);
-        await updateDoc(toolRef, data);
-    } catch (error) {
-        console.error("Error updating tool:", error);
-        throw new Error("Failed to update tool.");
-    }
+  try {
+    const toolRef = doc(db, "tools", toolId);
+    await updateDoc(toolRef, data);
+  } catch (error) {
+    console.error("Error updating tool:", error);
+    throw new Error("Failed to update tool.");
+  }
 }
 
 export async function deleteTool(toolId: string): Promise<void> {
@@ -2051,4 +2052,5 @@ export async function recallTool(toolId: string, condition: Tool['condition'], n
     
 
     
+
 

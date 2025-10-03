@@ -61,29 +61,8 @@ import { cn } from "@/lib/utils";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { CURRENCY_CONFIG } from "@/config/currency";
 import { formatCurrency } from "@/lib/currency";
+import { toolSchema, type ToolFormValues } from "@/lib/schemas";
 
-const toolCategories = ["Hand Tool", "Power Tool", "Measuring Tool", "Safety Equipment", "Other"];
-
-const locationSchema = z.object({
-  zone: z.string().optional(),
-  aisle: z.string().optional(),
-  rack: z.string().optional(),
-  level: z.string().optional(),
-  bin: z.string().optional(),
-}).optional();
-
-const toolSchema = z.object({
-  name: z.string().min(1, "Tool name is required."),
-  serialNumber: z.string().min(1, "Serial number is required."),
-  category: z.string().min(1, "Category is required."),
-  purchaseDate: z.date().optional(),
-  purchaseCost: z.coerce.number().nonnegative("Cost must be a positive number.").optional(),
-  borrowDuration: z.coerce.number().int().positive("Duration must be a positive number.").optional(),
-  condition: z.enum(["Good", "Needs Repair", "Damaged"]),
-  location: locationSchema,
-});
-
-type ToolFormValues = z.infer<typeof toolSchema>;
 
 const borrowSchema = z.object({
     borrowedBy: z.string().min(1, "Please select who is borrowing the tool."),
@@ -151,7 +130,7 @@ export default function ToolManagementPage() {
   const [returnVerification, setReturnVerification] = useState<{tool: Tool, formData: ReturnFormValues} | null>(null);
   const [verificationInput, setVerificationInput] = useState("");
 
-  const toolForm = useForm<ToolFormValues>({
+  const form = useForm<ToolFormValues>({
     resolver: zodResolver(toolSchema),
     defaultValues: { condition: "Good" },
   });
@@ -164,8 +143,8 @@ export default function ToolManagementPage() {
   const assignedTools = useMemo(() => tools.filter(t => t.status === "Assigned"), [tools]);
   const borrowedTools = useMemo(() => tools.filter(t => t.status === "In Use"), [tools]);
 
-  useEffect(() => { if (isAddDialogOpen) toolForm.reset({ condition: "Good" }); }, [isAddDialogOpen, toolForm]);
-  useEffect(() => { if (editingTool) { toolForm.reset({ ...editingTool, purchaseDate: editingTool.purchaseDate ? new Date(editingTool.purchaseDate) : undefined }); setIsEditDialogOpen(true); } else { setIsEditDialogOpen(false); } }, [editingTool, toolForm]);
+  useEffect(() => { if (isAddDialogOpen) form.reset({ condition: "Good" }); }, [isAddDialogOpen, form]);
+  useEffect(() => { if (editingTool) { form.reset({ ...editingTool, purchaseDate: editingTool.purchaseDate ? new Date(editingTool.purchaseDate) : undefined }); setIsEditDialogOpen(true); } else { setIsEditDialogOpen(false); } }, [editingTool, form]);
   useEffect(() => { if (borrowingTool) { borrowForm.reset(); setIsBorrowDialogOpen(true); } else { setIsBorrowDialogOpen(false); } }, [borrowingTool, borrowForm]);
   useEffect(() => { if (returningTool) { returnForm.reset({ condition: returningTool.condition }); setIsReturnDialogOpen(true); } else { setIsReturnDialogOpen(false); } }, [returningTool, returnForm]);
   useEffect(() => { if (assigningTool) { assignForm.reset(); setIsAssignDialogOpen(true); } else { setIsAssignDialogOpen(false); } }, [assigningTool, assignForm]);
@@ -305,6 +284,9 @@ export default function ToolManagementPage() {
     return 'N/A';
   }
 
+  const toolCategories = ["Hand Tool", "Power Tool", "Measuring Tool", "Safety Equipment", "Other"];
+
+
   return (
     <div className="space-y-4">
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
@@ -321,23 +303,23 @@ export default function ToolManagementPage() {
                     <DialogTitle>Add New Tool</DialogTitle>
                     <DialogDescription>Enter the details for the new tool below.</DialogDescription>
                 </DialogHeader>
-                <form onSubmit={toolForm.handleSubmit(onAddSubmit)} className="space-y-4">
+                <form onSubmit={form.handleSubmit(onAddSubmit)} className="space-y-4">
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                         <div className="space-y-2 sm:col-span-2">
                             <Label htmlFor="name">Tool Name</Label>
-                            <Input id="name" {...toolForm.register("name")} />
-                            {toolForm.formState.errors.name && <p className="text-sm text-destructive">{toolForm.formState.errors.name.message}</p>}
+                            <Input id="name" {...form.register("name")} />
+                            {form.formState.errors.name && <p className="text-sm text-destructive">{form.formState.errors.name.message}</p>}
                         </div>
                          <div className="space-y-2">
                             <Label htmlFor="serialNumber">Serial Number</Label>
-                            <Input id="serialNumber" {...toolForm.register("serialNumber")} />
-                            {toolForm.formState.errors.serialNumber && <p className="text-sm text-destructive">{toolForm.formState.errors.serialNumber.message}</p>}
+                            <Input id="serialNumber" {...form.register("serialNumber")} />
+                            {form.formState.errors.serialNumber && <p className="text-sm text-destructive">{form.formState.errors.serialNumber.message}</p>}
                         </div>
                         <div className="space-y-2">
                             <Label htmlFor="category">Category</Label>
                              <Controller
                                 name="category"
-                                control={toolForm.control}
+                                control={form.control}
                                 render={({ field }) => (
                                     <Select onValueChange={field.onChange} defaultValue={field.value}>
                                         <SelectTrigger><SelectValue placeholder="Select category" /></SelectTrigger>
@@ -353,7 +335,7 @@ export default function ToolManagementPage() {
                        <div className="space-y-2">
                             <Label>Purchase Date (Optional)</Label>
                             <Controller
-                                control={toolForm.control}
+                                control={form.control}
                                 name="purchaseDate"
                                 render={({ field }) => (
                                 <Popover>
@@ -372,7 +354,7 @@ export default function ToolManagementPage() {
                             <Label htmlFor="purchaseCost">Purchase Cost (Optional)</Label>
                              <div className="relative">
                                 <span className="absolute inset-y-0 left-0 flex items-center pl-3 text-muted-foreground">{CURRENCY_CONFIG.symbol}</span>
-                                <Input id="purchaseCost" type="number" step="0.01" className="pl-8" placeholder="0.00" {...toolForm.register("purchaseCost")} />
+                                <Input id="purchaseCost" type="number" step="0.01" className="pl-8" placeholder="0.00" {...form.register("purchaseCost")} />
                              </div>
                         </div>
                     </div>
@@ -381,14 +363,14 @@ export default function ToolManagementPage() {
                         <div className="grid grid-cols-2 gap-4">
                              <div className="space-y-2">
                                 <Label htmlFor="borrowDuration">Borrow Duration (Days)</Label>
-                                <Input id="borrowDuration" type="number" {...toolForm.register("borrowDuration")} />
-                                {toolForm.formState.errors.borrowDuration && <p className="text-sm text-destructive">{toolForm.formState.errors.borrowDuration.message}</p>}
+                                <Input id="borrowDuration" type="number" {...form.register("borrowDuration")} />
+                                {form.formState.errors.borrowDuration && <p className="text-sm text-destructive">{form.formState.errors.borrowDuration.message}</p>}
                             </div>
                             <div className="space-y-2">
                                 <Label htmlFor="condition">Condition</Label>
                                 <Controller
                                     name="condition"
-                                    control={toolForm.control}
+                                    control={form.control}
                                     render={({ field }) => (
                                         <Select onValueChange={field.onChange} defaultValue={field.value}>
                                             <SelectTrigger><SelectValue placeholder="Select condition" /></SelectTrigger>
@@ -406,16 +388,16 @@ export default function ToolManagementPage() {
                     <div className="space-y-4 rounded-md border p-4">
                         <Label className="text-base">Storage Location</Label>
                         <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-2">
-                            <Input placeholder="Zone" {...toolForm.register("location.zone")} />
-                            <Input placeholder="Aisle" {...toolForm.register("location.aisle")} />
-                            <Input placeholder="Rack" {...toolForm.register("location.rack")} />
-                            <Input placeholder="Level" {...toolForm.register("location.level")} />
-                            <Input placeholder="Bin" {...toolForm.register("location.bin")} />
+                            <Input placeholder="Zone" {...form.register("location.zone")} />
+                            <Input placeholder="Aisle" {...form.register("location.aisle")} />
+                            <Input placeholder="Rack" {...form.register("location.rack")} />
+                            <Input placeholder="Level" {...form.register("location.level")} />
+                            <Input placeholder="Bin" {...form.register("location.bin")} />
                         </div>
                     </div>
                     <DialogFooter>
                         <Button type="button" variant="outline" onClick={() => setIsAddDialogOpen(false)}>Cancel</Button>
-                        <Button type="submit" disabled={toolForm.formState.isSubmitting}>Add Tool</Button>
+                        <Button type="submit" disabled={form.formState.isSubmitting}>Add Tool</Button>
                     </DialogFooter>
                 </form>
             </DialogContent>
@@ -595,23 +577,23 @@ export default function ToolManagementPage() {
                 <DialogTitle>Edit Tool</DialogTitle>
                 <DialogDescription>Update details for {editingTool?.name}</DialogDescription>
             </DialogHeader>
-             <form onSubmit={toolForm.handleSubmit(onEditSubmit)} className="space-y-4">
+             <form onSubmit={form.handleSubmit(onEditSubmit)} className="space-y-4">
                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                         <div className="space-y-2 sm:col-span-2">
                             <Label htmlFor="edit-name">Tool Name</Label>
-                            <Input id="edit-name" {...toolForm.register("name")} />
-                            {toolForm.formState.errors.name && <p className="text-sm text-destructive">{toolForm.formState.errors.name.message}</p>}
+                            <Input id="edit-name" {...form.register("name")} />
+                            {form.formState.errors.name && <p className="text-sm text-destructive">{form.formState.errors.name.message}</p>}
                         </div>
                          <div className="space-y-2">
                             <Label htmlFor="edit-serialNumber">Serial Number</Label>
-                            <Input id="edit-serialNumber" {...toolForm.register("serialNumber")} />
-                            {toolForm.formState.errors.serialNumber && <p className="text-sm text-destructive">{toolForm.formState.errors.serialNumber.message}</p>}
+                            <Input id="edit-serialNumber" {...form.register("serialNumber")} />
+                            {form.formState.errors.serialNumber && <p className="text-sm text-destructive">{form.formState.errors.serialNumber.message}</p>}
                         </div>
                         <div className="space-y-2">
                             <Label htmlFor="edit-category">Category</Label>
                              <Controller
                                 name="category"
-                                control={toolForm.control}
+                                control={form.control}
                                 render={({ field }) => (
                                     <Select onValueChange={field.onChange} defaultValue={field.value}>
                                         <SelectTrigger><SelectValue placeholder="Select category" /></SelectTrigger>
@@ -627,7 +609,7 @@ export default function ToolManagementPage() {
                        <div className="space-y-2">
                             <Label>Purchase Date (Optional)</Label>
                             <Controller
-                                control={toolForm.control}
+                                control={form.control}
                                 name="purchaseDate"
                                 render={({ field }) => (
                                 <Popover>
@@ -646,7 +628,7 @@ export default function ToolManagementPage() {
                             <Label htmlFor="edit-purchaseCost">Purchase Cost (Optional)</Label>
                              <div className="relative">
                                 <span className="absolute inset-y-0 left-0 flex items-center pl-3 text-muted-foreground">{CURRENCY_CONFIG.symbol}</span>
-                                <Input id="edit-purchaseCost" type="number" step="0.01" className="pl-8" placeholder="0.00" {...toolForm.register("purchaseCost")} />
+                                <Input id="edit-purchaseCost" type="number" step="0.01" className="pl-8" placeholder="0.00" {...form.register("purchaseCost")} />
                              </div>
                         </div>
                     </div>
@@ -655,14 +637,14 @@ export default function ToolManagementPage() {
                         <div className="grid grid-cols-2 gap-4">
                              <div className="space-y-2">
                                 <Label htmlFor="edit-borrowDuration">Borrow Duration (Days)</Label>
-                                <Input id="edit-borrowDuration" type="number" {...toolForm.register("borrowDuration")} />
-                                {toolForm.formState.errors.borrowDuration && <p className="text-sm text-destructive">{toolForm.formState.errors.borrowDuration.message}</p>}
+                                <Input id="edit-borrowDuration" type="number" {...form.register("borrowDuration")} />
+                                {form.formState.errors.borrowDuration && <p className="text-sm text-destructive">{form.formState.errors.borrowDuration.message}</p>}
                             </div>
                             <div className="space-y-2">
                                 <Label htmlFor="edit-condition">Condition</Label>
                                 <Controller
                                     name="condition"
-                                    control={toolForm.control}
+                                    control={form.control}
                                     render={({ field }) => (
                                         <Select onValueChange={field.onChange} defaultValue={field.value}>
                                             <SelectTrigger><SelectValue placeholder="Select condition" /></SelectTrigger>
@@ -680,16 +662,16 @@ export default function ToolManagementPage() {
                      <div className="space-y-4 rounded-md border p-4">
                         <Label className="text-base">Storage Location</Label>
                         <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-2">
-                            <Input placeholder="Zone" {...toolForm.register("location.zone")} />
-                            <Input placeholder="Aisle" {...toolForm.register("location.aisle")} />
-                            <Input placeholder="Rack" {...toolForm.register("location.rack")} />
-                            <Input placeholder="Level" {...toolForm.register("location.level")} />
-                            <Input placeholder="Bin" {...toolForm.register("location.bin")} />
+                            <Input placeholder="Zone" {...form.register("location.zone")} />
+                            <Input placeholder="Aisle" {...form.register("location.aisle")} />
+                            <Input placeholder="Rack" {...form.register("location.rack")} />
+                            <Input placeholder="Level" {...form.register("location.level")} />
+                            <Input placeholder="Bin" {...form.register("location.bin")} />
                         </div>
                     </div>
                     <DialogFooter>
                         <Button type="button" variant="outline" onClick={() => setEditingTool(null)}>Cancel</Button>
-                        <Button type="submit" disabled={toolForm.formState.isSubmitting}>Save Changes</Button>
+                        <Button type="submit" disabled={form.formState.isSubmitting}>Save Changes</Button>
                     </DialogFooter>
                 </form>
         </DialogContent>
@@ -931,3 +913,4 @@ export default function ToolManagementPage() {
     </div>
   );
 }
+
