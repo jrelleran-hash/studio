@@ -1,7 +1,7 @@
 
 "use client";
 
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { useData } from "@/context/data-context";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
@@ -15,7 +15,8 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { format } from "date-fns";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { Checkbox } from "@/components/ui/checkbox";
-import { Trash2 } from "lucide-react";
+import { Trash2, ChevronDown } from "lucide-react";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 
 const conditionVariant: { [key: string]: "default" | "secondary" | "destructive" | "outline" } = {
   Good: "default",
@@ -42,6 +43,8 @@ export default function WasteManagementPage() {
   const [loading, setLoading] = useState(true);
   const [selectedItems, setSelectedItems] = useState<Set<string>>(new Set());
   const [isDisposeDialogOpen, setIsDisposeDialogOpen] = useState(false);
+  const [disposalReason, setDisposalReason] = useState<"For Parts Out" | "Recycle" | "Dispose">("Dispose");
+
 
   const damagedTools = useMemo(() => {
     return tools.filter(t => t.condition === "Damaged");
@@ -81,9 +84,10 @@ export default function WasteManagementPage() {
     setLoading(false);
   }
 
-  useState(() => {
+  useEffect(() => {
     if(!initialLoading) fetchDisposalItems();
-  });
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [initialLoading, tools]);
 
   const handleSelectAll = (checked: boolean, list: DisposalItem[]) => {
     const newSelection = new Set(selectedItems);
@@ -104,6 +108,11 @@ export default function WasteManagementPage() {
     }
     setSelectedItems(newSelection);
   }
+
+  const handleDisposeClick = (reason: "For Parts Out" | "Recycle" | "Dispose") => {
+    setDisposalReason(reason);
+    setIsDisposeDialogOpen(true);
+  }
   
   const handleDisposeConfirm = async () => {
     const itemsToDispose = Array.from(selectedItems).map(id => {
@@ -117,7 +126,7 @@ export default function WasteManagementPage() {
     }).filter(Boolean) as {id: string, type: 'product' | 'tool', sourceId: string}[];
 
     try {
-        await disposeItemsAndTools(itemsToDispose);
+        await disposeItemsAndTools(itemsToDispose, disposalReason);
         toast({ title: "Success", description: "Selected items have been disposed." });
         await refetchData();
         await fetchDisposalItems();
@@ -148,10 +157,30 @@ export default function WasteManagementPage() {
                 <TabsTrigger value="tools">Tools</TabsTrigger>
             </TabsList>
             {selectedItems.size > 0 && (
-                <Button variant="destructive" size="sm" onClick={() => setIsDisposeDialogOpen(true)}>
-                    <Trash2 className="mr-2 h-4 w-4" />
-                    Dispose Selected ({selectedItems.size})
-                </Button>
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <Button variant="destructive" size="sm">
+                      <Trash2 className="mr-2 h-4 w-4" />
+                      Dispose Selected ({selectedItems.size})
+                      <ChevronDown className="ml-2 h-4 w-4" />
+                    </Button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent>
+                    <DropdownMenuItem onClick={() => handleDisposeClick("For Parts Out")}>
+                      For Parts Out
+                    </DropdownMenuItem>
+                    <DropdownMenuItem onClick={() => handleDisposeClick("Recycle")}>
+                      Recycle
+                    </DropdownMenuItem>
+                    <DropdownMenuSeparator />
+                    <DropdownMenuItem
+                      className="text-destructive focus:text-destructive"
+                      onClick={() => handleDisposeClick("Dispose")}
+                    >
+                      Dispose Permanently
+                    </DropdownMenuItem>
+                  </DropdownMenuContent>
+                </DropdownMenu>
             )}
           </div>
           <TabsContent value="products">
@@ -249,7 +278,7 @@ export default function WasteManagementPage() {
                 <AlertDialogHeader>
                     <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
                     <AlertDialogDescription>
-                        This action cannot be undone. This will permanently delete the selected tools and/or disposal records.
+                        This action will permanently remove the selected items from the system according to the reason: <strong className="text-foreground">{disposalReason}</strong>. This cannot be undone.
                     </AlertDialogDescription>
                 </AlertDialogHeader>
                 <AlertDialogFooter>

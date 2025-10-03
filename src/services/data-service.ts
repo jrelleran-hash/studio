@@ -1112,7 +1112,7 @@ async function checkAndUpdateAwaitingOrders() {
                 await createNotification({
                     title: "Order Ready",
                     description: `Order ${orderDoc.id.substring(0,7)} is ready for issuance.`,
-                    details: `All items for order ${orderDoc.id.substring(0,7)} are in stock and ready to be issued.`,
+                    details: `All items for order ${orderDoc.id.substring(0,7)} are in stock and are ready to be issued.`,
                     href: "/issuance",
                     icon: "ShoppingCart",
                 });
@@ -2113,18 +2113,38 @@ export async function getDisposalItems() {
     return disposalItems;
 }
 
-export async function disposeItemsAndTools(items: { id: string; type: 'product' | 'tool', sourceId: string }[]): Promise<void> {
+export async function disposeItemsAndTools(items: { id: string; type: 'product' | 'tool', sourceId: string }[], reason: string): Promise<void> {
     const batch = writeBatch(db);
+    const now = Timestamp.now();
 
     for (const item of items) {
         if (item.type === 'tool') {
             const toolRef = doc(db, "tools", item.id);
-            batch.delete(toolRef);
+            // Instead of deleting, we can move it to a 'disposed' collection or update its status
+            // For now, let's delete as per original design.
+             batch.delete(toolRef);
+
+             // Create a record of the disposal
+            const disposalRecordRef = doc(collection(db, "disposalRecords"));
+            batch.set(disposalRecordRef, {
+                itemId: item.id,
+                itemType: 'tool',
+                reason: reason,
+                date: now
+            });
+
         } else if (item.type === 'product') {
-            // For products, we remove the `inspection` field from the return record
-            // to signify it has been handled. This is an example of how you might "dispose" of the record.
             const returnRef = doc(db, "returns", item.sourceId);
-            batch.update(returnRef, { "inspection": null });
+            batch.update(returnRef, { "inspection": null }); // Mark as handled
+
+             const disposalRecordRef = doc(collection(db, "disposalRecords"));
+            batch.set(disposalRecordRef, {
+                itemId: item.id,
+                itemType: 'product',
+                reason: reason,
+                date: now,
+                source: `RMA ${item.sourceId}`
+            });
         }
     }
 
@@ -2133,6 +2153,7 @@ export async function disposeItemsAndTools(items: { id: string; type: 'product' 
 
 
     
+
 
 
 
