@@ -1836,12 +1836,13 @@ export async function getTools(): Promise<Tool[]> {
             let currentBorrowRecord: ToolBorrowRecord | null = null;
             if (data.status === 'In Use') {
                 const borrowRecordsCol = collection(db, "toolBorrowRecords");
-                const activeBorrowsSnapshot = await getDocs(query(
+                const q = query(
                     borrowRecordsCol, 
                     where("toolId", "==", toolId), 
                     where("dateReturned", "==", null),
                     limit(1)
-                ));
+                );
+                const activeBorrowsSnapshot = await getDocs(q);
                 if (!activeBorrowsSnapshot.empty) {
                     const borrowDoc = activeBorrowsSnapshot.docs[0];
                     const borrowData = borrowDoc.data() as Omit<ToolBorrowRecord, 'id' | 'dateBorrowed' | 'dateReturned' | 'dueDate'> & { dateBorrowed: Timestamp, dateReturned?: Timestamp, dueDate?: Timestamp };
@@ -1929,6 +1930,7 @@ export async function borrowTool(toolId: string, borrowedBy: string, releasedBy:
             releasedBy,
             dateBorrowed: Timestamp.fromDate(dateBorrowed),
             dueDate: dueDate ? Timestamp.fromDate(dueDate) : null,
+            dateReturned: null,
             notes: notes || "",
         };
 
@@ -1946,22 +1948,23 @@ export async function returnTool(toolId: string, condition: Tool['condition'], n
         if (!toolDoc.exists()) throw new Error("Tool not found.");
         if (toolDoc.data().status !== 'In Use') throw new Error("Tool is not currently 'In Use'.");
 
-        const q = query(collection(db, "toolBorrowRecords"), where("toolId", "==", toolId), where("dateReturned", "==", null), limit(1));
+        const q = query(collection(db, "toolBorrowRecords"), where("toolId", "==", toolId));
         const borrowSnapshot = await getDocs(q);
 
-        if (borrowSnapshot.empty) {
+        const activeBorrowDoc = borrowSnapshot.docs.find(doc => doc.data().dateReturned === null);
+
+        if (!activeBorrowDoc) {
             throw new Error("No active borrow record found for this tool.");
         }
         
-        const borrowRecordDoc = borrowSnapshot.docs[0];
-        const borrowRecordRef = borrowRecordDoc.ref;
+        const borrowRecordRef = activeBorrowDoc.ref;
 
         const status = condition === 'Good' ? 'Available' : 'Under Maintenance';
 
         transaction.update(borrowRecordRef, {
             dateReturned: Timestamp.now(),
             returnCondition: condition,
-            notes: notes || borrowRecordDoc.data().notes, // Preserve old notes if new ones aren't provided
+            notes: notes || activeBorrowDoc.data().notes, // Preserve old notes if new ones aren't provided
         });
         transaction.update(toolRef, { status, condition });
     });

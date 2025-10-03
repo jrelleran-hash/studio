@@ -393,8 +393,7 @@ export default function ToolManagementPage() {
                         </DropdownMenuTrigger>
                         <DropdownMenuContent align="end">
                             <DropdownMenuLabel>Actions</DropdownMenuLabel>
-                            
-                            {tool.status === 'Available' ? (
+                             {tool.status === 'Available' ? (
                                 <DropdownMenuSub>
                                     <DropdownMenuSubTrigger>
                                         <ArrowUpRight className="mr-2 h-4 w-4" /> Issue Tool
@@ -408,12 +407,7 @@ export default function ToolManagementPage() {
                                         </DropdownMenuItem>
                                     </DropdownMenuSubContent>
                                 </DropdownMenuSub>
-                            ) : (
-                                <DropdownMenuItem onClick={() => handleRetrieveClick(tool)} disabled={tool.status === "Under Maintenance"}>
-                                    <ArrowDownRight className="mr-2 h-4 w-4" /> Retrieve Tool
-                                </DropdownMenuItem>
-                            )}
-                            
+                            ) : null}
                             <DropdownMenuItem onClick={() => setEditingTool(tool)}>Edit</DropdownMenuItem>
                             <DropdownMenuItem onClick={() => setHistoryTool(tool)}>History</DropdownMenuItem>
                             <DropdownMenuSeparator />
@@ -656,20 +650,29 @@ export default function ToolManagementPage() {
                     </div>
                 ) : toolHistory.length > 0 ? (
                      <ul className="space-y-4">
-                        {toolHistory.map(record => (
-                            <li key={record.id} className="flex items-start gap-4">
-                                <div className="flex-1">
-                                    <p className="font-medium">{record.borrowedByName}</p>
-                                    <div className="text-sm text-muted-foreground space-y-1">
-                                      <p>Borrowed: {formatDate(record.dateBorrowed)}</p>
-                                      {record.dueDate && <p>Due: {formatDate(record.dueDate)}</p>}
-                                      {record.dateReturned && <p>Returned: {formatDate(record.dateReturned)}</p>}
-                                      {record.releasedBy && <p>Released by: {record.releasedBy}</p>}
+                        {toolHistory.map(record => {
+                            const isActive = !record.dateReturned;
+                            return (
+                                <li key={record.id} className="flex items-start gap-4">
+                                    <div className="flex-1">
+                                        <p className="font-medium">{record.borrowedByName}</p>
+                                        <div className="text-sm text-muted-foreground space-y-1">
+                                        <p>Borrowed: {formatDate(record.dateBorrowed)}</p>
+                                        {record.dueDate && <p>Due: {formatDate(record.dueDate)}</p>}
+                                        {record.dateReturned && <p>Returned: {formatDate(record.dateReturned)}</p>}
+                                        {record.releasedBy && <p>Released by: {record.releasedBy}</p>}
+                                        </div>
+                                        {record.notes && <p className="text-xs text-muted-foreground mt-1 border-l-2 pl-2">Note: {record.notes}</p>}
                                     </div>
-                                    {record.notes && <p className="text-xs text-muted-foreground mt-1 border-l-2 pl-2">Note: {record.notes}</p>}
-                                </div>
-                            </li>
-                        ))}
+                                    {isActive && historyTool && (
+                                        <Button size="sm" variant="secondary" onClick={() => handleRetrieveClick(historyTool)}>
+                                            <ArrowDownRight className="mr-2 h-4 w-4" />
+                                            Retrieve
+                                        </Button>
+                                    )}
+                                </li>
+                            )
+                        })}
                     </ul>
                 ) : (
                     <p className="text-center text-muted-foreground py-8">No borrow history for this tool.</p>
