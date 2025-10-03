@@ -1941,18 +1941,19 @@ export async function borrowTool(toolId: string, borrowedBy: string, releasedBy:
 }
 
 export async function returnTool(toolId: string, condition: Tool['condition'], notes?: string): Promise<void> {
-    // First, find the active borrow record
+    // First, query for all borrow records for this tool
     const q = query(
         collection(db, "toolBorrowRecords"),
-        where("toolId", "==", toolId),
-        where("dateReturned", "==", null)
+        where("toolId", "==", toolId)
     );
     const borrowSnapshot = await getDocs(q);
+
+    // Then, filter in-app to find the active one
+    const activeBorrowDoc = borrowSnapshot.docs.find(doc => doc.data().dateReturned === null);
     
-    if (borrowSnapshot.empty) {
+    if (!activeBorrowDoc) {
         throw new Error("No active borrow record found for this tool.");
     }
-    const activeBorrowDoc = borrowSnapshot.docs[0];
     const borrowRecordRef = activeBorrowDoc.ref;
     const toolRef = doc(db, "tools", toolId);
 
@@ -2044,5 +2045,7 @@ export async function recallTool(toolId: string, condition: Tool['condition'], n
         });
     });
 }
+
+    
 
     
