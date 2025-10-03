@@ -57,6 +57,7 @@ const warehouseNavItems = [
 const assuranceNavItems = [
     { href: "/returns", label: "Returns", icon: RefreshCcw },
     { href: "/quality-control", label: "Quality Control", icon: ClipboardCheck },
+    { href: "/tool-maintenance", label: "Tool Maintenance", icon: Wrench },
 ];
 
 export const navItemsPermissions = [
