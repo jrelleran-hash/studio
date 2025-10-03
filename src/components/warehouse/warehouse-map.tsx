@@ -11,7 +11,8 @@ import {
   DialogHeader,
   DialogTitle,
   DialogTrigger,
-  DialogFooter
+  DialogFooter,
+  DialogClose
 } from "@/components/ui/dialog";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -243,7 +244,9 @@ export function WarehouseMap({ products, onProductSelect }: WarehouseMapProps) {
           )}
         </div>
          <DialogFooter>
-              <Button variant="outline" onClick={() => setSelectedBinProducts(null)}>Close</Button>
+            <DialogClose asChild>
+              <Button variant="outline">Close</Button>
+            </DialogClose>
           </DialogFooter>
       </DialogContent>
     </Dialog>
