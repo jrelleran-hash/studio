@@ -220,23 +220,21 @@ export function WarehouseMap({ products, onProductSelect }: WarehouseMapProps) {
           {selectedBinProducts && selectedBinProducts.length > 0 ? (
             <div className="space-y-2">
               {selectedBinProducts.map(p => (
-                <div 
-                  key={p.id} 
-                  className="flex items-center gap-4 p-2 rounded-md hover:bg-muted cursor-pointer"
-                  onClick={() => {
-                      onProductSelect(p);
-                      setSelectedBinProducts(null);
-                  }}
-                >
-                  <div className="p-2 bg-muted/50 rounded-md">
-                      <Package className="h-5 w-5 text-muted-foreground" />
-                  </div>
-                  <div className="flex-1">
-                    <p className="font-medium text-sm">{p.name}</p>
-                    <p className="text-xs text-muted-foreground">{p.sku}</p>
-                  </div>
-                  <Badge variant="secondary">Qty: {p.stock}</Badge>
-                </div>
+                <DialogClose key={p.id} asChild>
+                    <div 
+                      className="flex items-center gap-4 p-2 rounded-md hover:bg-muted cursor-pointer"
+                      onClick={() => onProductSelect(p)}
+                    >
+                      <div className="p-2 bg-muted/50 rounded-md">
+                          <Package className="h-5 w-5 text-muted-foreground" />
+                      </div>
+                      <div className="flex-1">
+                        <p className="font-medium text-sm">{p.name}</p>
+                        <p className="text-xs text-muted-foreground">{p.sku}</p>
+                      </div>
+                      <Badge variant="secondary">Qty: {p.stock}</Badge>
+                    </div>
+                </DialogClose>
               ))}
             </div>
           ) : (
