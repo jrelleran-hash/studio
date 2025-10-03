@@ -53,10 +53,12 @@ import { Textarea } from "@/components/ui/textarea";
 
 import { useData } from "@/context/data-context";
 import { useAuth } from "@/hooks/use-auth";
-import { addTool, updateTool, deleteTool, borrowTool, returnTool, getToolHistory, assignToolForAccountability } from "@/services/data-service";
+import { addTool, updateTool, deleteTool, borrowTool, returnTool, getToolHistory, assignToolForAccountability, recallTool } from "@/services/data-service";
 import type { Tool, ToolBorrowRecord, UserProfile } from "@/types";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+
 
 const toolSchema = z.object({
   name: z.string().min(1, "Tool name is required."),
@@ -119,6 +121,7 @@ export default function ToolManagementPage() {
   const [isBorrowDialogOpen, setIsBorrowDialogOpen] = useState(false);
   const [isReturnDialogOpen, setIsReturnDialogOpen] = useState(false);
   const [isAssignDialogOpen, setIsAssignDialogOpen] = useState(false);
+  const [isRecallDialogOpen, setIsRecallDialogOpen] = useState(false);
   const [isHistoryDialogOpen, setIsHistoryDialogOpen] = useState(false);
 
   const [editingTool, setEditingTool] = useState<Tool | null>(null);
@@ -126,6 +129,7 @@ export default function ToolManagementPage() {
   const [borrowingTool, setBorrowingTool] = useState<Tool | null>(null);
   const [returningTool, setReturningTool] = useState<Tool | null>(null);
   const [assigningTool, setAssigningTool] = useState<Tool | null>(null);
+  const [recallingTool, setRecallingTool] = useState<Tool | null>(null);
   const [historyTool, setHistoryTool] = useState<Tool | null>(null);
   const [toolHistory, setToolHistory] = useState<ToolBorrowRecord[]>([]);
   const [historyLoading, setHistoryLoading] = useState(false);
@@ -142,11 +146,15 @@ export default function ToolManagementPage() {
   const assignForm = useForm<AssignFormValues>();
   const recallForm = useForm<RecallFormValues>();
 
+  const assignedTools = useMemo(() => tools.filter(t => t.status === "Assigned"), [tools]);
+  const borrowedTools = useMemo(() => tools.filter(t => t.status === "In Use"), [tools]);
+
   useEffect(() => { if (isAddDialogOpen) toolForm.reset({ condition: "Good" }); }, [isAddDialogOpen, toolForm]);
   useEffect(() => { if (editingTool) { toolForm.reset({ ...editingTool, purchaseDate: editingTool.purchaseDate ? new Date(editingTool.purchaseDate) : undefined }); setIsEditDialogOpen(true); } else { setIsEditDialogOpen(false); } }, [editingTool, toolForm]);
   useEffect(() => { if (borrowingTool) { borrowForm.reset(); setIsBorrowDialogOpen(true); } else { setIsBorrowDialogOpen(false); } }, [borrowingTool, borrowForm]);
   useEffect(() => { if (returningTool) { returnForm.reset({ condition: returningTool.condition }); setIsReturnDialogOpen(true); } else { setIsReturnDialogOpen(false); } }, [returningTool, returnForm]);
   useEffect(() => { if (assigningTool) { assignForm.reset(); setIsAssignDialogOpen(true); } else { setIsAssignDialogOpen(false); } }, [assigningTool, assignForm]);
+  useEffect(() => { if (recallingTool) { recallForm.reset({ condition: recallingTool.condition }); setIsRecallDialogOpen(true); } else { setIsRecallDialogOpen(false); } }, [recallingTool, recallForm]);
 
   useEffect(() => {
     if (historyTool) {
@@ -214,7 +222,7 @@ export default function ToolManagementPage() {
     }
 
     try {
-        await returnTool(returnVerification.tool.id, returnVerification.formData.condition, returnVerification.formData.notes);
+        await returnTool(returnVerification.tool, returnVerification.formData.condition, returnVerification.formData.notes);
         toast({ title: "Success", description: "Tool returned." });
         setReturnVerification(null);
         setVerificationInput("");
@@ -237,6 +245,29 @@ export default function ToolManagementPage() {
       toast({ variant: "destructive", title: "Error", description: errorMessage });
     }
   };
+
+  const onRecallSubmit = async (data: RecallFormValues) => {
+    if (!recallingTool) return;
+    try {
+        await recallTool(recallingTool.id, data.condition, data.notes);
+        toast({ title: "Success", description: "Tool has been recalled."});
+        setRecallingTool(null);
+        await refetchData();
+    } catch(error) {
+        const errorMessage = error instanceof Error ? error.message : "Failed to recall tool.";
+        toast({ variant: "destructive", title: "Error", description: errorMessage });
+    }
+  };
+  
+  const handleRetrieveClick = (tool: Tool) => {
+    if (tool.status === 'In Use') {
+        setReturningTool(tool);
+    } else if (tool.status === 'Assigned') {
+        setRecallingTool(tool);
+    }
+    setIsHistoryDialogOpen(false);
+  };
+
 
   const handleDeleteConfirm = async () => {
     if (!deletingToolId) return;
@@ -264,12 +295,11 @@ export default function ToolManagementPage() {
   }
 
   return (
-    <>
-    <Card>
-      <CardHeader className="flex flex-row items-start justify-between">
+    <div className="space-y-4">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
-            <CardTitle>Tool Management</CardTitle>
-            <CardDescription>Track all tools, their status, and who is accountable for them.</CardDescription>
+            <h1 className="text-2xl font-bold font-headline tracking-tight">Tool Management</h1>
+            <p className="text-muted-foreground">Track all tools, their status, and who is accountable for them.</p>
         </div>
         <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>
             <DialogTrigger asChild>
@@ -339,83 +369,167 @@ export default function ToolManagementPage() {
                 </form>
             </DialogContent>
         </Dialog>
-      </CardHeader>
-      <CardContent>
-        <Table>
-          <TableHeader>
-            <TableRow>
-              <TableHead>Tool</TableHead>
-              <TableHead>Serial #</TableHead>
-              <TableHead>Status</TableHead>
-              <TableHead>Condition</TableHead>
-              <TableHead>Current User</TableHead>
-              <TableHead>Date Issued</TableHead>
-              <TableHead className="text-right">Actions</TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {loading ? (
-                Array.from({length: 5}).map((_, i) => (
-                    <TableRow key={i}>
-                        <TableCell><Skeleton className="h-4 w-32" /></TableCell>
-                        <TableCell><Skeleton className="h-4 w-24" /></TableCell>
-                        <TableCell><Skeleton className="h-6 w-20 rounded-full" /></TableCell>
-                        <TableCell><Skeleton className="h-6 w-20 rounded-full" /></TableCell>
-                        <TableCell><Skeleton className="h-4 w-24" /></TableCell>
-                        <TableCell><Skeleton className="h-4 w-24" /></TableCell>
-                        <TableCell className="text-right"><Skeleton className="h-8 w-8 ml-auto" /></TableCell>
-                    </TableRow>
-                ))
-            ) : tools.map((tool) => {
-              const user = getCurrentUser(tool);
-              return (
-              <TableRow key={tool.id}>
-                <TableCell className="font-medium">{tool.name}</TableCell>
-                <TableCell>{tool.serialNumber}</TableCell>
-                <TableCell><Badge variant={statusVariant[tool.status]}>{tool.status}</Badge></TableCell>
-                <TableCell><Badge variant={conditionVariant[tool.condition]}>{tool.condition}</Badge></TableCell>
-                <TableCell>{user}</TableCell>
-                <TableCell>{tool.status === 'In Use' && tool.currentBorrowRecord ? formatDate(tool.currentBorrowRecord?.dateBorrowed as Date) : 'N/A'}</TableCell>
-                <TableCell className="text-right">
-                     <DropdownMenu>
-                        <DropdownMenuTrigger asChild>
-                            <Button variant="ghost" size="icon"><MoreHorizontal /></Button>
-                        </DropdownMenuTrigger>
-                        <DropdownMenuContent align="end">
-                            <DropdownMenuLabel>Actions</DropdownMenuLabel>
-                            {tool.status === 'Available' && (
-                                <DropdownMenuSub>
-                                    <DropdownMenuSubTrigger>
-                                        <ArrowUpRight className="mr-2 h-4 w-4" /> Issue Tool
-                                    </DropdownMenuSubTrigger>
-                                    <DropdownMenuSubContent>
-                                        <DropdownMenuItem onClick={() => setBorrowingTool(tool)}>
-                                            <ArrowUpRight className="mr-2" /> Borrow (Temporary)
-                                        </DropdownMenuItem>
-                                        <DropdownMenuItem onClick={() => setAssigningTool(tool)}>
-                                            <UserCheck className="mr-2" /> Assign Accountability
-                                        </DropdownMenuItem>
-                                    </DropdownMenuSubContent>
-                                </DropdownMenuSub>
-                            )}
-                            {(tool.status === 'In Use' || tool.status === 'Assigned') && (
-                                <DropdownMenuItem onClick={() => setReturningTool(tool)}>
-                                    <ArrowDownRight className="mr-2 h-4 w-4" /> Retrieve Tool
-                                </DropdownMenuItem>
-                            )}
-                            <DropdownMenuItem onClick={() => setEditingTool(tool)}>Edit</DropdownMenuItem>
-                            <DropdownMenuItem onClick={() => setHistoryTool(tool)}>History</DropdownMenuItem>
-                            <DropdownMenuSeparator />
-                            <DropdownMenuItem className="text-destructive" onClick={() => { setDeletingToolId(tool.id); setIsDeleteDialogOpen(true);}}>Delete</DropdownMenuItem>
-                        </DropdownMenuContent>
-                     </DropdownMenu>
-                </TableCell>
-              </TableRow>
-            )})}
-          </TableBody>
-        </Table>
-      </CardContent>
-    </Card>
+      </div>
+      <Tabs defaultValue="inventory">
+        <TabsList>
+            <TabsTrigger value="inventory">Tool Inventory</TabsTrigger>
+            <TabsTrigger value="history">Borrow History</TabsTrigger>
+        </TabsList>
+        <TabsContent value="inventory">
+            <Card>
+                <CardContent className="pt-6">
+                    <Table>
+                        <TableHeader>
+                            <TableRow>
+                            <TableHead>Tool</TableHead>
+                            <TableHead>Serial #</TableHead>
+                            <TableHead>Status</TableHead>
+                            <TableHead>Condition</TableHead>
+                            <TableHead>Current User</TableHead>
+                            <TableHead>Date Issued</TableHead>
+                            <TableHead className="text-right">Actions</TableHead>
+                            </TableRow>
+                        </TableHeader>
+                        <TableBody>
+                            {loading ? (
+                                Array.from({length: 5}).map((_, i) => (
+                                    <TableRow key={i}>
+                                        <TableCell><Skeleton className="h-4 w-32" /></TableCell>
+                                        <TableCell><Skeleton className="h-4 w-24" /></TableCell>
+                                        <TableCell><Skeleton className="h-6 w-20 rounded-full" /></TableCell>
+                                        <TableCell><Skeleton className="h-6 w-20 rounded-full" /></TableCell>
+                                        <TableCell><Skeleton className="h-4 w-24" /></TableCell>
+                                        <TableCell><Skeleton className="h-4 w-24" /></TableCell>
+                                        <TableCell className="text-right"><Skeleton className="h-8 w-8 ml-auto" /></TableCell>
+                                    </TableRow>
+                                ))
+                            ) : tools.map((tool) => {
+                            const user = getCurrentUser(tool);
+                            return (
+                            <TableRow key={tool.id}>
+                                <TableCell className="font-medium">{tool.name}</TableCell>
+                                <TableCell>{tool.serialNumber}</TableCell>
+                                <TableCell><Badge variant={statusVariant[tool.status]}>{tool.status}</Badge></TableCell>
+                                <TableCell><Badge variant={conditionVariant[tool.condition]}>{tool.condition}</Badge></TableCell>
+                                <TableCell>{user}</TableCell>
+                                <TableCell>{tool.status === 'In Use' && tool.currentBorrowRecord ? formatDate(tool.currentBorrowRecord?.dateBorrowed as Date) : 'N/A'}</TableCell>
+                                <TableCell className="text-right">
+                                    <DropdownMenu>
+                                        <DropdownMenuTrigger asChild>
+                                            <Button variant="ghost" size="icon"><MoreHorizontal /></Button>
+                                        </DropdownMenuTrigger>
+                                        <DropdownMenuContent align="end">
+                                            <DropdownMenuLabel>Actions</DropdownMenuLabel>
+                                            {tool.status === 'Available' && (
+                                                <DropdownMenuSub>
+                                                    <DropdownMenuSubTrigger>
+                                                        <ArrowUpRight className="mr-2 h-4 w-4" /> Issue Tool
+                                                    </DropdownMenuSubTrigger>
+                                                    <DropdownMenuSubContent>
+                                                        <DropdownMenuItem onClick={() => setBorrowingTool(tool)}>
+                                                            <ArrowUpRight className="mr-2" /> Borrow (Temporary)
+                                                        </DropdownMenuItem>
+                                                        <DropdownMenuItem onClick={() => setAssigningTool(tool)}>
+                                                            <UserCheck className="mr-2" /> Assign Accountability
+                                                        </DropdownMenuItem>
+                                                    </DropdownMenuSubContent>
+                                                </DropdownMenuSub>
+                                            )}
+                                            {(tool.status === 'In Use' || tool.status === 'Assigned') && (
+                                                <DropdownMenuItem onClick={() => handleRetrieveClick(tool)}>
+                                                    <ArrowDownRight className="mr-2 h-4 w-4" /> Retrieve Tool
+                                                </DropdownMenuItem>
+                                            )}
+                                            <DropdownMenuItem onClick={() => setEditingTool(tool)}>Edit</DropdownMenuItem>
+                                            <DropdownMenuItem onClick={() => setHistoryTool(tool)}>History</DropdownMenuItem>
+                                            <DropdownMenuSeparator />
+                                            <DropdownMenuItem className="text-destructive" onClick={() => { setDeletingToolId(tool.id); setIsDeleteDialogOpen(true);}}>Delete</DropdownMenuItem>
+                                        </DropdownMenuContent>
+                                    </DropdownMenu>
+                                </TableCell>
+                            </TableRow>
+                            )})}
+                        </TableBody>
+                    </Table>
+                </CardContent>
+            </Card>
+        </TabsContent>
+        <TabsContent value="history">
+             <Tabs defaultValue="accountability">
+                <TabsList>
+                    <TabsTrigger value="accountability">Accountability</TabsTrigger>
+                    <TabsTrigger value="temporary">Temporary Borrow</TabsTrigger>
+                </TabsList>
+                <TabsContent value="accountability">
+                    <Card>
+                        <CardContent className="pt-6">
+                            <Table>
+                                <TableHeader>
+                                    <TableRow>
+                                        <TableHead>Tool</TableHead>
+                                        <TableHead>Serial #</TableHead>
+                                        <TableHead>Accountable Person</TableHead>
+                                        <TableHead>Condition</TableHead>
+                                    </TableRow>
+                                </TableHeader>
+                                <TableBody>
+                                    {loading ? (
+                                        <TableRow><TableCell colSpan={4}><Skeleton className="h-8" /></TableCell></TableRow>
+                                    ) : assignedTools.length > 0 ? (
+                                        assignedTools.map(tool => (
+                                            <TableRow key={tool.id}>
+                                                <TableCell>{tool.name}</TableCell>
+                                                <TableCell>{tool.serialNumber}</TableCell>
+                                                <TableCell>{tool.assignedToUserName}</TableCell>
+                                                <TableCell><Badge variant={conditionVariant[tool.condition]}>{tool.condition}</Badge></TableCell>
+                                            </TableRow>
+                                        ))
+                                    ) : (
+                                        <TableRow><TableCell colSpan={4} className="h-24 text-center">No tools are currently assigned for accountability.</TableCell></TableRow>
+                                    )}
+                                </TableBody>
+                            </Table>
+                        </CardContent>
+                    </Card>
+                </TabsContent>
+                <TabsContent value="temporary">
+                     <Card>
+                        <CardContent className="pt-6">
+                            <Table>
+                                <TableHeader>
+                                    <TableRow>
+                                        <TableHead>Tool</TableHead>
+                                        <TableHead>Serial #</TableHead>
+                                        <TableHead>Borrowed By</TableHead>
+                                        <TableHead>Date Borrowed</TableHead>
+                                        <TableHead>Due Date</TableHead>
+                                    </TableRow>
+                                </TableHeader>
+                                <TableBody>
+                                    {loading ? (
+                                        <TableRow><TableCell colSpan={5}><Skeleton className="h-8" /></TableCell></TableRow>
+                                    ) : borrowedTools.length > 0 ? (
+                                        borrowedTools.map(tool => (
+                                            <TableRow key={tool.id}>
+                                                <TableCell>{tool.name}</TableCell>
+                                                <TableCell>{tool.serialNumber}</TableCell>
+                                                <TableCell>{tool.currentBorrowRecord?.borrowedByName}</TableCell>
+                                                <TableCell>{formatDate(tool.currentBorrowRecord?.dateBorrowed)}</TableCell>
+                                                <TableCell>{formatDate(tool.currentBorrowRecord?.dueDate)}</TableCell>
+                                            </TableRow>
+                                        ))
+                                    ) : (
+                                        <TableRow><TableCell colSpan={5} className="h-24 text-center">No tools are currently borrowed.</TableCell></TableRow>
+                                    )}
+                                </TableBody>
+                            </Table>
+                        </CardContent>
+                    </Card>
+                </TabsContent>
+             </Tabs>
+        </TabsContent>
+      </Tabs>
+    
 
     {/* Edit Dialog */}
     <Dialog open={isEditDialogOpen} onOpenChange={(open) => !open && setEditingTool(null)}>
@@ -560,6 +674,43 @@ export default function ToolManagementPage() {
         </DialogContent>
     </Dialog>
 
+    {/* Recall Dialog */}
+    <Dialog open={isRecallDialogOpen} onOpenChange={(open) => !open && setRecallingTool(null)}>
+        <DialogContent>
+            <DialogHeader>
+                <DialogTitle>Recall Tool: {recallingTool?.name}</DialogTitle>
+                <DialogDescription>Recall this tool and update its condition.</DialogDescription>
+            </DialogHeader>
+            <form onSubmit={recallForm.handleSubmit(onRecallSubmit)} className="space-y-4">
+                 <div className="space-y-2">
+                    <Label htmlFor="recall-condition">New Condition</Label>
+                    <Controller
+                        name="condition"
+                        control={recallForm.control}
+                        render={({ field }) => (
+                            <Select onValueChange={field.onChange} defaultValue={field.value}>
+                                <SelectTrigger><SelectValue placeholder="Select condition" /></SelectTrigger>
+                                <SelectContent>
+                                    <SelectItem value="Good">Good</SelectItem>
+                                    <SelectItem value="Needs Repair">Needs Repair</SelectItem>
+                                    <SelectItem value="Damaged">Damaged</SelectItem>
+                                </SelectContent>
+                            </Select>
+                        )}
+                    />
+                </div>
+                <div className="space-y-2">
+                    <Label htmlFor="recall-notes">Notes (Optional)</Label>
+                    <Textarea id="recall-notes" {...recallForm.register("notes")} />
+                </div>
+                 <DialogFooter>
+                    <Button type="button" variant="outline" onClick={() => setRecallingTool(null)}>Cancel</Button>
+                    <Button type="submit" disabled={recallForm.formState.isSubmitting}>Confirm Recall</Button>
+                </DialogFooter>
+            </form>
+        </DialogContent>
+    </Dialog>
+
     {/* Return Verification Dialog */}
     <Dialog open={!!returnVerification} onOpenChange={(open) => !open && setReturnVerification(null)}>
       <DialogContent>
@@ -652,7 +803,7 @@ export default function ToolManagementPage() {
                                         {record.notes && <p className="text-xs text-muted-foreground mt-1 border-l-2 pl-2">Note: {record.notes}</p>}
                                     </div>
                                     {isActive && historyTool && (
-                                        <Button size="sm" variant="secondary" onClick={() => setReturningTool(historyTool)}>
+                                        <Button size="sm" variant="secondary" onClick={() => handleRetrieveClick(historyTool)}>
                                             <ArrowDownRight className="mr-2 h-4 w-4" />
                                             Retrieve
                                         </Button>
@@ -684,6 +835,7 @@ export default function ToolManagementPage() {
         </AlertDialogFooter>
       </AlertDialogContent>
     </AlertDialog>
-    </>
+    </div>
   );
 }
+
