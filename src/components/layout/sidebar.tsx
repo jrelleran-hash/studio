@@ -112,17 +112,12 @@ interface NavSectionProps {
 }
 
 function NavSection({ title, items, pathname, inSheet, userPermissions, isCollapsed }: NavSectionProps) {
-    const [isOpen, setIsOpen] = useState(true);
-    
     const visibleItems = items.filter(item => userPermissions.includes(item.href));
-
-    if (visibleItems.length === 0) return null;
-    
     const isActiveSection = visibleItems.some(item => pathname.startsWith(item.href) && item.href !== '/');
     
-    useState(() => {
-        setIsOpen(isActiveSection);
-    });
+    const [isOpen, setIsOpen] = useState(isActiveSection);
+
+    if (visibleItems.length === 0) return null;
     
     if (isCollapsed) {
         return (
