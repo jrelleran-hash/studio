@@ -52,6 +52,7 @@ import { Calendar } from "@/components/ui/calendar";
 import { Textarea } from "@/components/ui/textarea";
 
 import { useData } from "@/context/data-context";
+import { useAuth } from "@/hooks/use-auth";
 import { addTool, updateTool, deleteTool, borrowTool, returnTool, getToolHistory, assignToolForAccountability, recallTool } from "@/services/data-service";
 import type { Tool, ToolBorrowRecord, UserProfile } from "@/types";
 import { Badge } from "@/components/ui/badge";
@@ -61,6 +62,7 @@ const toolSchema = z.object({
   name: z.string().min(1, "Tool name is required."),
   serialNumber: z.string().min(1, "Serial number is required."),
   purchaseDate: z.date().optional(),
+  borrowDuration: z.coerce.number().int().positive("Duration must be a positive number.").optional(),
   condition: z.enum(["Good", "Needs Repair", "Damaged"]),
 });
 
@@ -108,6 +110,7 @@ const conditionVariant: { [key: string]: "default" | "secondary" | "destructive"
 
 export default function ToolManagementPage() {
   const { tools, users, loading, refetchData } = useData();
+  const { userProfile } = useAuth();
   const { toast } = useToast();
 
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
@@ -184,9 +187,10 @@ export default function ToolManagementPage() {
   };
 
   const onBorrowSubmit = async (data: BorrowFormValues) => {
-    if (!borrowingTool) return;
+    if (!borrowingTool || !userProfile) return;
     try {
-        await borrowTool(borrowingTool.id, data.borrowedBy, data.notes);
+        const releasedByName = `${userProfile.firstName} ${userProfile.lastName}`;
+        await borrowTool(borrowingTool.id, data.borrowedBy, releasedByName, data.notes);
         toast({ title: "Success", description: "Tool checked out." });
         setBorrowingTool(null);
         await refetchData();
@@ -256,10 +260,7 @@ export default function ToolManagementPage() {
   
   const getCurrentUser = (tool: Tool) => {
     if (tool.status === 'Assigned') return tool.assignedToUserName;
-    if (tool.status === 'In Use') {
-        const activeRecord = toolHistory.find(r => r.toolId === tool.id && !r.dateReturned);
-        return activeRecord?.borrowedByName;
-    }
+    if (tool.status === 'In Use') return tool.currentBorrowRecord?.borrowedByName;
     return 'N/A';
   }
 
@@ -319,22 +320,27 @@ export default function ToolManagementPage() {
                             />
                         </div>
                         <div className="space-y-2">
-                            <Label htmlFor="condition">Condition</Label>
-                            <Controller
-                                name="condition"
-                                control={toolForm.control}
-                                render={({ field }) => (
-                                    <Select onValueChange={field.onChange} defaultValue={field.value}>
-                                        <SelectTrigger><SelectValue placeholder="Select condition" /></SelectTrigger>
-                                        <SelectContent>
-                                            <SelectItem value="Good">Good</SelectItem>
-                                            <SelectItem value="Needs Repair">Needs Repair</SelectItem>
-                                            <SelectItem value="Damaged">Damaged</SelectItem>
-                                        </SelectContent>
-                                    </Select>
-                                )}
-                            />
+                            <Label htmlFor="borrowDuration">Borrow Duration (Days)</Label>
+                            <Input id="borrowDuration" type="number" {...toolForm.register("borrowDuration")} />
+                            {toolForm.formState.errors.borrowDuration && <p className="text-sm text-destructive">{toolForm.formState.errors.borrowDuration.message}</p>}
                         </div>
+                    </div>
+                    <div className="space-y-2">
+                        <Label htmlFor="condition">Condition</Label>
+                        <Controller
+                            name="condition"
+                            control={toolForm.control}
+                            render={({ field }) => (
+                                <Select onValueChange={field.onChange} defaultValue={field.value}>
+                                    <SelectTrigger><SelectValue placeholder="Select condition" /></SelectTrigger>
+                                    <SelectContent>
+                                        <SelectItem value="Good">Good</SelectItem>
+                                        <SelectItem value="Needs Repair">Needs Repair</SelectItem>
+                                        <SelectItem value="Damaged">Damaged</SelectItem>
+                                    </SelectContent>
+                                </Select>
+                            )}
+                        />
                     </div>
                     <DialogFooter>
                         <Button type="button" variant="outline" onClick={() => setIsAddDialogOpen(false)}>Cancel</Button>
@@ -388,7 +394,7 @@ export default function ToolManagementPage() {
                         <DropdownMenuContent align="end">
                             <DropdownMenuLabel>Actions</DropdownMenuLabel>
                             
-                            {tool.status === 'Available' && (
+                            {tool.status === 'Available' ? (
                                 <DropdownMenuSub>
                                     <DropdownMenuSubTrigger>
                                         <ArrowUpRight className="mr-2 h-4 w-4" /> Issue Tool
@@ -402,6 +408,10 @@ export default function ToolManagementPage() {
                                         </DropdownMenuItem>
                                     </DropdownMenuSubContent>
                                 </DropdownMenuSub>
+                            ) : (
+                                <DropdownMenuItem onClick={() => handleRetrieveClick(tool)} disabled={tool.status === "Under Maintenance"}>
+                                    <ArrowDownRight className="mr-2 h-4 w-4" /> Retrieve Tool
+                                </DropdownMenuItem>
                             )}
                             
                             <DropdownMenuItem onClick={() => setEditingTool(tool)}>Edit</DropdownMenuItem>
@@ -456,22 +466,27 @@ export default function ToolManagementPage() {
                             />
                         </div>
                         <div className="space-y-2">
-                            <Label htmlFor="condition">Condition</Label>
-                            <Controller
-                                name="condition"
-                                control={toolForm.control}
-                                render={({ field }) => (
-                                    <Select onValueChange={field.onChange} defaultValue={field.value}>
-                                        <SelectTrigger><SelectValue placeholder="Select condition" /></SelectTrigger>
-                                        <SelectContent>
-                                            <SelectItem value="Good">Good</SelectItem>
-                                            <SelectItem value="Needs Repair">Needs Repair</SelectItem>
-                                            <SelectItem value="Damaged">Damaged</SelectItem>
-                                        </SelectContent>
-                                    </Select>
-                                )}
-                            />
+                            <Label htmlFor="borrowDuration">Borrow Duration (Days)</Label>
+                            <Input id="borrowDuration" type="number" {...toolForm.register("borrowDuration")} />
+                            {toolForm.formState.errors.borrowDuration && <p className="text-sm text-destructive">{toolForm.formState.errors.borrowDuration.message}</p>}
                         </div>
+                    </div>
+                    <div className="space-y-2">
+                        <Label htmlFor="condition">Condition</Label>
+                        <Controller
+                            name="condition"
+                            control={toolForm.control}
+                            render={({ field }) => (
+                                <Select onValueChange={field.onChange} defaultValue={field.value}>
+                                    <SelectTrigger><SelectValue placeholder="Select condition" /></SelectTrigger>
+                                    <SelectContent>
+                                        <SelectItem value="Good">Good</SelectItem>
+                                        <SelectItem value="Needs Repair">Needs Repair</SelectItem>
+                                        <SelectItem value="Damaged">Damaged</SelectItem>
+                                    </SelectContent>
+                                </Select>
+                            )}
+                        />
                     </div>
                     <DialogFooter>
                         <Button type="button" variant="outline" onClick={() => setEditingTool(null)}>Cancel</Button>
@@ -645,16 +660,14 @@ export default function ToolManagementPage() {
                             <li key={record.id} className="flex items-start gap-4">
                                 <div className="flex-1">
                                     <p className="font-medium">{record.borrowedByName}</p>
-                                    <p className="text-sm text-muted-foreground">Borrowed: {formatDate(record.dateBorrowed)}</p>
-                                    {record.dateReturned && <p className="text-sm text-muted-foreground">Returned: {formatDate(record.dateReturned)}</p>}
+                                    <div className="text-sm text-muted-foreground space-y-1">
+                                      <p>Borrowed: {formatDate(record.dateBorrowed)}</p>
+                                      {record.dueDate && <p>Due: {formatDate(record.dueDate)}</p>}
+                                      {record.dateReturned && <p>Returned: {formatDate(record.dateReturned)}</p>}
+                                      {record.releasedBy && <p>Released by: {record.releasedBy}</p>}
+                                    </div>
                                     {record.notes && <p className="text-xs text-muted-foreground mt-1 border-l-2 pl-2">Note: {record.notes}</p>}
                                 </div>
-                                {!record.dateReturned && historyTool && (
-                                     <Button size="sm" variant="outline" onClick={() => handleRetrieveClick(historyTool)}>
-                                        <ArrowDownRight className="mr-2 h-4 w-4" />
-                                        Retrieve
-                                    </Button>
-                                )}
                             </li>
                         ))}
                     </ul>
@@ -684,5 +697,3 @@ export default function ToolManagementPage() {
     </>
   );
 }
-
-    

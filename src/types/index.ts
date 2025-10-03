@@ -223,6 +223,7 @@ export interface Tool {
     status: 'Available' | 'In Use' | 'Under Maintenance' | 'Assigned';
     condition: 'Good' | 'Needs Repair' | 'Damaged';
     purchaseDate?: Date;
+    borrowDuration?: number; // Duration in days
     currentBorrowRecord?: ToolBorrowRecord | null;
     assignedToUserId?: string | null;
     assignedToUserName?: string | null;
@@ -234,7 +235,9 @@ export interface ToolBorrowRecord {
     borrowedBy: string; // User ID
     borrowedByName: string; // User's full name
     dateBorrowed: Date;
+    dueDate?: Date;
     dateReturned?: Date;
     notes?: string;
     returnCondition?: Tool['condition'];
+    releasedBy?: string; // Name of the user who released the tool
 }

@@ -3,7 +3,7 @@ import { db, storage, auth } from "@/lib/firebase";
 import { collection, getDocs, getDoc, doc, orderBy, query, limit, Timestamp, where, DocumentReference, addDoc, updateDoc, deleteDoc, arrayUnion, runTransaction, writeBatch, setDoc } from "firebase/firestore";
 import { EmailAuthProvider, reauthenticateWithCredential, updatePassword } from "firebase/auth";
 import type { Activity, Notification, Order, Product, Client, Issuance, Supplier, PurchaseOrder, Shipment, Return, ReturnItem, OutboundReturn, OutboundReturnItem, UserProfile, OrderItem, PurchaseOrderItem, IssuanceItem, Backorder, UserRole, PagePermission, ProductCategory, ProductLocation, Tool, ToolBorrowRecord } from "@/types";
-import { format, subDays } from 'date-fns';
+import { format, subDays, addDays } from 'date-fns';
 
 function timeSince(date: Date) {
   const seconds = Math.floor((new Date().getTime() - date.getTime()) / 1000);
@@ -1844,11 +1844,12 @@ export async function getTools(): Promise<Tool[]> {
                 ));
                 if (!activeBorrowsSnapshot.empty) {
                     const borrowDoc = activeBorrowsSnapshot.docs[0];
-                    const borrowData = borrowDoc.data() as Omit<ToolBorrowRecord, 'id' | 'dateBorrowed' | 'dateReturned'> & { dateBorrowed: Timestamp, dateReturned?: Timestamp };
+                    const borrowData = borrowDoc.data() as Omit<ToolBorrowRecord, 'id' | 'dateBorrowed' | 'dateReturned' | 'dueDate'> & { dateBorrowed: Timestamp, dateReturned?: Timestamp, dueDate?: Timestamp };
                     currentBorrowRecord = { 
                         id: borrowDoc.id, 
                         ...borrowData,
                         dateBorrowed: borrowData.dateBorrowed.toDate(),
+                        dueDate: borrowData.dueDate?.toDate(),
                         dateReturned: borrowData.dateReturned?.toDate(),
                     };
                 }
@@ -1903,7 +1904,7 @@ export async function deleteTool(toolId: string): Promise<void> {
     }
 }
 
-export async function borrowTool(toolId: string, borrowedBy: string, notes?: string): Promise<void> {
+export async function borrowTool(toolId: string, borrowedBy: string, releasedBy: string, notes?: string): Promise<void> {
     const toolRef = doc(db, "tools", toolId);
     const userRef = doc(db, "users", borrowedBy);
 
@@ -1918,11 +1919,16 @@ export async function borrowTool(toolId: string, borrowedBy: string, notes?: str
         if (toolData.status !== 'Available') throw new Error("Tool is not available for borrowing.");
 
         const userData = userDoc.data() as UserProfile;
-        const newBorrowRecord: Omit<ToolBorrowRecord, 'id'|'dateReturned'|'returnCondition'|'dateBorrowed'> & { dateBorrowed: Timestamp } = {
+        const dateBorrowed = new Date();
+        const dueDate = toolData.borrowDuration ? addDays(dateBorrowed, toolData.borrowDuration) : undefined;
+        
+        const newBorrowRecord = {
             toolId: toolId,
             borrowedBy: borrowedBy,
             borrowedByName: `${userData.firstName} ${userData.lastName}`,
-            dateBorrowed: Timestamp.now(),
+            releasedBy,
+            dateBorrowed: Timestamp.fromDate(dateBorrowed),
+            dueDate: dueDate ? Timestamp.fromDate(dueDate) : null,
             notes: notes || "",
         };
 
@@ -1955,7 +1961,7 @@ export async function returnTool(toolId: string, condition: Tool['condition'], n
         transaction.update(borrowRecordRef, {
             dateReturned: Timestamp.now(),
             returnCondition: condition,
-            notes: notes || "",
+            notes: notes || borrowRecordDoc.data().notes, // Preserve old notes if new ones aren't provided
         });
         transaction.update(toolRef, { status, condition });
     });
@@ -1967,11 +1973,12 @@ export async function getToolHistory(toolId: string): Promise<ToolBorrowRecord[]
         const q = query(collection(db, "toolBorrowRecords"), where("toolId", "==", toolId));
         const snapshot = await getDocs(q);
         const records = snapshot.docs.map(doc => {
-            const data = doc.data() as Omit<ToolBorrowRecord, 'id' | 'dateBorrowed' | 'dateReturned'> & { dateBorrowed: Timestamp, dateReturned?: Timestamp };
+            const data = doc.data() as Omit<ToolBorrowRecord, 'id' | 'dateBorrowed' | 'dateReturned' | 'dueDate'> & { dateBorrowed: Timestamp, dateReturned?: Timestamp, dueDate?: Timestamp };
              return { 
                 id: doc.id, 
                 ...data,
                 dateBorrowed: data.dateBorrowed.toDate(),
+                dueDate: data.dueDate?.toDate(),
                 dateReturned: data.dateReturned?.toDate(),
             } as ToolBorrowRecord;
         });
@@ -2032,5 +2039,3 @@ export async function recallTool(toolId: string, condition: Tool['condition'], n
         });
     });
 }
-
-
