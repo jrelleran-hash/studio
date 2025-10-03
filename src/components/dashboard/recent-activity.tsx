@@ -2,14 +2,17 @@
 "use client";
 
 import { useState, useEffect, useMemo } from "react";
-import { ArrowUpRight, ShoppingCart, UserPlus, Package, Truck, RefreshCcw, ClipboardCheck } from "lucide-react";
+import { ArrowUpRight, ShoppingCart, UserPlus, Package, Truck, RefreshCcw, ClipboardCheck, Trash2 } from "lucide-react";
 import Link from "next/link";
-import { Button } from "@/components/ui/button";
+import { Button, buttonVariants } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { getNotifications } from "@/services/data-service";
+import { getNotifications, deleteNotification } from "@/services/data-service";
 import type { Notification, PagePermission } from "@/types";
 import { Skeleton } from "../ui/skeleton";
 import { useAuth } from "@/hooks/use-auth";
+import { useToast } from "@/hooks/use-toast";
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
+
 
 type NotificationWithTime = Notification & { time: string };
 
@@ -45,6 +48,11 @@ export function RecentActivity() {
   const [activities, setActivities] = useState<NotificationWithTime[]>([]);
   const [loading, setLoading] = useState(true);
   const { userProfile } = useAuth();
+  const { toast } = useToast();
+  const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
+  const [deletingNotificationId, setDeletingNotificationId] = useState<string | null>(null);
+
+  const isAdmin = userProfile?.role === "Admin";
   
   const userPermissions = useMemo(() => {
     if (!userProfile) return [];
@@ -53,66 +61,118 @@ export function RecentActivity() {
     }
     return userProfile.permissions || [];
   }, [userProfile]);
+  
+  const fetchActivities = async () => {
+    if (!userProfile) return; 
+    setLoading(true);
+    const fetchedNotifications = await getNotifications();
+    const filteredNotifications = fetchedNotifications
+      .filter(notification => notification.href && userPermissions.includes(notification.href as PagePermission))
+      .slice(0, 5);
+    setActivities(filteredNotifications);
+    setLoading(false);
+  }
 
   useEffect(() => {
-    async function fetchActivities() {
-      if (!userProfile) return; 
-      
-      setLoading(true);
-      const fetchedNotifications = await getNotifications();
-      
-      const filteredNotifications = fetchedNotifications
-        .filter(notification => notification.href && userPermissions.includes(notification.href as PagePermission))
-        .slice(0, 5); // Take the 5 most recent, relevant notifications
-
-      setActivities(filteredNotifications);
-      setLoading(false);
-    }
     fetchActivities();
   }, [userProfile, userPermissions]);
 
+
+  const handleDeleteClick = (notificationId: string) => {
+    setDeletingNotificationId(notificationId);
+    setIsDeleteDialogOpen(true);
+  };
+
+  const handleDeleteConfirm = async () => {
+    if (!deletingNotificationId) return;
+    try {
+        await deleteNotification(deletingNotificationId);
+        toast({ title: "Success", description: "Activity deleted." });
+        await fetchActivities();
+    } catch(error) {
+        toast({ variant: "destructive", title: "Error", description: "Failed to delete activity." });
+    } finally {
+        setIsDeleteDialogOpen(false);
+        setDeletingNotificationId(null);
+    }
+  };
+
   return (
-    <Card className="card-gradient h-full">
-      <CardHeader>
-        <CardTitle>Recent Activity</CardTitle>
-        <CardDescription>
-          A log of the latest events relevant to your role.
-        </CardDescription>
-      </CardHeader>
-      <CardContent>
-          <div className="grid gap-4">
-            {loading ? (
-              Array.from({ length: 4 }).map((_, index) => (
-                <div key={index} className="flex items-center gap-4">
-                  <Skeleton className="h-8 w-8 rounded-full" />
-                  <div className="grid gap-1 flex-1">
-                    <Skeleton className="h-4 w-3/4" />
-                    <Skeleton className="h-4 w-1/4" />
-                  </div>
-                </div>
-              ))
-            ) : activities.length > 0 ? (
-              activities.map((activity) => (
-                <Link href={activity.href || "#"} key={activity.id} className="block group">
-                  <div className="flex items-center gap-4 cursor-pointer p-2 -m-2 rounded-lg hover:bg-muted/50">
-                    <div className="p-2 bg-muted/50 rounded-full group-hover:bg-primary/20 transition-colors">
-                      {activity.icon && iconMap[activity.icon]}
-                    </div>
+    <>
+      <Card className="card-gradient h-full">
+        <CardHeader>
+          <CardTitle>Recent Activity</CardTitle>
+          <CardDescription>
+            A log of the latest events relevant to your role.
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+            <div className="grid gap-4">
+              {loading ? (
+                Array.from({ length: 4 }).map((_, index) => (
+                  <div key={index} className="flex items-center gap-4">
+                    <Skeleton className="h-8 w-8 rounded-full" />
                     <div className="grid gap-1 flex-1">
-                      <p className="text-sm font-medium leading-none">{activity.title}</p>
-                      <p className="text-sm text-muted-foreground">{activity.time}</p>
+                      <Skeleton className="h-4 w-3/4" />
+                      <Skeleton className="h-4 w-1/4" />
                     </div>
-                    <ArrowUpRight className="h-4 w-4 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity" />
                   </div>
-                </Link>
-              ))
-            ) : (
-                 <div className="text-sm text-muted-foreground text-center py-10">
-                    No recent activity to display.
-                </div>
-            )}
-          </div>
-      </CardContent>
-    </Card>
+                ))
+              ) : activities.length > 0 ? (
+                activities.map((activity) => (
+                  <div key={activity.id} className="group flex items-center gap-4 p-2 -m-2 rounded-lg hover:bg-muted/50">
+                    <Link href={activity.href || "#"} className="flex-1">
+                      <div className="flex items-center gap-4 cursor-pointer">
+                        <div className="p-2 bg-muted/50 rounded-full group-hover:bg-primary/20 transition-colors">
+                          {activity.icon && iconMap[activity.icon]}
+                        </div>
+                        <div className="grid gap-1 flex-1">
+                          <p className="text-sm font-medium leading-none">{activity.title}</p>
+                          <p className="text-sm text-muted-foreground">{activity.time}</p>
+                        </div>
+                        <ArrowUpRight className="h-4 w-4 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity" />
+                      </div>
+                    </Link>
+                     {isAdmin && (
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-7 w-7 opacity-0 group-hover:opacity-100"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleDeleteClick(activity.id);
+                        }}
+                      >
+                        <Trash2 className="h-4 w-4 text-destructive" />
+                        <span className="sr-only">Delete</span>
+                      </Button>
+                    )}
+                  </div>
+                ))
+              ) : (
+                  <div className="text-sm text-muted-foreground text-center py-10">
+                      No recent activity to display.
+                  </div>
+              )}
+            </div>
+        </CardContent>
+      </Card>
+       <AlertDialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Are you sure?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This action cannot be undone. This will permanently delete this activity log item.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={handleDeleteConfirm} className={buttonVariants({ variant: "destructive" })}>
+              Delete
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+    </>
   );
 }
