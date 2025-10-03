@@ -1,7 +1,7 @@
 
 "use client";
 
-import React, { useState, useEffect, useMemo } from "react";
+import React, { useState, useEffect, useMemo, useCallback, useRef } from "react";
 import { useForm, Controller } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
@@ -189,7 +189,7 @@ export default function ToolManagementPage() {
   const onBorrowSubmit = async (data: BorrowFormValues) => {
     if (!borrowingTool || !userProfile) return;
     try {
-        const releasedByName = `${''}${userProfile.firstName} ${userProfile.lastName}`;
+        const releasedByName = `${userProfile.firstName} ${userProfile.lastName}`;
         await borrowTool(borrowingTool.id, data.borrowedBy, releasedByName, data.notes);
         toast({ title: "Success", description: "Tool checked out." });
         setBorrowingTool(null);

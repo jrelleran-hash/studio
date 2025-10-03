@@ -79,5 +79,3 @@ export const toolSchema = z.object({
 });
 
 export type ToolFormValues = z.infer<typeof toolSchema>;
-
-    

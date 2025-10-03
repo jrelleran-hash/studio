@@ -1881,7 +1881,7 @@ export async function addTool(tool: Partial<Omit<Tool, 'id' | 'status' | 'curren
       category: tool.category || "Other",
       condition: tool.condition || "Good",
       purchaseDate: tool.purchaseDate || null,
-      purchaseCost: tool.purchaseCost || 0, // Ensure default value
+      purchaseCost: tool.purchaseCost || 0,
       borrowDuration: tool.borrowDuration || 7,
       location: tool.location || {},
       status: 'Available' as const,
@@ -2055,6 +2055,7 @@ export async function recallTool(toolId: string, condition: Tool['condition'], n
 }
 
     
+
 
 
 
