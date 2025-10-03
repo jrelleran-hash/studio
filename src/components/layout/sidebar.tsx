@@ -22,6 +22,7 @@ import {
   ChevronLeft,
   ChevronRight,
   Wrench,
+  QrCode,
 } from "lucide-react";
 import { CoreFlowLogo } from "@/components/icons";
 import { cn } from "@/lib/utils";
@@ -113,11 +114,11 @@ interface NavSectionProps {
 
 function NavSection({ title, items, pathname, inSheet, userPermissions, isCollapsed }: NavSectionProps) {
     const visibleItems = items.filter(item => userPermissions.includes(item.href));
-    const isActiveSection = visibleItems.some(item => pathname.startsWith(item.href) && item.href !== '/');
-    
-    const [isOpen, setIsOpen] = useState(isActiveSection);
 
     if (visibleItems.length === 0) return null;
+    
+    const isActiveSection = visibleItems.some(item => pathname.startsWith(item.href) && item.href !== '/');
+    const [isOpen, setIsOpen] = useState(isActiveSection);
     
     if (isCollapsed) {
         return (

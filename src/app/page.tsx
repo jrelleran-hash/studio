@@ -8,8 +8,7 @@ import { LowStockItems } from "@/components/dashboard/low-stock-items";
 import { ActiveOrders } from "@/components/dashboard/active-orders";
 import { RevenueChart, type FilterType } from "@/components/dashboard/revenue-chart";
 import { InventoryStatusChart, type InventoryFilterType } from "@/components/dashboard/inventory-status-chart";
-import { ToolStatusChart } from "@/components/dashboard/tool-status-chart";
-import { Package, ShoppingCart, Users, Camera, Wrench } from "lucide-react";
+import { Package, ShoppingCart, Users } from "lucide-react";
 import { useAuth } from "@/hooks/use-auth";
 import { useRouter } from "next/navigation";
 import { useEffect, useState, useMemo } from "react";
@@ -110,7 +109,7 @@ const getRevenueData = (orders: Order[], filter: FilterType) => {
 export default function DashboardPage() {
   const { user, loading: authLoading } = useAuth();
   const router = useRouter();
-  const { products, clients, orders, tools, loading: dataLoading } = useData();
+  const { products, clients, orders, loading: dataLoading } = useData();
   
   const [revenueFilter, setRevenueFilter] = useState<FilterType>("month");
   const [inventoryFilter, setInventoryFilter] = useState<InventoryFilterType>("all");
@@ -157,15 +156,6 @@ export default function DashboardPage() {
 
   }, [products, inventoryFilter]);
   
-  const toolData = useMemo(() => {
-    const inUseCount = tools.filter(t => t.status === 'In Use').length;
-    return {
-      total: tools.length,
-      change: `${inUseCount} in use`,
-    };
-  }, [tools]);
-
-
   const newClientsData = useMemo(() => {
     const now = new Date();
     const last30DaysStart = subDays(now, 30);
@@ -256,13 +246,12 @@ export default function DashboardPage() {
             }
           />
           <KpiCard
-            title="Tool Status"
-            value={`${toolData.total} Total`}
-            change={toolData.change}
-            icon={<Wrench className="size-5 text-primary" />}
+            title="New Clients"
+            value={`+${newClientsData.count}`}
+            change={newClientsData.change}
+            icon={<Users className="size-5 text-primary" />}
             loading={dataLoading}
-            href="/tools"
-            children={<ToolStatusChart tools={tools} />}
+            href="/clients"
           />
           <KpiCard
             title="Active Orders"

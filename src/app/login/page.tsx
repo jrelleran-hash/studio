@@ -18,9 +18,6 @@ import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
 import { CoreFlowLogo } from "@/components/icons";
 import { FirebaseError } from "firebase/app";
-import { Separator } from "@/components/ui/separator";
-import { registerPasskey, signInWithPasskey } from "@/lib/webauthn";
-import { useAuth } from "@/hooks/use-auth";
 
 const loginSchema = z.object({
   email: z.string().email({ message: "Invalid email address." }),
@@ -34,8 +31,6 @@ export default function LoginPage() {
   const [showPassword, setShowPassword] = useState(false);
   const { toast } = useToast();
   const router = useRouter();
-  const { user } = useAuth();
-  const [isPasskeyReady, setIsPasskeyReady] = useState(false);
 
   const {
     register,
@@ -44,45 +39,6 @@ export default function LoginPage() {
   } = useForm<LoginFormValues>({
     resolver: zodResolver(loginSchema),
   });
-  
-  const handlePasskeySignIn = async () => {
-      setIsLoading(true);
-      try {
-          const success = await signInWithPasskey();
-          if (success) {
-              toast({ title: "Signed in with passkey!" });
-              router.push("/");
-          } else {
-              toast({ variant: "destructive", title: "Passkey sign-in failed", description: "Could not verify passkey. Please try again or use your password." });
-          }
-      } catch (error) {
-           const errorMessage = error instanceof Error ? error.message : "An unknown error occurred.";
-           toast({ variant: "destructive", title: "Passkey Error", description: errorMessage });
-      } finally {
-          setIsLoading(false);
-      }
-  }
-  
-  const handleRegisterPasskey = async () => {
-    if (!user) {
-        toast({ variant: "destructive", title: "Not Logged In", description: "You must be logged in to register a passkey." });
-        return;
-    }
-    setIsLoading(true);
-    try {
-        const success = await registerPasskey(user.uid, user.email || 'user');
-        if (success) {
-            toast({ title: "Passkey Registered!", description: "You can now use this device to sign in with your fingerprint or face." });
-        } else {
-            toast({ variant: "destructive", title: "Registration Failed", description: "Could not register passkey. Your browser may not support it." });
-        }
-    } catch(error) {
-        const errorMessage = error instanceof Error ? error.message : "An unknown error occurred.";
-        toast({ variant: "destructive", title: "Passkey Registration Error", description: errorMessage });
-    } finally {
-        setIsLoading(false);
-    }
-  }
 
   const onSubmit = async (data: LoginFormValues) => {
     setIsLoading(true);
@@ -94,13 +50,12 @@ export default function LoginPage() {
           title: "Email Not Verified",
           description: "Please verify your email address before signing in.",
         });
+        await auth.signOut(); // Log them out so they can't access protected routes
         router.push(`/verify-email?email=${data.email}`);
         return;
       }
-      setIsPasskeyReady(true); // Show passkey registration option after login
-      // Don't redirect immediately, let them register a passkey
-      toast({ title: "Login Successful", description: "You can now proceed to the dashboard or register a passkey for faster login." });
-
+      
+      router.push("/");
     } catch (error: any) {
       let errorMessage = "An unexpected error occurred.";
       if (error instanceof FirebaseError) {
@@ -119,26 +74,6 @@ export default function LoginPage() {
       setIsLoading(false);
     }
   };
-
-  if (isPasskeyReady) {
-    return (
-        <div className="flex min-h-screen items-center justify-center bg-background p-4">
-            <Card className="w-full max-w-md text-center">
-                <CardHeader>
-                    <CardTitle>Login Successful!</CardTitle>
-                    <CardDescription>What would you like to do next?</CardDescription>
-                </CardHeader>
-                <CardContent className="space-y-4">
-                    <Button onClick={() => router.push("/")} className="w-full">Go to Dashboard</Button>
-                    <Button variant="outline" onClick={handleRegisterPasskey} className="w-full">
-                        <Fingerprint className="mr-2 h-4 w-4" />
-                        Register Passkey for this Device
-                    </Button>
-                </CardContent>
-            </Card>
-        </div>
-    )
-  }
 
   return (
     <div className="flex min-h-screen items-center justify-center bg-background p-4">
@@ -197,14 +132,12 @@ export default function LoginPage() {
               {isLoading ? "Signing in..." : "Sign In"}
             </Button>
           </form>
-           <div className="relative my-4">
-            <Separator />
-            <span className="absolute left-1/2 -translate-x-1/2 -top-2.5 bg-background px-2 text-xs text-muted-foreground">OR</span>
+           <div className="mt-4 text-center text-sm">
+            Don&apos;t have an account?{" "}
+            <Link href="/signup" className="underline">
+              Sign up
+            </Link>
           </div>
-          <Button variant="outline" className="w-full" onClick={handlePasskeySignIn} disabled={isLoading}>
-             <Fingerprint className="mr-2 h-4 w-4" />
-             Sign in with a Passkey
-          </Button>
         </CardContent>
       </Card>
     </div>
