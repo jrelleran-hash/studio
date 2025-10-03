@@ -5,7 +5,7 @@ import { useState, useEffect, useMemo, useRef, useCallback } from "react";
 import { useForm, Controller } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
-import { PlusCircle, MoreHorizontal, Package, ChevronsUpDown, Check, Printer, FileDown, SlidersHorizontal, QrCode, Camera, Download, User, Search } from "lucide-react";
+import { PlusCircle, MoreHorizontal, Package, ChevronsUpDown, Check, Printer, FileDown, SlidersHorizontal, User, Search } from "lucide-react";
 import { Button, buttonVariants } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
@@ -63,7 +63,6 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Textarea } from "@/components/ui/textarea";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { CoreFlowLogo } from "@/components/icons";
-import { toPng } from 'html-to-image';
 import { useSearchParams } from "next/navigation";
 import { useAuth } from "@/hooks/use-auth";
 
@@ -162,8 +161,6 @@ export default function InventoryPage() {
   const [autoGenerateSku, setAutoGenerateSku] = useState(true);
   const [isSupplierPopoverOpen, setIsSupplierPopoverOpen] = useState(false);
   const [isAddSupplierOpen, setIsAddSupplierOpen] = useState(false);
-  const [qrCodeProduct, setQrCodeProduct] = useState<Product | null>(null);
-  const qrCodeLabelRef = useRef<HTMLDivElement>(null);
   const searchParams = useSearchParams();
 
   const canEditProduct = userProfile?.role === 'Admin' || userProfile?.role === 'Manager';
@@ -437,28 +434,6 @@ export default function InventoryPage() {
     link.click();
     document.body.removeChild(link);
   }
-
-  const handleExportAsImage = useCallback(() => {
-    if (qrCodeLabelRef.current === null || !qrCodeProduct) {
-      return;
-    }
-
-    toPng(qrCodeLabelRef.current, { cacheBust: true, pixelRatio: 2 })
-      .then((dataUrl) => {
-        const link = document.createElement('a');
-        link.download = `${qrCodeProduct.sku || 'product-label'}.png`;
-        link.href = dataUrl;
-        link.click();
-      })
-      .catch((err) => {
-        console.error(err);
-        toast({
-            variant: "destructive",
-            title: "Export Failed",
-            description: "Could not export the label as an image.",
-        });
-      });
-  }, [qrCodeProduct, toast]);
 
   return (
     <>
@@ -744,10 +719,6 @@ export default function InventoryPage() {
                                       <SlidersHorizontal className="mr-2 h-4 w-4" />
                                       <span>Adjust Stock</span>
                                   </DropdownMenuItem>
-                                  <DropdownMenuItem onClick={() => setQrCodeProduct(product)}>
-                                      <QrCode className="mr-2 h-4 w-4" />
-                                      <span>View QR Code</span>
-                                  </DropdownMenuItem>
                                   <DropdownMenuSeparator />
                                   <DropdownMenuItem onClick={() => handleDeleteClick(product.id)} className="text-destructive">Delete</DropdownMenuItem>
                                 </DropdownMenuContent>
@@ -798,10 +769,6 @@ export default function InventoryPage() {
                                               <DropdownMenuItem onClick={() => setAdjustmentProduct(product)}>
                                                   <SlidersHorizontal className="mr-2 h-4 w-4" />
                                                   <span>Adjust Stock</span>
-                                              </DropdownMenuItem>
-                                              <DropdownMenuItem onClick={() => setQrCodeProduct(product)}>
-                                                  <QrCode className="mr-2 h-4 w-4" />
-                                                  <span>View QR Code</span>
                                               </DropdownMenuItem>
                                               <DropdownMenuSeparator />
                                               <DropdownMenuItem onClick={() => handleDeleteClick(product.id)} className="text-destructive">Delete</DropdownMenuItem>
@@ -1085,39 +1052,6 @@ export default function InventoryPage() {
             </form>
         </DialogContent>
       </Dialog>
-      <Dialog open={!!qrCodeProduct} onOpenChange={(open) => !open && setQrCodeProduct(null)}>
-        <DialogContent className="sm:max-w-sm">
-            <DialogHeader className="print-hidden sr-only">
-                <DialogTitle>Product QR Code</DialogTitle>
-            </DialogHeader>
-            <div ref={qrCodeLabelRef} className="printable-content flex flex-col items-center justify-center p-4 bg-white text-black">
-                <div className="flex items-center gap-2 font-semibold">
-                    <CoreFlowLogo className="h-6 w-6 text-black" />
-                    <span>CoreFlow</span>
-                </div>
-                <p className="text-lg font-bold mt-4 text-center">{qrCodeProduct?.name}</p>
-                {qrCodeProduct && (
-                  <div className="p-2 inline-block my-2">
-                    {/* QR Code component was here */}
-                  </div>
-                )}
-                <p className="text-sm font-mono text-gray-600">SKU: {qrCodeProduct?.sku}</p>
-            </div>
-            <DialogFooter className="print-hidden mt-4">
-                <Button variant="outline" onClick={() => setQrCodeProduct(null)}>Close</Button>
-                <Button onClick={handleExportAsImage}>
-                    <Download className="mr-2 h-4 w-4" />
-                    Export
-                </Button>
-                <Button onClick={() => window.print()}>
-                    <Printer className="mr-2 h-4 w-4" />
-                    Print
-                </Button>
-            </DialogFooter>
-        </DialogContent>
-      </Dialog>
     </>
   );
 }
-
-    
