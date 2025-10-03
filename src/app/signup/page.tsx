@@ -114,7 +114,7 @@ export default function SignupPage() {
       await updateProfile(user, { displayName });
       
       const actionCodeSettings = {
-        url: `${window.location.origin}/login`,
+        // url: `${window.location.origin}/login`, // This was causing the error
         handleCodeInApp: true,
       };
       await sendEmailVerification(user, actionCodeSettings);
@@ -135,7 +135,10 @@ export default function SignupPage() {
       if (error instanceof FirebaseError) {
           if (error.code === 'auth/email-already-in-use') {
             errorMessage = "This email address is already in use.";
-          } else {
+          } else if (error.code === 'auth/unauthorized-continue-uri') {
+            errorMessage = "The domain of this application is not authorized. Please contact support.";
+          }
+          else {
             errorMessage = error.message;
           }
       }
