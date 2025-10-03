@@ -135,7 +135,7 @@ export function WarehouseMap({ products, onProductSelect }: WarehouseMapProps) {
   if (selectedRack) path.push({ key: 'Rack', value: selectedRack});
 
   return (
-    <>
+    <Dialog onOpenChange={(open) => !open && setSelectedBinProducts(null)}>
       <div className="p-4 border rounded-lg min-h-[600px] flex flex-col">
         <Breadcrumbs path={path} onNavigate={handleBreadcrumbNav} />
         
@@ -208,46 +208,44 @@ export function WarehouseMap({ products, onProductSelect }: WarehouseMapProps) {
             )}
         </div>
       </div>
-       <Dialog open={!!selectedBinProducts} onOpenChange={(open) => !open && setSelectedBinProducts(null)}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Bin Contents</DialogTitle>
-            <DialogDescription>
-              Products stored in this bin.
-            </DialogDescription>
-          </DialogHeader>
-          <div className="py-4 max-h-96 overflow-y-auto">
-            {selectedBinProducts && selectedBinProducts.length > 0 ? (
-              <div className="space-y-2">
-                {selectedBinProducts.map(p => (
-                  <div 
-                    key={p.id} 
-                    className="flex items-center gap-4 p-2 rounded-md hover:bg-muted cursor-pointer"
-                    onClick={() => {
-                        onProductSelect(p);
-                        setSelectedBinProducts(null);
-                    }}
-                  >
-                    <div className="p-2 bg-muted/50 rounded-md">
-                        <Package className="h-5 w-5 text-muted-foreground" />
-                    </div>
-                    <div className="flex-1">
-                      <p className="font-medium text-sm">{p.name}</p>
-                      <p className="text-xs text-muted-foreground">{p.sku}</p>
-                    </div>
-                    <Badge variant="secondary">Qty: {p.stock}</Badge>
+       <DialogContent>
+        <DialogHeader>
+          <DialogTitle>Bin Contents</DialogTitle>
+          <DialogDescription>
+            Products stored in this bin.
+          </DialogDescription>
+        </DialogHeader>
+        <div className="py-4 max-h-96 overflow-y-auto">
+          {selectedBinProducts && selectedBinProducts.length > 0 ? (
+            <div className="space-y-2">
+              {selectedBinProducts.map(p => (
+                <div 
+                  key={p.id} 
+                  className="flex items-center gap-4 p-2 rounded-md hover:bg-muted cursor-pointer"
+                  onClick={() => {
+                      onProductSelect(p);
+                      setSelectedBinProducts(null);
+                  }}
+                >
+                  <div className="p-2 bg-muted/50 rounded-md">
+                      <Package className="h-5 w-5 text-muted-foreground" />
                   </div>
-                ))}
-              </div>
-            ) : (
-              <p className="text-sm text-muted-foreground text-center py-8">This bin is empty.</p>
-            )}
-          </div>
-           <DialogFooter>
-                <Button variant="outline" onClick={() => setSelectedBinProducts(null)}>Close</Button>
-            </DialogFooter>
-        </DialogContent>
-      </Dialog>
-    </>
+                  <div className="flex-1">
+                    <p className="font-medium text-sm">{p.name}</p>
+                    <p className="text-xs text-muted-foreground">{p.sku}</p>
+                  </div>
+                  <Badge variant="secondary">Qty: {p.stock}</Badge>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <p className="text-sm text-muted-foreground text-center py-8">This bin is empty.</p>
+          )}
+        </div>
+         <DialogFooter>
+              <Button variant="outline" onClick={() => setSelectedBinProducts(null)}>Close</Button>
+          </DialogFooter>
+      </DialogContent>
+    </Dialog>
   );
 }
