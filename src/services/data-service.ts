@@ -3,7 +3,7 @@
 import { db, storage, auth } from "@/lib/firebase";
 import { collection, getDocs, getDoc, doc, orderBy, query, limit, Timestamp, where, DocumentReference, addDoc, updateDoc, deleteDoc, arrayUnion, runTransaction, writeBatch, setDoc } from "firebase/firestore";
 import { EmailAuthProvider, reauthenticateWithCredential, updatePassword } from "firebase/auth";
-import type { Activity, Notification, Order, Product, Client, Issuance, Supplier, PurchaseOrder, Shipment, Return, ReturnItem, OutboundReturn, OutboundReturnItem, UserProfile, OrderItem, PurchaseOrderItem, IssuanceItem, Backorder, UserRole, PagePermission, ProductCategory, ProductLocation, Tool, ToolBorrowRecord } from "@/types";
+import type { Activity, Notification, Order, Product, Client, Issuance, Supplier, PurchaseOrder, Shipment, Return, ReturnItem, OutboundReturn, OutboundReturnItem, UserProfile, OrderItem, PurchaseOrderItem, IssuanceItem, Backorder, UserRole, PagePermission, ProductCategory, ProductLocation, Tool, ToolBorrowRecord, SalvagedPart } from "@/types";
 import { format, subDays, addDays } from 'date-fns';
 
 function timeSince(date: Date) {
@@ -1992,10 +1992,8 @@ export async function returnTool(toolId: string, condition: Tool['condition'], n
         let status: Tool['status'];
         if (condition === "Good") {
             status = "Available";
-        } else if (condition === "Needs Repair") {
+        } else { // Needs Repair or Damaged
             status = "Under Maintenance";
-        } else { // Damaged
-            status = "Available"; // Or another status like 'Archived' - for now, make it available but damaged.
         }
 
         transaction.update(borrowRecordRef, {
@@ -2015,7 +2013,7 @@ export async function updateToolConditionAndStatus(toolId: string, condition: To
     } catch (error) {
         console.error("Error updating tool condition and status:", error);
         throw new Error("Failed to update tool.");
-    }
+  }
 }
 
 
@@ -2160,7 +2158,52 @@ export async function disposeItemsAndTools(items: { id: string; type: 'product' 
 }
 
 
+type SalvagedPartData = Omit<SalvagedPart, 'id' | 'salvageDate' | 'originalToolId' | 'originalToolName'>;
+
+export async function partOutTools(toolIds: string[], parts: SalvagedPartData[], notes?: string): Promise<void> {
+    const batch = writeBatch(db);
+    const now = Timestamp.now();
+
+    const toolDocs = await Promise.all(toolIds.map(id => getDoc(doc(db, "tools", id))));
+
+    for (let i = 0; i < toolIds.length; i++) {
+        const toolId = toolIds[i];
+        const toolDoc = toolDocs[i];
+
+        if (toolDoc.exists()) {
+            const toolData = toolDoc.data() as Tool;
+
+            // Log the salvaged parts
+            for (const part of parts) {
+                const salvagedPartRef = doc(collection(db, "salvagedParts"));
+                batch.set(salvagedPartRef, {
+                    ...part,
+                    salvageDate: now,
+                    originalToolId: toolId,
+                    originalToolName: toolData.name,
+                    notes: notes,
+                });
+            }
+
+            // Create a disposal record for the original tool
+            const disposalRecordRef = doc(collection(db, "disposalRecords"));
+            batch.set(disposalRecordRef, {
+                itemId: toolId,
+                itemType: 'tool',
+                reason: 'For Parts Out',
+                date: now,
+                notes: `Salvaged ${parts.length} part types. ${notes || ''}`
+            });
+            
+            // Delete the original tool
+            batch.delete(toolDoc.ref);
+        }
+    }
+
+    await batch.commit();
+}
     
+
 
 
 

@@ -2,6 +2,9 @@
 "use client";
 
 import { useState, useMemo, useEffect } from "react";
+import { useForm, useFieldArray, Controller } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
+import * as z from "zod";
 import { useData } from "@/context/data-context";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
@@ -10,13 +13,18 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Button, buttonVariants } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
 import type { Tool } from "@/types";
-import { getDisposalItems, disposeItemsAndTools } from "@/services/data-service";
+import { getDisposalItems, disposeItemsAndTools, partOutTools } from "@/services/data-service";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { format } from "date-fns";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { Checkbox } from "@/components/ui/checkbox";
-import { Trash2, ChevronDown } from "lucide-react";
+import { Trash2, ChevronDown, PlusCircle, X } from "lucide-react";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, DropdownMenuSeparator } from "@/components/ui/dropdown-menu";
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
+import { Label } from "@/components/ui/label";
+import { Input } from "@/components/ui/input";
+import { Select, SelectTrigger, SelectContent, SelectItem, SelectValue } from "@/components/ui/select";
+import { Textarea } from "@/components/ui/textarea";
 
 const conditionVariant: { [key: string]: "default" | "secondary" | "destructive" | "outline" } = {
   Good: "default",
@@ -35,6 +43,19 @@ interface DisposalItem {
     dateMarked: Date;
 }
 
+const salvagedPartSchema = z.object({
+  partName: z.string().min(1, "Part name is required."),
+  quantity: z.coerce.number().min(1, "Quantity must be at least 1."),
+  condition: z.enum(["Good", "Usable", "Poor"]),
+});
+
+const partsOutSchema = z.object({
+  notes: z.string().optional(),
+  parts: z.array(salvagedPartSchema).min(1, "At least one salvaged part is required."),
+});
+type PartsOutFormValues = z.infer<typeof partsOutSchema>;
+
+
 export default function WasteManagementPage() {
   const { tools, loading: initialLoading, refetchData } = useData();
   const { toast } = useToast();
@@ -43,6 +64,7 @@ export default function WasteManagementPage() {
   const [loading, setLoading] = useState(true);
   const [selectedItems, setSelectedItems] = useState<Set<string>>(new Set());
   const [isDisposeDialogOpen, setIsDisposeDialogOpen] = useState(false);
+  const [isPartsOutDialogOpen, setIsPartsOutDialogOpen] = useState(false);
   const [disposalReason, setDisposalReason] = useState<"For Parts Out" | "Recycle" | "Dispose">("Dispose");
 
 
@@ -53,6 +75,19 @@ export default function WasteManagementPage() {
   const productsForDisposal = useMemo(() => disposalItems.filter(item => item.type === 'product'), [disposalItems]);
   const toolsForDisposal = useMemo(() => disposalItems.filter(item => item.type === 'tool'), [disposalItems]);
 
+  const partsOutForm = useForm<PartsOutFormValues>({
+    resolver: zodResolver(partsOutSchema),
+    defaultValues: { parts: [{ partName: "", quantity: 1, condition: "Usable"}] }
+  });
+  
+  const { fields, append, remove } = useFieldArray({
+      control: partsOutForm.control,
+      name: "parts"
+  });
+
+  const toolsToPartOut = useMemo(() => {
+    return tools.filter(tool => selectedItems.has(tool.id));
+  }, [selectedItems, tools]);
 
   const fetchDisposalItems = async () => {
     setLoading(true);
@@ -88,6 +123,13 @@ export default function WasteManagementPage() {
     if(!initialLoading) fetchDisposalItems();
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [initialLoading, tools]);
+  
+  useEffect(() => {
+    if (!isPartsOutDialogOpen) {
+        partsOutForm.reset({ parts: [{ partName: "", quantity: 1, condition: "Usable"}] });
+    }
+  }, [isPartsOutDialogOpen, partsOutForm]);
+
 
   const handleSelectAll = (checked: boolean, list: DisposalItem[]) => {
     const newSelection = new Set(selectedItems);
@@ -110,8 +152,17 @@ export default function WasteManagementPage() {
   }
 
   const handleDisposeClick = (reason: "For Parts Out" | "Recycle" | "Dispose") => {
-    setDisposalReason(reason);
-    setIsDisposeDialogOpen(true);
+    if (reason === 'For Parts Out') {
+        const hasProducts = Array.from(selectedItems).some(id => disposalItems.find(item => item.id === id)?.type === 'product');
+        if (hasProducts || toolsToPartOut.length === 0) {
+            toast({ variant: 'destructive', title: 'Invalid Selection', description: 'You can only part out tools, not products.' });
+            return;
+        }
+        setIsPartsOutDialogOpen(true);
+    } else {
+        setDisposalReason(reason);
+        setIsDisposeDialogOpen(true);
+    }
   }
   
   const handleDisposeConfirm = async () => {
@@ -138,6 +189,22 @@ export default function WasteManagementPage() {
         setIsDisposeDialogOpen(false);
     }
   }
+
+  const onPartsOutSubmit = async (data: PartsOutFormValues) => {
+    try {
+      const toolIds = toolsToPartOut.map(t => t.id);
+      await partOutTools(toolIds, data.parts, data.notes);
+      toast({ title: "Success", description: "Tools have been parted out and salvaged parts are recorded." });
+      await refetchData();
+      await fetchDisposalItems();
+      setSelectedItems(new Set());
+    } catch (error) {
+       const errorMessage = error instanceof Error ? error.message : "Failed to part out tools.";
+       toast({ variant: "destructive", title: "Error", description: errorMessage });
+    } finally {
+      setIsPartsOutDialogOpen(false);
+    }
+  };
   
   const isAllProductsSelected = productsForDisposal.length > 0 && productsForDisposal.every(item => selectedItems.has(item.id));
   const isAllToolsSelected = toolsForDisposal.length > 0 && toolsForDisposal.every(item => selectedItems.has(item.id));
@@ -290,6 +357,89 @@ export default function WasteManagementPage() {
             </AlertDialogContent>
         </AlertDialog>
 
+        <Dialog open={isPartsOutDialogOpen} onOpenChange={setIsPartsOutDialogOpen}>
+            <DialogContent className="max-w-3xl">
+                <DialogHeader>
+                    <DialogTitle>Salvage Parts from Tools</DialogTitle>
+                    <DialogDescription>
+                        Log the usable parts salvaged from the selected tools before they are disposed of.
+                    </DialogDescription>
+                </DialogHeader>
+                 <form onSubmit={partsOutForm.handleSubmit(onPartsOutSubmit)}>
+                    <div className="py-4 space-y-4">
+                       <div>
+                            <h4 className="font-semibold text-sm mb-2">Tools being parted out:</h4>
+                            <div className="flex flex-wrap gap-2">
+                                {toolsToPartOut.map(tool => (
+                                    <Badge key={tool.id} variant="secondary">{tool.name} ({tool.serialNumber})</Badge>
+                                ))}
+                            </div>
+                        </div>
+                        
+                        <div className="space-y-2">
+                             <Label>Salvaged Parts</Label>
+                             <div className="space-y-4">
+                                {fields.map((field, index) => (
+                                    <div key={field.id} className="grid grid-cols-[1fr_80px_120px_auto] gap-2 items-start p-3 border rounded-md">
+                                        <div className="space-y-1">
+                                            <Label htmlFor={`parts.${index}.partName`} className="sr-only">Part Name</Label>
+                                            <Input
+                                                id={`parts.${index}.partName`}
+                                                placeholder="Part Name"
+                                                {...partsOutForm.register(`parts.${index}.partName`)}
+                                            />
+                                            {partsOutForm.formState.errors.parts?.[index]?.partName && <p className="text-xs text-destructive">{partsOutForm.formState.errors.parts?.[index]?.partName?.message}</p>}
+                                        </div>
+                                         <div className="space-y-1">
+                                             <Label htmlFor={`parts.${index}.quantity`} className="sr-only">Quantity</Label>
+                                             <Input
+                                                id={`parts.${index}.quantity`}
+                                                type="number"
+                                                placeholder="Qty"
+                                                {...partsOutForm.register(`parts.${index}.quantity`)}
+                                            />
+                                            {partsOutForm.formState.errors.parts?.[index]?.quantity && <p className="text-xs text-destructive">{partsOutForm.formState.errors.parts?.[index]?.quantity?.message}</p>}
+                                        </div>
+                                        <div className="space-y-1">
+                                             <Label htmlFor={`parts.${index}.condition`} className="sr-only">Condition</Label>
+                                            <Controller
+                                                control={partsOutForm.control}
+                                                name={`parts.${index}.condition`}
+                                                render={({ field: controllerField }) => (
+                                                    <Select onValueChange={controllerField.onChange} defaultValue={controllerField.value}>
+                                                        <SelectTrigger><SelectValue placeholder="Condition..." /></SelectTrigger>
+                                                        <SelectContent>
+                                                            <SelectItem value="Good">Good</SelectItem>
+                                                            <SelectItem value="Usable">Usable</SelectItem>
+                                                            <SelectItem value="Poor">Poor</SelectItem>
+                                                        </SelectContent>
+                                                    </Select>
+                                                )}
+                                            />
+                                        </div>
+                                         <Button variant="ghost" size="icon" onClick={() => remove(index)}><X className="h-4 w-4" /></Button>
+                                    </div>
+                                ))}
+                             </div>
+                             <Button type="button" variant="outline" size="sm" onClick={() => append({ partName: "", quantity: 1, condition: "Usable" })}>
+                                 <PlusCircle className="mr-2 h-4 w-4" />Add Part
+                             </Button>
+                        </div>
+                        
+                        <div className="space-y-2">
+                             <Label htmlFor="notes">Notes (Optional)</Label>
+                            <Textarea id="notes" {...partsOutForm.register("notes")} placeholder="Any additional notes about the parting out process..."/>
+                        </div>
+                    </div>
+                    <DialogFooter>
+                        <Button type="button" variant="ghost" onClick={() => setIsPartsOutDialogOpen(false)}>Cancel</Button>
+                        <Button type="submit" disabled={partsOutForm.formState.isSubmitting}>
+                            {partsOutForm.formState.isSubmitting ? "Processing..." : "Confirm & Dispose Tools"}
+                        </Button>
+                    </DialogFooter>
+                </form>
+            </DialogContent>
+        </Dialog>
     </div>
   );
 }

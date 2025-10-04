@@ -246,3 +246,14 @@ export interface ToolBorrowRecord {
     returnCondition?: Tool['condition'];
     releasedBy?: string; // Name of the user who released the tool
 }
+
+export interface SalvagedPart {
+    id: string;
+    originalToolId: string;
+    originalToolName: string;
+    partName: string;
+    quantity: number;
+    condition: 'Good' | 'Usable' | 'Poor';
+    salvageDate: Timestamp;
+    notes?: string;
+}
