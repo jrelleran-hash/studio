@@ -1,9 +1,8 @@
 
-
 import { db, storage, auth } from "@/lib/firebase";
 import { collection, getDocs, getDoc, doc, orderBy, query, limit, Timestamp, where, DocumentReference, addDoc, updateDoc, deleteDoc, arrayUnion, runTransaction, writeBatch, setDoc } from "firebase/firestore";
 import { EmailAuthProvider, reauthenticateWithCredential, updatePassword } from "firebase/auth";
-import type { Activity, Notification, Order, Product, Client, Issuance, Supplier, PurchaseOrder, Shipment, Return, ReturnItem, OutboundReturn, OutboundReturnItem, UserProfile, OrderItem, PurchaseOrderItem, IssuanceItem, Backorder, UserRole, PagePermission, ProductCategory, ProductLocation, Tool, ToolBorrowRecord, SalvagedPart } from "@/types";
+import type { Activity, Notification, Order, Product, Client, Issuance, Supplier, PurchaseOrder, Shipment, Return, ReturnItem, OutboundReturn, OutboundReturnItem, UserProfile, OrderItem, PurchaseOrderItem, IssuanceItem, Backorder, UserRole, PagePermission, ProductCategory, ProductLocation, Tool, ToolBorrowRecord, SalvagedPart, DisposalRecord } from "@/types";
 import { format, subDays, addDays } from 'date-fns';
 
 function timeSince(date: Date) {
@@ -2068,7 +2067,7 @@ export async function recallTool(toolId: string, condition: Tool['condition'], n
         if (!toolDoc.exists()) throw new Error("Tool not found.");
         if (toolDoc.data().status !== 'Assigned') throw new Error("Can only recall an assigned tool.");
         
-        const newStatus: Tool['status'] = condition === 'Good' ? 'Available' : 'Under Maintenance';
+        const newStatus: Tool['status'] = (condition === 'Good') ? 'Available' : 'Under Maintenance';
         
         transaction.update(toolRef, {
             status: newStatus,
@@ -2119,39 +2118,35 @@ export async function getDisposalItems() {
     return disposalItems;
 }
 
-export async function disposeItemsAndTools(items: { id: string; type: 'product' | 'tool', sourceId: string }[], reason: string): Promise<void> {
+export async function disposeItemsAndTools(
+  items: { id: string; type: 'product' | 'tool'; name: string, identifier?: string, sourceId: string }[], 
+  reason: string
+): Promise<void> {
     const batch = writeBatch(db);
     const now = Timestamp.now();
 
     for (const item of items) {
         if (item.type === 'tool') {
             const toolRef = doc(db, "tools", item.id);
-            // Instead of deleting, we can move it to a 'disposed' collection or update its status
-            // For now, let's delete as per original design.
-             batch.delete(toolRef);
-
-             // Create a record of the disposal
-            const disposalRecordRef = doc(collection(db, "disposalRecords"));
-            batch.set(disposalRecordRef, {
-                itemId: item.id,
-                itemType: 'tool',
-                reason: reason,
-                date: now
-            });
+            batch.delete(toolRef);
 
         } else if (item.type === 'product') {
             const returnRef = doc(db, "returns", item.sourceId);
-            batch.update(returnRef, { "inspection": null }); // Mark as handled
-
-             const disposalRecordRef = doc(collection(db, "disposalRecords"));
-            batch.set(disposalRecordRef, {
-                itemId: item.id,
-                itemType: 'product',
-                reason: reason,
-                date: now,
-                source: `RMA ${item.sourceId}`
-            });
+            // We don't delete the return, just log that its items were disposed.
+            // A better approach might be to update a field on the return item.
         }
+
+         // Create a record of the disposal
+        const disposalRecordRef = doc(collection(db, "disposalRecords"));
+        batch.set(disposalRecordRef, {
+            itemId: item.id,
+            itemName: item.name,
+            itemIdentifier: item.identifier,
+            itemType: item.type,
+            reason: reason,
+            date: now,
+            source: item.type === 'product' ? `RMA from return ${item.sourceId}` : `Tool ID ${item.sourceId}`
+        });
     }
 
     await batch.commit();
@@ -2189,6 +2184,8 @@ export async function partOutTools(toolIds: string[], parts: SalvagedPartData[],
             const disposalRecordRef = doc(collection(db, "disposalRecords"));
             batch.set(disposalRecordRef, {
                 itemId: toolId,
+                itemName: toolData.name,
+                itemIdentifier: toolData.serialNumber,
                 itemType: 'tool',
                 reason: 'For Parts Out',
                 date: now,
@@ -2204,6 +2201,24 @@ export async function partOutTools(toolIds: string[], parts: SalvagedPartData[],
 }
     
 
+export async function getDisposalRecords(): Promise<DisposalRecord[]> {
+    try {
+        const recordsCol = collection(db, "disposalRecords");
+        const q = query(recordsCol, orderBy("date", "desc"));
+        const snapshot = await getDocs(q);
+        return snapshot.docs.map(doc => {
+            const data = doc.data();
+            return {
+                id: doc.id,
+                ...data,
+                date: (data.date as Timestamp).toDate(),
+            } as DisposalRecord;
+        });
+    } catch (error) {
+        console.error("Error fetching disposal records:", error);
+        return [];
+    }
+}
 
 
 

@@ -12,8 +12,8 @@ import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Button, buttonVariants } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
-import type { Tool } from "@/types";
-import { getDisposalItems, disposeItemsAndTools, partOutTools } from "@/services/data-service";
+import type { Tool, DisposalRecord } from "@/types";
+import { getDisposalItems, disposeItemsAndTools, partOutTools, getDisposalRecords } from "@/services/data-service";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { format } from "date-fns";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
@@ -55,19 +55,24 @@ const partsOutSchema = z.object({
 });
 type PartsOutFormValues = z.infer<typeof partsOutSchema>;
 
+type DisposalFilter = "all" | "Parts Out" | "Recycle" | "Dispose";
+
 
 export default function WasteManagementPage() {
   const { tools, loading: initialLoading, refetchData } = useData();
   const { toast } = useToast();
   
   const [disposalItems, setDisposalItems] = useState<DisposalItem[]>([]);
+  const [disposalHistory, setDisposalHistory] = useState<DisposalRecord[]>([]);
   const [loading, setLoading] = useState(true);
+  const [historyLoading, setHistoryLoading] = useState(true);
   const [selectedItems, setSelectedItems] = useState<Set<string>>(new Set());
   const [isDisposeDialogOpen, setIsDisposeDialogOpen] = useState(false);
   const [isPartsOutDialogOpen, setIsPartsOutDialogOpen] = useState(false);
   const [disposalReason, setDisposalReason] = useState<"For Parts Out" | "Recycle" | "Dispose">("Dispose");
   const [detailedTool, setDetailedTool] = useState<DisposalItem | null>(null);
   const [detailedProduct, setDetailedProduct] = useState<DisposalItem | null>(null);
+  const [historyFilter, setHistoryFilter] = useState<DisposalFilter>("all");
 
 
   const damagedTools = useMemo(() => {
@@ -76,6 +81,11 @@ export default function WasteManagementPage() {
   
   const productsForDisposal = useMemo(() => disposalItems.filter(item => item.type === 'product'), [disposalItems]);
   const toolsForDisposal = useMemo(() => disposalItems.filter(item => item.type === 'tool'), [disposalItems]);
+
+  const filteredHistory = useMemo(() => {
+    if (historyFilter === 'all') return disposalHistory;
+    return disposalHistory.filter(record => record.reason === historyFilter);
+  }, [disposalHistory, historyFilter]);
 
   const partsOutForm = useForm<PartsOutFormValues>({
     resolver: zodResolver(partsOutSchema),
@@ -91,7 +101,7 @@ export default function WasteManagementPage() {
     return tools.filter(tool => selectedItems.has(tool.id));
   }, [selectedItems, tools]);
 
-  const fetchDisposalItems = async () => {
+  const fetchDisposalQueue = async () => {
     setLoading(true);
     const items = await getDisposalItems();
     
@@ -113,7 +123,7 @@ export default function WasteManagementPage() {
             serialNumber: tool.serialNumber,
             quantity: 1,
             source: `Tool ID: ${tool.id.substring(0,6)}`,
-            dateMarked: tool.createdAt,
+            dateMarked: tool.createdAt as Date,
         });
     });
 
@@ -121,8 +131,18 @@ export default function WasteManagementPage() {
     setLoading(false);
   }
 
+  const fetchHistory = async () => {
+    setHistoryLoading(true);
+    const records = await getDisposalRecords();
+    setDisposalHistory(records);
+    setHistoryLoading(false);
+  }
+
   useEffect(() => {
-    if(!initialLoading) fetchDisposalItems();
+    if(!initialLoading) {
+      fetchDisposalQueue();
+      fetchHistory();
+    }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [initialLoading, tools]);
   
@@ -183,17 +203,20 @@ export default function WasteManagementPage() {
         const item = disposalItems.find(i => i.id === id);
         if(!item) return null;
         return {
-            id: item.type === 'product' ? item.source.split('-')[1] : item.id, // A bit of a hack to get original doc ID
+            id: item.type === 'product' ? item.id.split('-')[1] : item.id, // A bit of a hack to get original doc ID
             type: item.type,
-            sourceId: item.type === 'product' ? item.source.split('RMA: ')[1] : item.id
+            name: item.name,
+            identifier: item.sku || item.serialNumber,
+            sourceId: item.type === 'product' ? item.id.split('-')[0] : item.id, // Original returnId or toolId
         }
-    }).filter(Boolean) as {id: string, type: 'product' | 'tool', sourceId: string}[];
+    }).filter(Boolean) as {id: string; type: 'product' | 'tool', name: string, identifier?: string, sourceId: string}[];
 
     try {
         await disposeItemsAndTools(itemsToDispose, disposalReason);
         toast({ title: "Success", description: "Selected items have been disposed." });
         await refetchData();
-        await fetchDisposalItems();
+        await fetchDisposalQueue();
+        await fetchHistory();
         setSelectedItems(new Set());
     } catch(error) {
         const errorMessage = error instanceof Error ? error.message : "Failed to dispose items.";
@@ -209,7 +232,8 @@ export default function WasteManagementPage() {
       await partOutTools(toolIds, data.parts, data.notes);
       toast({ title: "Success", description: "Tools have been parted out and salvaged parts are recorded." });
       await refetchData();
-      await fetchDisposalItems();
+      await fetchDisposalQueue();
+      await fetchHistory();
       setSelectedItems(new Set());
     } catch (error) {
        const errorMessage = error instanceof Error ? error.message : "Failed to part out tools.";
@@ -230,126 +254,192 @@ export default function WasteManagementPage() {
         <p className="text-muted-foreground">Manage and dispose of damaged, defective, or expired items.</p>
       </div>
 
-       <Tabs defaultValue="products">
+       <Tabs defaultValue="queue">
           <div className="flex justify-between items-center mb-4">
             <TabsList>
-                <TabsTrigger value="products">Products</TabsTrigger>
-                <TabsTrigger value="tools">Tools</TabsTrigger>
+                <TabsTrigger value="queue">Disposal Queue</TabsTrigger>
+                <TabsTrigger value="history">Disposal History</TabsTrigger>
             </TabsList>
-            {selectedItems.size > 0 && (
-                <DropdownMenu>
-                  <DropdownMenuTrigger asChild>
-                    <Button variant="destructive" size="sm">
-                      <Trash2 className="mr-2 h-4 w-4" />
-                      Dispose Selected ({selectedItems.size})
-                      <ChevronDown className="ml-2 h-4 w-4" />
-                    </Button>
-                  </DropdownMenuTrigger>
-                  <DropdownMenuContent>
-                    <DropdownMenuItem onClick={() => handleDisposeClick("For Parts Out")}>
-                      For Parts Out
-                    </DropdownMenuItem>
-                    <DropdownMenuItem onClick={() => handleDisposeClick("Recycle")}>
-                      Recycle
-                    </DropdownMenuItem>
-                    <DropdownMenuSeparator />
-                    <DropdownMenuItem
-                      className="text-destructive focus:text-destructive"
-                      onClick={() => handleDisposeClick("Dispose")}
-                    >
-                      Dispose Permanently
-                    </DropdownMenuItem>
-                  </DropdownMenuContent>
-                </DropdownMenu>
-            )}
           </div>
-          <TabsContent value="products">
+          <TabsContent value="queue">
+            <Tabs defaultValue="products">
+                <div className="flex justify-between items-center mb-4">
+                  <TabsList>
+                      <TabsTrigger value="products">Products</TabsTrigger>
+                      <TabsTrigger value="tools">Tools</TabsTrigger>
+                  </TabsList>
+                   {selectedItems.size > 0 && (
+                      <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                          <Button variant="destructive" size="sm">
+                            <Trash2 className="mr-2 h-4 w-4" />
+                            Dispose Selected ({selectedItems.size})
+                            <ChevronDown className="ml-2 h-4 w-4" />
+                          </Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent>
+                          <DropdownMenuItem onClick={() => handleDisposeClick("For Parts Out")}>
+                            For Parts Out
+                          </DropdownMenuItem>
+                          <DropdownMenuItem onClick={() => handleDisposeClick("Recycle")}>
+                            Recycle
+                          </DropdownMenuItem>
+                          <DropdownMenuSeparator />
+                          <DropdownMenuItem
+                            className="text-destructive focus:text-destructive"
+                            onClick={() => handleDisposeClick("Dispose")}
+                          >
+                            Dispose Permanently
+                          </DropdownMenuItem>
+                        </DropdownMenuContent>
+                      </DropdownMenu>
+                  )}
+                </div>
+                <TabsContent value="products">
+                  <Card>
+                      <CardHeader>
+                          <CardTitle>Products for Disposal</CardTitle>
+                          <CardDescription>Items marked for disposal during quality control inspections.</CardDescription>
+                      </CardHeader>
+                      <CardContent>
+                          <Table>
+                              <TableHeader>
+                                  <TableRow>
+                                      <TableHead className="w-12"><Checkbox checked={isAllProductsSelected} onCheckedChange={(c) => handleSelectAll(!!c, productsForDisposal)} /></TableHead>
+                                      <TableHead>Product</TableHead>
+                                      <TableHead>SKU</TableHead>
+                                      <TableHead>Quantity</TableHead>
+                                      <TableHead>Source</TableHead>
+                                      <TableHead>Date Marked</TableHead>
+                                  </TableRow>
+                              </TableHeader>
+                              <TableBody>
+                                  {loading || initialLoading ? (
+                                      Array.from({ length: 5 }).map((_, i) => (
+                                          <TableRow key={i}>
+                                              <TableCell colSpan={6}><Skeleton className="h-8" /></TableCell>
+                                          </TableRow>
+                                      ))
+                                  ) : productsForDisposal.length > 0 ? (
+                                      productsForDisposal.map((item) => (
+                                          <TableRow key={item.id} onClick={() => setDetailedProduct(item)} className="cursor-pointer">
+                                              <TableCell onClick={(e) => e.stopPropagation()}><Checkbox checked={selectedItems.has(item.id)} onCheckedChange={(c) => handleSelectItem(item.id, !!c)} /></TableCell>
+                                              <TableCell>{item.name}</TableCell>
+                                              <TableCell>{item.sku}</TableCell>
+                                              <TableCell>{item.quantity}</TableCell>
+                                              <TableCell>{item.source}</TableCell>
+                                              <TableCell>{format(item.dateMarked, "PPP")}</TableCell>
+                                          </TableRow>
+                                      ))
+                                  ) : (
+                                      <TableRow>
+                                          <TableCell colSpan={6} className="h-24 text-center">No products are currently marked for disposal.</TableCell>
+                                      </TableRow>
+                                  )}
+                              </TableBody>
+                          </Table>
+                      </CardContent>
+                  </Card>
+                </TabsContent>
+                <TabsContent value="tools">
+                  <Card>
+                      <CardHeader>
+                          <CardTitle>Damaged Tools</CardTitle>
+                          <CardDescription>Tools that are marked as damaged and out of service.</CardDescription>
+                      </CardHeader>
+                      <CardContent>
+                          <Table>
+                              <TableHeader>
+                                  <TableRow>
+                                      <TableHead className="w-12"><Checkbox checked={isAllToolsSelected} onCheckedChange={(c) => handleSelectAll(!!c, toolsForDisposal)} /></TableHead>
+                                      <TableHead>Tool</TableHead>
+                                      <TableHead>Serial #</TableHead>
+                                      <TableHead>Date Added</TableHead>
+                                  </TableRow>
+                              </TableHeader>
+                              <TableBody>
+                                {loading || initialLoading ? (
+                                      Array.from({ length: 3 }).map((_, i) => (
+                                          <TableRow key={i}>
+                                              <TableCell colSpan={4}><Skeleton className="h-8" /></TableCell>
+                                          </TableRow>
+                                      ))
+                                  ) : toolsForDisposal.length > 0 ? (
+                                      toolsForDisposal.map((item) => (
+                                          <TableRow key={item.id} onClick={() => setDetailedTool(item)} className="cursor-pointer">
+                                              <TableCell onClick={(e) => e.stopPropagation()}><Checkbox checked={selectedItems.has(item.id)} onCheckedChange={(c) => handleSelectItem(item.id, !!c)} /></TableCell>
+                                              <TableCell>{item.name}</TableCell>
+                                              <TableCell>{item.serialNumber}</TableCell>
+                                              <TableCell>{format(item.dateMarked, "PPP")}</TableCell>
+                                          </TableRow>
+                                      ))
+                                  ) : (
+                                      <TableRow>
+                                          <TableCell colSpan={4} className="h-24 text-center">No tools are currently marked as damaged.</TableCell>
+                                      </TableRow>
+                                  )}
+                              </TableBody>
+                          </Table>
+                      </CardContent>
+                  </Card>
+                </TabsContent>
+            </Tabs>
+          </TabsContent>
+          <TabsContent value="history">
              <Card>
                 <CardHeader>
-                    <CardTitle>Products for Disposal</CardTitle>
-                    <CardDescription>Items marked for disposal during quality control inspections.</CardDescription>
+                    <CardTitle>Disposal History</CardTitle>
+                    <CardDescription>A log of all disposed, recycled, and parted out items.</CardDescription>
                 </CardHeader>
                 <CardContent>
-                     <Table>
+                    <div className="flex items-center gap-2 mb-4">
+                        {(["all", "Parts Out", "Recycle", "Dispose"] as DisposalFilter[]).map(filter => (
+                            <Button
+                                key={filter}
+                                variant={historyFilter === filter ? 'secondary' : 'outline'}
+                                size="sm"
+                                onClick={() => setHistoryFilter(filter)}
+                            >
+                                {filter}
+                            </Button>
+                        ))}
+                    </div>
+                    <Table>
                         <TableHeader>
                             <TableRow>
-                                <TableHead className="w-12"><Checkbox checked={isAllProductsSelected} onCheckedChange={(c) => handleSelectAll(!!c, productsForDisposal)} /></TableHead>
-                                <TableHead>Product</TableHead>
-                                <TableHead>SKU</TableHead>
-                                <TableHead>Quantity</TableHead>
-                                <TableHead>Source</TableHead>
-                                <TableHead>Date Marked</TableHead>
+                                <TableHead>Item Name</TableHead>
+                                <TableHead>Identifier</TableHead>
+                                <TableHead>Type</TableHead>
+                                <TableHead>Reason</TableHead>
+                                <TableHead>Date Disposed</TableHead>
                             </TableRow>
                         </TableHeader>
                         <TableBody>
-                            {loading || initialLoading ? (
+                            {historyLoading ? (
                                 Array.from({ length: 5 }).map((_, i) => (
                                     <TableRow key={i}>
-                                        <TableCell colSpan={6}><Skeleton className="h-8" /></TableCell>
+                                        <TableCell colSpan={5}><Skeleton className="h-8" /></TableCell>
                                     </TableRow>
                                 ))
-                            ) : productsForDisposal.length > 0 ? (
-                                productsForDisposal.map((item) => (
-                                    <TableRow key={item.id} onClick={() => setDetailedProduct(item)} className="cursor-pointer">
-                                        <TableCell onClick={(e) => e.stopPropagation()}><Checkbox checked={selectedItems.has(item.id)} onCheckedChange={(c) => handleSelectItem(item.id, !!c)} /></TableCell>
-                                        <TableCell>{item.name}</TableCell>
-                                        <TableCell>{item.sku}</TableCell>
-                                        <TableCell>{item.quantity}</TableCell>
-                                        <TableCell>{item.source}</TableCell>
-                                        <TableCell>{format(item.dateMarked, "PPP")}</TableCell>
+                            ) : filteredHistory.length > 0 ? (
+                                filteredHistory.map(record => (
+                                    <TableRow key={record.id}>
+                                        <TableCell>{record.itemName}</TableCell>
+                                        <TableCell>{record.itemIdentifier}</TableCell>
+                                        <TableCell className="capitalize">{record.itemType}</TableCell>
+                                        <TableCell><Badge variant="outline">{record.reason}</Badge></TableCell>
+                                        <TableCell>{format(record.date, "PPP")}</TableCell>
                                     </TableRow>
                                 ))
                             ) : (
                                 <TableRow>
-                                    <TableCell colSpan={6} className="h-24 text-center">No products are currently marked for disposal.</TableCell>
+                                    <TableCell colSpan={5} className="h-24 text-center">No disposal records found.</TableCell>
                                 </TableRow>
                             )}
                         </TableBody>
                     </Table>
                 </CardContent>
-            </Card>
-          </TabsContent>
-          <TabsContent value="tools">
-             <Card>
-                <CardHeader>
-                    <CardTitle>Damaged Tools</CardTitle>
-                    <CardDescription>Tools that are marked as damaged and out of service.</CardDescription>
-                </CardHeader>
-                <CardContent>
-                     <Table>
-                        <TableHeader>
-                            <TableRow>
-                                <TableHead className="w-12"><Checkbox checked={isAllToolsSelected} onCheckedChange={(c) => handleSelectAll(!!c, toolsForDisposal)} /></TableHead>
-                                <TableHead>Tool</TableHead>
-                                <TableHead>Serial #</TableHead>
-                                <TableHead>Date Added</TableHead>
-                            </TableRow>
-                        </TableHeader>
-                        <TableBody>
-                           {loading || initialLoading ? (
-                                Array.from({ length: 3 }).map((_, i) => (
-                                    <TableRow key={i}>
-                                        <TableCell colSpan={4}><Skeleton className="h-8" /></TableCell>
-                                    </TableRow>
-                                ))
-                            ) : toolsForDisposal.length > 0 ? (
-                                toolsForDisposal.map((item) => (
-                                    <TableRow key={item.id} onClick={() => setDetailedTool(item)} className="cursor-pointer">
-                                        <TableCell onClick={(e) => e.stopPropagation()}><Checkbox checked={selectedItems.has(item.id)} onCheckedChange={(c) => handleSelectItem(item.id, !!c)} /></TableCell>
-                                        <TableCell>{item.name}</TableCell>
-                                        <TableCell>{item.serialNumber}</TableCell>
-                                        <TableCell>{format(item.dateMarked, "PPP")}</TableCell>
-                                    </TableRow>
-                                ))
-                            ) : (
-                                <TableRow>
-                                    <TableCell colSpan={4} className="h-24 text-center">No tools are currently marked as damaged.</TableCell>
-                                </TableRow>
-                            )}
-                        </TableBody>
-                    </Table>
-                </CardContent>
-            </Card>
+             </Card>
           </TabsContent>
        </Tabs>
        

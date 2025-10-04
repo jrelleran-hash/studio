@@ -257,3 +257,15 @@ export interface SalvagedPart {
     salvageDate: Timestamp;
     notes?: string;
 }
+
+export interface DisposalRecord {
+    id: string;
+    itemId: string;
+    itemName: string;
+    itemIdentifier?: string;
+    itemType: 'product' | 'tool';
+    reason: 'For Parts Out' | 'Recycle' | 'Dispose';
+    date: Date;
+    source?: string;
+    notes?: string;
+}
