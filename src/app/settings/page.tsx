@@ -62,6 +62,7 @@ import { useData } from "@/context/data-context";
 import { Badge } from "@/components/ui/badge";
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { navItemsPermissions } from "@/components/layout/sidebar";
 
 
 const allPermissions: { group: string; permissions: { value: PagePermission; label: string }[] }[] = [
@@ -83,6 +84,9 @@ const allPermissions: { group: string; permissions: { value: PagePermission; lab
     { group: "Assurance", permissions: [
         { value: "/returns", label: "Returns" },
         { value: "/quality-control", label: "Quality Control" },
+    ]},
+    { group: "Settings", permissions: [
+        { value: "/settings", label: "Settings Access"},
     ]},
 ];
 
@@ -140,6 +144,16 @@ function UserManagementTable({ isAdmin }: { isAdmin: boolean }) {
         }
     };
     
+    const handleBulkPermissionsUpdate = (user: UserProfile, permissionsToUpdate: PagePermission[], add: boolean) => {
+        const currentPermissions = new Set(user.permissions || []);
+        if (add) {
+            permissionsToUpdate.forEach(p => currentPermissions.add(p));
+        } else {
+            permissionsToUpdate.forEach(p => currentPermissions.delete(p));
+        }
+        handleProfileUpdate(user.uid, { permissions: Array.from(currentPermissions) });
+    };
+
     const handleDeleteClick = (user: UserProfile) => {
         setDeletingUser(user);
         setIsDeleteDialogOpen(true);
@@ -236,11 +250,25 @@ function UserManagementTable({ isAdmin }: { isAdmin: boolean }) {
                                                     </DropdownMenuSub>
                                                     <DropdownMenuSub>
                                                         <DropdownMenuSubTrigger>Edit Permissions</DropdownMenuSubTrigger>
-                                                        <DropdownMenuSubContent className="p-2">
+                                                         <DropdownMenuSubContent className="p-2">
+                                                            <DropdownMenuItem onSelect={() => handleBulkPermissionsUpdate(u, allPermissions.flatMap(g => g.permissions.map(p => p.value)), true)}>
+                                                                Select All
+                                                            </DropdownMenuItem>
+                                                            <DropdownMenuItem onSelect={() => handleBulkPermissionsUpdate(u, allPermissions.flatMap(g => g.permissions.map(p => p.value)), false)}>
+                                                                Deselect All
+                                                            </DropdownMenuItem>
+                                                            <DropdownMenuSeparator />
                                                             {allPermissions.map((group) => (
                                                                 <DropdownMenuSub key={group.group}>
                                                                     <DropdownMenuSubTrigger>{group.group}</DropdownMenuSubTrigger>
                                                                     <DropdownMenuSubContent>
+                                                                         <DropdownMenuItem onSelect={() => handleBulkPermissionsUpdate(u, group.permissions.map(p => p.value), true)}>
+                                                                            Select All in {group.group}
+                                                                        </DropdownMenuItem>
+                                                                        <DropdownMenuItem onSelect={() => handleBulkPermissionsUpdate(u, group.permissions.map(p => p.value), false)}>
+                                                                            Deselect All in {group.group}
+                                                                        </DropdownMenuItem>
+                                                                        <DropdownMenuSeparator />
                                                                         {group.permissions.map((permission) => {
                                                                             const isSelected = (u.permissions || []).includes(permission.value);
                                                                             return (
@@ -711,5 +739,3 @@ export default function SettingsPage() {
     </div>
   );
 }
-
-    

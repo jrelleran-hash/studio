@@ -174,13 +174,7 @@ export function Sidebar({ className, inSheet, isCollapsed, setIsCollapsed }: Sid
     if (!userProfile) return [];
     if (userProfile.role === 'Admin' || userProfile.role === 'Manager') {
         // Admins and Managers get all permissions
-        return [
-            ...navItems.map(i => i.href),
-            ...procurementNavItems.map(i => i.href),
-            ...warehouseNavItems.map(i => i.href),
-            ...assuranceNavItems.map(i => i.href),
-            "/settings"
-        ] as PagePermission[];
+        return navItemsPermissions.map(i => i.href);
     }
     return userProfile.permissions || [];
   }, [userProfile]);
@@ -226,7 +220,7 @@ export function Sidebar({ className, inSheet, isCollapsed, setIsCollapsed }: Sid
           </nav>
         </div>
         <div className={cn("mt-auto", isCollapsed ? "px-2" : "p-4")}>
-             {canAccess("/settings" as PagePermission) && (
+             {canAccess("/settings") && (
                 <SidebarLink 
                   href="/settings"
                   label="Settings"
