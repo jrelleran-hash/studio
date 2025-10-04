@@ -463,7 +463,7 @@ export default function ToolManagementPage() {
                                         </DropdownMenuTrigger>
                                         <DropdownMenuContent align="end" onClick={(e) => e.stopPropagation()}>
                                             <DropdownMenuLabel>Actions</DropdownMenuLabel>
-                                            {tool.status === 'Available' && (
+                                            {tool.status === 'Available' && tool.condition === 'Good' && (
                                                 <DropdownMenuSub>
                                                     <DropdownMenuSubTrigger>
                                                         <ArrowUpRight className="mr-2 h-4 w-4" /> Issue Tool
