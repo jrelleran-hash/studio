@@ -448,7 +448,7 @@ export default function ToolManagementPage() {
                             ) : tools.map((tool) => {
                             const user = getCurrentUser(tool);
                             return (
-                            <TableRow key={tool.id}>
+                            <TableRow key={tool.id} className="cursor-pointer" onClick={() => setEditingTool(tool)}>
                                 <TableCell className="font-medium">{tool.name}</TableCell>
                                 <TableCell>{tool.serialNumber}</TableCell>
                                 <TableCell><Badge variant={statusVariant[tool.status]}>{tool.status}</Badge></TableCell>
@@ -459,9 +459,9 @@ export default function ToolManagementPage() {
                                 <TableCell className="text-right">
                                     <DropdownMenu>
                                         <DropdownMenuTrigger asChild>
-                                            <Button variant="ghost" size="icon"><MoreHorizontal /></Button>
+                                            <Button variant="ghost" size="icon" onClick={(e) => e.stopPropagation()}><MoreHorizontal /></Button>
                                         </DropdownMenuTrigger>
-                                        <DropdownMenuContent align="end">
+                                        <DropdownMenuContent align="end" onClick={(e) => e.stopPropagation()}>
                                             <DropdownMenuLabel>Actions</DropdownMenuLabel>
                                             {tool.status === 'Available' && (
                                                 <DropdownMenuSub>
