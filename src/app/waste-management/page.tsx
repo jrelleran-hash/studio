@@ -153,15 +153,26 @@ export default function WasteManagementPage() {
     setSelectedItems(newSelection);
   }
 
-  const handleDisposeClick = (reason: "For Parts Out" | "Recycle" | "Dispose") => {
+  const handleDisposeClick = (reason: "For Parts Out" | "Recycle" | "Dispose", singleItemId?: string) => {
+    const itemsToProcess = singleItemId ? new Set([singleItemId]) : selectedItems;
+
     if (reason === 'For Parts Out') {
-        const hasProducts = Array.from(selectedItems).some(id => disposalItems.find(item => item.id === id)?.type === 'product');
-        if (hasProducts || toolsToPartOut.length === 0) {
+        const hasProducts = Array.from(itemsToProcess).some(id => disposalItems.find(item => item.id === id)?.type === 'product');
+        const selectedTools = Array.from(itemsToProcess).map(id => disposalItems.find(item => item.id === id)).filter(item => item?.type === 'tool');
+
+        if (hasProducts || selectedTools.length === 0) {
             toast({ variant: 'destructive', title: 'Invalid Selection', description: 'You can only part out tools, not products.' });
             return;
         }
+        
+        // Update selected items to only include the tools being parted out
+        setSelectedItems(new Set(selectedTools.map(t => t!.id)));
+
         setIsPartsOutDialogOpen(true);
     } else {
+        if(singleItemId) {
+            setSelectedItems(new Set([singleItemId]));
+        }
         setDisposalReason(reason);
         setIsDisposeDialogOpen(true);
     }
@@ -455,8 +466,31 @@ export default function WasteManagementPage() {
                         <p><strong>Source:</strong> {detailedTool.source}</p>
                         <p><strong>Date Marked for Disposal:</strong> {format(detailedTool.dateMarked, "PPP")}</p>
                     </div>
-                    <DialogFooter>
+                    <DialogFooter className="!justify-between">
                          <Button variant="outline" onClick={() => setDetailedTool(null)}>Close</Button>
+                         <DropdownMenu>
+                            <DropdownMenuTrigger asChild>
+                                <Button variant="destructive">
+                                <Trash2 className="mr-2 h-4 w-4" />
+                                Dispose Tool
+                                </Button>
+                            </DropdownMenuTrigger>
+                            <DropdownMenuContent>
+                                <DropdownMenuItem onClick={() => handleDisposeClick("For Parts Out", detailedTool.id)}>
+                                    For Parts Out
+                                </DropdownMenuItem>
+                                <DropdownMenuItem onClick={() => handleDisposeClick("Recycle", detailedTool.id)}>
+                                    Recycle
+                                </DropdownMenuItem>
+                                <DropdownMenuSeparator />
+                                <DropdownMenuItem
+                                className="text-destructive focus:text-destructive"
+                                onClick={() => handleDisposeClick("Dispose", detailedTool.id)}
+                                >
+                                Dispose Permanently
+                                </DropdownMenuItem>
+                            </DropdownMenuContent>
+                        </DropdownMenu>
                     </DialogFooter>
                 </DialogContent>
             </Dialog>
@@ -483,3 +517,5 @@ export default function WasteManagementPage() {
     </div>
   );
 }
+
+    
