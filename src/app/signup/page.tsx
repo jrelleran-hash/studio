@@ -43,13 +43,17 @@ export default function SignupPage() {
   const { refetchData } = useData();
   
   useEffect(() => {
-    if (!authLoading && userProfile?.role !== 'Admin') {
-      toast({
-        variant: "destructive",
-        title: "Unauthorized",
-        description: "You do not have permission to create new users.",
-      });
-      router.push('/login');
+    // Only check for authorization once the loading is complete.
+    if (!authLoading) {
+      // If loading is done and there's no user profile or the role is not Admin, then redirect.
+      if (!userProfile || userProfile.role !== 'Admin') {
+        toast({
+          variant: "destructive",
+          title: "Unauthorized",
+          description: "You do not have permission to create new users.",
+        });
+        router.push('/settings?tab=users'); // Redirect back to a safe page
+      }
     }
   }, [userProfile, authLoading, router, toast]);
 
@@ -109,7 +113,7 @@ export default function SignupPage() {
   if (authLoading || userProfile?.role !== 'Admin') {
     return (
         <div className="flex min-h-screen items-center justify-center bg-background p-4">
-            <p>Loading or unauthorized...</p>
+            <p>Loading...</p>
         </div>
     );
   }
