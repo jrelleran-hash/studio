@@ -2363,3 +2363,69 @@ export async function createToolBookingRequest(data: NewBookingRequestData): Pro
         throw error;
     }
 }
+
+export async function getToolBookingRequests(): Promise<ToolBookingRequest[]> {
+    try {
+        const requestsCol = collection(db, "toolBookingRequests");
+        const q = query(requestsCol, orderBy("createdAt", "desc"));
+        const snapshot = await getDocs(q);
+        return snapshot.docs.map(doc => {
+            const data = doc.data();
+            return {
+                id: doc.id,
+                ...data,
+                startDate: (data.startDate as Timestamp).toDate(),
+                endDate: (data.endDate as Timestamp).toDate(),
+                createdAt: (data.createdAt as Timestamp).toDate(),
+            } as ToolBookingRequest;
+        });
+    } catch (error) {
+        console.error("Error fetching tool booking requests:", error);
+        return [];
+    }
+}
+
+export async function approveToolBookingRequest(requestId: string, approvedBy: string): Promise<void> {
+    const requestRef = doc(db, "toolBookingRequests", requestId);
+    
+    await runTransaction(db, async (transaction) => {
+        const requestDoc = await transaction.get(requestRef);
+        if (!requestDoc.exists()) throw new Error("Booking request not found.");
+        
+        const requestData = requestDoc.data();
+        if (requestData.status !== 'Pending') throw new Error("This request has already been actioned.");
+        
+        const toolRef = doc(db, "tools", requestData.toolId);
+        const toolDoc = await transaction.get(toolRef);
+        if (!toolDoc.exists()) throw new Error("Requested tool no longer exists.");
+        if (toolDoc.data().status !== 'Available') throw new Error("Tool is no longer available.");
+
+        // Update the tool's status
+        transaction.update(toolRef, { status: 'In Use' });
+
+        // Create a new borrow record
+        const borrowRecordRef = doc(collection(db, "toolBorrowRecords"));
+        transaction.set(borrowRecordRef, {
+            toolId: requestData.toolId,
+            borrowedBy: requestData.requestedById,
+            borrowedByName: requestData.requestedByName,
+            dateBorrowed: requestData.startDate, // Use the requested start date
+            dueDate: requestData.endDate, // Use the requested end date
+            dateReturned: null,
+            notes: `Booked via request. ${requestData.notes || ''}`,
+            releasedBy: approvedBy,
+        });
+
+        // Update the request status
+        transaction.update(requestRef, { status: 'Approved' });
+    });
+}
+
+export async function rejectToolBookingRequest(requestId: string): Promise<void> {
+    const requestRef = doc(db, "toolBookingRequests", requestId);
+    const requestDoc = await getDoc(requestRef);
+    if (!requestDoc.exists()) throw new Error("Request not found.");
+    if (requestDoc.data().status !== 'Pending') throw new Error("Request has already been actioned.");
+
+    await updateDoc(requestRef, { status: 'Rejected' });
+}

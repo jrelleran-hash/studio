@@ -5,7 +5,7 @@ import React, { useState, useEffect, useMemo, useCallback, useRef } from "react"
 import { useForm, Controller } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
-import { PlusCircle, MoreHorizontal, Wrench, Calendar as CalendarIcon, User, History, ArrowUpRight, UserCheck } from "lucide-react";
+import { PlusCircle, MoreHorizontal, Wrench, Calendar as CalendarIcon, User, History, ArrowUpRight, UserCheck, Check, X } from "lucide-react";
 import { Timestamp } from "firebase/firestore";
 import { format } from "date-fns";
 
@@ -53,8 +53,8 @@ import { Textarea } from "@/components/ui/textarea";
 
 import { useData } from "@/context/data-context";
 import { useAuth } from "@/hooks/use-auth";
-import { addTool, updateTool, deleteTool, borrowTool, returnTool, getToolHistory, assignToolForAccountability, recallTool } from "@/services/data-service";
-import type { Tool, ToolBorrowRecord, UserProfile, ProductLocation } from "@/types";
+import { addTool, updateTool, deleteTool, borrowTool, returnTool, getToolHistory, assignToolForAccountability, recallTool, approveToolBookingRequest, rejectToolBookingRequest } from "@/services/data-service";
+import type { Tool, ToolBorrowRecord, UserProfile, ProductLocation, ToolBookingRequest } from "@/types";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -81,7 +81,7 @@ const assignSchema = z.object({
     notes: z.string().optional(),
 });
 
-type AssignFormValues = z.infer<typeof assignSchema>;
+type AssignFormValues = z_infer<typeof assignSchema>;
 
 const recallSchema = z.object({
     condition: z.enum(["Good", "Needs Repair", "Damaged"]),
@@ -103,8 +103,14 @@ const conditionVariant: { [key: string]: "default" | "secondary" | "destructive"
   Damaged: "destructive",
 };
 
+const requestStatusVariant: { [key: string]: "default" | "secondary" | "destructive" } = {
+    Pending: "secondary",
+    Approved: "default",
+    Rejected: "destructive",
+};
+
 export default function ToolManagementPage() {
-  const { tools, users, loading, refetchData } = useData();
+  const { tools, users, toolBookingRequests, loading, refetchData } = useData();
   const { userProfile } = useAuth();
   const { toast } = useToast();
 
@@ -141,6 +147,7 @@ export default function ToolManagementPage() {
 
   const assignedTools = useMemo(() => tools.filter(t => t.status === "Assigned"), [tools]);
   const borrowedTools = useMemo(() => tools.filter(t => t.status === "In Use"), [tools]);
+  const pendingRequests = useMemo(() => toolBookingRequests.filter(r => r.status === 'Pending'), [toolBookingRequests]);
 
   useEffect(() => { if (isAddDialogOpen) form.reset({ condition: "Good" }); }, [isAddDialogOpen, form]);
   useEffect(() => { if (editingTool) { form.reset({ ...editingTool, purchaseDate: editingTool.purchaseDate ? new Date(editingTool.purchaseDate) : undefined }); setIsEditDialogOpen(true); } else { setIsEditDialogOpen(false); } }, [editingTool, form]);
@@ -251,6 +258,29 @@ export default function ToolManagementPage() {
         toast({ variant: "destructive", title: "Error", description: errorMessage });
     }
   };
+  
+  const handleApproveRequest = async (requestId: string) => {
+    if (!userProfile) return;
+    try {
+      await approveToolBookingRequest(requestId, `${userProfile.firstName} ${userProfile.lastName}`);
+      toast({ title: "Approved", description: "Tool booking request has been approved."});
+      await refetchData();
+    } catch (error) {
+       const errorMessage = error instanceof Error ? error.message : "Failed to approve request.";
+       toast({ variant: "destructive", title: "Error", description: errorMessage });
+    }
+  }
+
+  const handleRejectRequest = async (requestId: string) => {
+    try {
+      await rejectToolBookingRequest(requestId);
+      toast({ title: "Rejected", description: "Tool booking request has been rejected."});
+      await refetchData();
+    } catch (error) {
+       const errorMessage = error instanceof Error ? error.message : "Failed to reject request.";
+       toast({ variant: "destructive", title: "Error", description: errorMessage });
+    }
+  }
 
 
   const handleDeleteConfirm = async () => {
@@ -267,9 +297,10 @@ export default function ToolManagementPage() {
     }
   };
   
-  const formatDate = (date?: Date) => {
+  const formatDate = (date?: Date | Timestamp) => {
     if (!date) return 'N/A';
-    return format(date, 'PP');
+    const jsDate = date instanceof Timestamp ? date.toDate() : date;
+    return format(jsDate, 'PP');
   }
   
   const formatLocation = (location?: ProductLocation) => {
@@ -413,6 +444,7 @@ export default function ToolManagementPage() {
       <Tabs defaultValue="inventory">
         <TabsList>
             <TabsTrigger value="inventory">Tool Inventory</TabsTrigger>
+            <TabsTrigger value="requests">Request Queue <Badge variant="secondary" className="ml-2">{pendingRequests.length}</Badge></TabsTrigger>
             <TabsTrigger value="history">Borrow History</TabsTrigger>
         </TabsList>
         <TabsContent value="inventory">
@@ -487,6 +519,49 @@ export default function ToolManagementPage() {
                                 </TableCell>
                             </TableRow>
                             )})}
+                        </TableBody>
+                    </Table>
+                </CardContent>
+            </Card>
+        </TabsContent>
+        <TabsContent value="requests">
+            <Card>
+                <CardHeader>
+                    <CardTitle>Tool Request Queue</CardTitle>
+                    <CardDescription>Review and approve or reject tool booking requests.</CardDescription>
+                </CardHeader>
+                <CardContent>
+                    <Table>
+                        <TableHeader>
+                            <TableRow>
+                                <TableHead>Tool</TableHead>
+                                <TableHead>Requested By</TableHead>
+                                <TableHead>Dates</TableHead>
+                                <TableHead>Status</TableHead>
+                                <TableHead className="text-right">Actions</TableHead>
+                            </TableRow>
+                        </TableHeader>
+                        <TableBody>
+                            {loading ? (
+                                <TableRow><TableCell colSpan={5}><Skeleton className="h-8" /></TableCell></TableRow>
+                            ) : pendingRequests.length > 0 ? (
+                                pendingRequests.map(request => (
+                                    <TableRow key={request.id}>
+                                        <TableCell>{request.toolName}</TableCell>
+                                        <TableCell>{request.requestedByName}</TableCell>
+                                        <TableCell>{formatDate(request.startDate)} - {formatDate(request.endDate)}</TableCell>
+                                        <TableCell><Badge variant={requestStatusVariant[request.status]}>{request.status}</Badge></TableCell>
+                                        <TableCell className="text-right">
+                                            <div className="flex gap-2 justify-end">
+                                                <Button size="sm" variant="outline" className="text-destructive hover:text-destructive" onClick={() => handleRejectRequest(request.id)}><X className="mr-1" /> Reject</Button>
+                                                <Button size="sm" onClick={() => handleApproveRequest(request.id)}><Check className="mr-1" /> Approve</Button>
+                                            </div>
+                                        </TableCell>
+                                    </TableRow>
+                                ))
+                            ) : (
+                                <TableRow><TableCell colSpan={5} className="h-24 text-center">No pending tool requests.</TableCell></TableRow>
+                            )}
                         </TableBody>
                     </Table>
                 </CardContent>
@@ -883,9 +958,9 @@ export default function ToolManagementPage() {
                                             {isActive && <Badge>In Use</Badge>}
                                         </div>
                                         <div className="text-sm text-muted-foreground space-y-1 mt-1">
-                                          <p><strong>Borrowed:</strong> {format(record.dateBorrowed, 'PPpp')}</p>
-                                          {record.dueDate && <p><strong>Due:</strong> {format(record.dueDate, 'PPpp')}</p>}
-                                          {record.dateReturned && <p><strong>Returned:</strong> {format(record.dateReturned, 'PPpp')}</p>}
+                                          <p><strong>Borrowed:</strong> {formatDate(record.dateBorrowed)}</p>
+                                          {record.dueDate && <p><strong>Due:</strong> {formatDate(record.dueDate)}</p>}
+                                          {record.dateReturned && <p><strong>Returned:</strong> {formatDate(record.dateReturned)}</p>}
                                           {record.returnCondition && <p><strong>Return Condition:</strong> <Badge variant={conditionVariant[record.returnCondition] || 'default'}>{record.returnCondition}</Badge></p>}
                                           {record.releasedBy && <p><strong>Released by:</strong> {record.releasedBy}</p>}
                                         </div>

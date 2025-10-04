@@ -285,9 +285,9 @@ export interface ToolBookingRequest {
     toolName: string;
     requestedById: string;
     requestedByName: string;
-    startDate: Timestamp;
-    endDate: Timestamp;
+    startDate: Date;
+    endDate: Date;
     status: 'Pending' | 'Approved' | 'Rejected';
     notes?: string;
-    createdAt: Timestamp;
+    createdAt: Date;
 }
