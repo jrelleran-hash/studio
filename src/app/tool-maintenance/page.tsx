@@ -69,8 +69,19 @@ export default function ToolMaintenancePage() {
   const onMaintenanceComplete = async (data: MaintenanceFormValues) => {
     if (!selectedTool) return;
     try {
-      await updateToolConditionAndStatus(selectedTool.id, data.condition, 'Available');
-      toast({ title: "Success", description: "Tool status updated to Available." });
+      let newStatus: Tool['status'] = 'Available';
+      let toastDescription = `Tool status updated to ${data.condition === 'Good' ? 'Available' : 'Under Maintenance'}.`;
+
+      if (data.condition === 'Damaged') {
+        newStatus = 'Available'; // It will show in waste management due to 'Damaged' condition
+        toastDescription = "Tool marked as Damaged and moved to Waste Management.";
+      } else if (data.condition === 'Needs Repair') {
+        newStatus = 'Under Maintenance';
+      }
+
+      await updateToolConditionAndStatus(selectedTool.id, data.condition, newStatus);
+      
+      toast({ title: "Success", description: toastDescription });
       setSelectedTool(null);
       await refetchData();
     } catch (error) {
@@ -170,7 +181,7 @@ export default function ToolMaintenancePage() {
               </div>
               <DialogFooter>
                 <Button type="button" variant="ghost" onClick={() => setSelectedTool(null)}>Cancel</Button>
-                <Button type="submit">Complete & Make Available</Button>
+                <Button type="submit">Confirm</Button>
               </DialogFooter>
             </form>
           </DialogContent>
