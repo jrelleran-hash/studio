@@ -2226,8 +2226,7 @@ export async function getToolMaintenanceHistory(): Promise<ToolMaintenanceRecord
     const borrowRecordsCol = collection(db, "toolBorrowRecords");
     const maintenanceBorrowQuery = query(
       borrowRecordsCol,
-      where("returnCondition", "in", ["Needs Repair", "Damaged"]),
-      orderBy("dateReturned", "desc")
+      where("returnCondition", "in", ["Needs Repair", "Damaged"])
     );
     const borrowSnapshot = await getDocs(maintenanceBorrowQuery);
 
