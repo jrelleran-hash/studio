@@ -2219,6 +2219,17 @@ export async function getDisposalRecords(): Promise<DisposalRecord[]> {
     }
 }
 
+export async function deleteDisposalRecord(recordId: string): Promise<void> {
+    try {
+        const recordRef = doc(db, "disposalRecords", recordId);
+        await deleteDoc(recordRef);
+    } catch (error) {
+        console.error("Error deleting disposal record:", error);
+        throw new Error("Failed to delete disposal record.");
+    }
+}
+
+
 export async function getToolMaintenanceHistory(): Promise<ToolMaintenanceRecord[]> {
   try {
     // Get all completed borrow records that resulted in maintenance

@@ -13,12 +13,12 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Button, buttonVariants } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
 import type { Tool, DisposalRecord } from "@/types";
-import { getDisposalItems, disposeItemsAndTools, partOutTools, getDisposalRecords } from "@/services/data-service";
+import { getDisposalItems, disposeItemsAndTools, partOutTools, getDisposalRecords, deleteDisposalRecord } from "@/services/data-service";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { format } from "date-fns";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { Checkbox } from "@/components/ui/checkbox";
-import { Trash2, ChevronDown, PlusCircle, X, Package } from "lucide-react";
+import { Trash2, ChevronDown, PlusCircle, X, Package, MoreHorizontal } from "lucide-react";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, DropdownMenuSeparator } from "@/components/ui/dropdown-menu";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
@@ -69,10 +69,12 @@ export default function WasteManagementPage() {
   const [selectedItems, setSelectedItems] = useState<Set<string>>(new Set());
   const [isDisposeDialogOpen, setIsDisposeDialogOpen] = useState(false);
   const [isPartsOutDialogOpen, setIsPartsOutDialogOpen] = useState(false);
+  const [isDeleteHistoryOpen, setIsDeleteHistoryOpen] = useState(false);
   const [disposalReason, setDisposalReason] = useState<"For Parts Out" | "Recycle" | "Dispose">("Dispose");
   const [detailedTool, setDetailedTool] = useState<DisposalItem | null>(null);
   const [detailedProduct, setDetailedProduct] = useState<DisposalItem | null>(null);
   const [historyFilter, setHistoryFilter] = useState<DisposalFilter>("all");
+  const [deletingRecordId, setDeletingRecordId] = useState<string | null>(null);
 
 
   const damagedTools = useMemo(() => {
@@ -243,6 +245,26 @@ export default function WasteManagementPage() {
     }
   };
   
+    const handleDeleteRecordClick = (recordId: string) => {
+        setDeletingRecordId(recordId);
+        setIsDeleteHistoryOpen(true);
+    };
+
+    const handleDeleteRecordConfirm = async () => {
+        if (!deletingRecordId) return;
+        try {
+            await deleteDisposalRecord(deletingRecordId);
+            toast({ title: "Success", description: "Disposal record deleted." });
+            await fetchHistory();
+        } catch (error) {
+            const errorMessage = error instanceof Error ? error.message : "Failed to delete record.";
+            toast({ variant: "destructive", title: "Error", description: errorMessage });
+        } finally {
+            setIsDeleteHistoryOpen(false);
+            setDeletingRecordId(null);
+        }
+    };
+  
   const isAllProductsSelected = productsForDisposal.length > 0 && productsForDisposal.every(item => selectedItems.has(item.id));
   const isAllToolsSelected = toolsForDisposal.length > 0 && toolsForDisposal.every(item => selectedItems.has(item.id));
 
@@ -412,13 +434,14 @@ export default function WasteManagementPage() {
                                 <TableHead>Type</TableHead>
                                 <TableHead>Reason</TableHead>
                                 <TableHead>Date Disposed</TableHead>
+                                <TableHead className="text-right">Actions</TableHead>
                             </TableRow>
                         </TableHeader>
                         <TableBody>
                             {historyLoading ? (
                                 Array.from({ length: 5 }).map((_, i) => (
                                     <TableRow key={i}>
-                                        <TableCell colSpan={5}><Skeleton className="h-8" /></TableCell>
+                                        <TableCell colSpan={6}><Skeleton className="h-8" /></TableCell>
                                     </TableRow>
                                 ))
                             ) : filteredHistory.length > 0 ? (
@@ -429,11 +452,17 @@ export default function WasteManagementPage() {
                                         <TableCell className="capitalize">{record.itemType}</TableCell>
                                         <TableCell><Badge variant="outline">{record.reason}</Badge></TableCell>
                                         <TableCell>{format(record.date, "PPP")}</TableCell>
+                                        <TableCell className="text-right">
+                                            <Button variant="ghost" size="icon" onClick={() => handleDeleteRecordClick(record.id)}>
+                                                <Trash2 className="h-4 w-4 text-destructive" />
+                                                <span className="sr-only">Delete Record</span>
+                                            </Button>
+                                        </TableCell>
                                     </TableRow>
                                 ))
                             ) : (
                                 <TableRow>
-                                    <TableCell colSpan={5} className="h-24 text-center">No disposal records found.</TableCell>
+                                    <TableCell colSpan={6} className="h-24 text-center">No disposal records found.</TableCell>
                                 </TableRow>
                             )}
                         </TableBody>
@@ -604,6 +633,23 @@ export default function WasteManagementPage() {
                 </DialogContent>
             </Dialog>
         )}
+        
+        <AlertDialog open={isDeleteHistoryOpen} onOpenChange={setIsDeleteHistoryOpen}>
+            <AlertDialogContent>
+                <AlertDialogHeader>
+                    <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
+                    <AlertDialogDescription>
+                        This action will permanently delete this disposal record from the history. This cannot be undone.
+                    </AlertDialogDescription>
+                </AlertDialogHeader>
+                <AlertDialogFooter>
+                    <AlertDialogCancel>Cancel</AlertDialogCancel>
+                    <AlertDialogAction onClick={handleDeleteRecordConfirm} className={buttonVariants({ variant: "destructive" })}>
+                        Delete Record
+                    </AlertDialogAction>
+                </AlertDialogFooter>
+            </AlertDialogContent>
+        </AlertDialog>
     </div>
   );
 }
