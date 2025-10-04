@@ -57,7 +57,7 @@ import { DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuIte
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import type { UserRole, PagePermission } from "@/types";
 import { cn } from "@/lib/utils";
-import { Check, MoreHorizontal, X, ChevronsUpDown, User } from "lucide-react";
+import { Check, MoreHorizontal, X, ChevronsUpDown, User, Eye, EyeOff } from "lucide-react";
 import { useData } from "@/context/data-context";
 import { Badge } from "@/components/ui/badge";
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
@@ -80,10 +80,14 @@ const allPermissions: { group: string; permissions: { value: PagePermission; lab
     { group: "Inventory", permissions: [
         { value: "/inventory", label: "Products" },
         { value: "/issuance", label: "Issuance" },
+        { value: "/tools", label: "Tool Management" },
+        { value: "/warehouse", label: "Warehouse Map" },
     ]},
     { group: "Assurance", permissions: [
         { value: "/returns", label: "Returns" },
         { value: "/quality-control", label: "Quality Control" },
+        { value: "/tool-maintenance", label: "Tool Maintenance" },
+        { value: "/waste-management", label: "Waste Management" },
     ]},
     { group: "Settings", permissions: [
         { value: "/settings", label: "Settings Access"},
@@ -432,6 +436,9 @@ function AppearanceTab() {
 
 function SecurityTab() {
   const [isChangePasswordOpen, setIsChangePasswordOpen] = useState(false);
+  const [showCurrentPassword, setShowCurrentPassword] = useState(false);
+  const [showNewPassword, setShowNewPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const { toast } = useToast();
   
   const passwordForm = useForm<PasswordFormValues>({
@@ -479,17 +486,65 @@ function SecurityTab() {
             <form onSubmit={passwordForm.handleSubmit(onPasswordSubmit)} className="space-y-4">
               <div className="space-y-2">
                 <Label htmlFor="currentPassword">Current Password</Label>
-                <Input id="currentPassword" type="password" {...passwordForm.register("currentPassword")} />
+                <div className="relative">
+                  <Input 
+                    id="currentPassword" 
+                    type={showCurrentPassword ? "text" : "password"} 
+                    {...passwordForm.register("currentPassword")} 
+                    className="pr-10"
+                  />
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="icon"
+                    className="absolute inset-y-0 right-0 h-full px-3 text-muted-foreground hover:text-foreground"
+                    onClick={() => setShowCurrentPassword((prev) => !prev)}
+                  >
+                    {showCurrentPassword ? <EyeOff /> : <Eye />}
+                  </Button>
+                </div>
                 {passwordForm.formState.errors.currentPassword && <p className="text-sm text-destructive">{passwordForm.formState.errors.currentPassword.message}</p>}
               </div>
               <div className="space-y-2">
                 <Label htmlFor="newPassword">New Password</Label>
-                <Input id="newPassword" type="password" {...passwordForm.register("newPassword")} />
+                 <div className="relative">
+                    <Input 
+                        id="newPassword" 
+                        type={showNewPassword ? "text" : "password"} 
+                        {...passwordForm.register("newPassword")} 
+                        className="pr-10"
+                    />
+                    <Button
+                        type="button"
+                        variant="ghost"
+                        size="icon"
+                        className="absolute inset-y-0 right-0 h-full px-3 text-muted-foreground hover:text-foreground"
+                        onClick={() => setShowNewPassword((prev) => !prev)}
+                    >
+                        {showNewPassword ? <EyeOff /> : <Eye />}
+                    </Button>
+                </div>
                 {passwordForm.formState.errors.newPassword && <p className="text-sm text-destructive">{passwordForm.formState.errors.newPassword.message}</p>}
               </div>
               <div className="space-y-2">
                 <Label htmlFor="confirmPassword">Confirm New Password</Label>
-                <Input id="confirmPassword" type="password" {...passwordForm.register("confirmPassword")} />
+                 <div className="relative">
+                    <Input 
+                        id="confirmPassword" 
+                        type={showConfirmPassword ? "text" : "password"} 
+                        {...passwordForm.register("confirmPassword")} 
+                        className="pr-10"
+                    />
+                    <Button
+                        type="button"
+                        variant="ghost"
+                        size="icon"
+                        className="absolute inset-y-0 right-0 h-full px-3 text-muted-foreground hover:text-foreground"
+                        onClick={() => setShowConfirmPassword((prev) => !prev)}
+                    >
+                        {showConfirmPassword ? <EyeOff /> : <Eye />}
+                    </Button>
+                </div>
                 {passwordForm.formState.errors.confirmPassword && <p className="text-sm text-destructive">{passwordForm.formState.errors.confirmPassword.message}</p>}
               </div>
               <DialogFooter>
