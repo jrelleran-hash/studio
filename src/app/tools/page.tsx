@@ -883,9 +883,10 @@ export default function ToolManagementPage() {
                                             {isActive && <Badge>In Use</Badge>}
                                         </div>
                                         <div className="text-sm text-muted-foreground space-y-1 mt-1">
-                                          <p><strong>Borrowed:</strong> {formatDate(record.dateBorrowed)}</p>
-                                          {record.dueDate && <p><strong>Due:</strong> {formatDate(record.dueDate)}</p>}
-                                          {record.dateReturned && <p><strong>Returned:</strong> {formatDate(record.dateReturned)}</p>}
+                                          <p><strong>Borrowed:</strong> {format(record.dateBorrowed, 'PPpp')}</p>
+                                          {record.dueDate && <p><strong>Due:</strong> {format(record.dueDate, 'PPpp')}</p>}
+                                          {record.dateReturned && <p><strong>Returned:</strong> {format(record.dateReturned, 'PPpp')}</p>}
+                                          {record.returnCondition && <p><strong>Return Condition:</strong> <Badge variant={conditionVariant[record.returnCondition] || 'default'}>{record.returnCondition}</Badge></p>}
                                           {record.releasedBy && <p><strong>Released by:</strong> {record.releasedBy}</p>}
                                         </div>
                                         {record.notes && <p className="text-xs text-muted-foreground mt-2 border-l-2 pl-2 italic">Note: {record.notes}</p>}
