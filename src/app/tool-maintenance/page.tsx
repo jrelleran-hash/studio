@@ -1,7 +1,7 @@
 
 "use client";
 
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { useForm, Controller } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
@@ -16,8 +16,9 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, Di
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
-import type { Tool } from "@/types";
-import { updateToolConditionAndStatus } from "@/services/data-service";
+import type { Tool, ToolBorrowRecord } from "@/types";
+import { updateToolConditionAndStatus, getToolHistory } from "@/services/data-service";
+import { format } from "date-fns";
 
 const maintenanceSchema = z.object({
   condition: z.enum(["Good", "Needs Repair", "Damaged"]),
@@ -36,14 +37,34 @@ export default function ToolMaintenancePage() {
   const { toast } = useToast();
 
   const [selectedTool, setSelectedTool] = useState<Tool | null>(null);
+  const [detailedTool, setDetailedTool] = useState<Tool | null>(null);
+  const [toolHistory, setToolHistory] = useState<ToolBorrowRecord[]>([]);
+  const [historyLoading, setHistoryLoading] = useState(false);
 
   const maintenanceTools = useMemo(() => {
     return tools.filter(t => t.status === "Under Maintenance");
   }, [tools]);
 
+  const maintenanceEntryRecord = useMemo(() => {
+    if (!detailedTool || toolHistory.length === 0) return null;
+    return toolHistory.find(record => record.returnCondition === 'Needs Repair' || record.returnCondition === 'Damaged');
+  }, [detailedTool, toolHistory]);
+
   const form = useForm<MaintenanceFormValues>({
     resolver: zodResolver(maintenanceSchema),
   });
+
+  useEffect(() => {
+    if (detailedTool) {
+      const fetchHistory = async () => {
+        setHistoryLoading(true);
+        const history = await getToolHistory(detailedTool.id);
+        setToolHistory(history);
+        setHistoryLoading(false);
+      };
+      fetchHistory();
+    }
+  }, [detailedTool]);
 
   const onMaintenanceComplete = async (data: MaintenanceFormValues) => {
     if (!selectedTool) return;
@@ -55,6 +76,11 @@ export default function ToolMaintenancePage() {
     } catch (error) {
       toast({ variant: "destructive", title: "Error", description: "Failed to update tool status." });
     }
+  };
+  
+  const formatDate = (date?: Date) => {
+    if (!date) return 'N/A';
+    return format(date, 'PPpp');
   };
 
   return (
@@ -93,12 +119,12 @@ export default function ToolMaintenancePage() {
                 ))
               ) : maintenanceTools.length > 0 ? (
                 maintenanceTools.map(tool => (
-                  <TableRow key={tool.id}>
+                  <TableRow key={tool.id} onClick={() => setDetailedTool(tool)} className="cursor-pointer">
                     <TableCell className="font-medium">{tool.name}</TableCell>
                     <TableCell>{tool.serialNumber}</TableCell>
                     <TableCell><Badge variant={conditionVariant[tool.condition]}>{tool.condition}</Badge></TableCell>
                     <TableCell className="text-right">
-                      <Button variant="outline" size="sm" onClick={() => setSelectedTool(tool)}>Complete Maintenance</Button>
+                      <Button variant="outline" size="sm" onClick={(e) => {e.stopPropagation(); setSelectedTool(tool);}}>Complete Maintenance</Button>
                     </TableCell>
                   </TableRow>
                 ))
@@ -147,6 +173,54 @@ export default function ToolMaintenancePage() {
                 <Button type="submit">Complete & Make Available</Button>
               </DialogFooter>
             </form>
+          </DialogContent>
+        </Dialog>
+      )}
+
+      {detailedTool && (
+         <Dialog open={!!detailedTool} onOpenChange={(open) => !open && setDetailedTool(null)}>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>Maintenance Details: {detailedTool.name}</DialogTitle>
+              <DialogDescription>Serial #: {detailedTool.serialNumber}</DialogDescription>
+            </DialogHeader>
+            {historyLoading ? <Skeleton className="h-32 w-full" /> : (
+              <div className="space-y-4 py-4">
+                 <div className="grid grid-cols-2 gap-4">
+                    <div>
+                        <p className="text-sm font-semibold text-muted-foreground">Current Condition</p>
+                        <p><Badge variant={conditionVariant[detailedTool.condition]}>{detailedTool.condition}</Badge></p>
+                    </div>
+                     <div>
+                        <p className="text-sm font-semibold text-muted-foreground">Status</p>
+                        <p><Badge variant="destructive">{detailedTool.status}</Badge></p>
+                    </div>
+                </div>
+                 {maintenanceEntryRecord && (
+                    <div className="space-y-2">
+                      <div>
+                        <p className="text-sm font-semibold text-muted-foreground">Date Sent to Maintenance</p>
+                        <p>{formatDate(maintenanceEntryRecord.dateReturned)}</p>
+                      </div>
+                       <div>
+                        <p className="text-sm font-semibold text-muted-foreground">Last User</p>
+                        <p>{maintenanceEntryRecord.borrowedByName}</p>
+                      </div>
+                      {maintenanceEntryRecord.notes && (
+                        <div>
+                           <p className="text-sm font-semibold text-muted-foreground">Return Notes</p>
+                           <p className="text-sm p-2 bg-muted rounded-md">{maintenanceEntryRecord.notes}</p>
+                        </div>
+                      )}
+                    </div>
+                )}
+                {!maintenanceEntryRecord && <p className="text-sm text-muted-foreground">No specific return record found that initiated this maintenance period.</p>}
+              </div>
+            )}
+            <DialogFooter>
+              <Button variant="outline" onClick={() => setDetailedTool(null)}>Close</Button>
+              <Button onClick={(e) => { setDetailedTool(null); setSelectedTool(detailedTool)}}>Complete Maintenance</Button>
+            </DialogFooter>
           </DialogContent>
         </Dialog>
       )}
