@@ -269,3 +269,12 @@ export interface DisposalRecord {
     source?: string;
     notes?: string;
 }
+
+export interface ToolMaintenanceRecord {
+    id: string;
+    toolId: string;
+    toolName: string;
+    serialNumber: string;
+    dateEntered: Date;
+    outcome: "Repaired" | "Disposed";
+}

@@ -2,7 +2,7 @@
 import { db, storage, auth } from "@/lib/firebase";
 import { collection, getDocs, getDoc, doc, orderBy, query, limit, Timestamp, where, DocumentReference, addDoc, updateDoc, deleteDoc, arrayUnion, runTransaction, writeBatch, setDoc } from "firebase/firestore";
 import { EmailAuthProvider, reauthenticateWithCredential, updatePassword } from "firebase/auth";
-import type { Activity, Notification, Order, Product, Client, Issuance, Supplier, PurchaseOrder, Shipment, Return, ReturnItem, OutboundReturn, OutboundReturnItem, UserProfile, OrderItem, PurchaseOrderItem, IssuanceItem, Backorder, UserRole, PagePermission, ProductCategory, ProductLocation, Tool, ToolBorrowRecord, SalvagedPart, DisposalRecord } from "@/types";
+import type { Activity, Notification, Order, Product, Client, Issuance, Supplier, PurchaseOrder, Shipment, Return, ReturnItem, OutboundReturn, OutboundReturnItem, UserProfile, OrderItem, PurchaseOrderItem, IssuanceItem, Backorder, UserRole, PagePermission, ProductCategory, ProductLocation, Tool, ToolBorrowRecord, SalvagedPart, DisposalRecord, ToolMaintenanceRecord } from "@/types";
 import { format, subDays, addDays } from 'date-fns';
 
 function timeSince(date: Date) {
@@ -2220,15 +2220,99 @@ export async function getDisposalRecords(): Promise<DisposalRecord[]> {
     }
 }
 
+export async function getToolMaintenanceHistory(): Promise<ToolMaintenanceRecord[]> {
+  try {
+    // Get all completed borrow records that resulted in maintenance
+    const borrowRecordsCol = collection(db, "toolBorrowRecords");
+    const maintenanceBorrowQuery = query(
+      borrowRecordsCol,
+      where("returnCondition", "in", ["Needs Repair", "Damaged"]),
+      orderBy("dateReturned", "desc")
+    );
+    const borrowSnapshot = await getDocs(maintenanceBorrowQuery);
 
+    const maintenanceMap = new Map<string, ToolMaintenanceRecord>();
 
+    borrowSnapshot.docs.forEach(doc => {
+      const data = doc.data() as ToolBorrowRecord;
+      maintenanceMap.set(data.toolId, {
+        id: doc.id,
+        toolId: data.toolId,
+        toolName: '', // Will be filled later
+        serialNumber: '', // Will be filled later
+        dateEntered: (data.dateReturned as Timestamp)?.toDate(),
+        outcome: 'Repaired' // Default to Repaired
+      });
+    });
 
+    // Get all tools that were disposed
+    const disposalRecordsCol = collection(db, "disposalRecords");
+    const disposedToolsQuery = query(disposalRecordsCol, where("itemType", "==", "tool"));
+    const disposalSnapshot = await getDocs(disposedToolsQuery);
 
+    const toolIds = Array.from(maintenanceMap.keys());
+    
+    // Add disposed tool IDs to the list if they are not already there
+    disposalSnapshot.docs.forEach(doc => {
+        const disposalData = doc.data() as DisposalRecord;
+        if (disposalData.itemId && !maintenanceMap.has(disposalData.itemId)) {
+             toolIds.push(disposalData.itemId);
+        }
+    });
 
+    // Fetch tool details for all relevant tools
+    const toolDetailsMap = new Map<string, {name: string, serialNumber: string}>();
+    if (toolIds.length > 0) {
+        // Firestore 'in' query is limited to 30 items. We may need to batch this.
+        const toolQuery = query(collection(db, "tools"), where("__name__", "in", toolIds));
+        const toolSnapshot = await getDocs(toolQuery);
+        toolSnapshot.docs.forEach(doc => {
+            const data = doc.data();
+            toolDetailsMap.set(doc.id, { name: data.name, serialNumber: data.serialNumber });
+        });
+    }
+    
+    // Update outcomes for disposed tools
+    disposalSnapshot.docs.forEach(doc => {
+      const disposalData = doc.data() as DisposalRecord;
+      if (disposalData.itemId) {
+         if (maintenanceMap.has(disposalData.itemId)) {
+            maintenanceMap.get(disposalData.itemId)!.outcome = 'Disposed';
+         } else {
+            // This was a tool that was disposed without a maintenance record (e.g. from recall)
+            maintenanceMap.set(disposalData.itemId, {
+                id: doc.id,
+                toolId: disposalData.itemId,
+                toolName: disposalData.itemName,
+                serialNumber: disposalData.itemIdentifier || 'N/A',
+                dateEntered: disposalData.date,
+                outcome: 'Disposed',
+            });
+         }
+      }
+    });
+    
+    // Fill in tool details
+    maintenanceMap.forEach((record, toolId) => {
+        const details = toolDetailsMap.get(toolId);
+        if (details) {
+            record.toolName = details.name;
+            record.serialNumber = details.serialNumber;
+        } else if (!record.toolName) {
+            // This case handles tools that were in the maintenance map but have since been deleted (disposed)
+            // and their details weren't in the initial tool fetch.
+            const disposalRecord = disposalSnapshot.docs.find(d => d.data().itemId === toolId)?.data() as DisposalRecord;
+            if (disposalRecord) {
+                record.toolName = disposalRecord.itemName;
+                record.serialNumber = disposalRecord.itemIdentifier || 'N/A';
+            }
+        }
+    });
 
-
-
-
-
-
-
+    const history = Array.from(maintenanceMap.values());
+    return history.sort((a,b) => b.dateEntered.getTime() - a.dateEntered.getTime());
+  } catch (error) {
+    console.error("Error fetching tool maintenance history:", error);
+    return [];
+  }
+}

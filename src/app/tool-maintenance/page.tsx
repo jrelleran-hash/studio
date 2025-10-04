@@ -16,9 +16,10 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, Di
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
-import type { Tool, ToolBorrowRecord } from "@/types";
-import { updateToolConditionAndStatus, getToolHistory } from "@/services/data-service";
+import type { Tool, ToolBorrowRecord, ToolMaintenanceRecord } from "@/types";
+import { updateToolConditionAndStatus, getToolHistory, getToolMaintenanceHistory } from "@/services/data-service";
 import { format } from "date-fns";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
 const maintenanceSchema = z.object({
   condition: z.enum(["Good", "Needs Repair", "Damaged"]),
@@ -26,10 +27,17 @@ const maintenanceSchema = z.object({
 
 type MaintenanceFormValues = z.infer<typeof maintenanceSchema>;
 
+type HistoryFilter = "all" | "Repaired" | "Disposed";
+
 const conditionVariant: { [key: string]: "default" | "secondary" | "destructive" | "outline" } = {
   Good: "default",
   "Needs Repair": "secondary",
   Damaged: "destructive",
+};
+
+const outcomeVariant: { [key: string]: "default" | "destructive" } = {
+    Repaired: "default",
+    Disposed: "destructive",
 };
 
 export default function ToolMaintenancePage() {
@@ -40,10 +48,18 @@ export default function ToolMaintenancePage() {
   const [detailedTool, setDetailedTool] = useState<Tool | null>(null);
   const [toolHistory, setToolHistory] = useState<ToolBorrowRecord[]>([]);
   const [historyLoading, setHistoryLoading] = useState(false);
+  const [maintenanceHistory, setMaintenanceHistory] = useState<ToolMaintenanceRecord[]>([]);
+  const [maintenanceHistoryLoading, setMaintenanceHistoryLoading] = useState(true);
+  const [historyFilter, setHistoryFilter] = useState<HistoryFilter>("all");
 
   const maintenanceTools = useMemo(() => {
     return tools.filter(t => t.status === "Under Maintenance");
   }, [tools]);
+  
+  const filteredMaintenanceHistory = useMemo(() => {
+    if (historyFilter === 'all') return maintenanceHistory;
+    return maintenanceHistory.filter(record => record.outcome === historyFilter);
+  }, [maintenanceHistory, historyFilter]);
 
   const maintenanceEntryRecord = useMemo(() => {
     if (!detailedTool || toolHistory.length === 0) return null;
@@ -53,6 +69,16 @@ export default function ToolMaintenancePage() {
   const form = useForm<MaintenanceFormValues>({
     resolver: zodResolver(maintenanceSchema),
   });
+
+  useEffect(() => {
+    const fetchMaintenanceHistory = async () => {
+        setMaintenanceHistoryLoading(true);
+        const history = await getToolMaintenanceHistory();
+        setMaintenanceHistory(history);
+        setMaintenanceHistoryLoading(false);
+    };
+    fetchMaintenanceHistory();
+  }, []);
 
   useEffect(() => {
     if (detailedTool) {
@@ -93,63 +119,138 @@ export default function ToolMaintenancePage() {
     if (!date) return 'N/A';
     return format(date, 'PPpp');
   };
+  
+  const formatDateSimple = (date?: Date) => {
+    if (!date) return 'N/A';
+    return format(date, 'PPP');
+  }
 
   return (
     <div className="space-y-6">
       <div>
         <h1 className="text-2xl font-bold font-headline tracking-tight">Tool Maintenance</h1>
-        <p className="text-muted-foreground">Manage and track tools that are currently under repair.</p>
+        <p className="text-muted-foreground">Manage and track tools that are currently under repair or have been repaired.</p>
       </div>
+      
+      <Tabs defaultValue="queue">
+          <TabsList>
+              <TabsTrigger value="queue">Maintenance Queue</TabsTrigger>
+              <TabsTrigger value="history">Maintenance History</TabsTrigger>
+          </TabsList>
+          <TabsContent value="queue">
+            <Card>
+                <CardHeader>
+                <CardTitle>Maintenance Queue</CardTitle>
+                <CardDescription>
+                    These tools are marked as "Under Maintenance" and are unavailable for use.
+                </CardDescription>
+                </CardHeader>
+                <CardContent>
+                <Table>
+                    <TableHeader>
+                    <TableRow>
+                        <TableHead>Tool</TableHead>
+                        <TableHead>Serial #</TableHead>
+                        <TableHead>Condition</TableHead>
+                        <TableHead className="text-right">Actions</TableHead>
+                    </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                    {loading ? (
+                        Array.from({ length: 5 }).map((_, i) => (
+                        <TableRow key={i}>
+                            <TableCell><Skeleton className="h-4 w-32" /></TableCell>
+                            <TableCell><Skeleton className="h-4 w-24" /></TableCell>
+                            <TableCell><Skeleton className="h-6 w-20 rounded-full" /></TableCell>
+                            <TableCell className="text-right"><Skeleton className="h-8 w-32" /></TableCell>
+                        </TableRow>
+                        ))
+                    ) : maintenanceTools.length > 0 ? (
+                        maintenanceTools.map(tool => (
+                        <TableRow key={tool.id} onClick={() => setDetailedTool(tool)} className="cursor-pointer">
+                            <TableCell className="font-medium">{tool.name}</TableCell>
+                            <TableCell>{tool.serialNumber}</TableCell>
+                            <TableCell><Badge variant={conditionVariant[tool.condition]}>{tool.condition}</Badge></TableCell>
+                            <TableCell className="text-right">
+                            <Button variant="outline" size="sm" onClick={(e) => {e.stopPropagation(); setSelectedTool(tool);}}>Complete Maintenance</Button>
+                            </TableCell>
+                        </TableRow>
+                        ))
+                    ) : (
+                        <TableRow>
+                        <TableCell colSpan={4} className="h-24 text-center">
+                            No tools are currently under maintenance.
+                        </TableCell>
+                        </TableRow>
+                    )}
+                    </TableBody>
+                </Table>
+                </CardContent>
+            </Card>
+          </TabsContent>
+          <TabsContent value="history">
+            <Card>
+                <CardHeader>
+                    <CardTitle>Maintenance History</CardTitle>
+                    <CardDescription>A log of all completed maintenance activities.</CardDescription>
+                </CardHeader>
+                <CardContent>
+                    <div className="flex items-center gap-2 mb-4">
+                        {(["all", "Repaired", "Disposed"] as HistoryFilter[]).map(filter => (
+                            <Button
+                                key={filter}
+                                variant={historyFilter === filter ? 'secondary' : 'outline'}
+                                size="sm"
+                                onClick={() => setHistoryFilter(filter)}
+                            >
+                                {filter}
+                            </Button>
+                        ))}
+                    </div>
+                     <Table>
+                        <TableHeader>
+                            <TableRow>
+                                <TableHead>Tool Name</TableHead>
+                                <TableHead>Serial #</TableHead>
+                                <TableHead>Date Entered</TableHead>
+                                <TableHead>Outcome</TableHead>
+                            </TableRow>
+                        </TableHeader>
+                        <TableBody>
+                            {maintenanceHistoryLoading ? (
+                                Array.from({ length: 5 }).map((_, i) => (
+                                    <TableRow key={i}>
+                                        <TableCell><Skeleton className="h-4 w-32" /></TableCell>
+                                        <TableCell><Skeleton className="h-4 w-24" /></TableCell>
+                                        <TableCell><Skeleton className="h-4 w-24" /></TableCell>
+                                        <TableCell><Skeleton className="h-6 w-20 rounded-full" /></TableCell>
+                                    </TableRow>
+                                ))
+                            ) : filteredMaintenanceHistory.length > 0 ? (
+                                filteredMaintenanceHistory.map(record => (
+                                    <TableRow key={record.id}>
+                                        <TableCell>{record.toolName}</TableCell>
+                                        <TableCell>{record.serialNumber}</TableCell>
+                                        <TableCell>{formatDateSimple(record.dateEntered)}</TableCell>
+                                        <TableCell>
+                                            <Badge variant={outcomeVariant[record.outcome]}>{record.outcome}</Badge>
+                                        </TableCell>
+                                    </TableRow>
+                                ))
+                            ) : (
+                                <TableRow>
+                                    <TableCell colSpan={4} className="h-24 text-center">
+                                        No maintenance history found.
+                                    </TableCell>
+                                </TableRow>
+                            )}
+                        </TableBody>
+                    </Table>
+                </CardContent>
+            </Card>
+          </TabsContent>
+      </Tabs>
 
-      <Card>
-        <CardHeader>
-          <CardTitle>Maintenance Queue</CardTitle>
-          <CardDescription>
-            These tools are marked as "Under Maintenance" and are unavailable for use.
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Tool</TableHead>
-                <TableHead>Serial #</TableHead>
-                <TableHead>Condition</TableHead>
-                <TableHead className="text-right">Actions</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {loading ? (
-                Array.from({ length: 5 }).map((_, i) => (
-                  <TableRow key={i}>
-                    <TableCell><Skeleton className="h-4 w-32" /></TableCell>
-                    <TableCell><Skeleton className="h-4 w-24" /></TableCell>
-                    <TableCell><Skeleton className="h-6 w-20 rounded-full" /></TableCell>
-                    <TableCell className="text-right"><Skeleton className="h-8 w-32" /></TableCell>
-                  </TableRow>
-                ))
-              ) : maintenanceTools.length > 0 ? (
-                maintenanceTools.map(tool => (
-                  <TableRow key={tool.id} onClick={() => setDetailedTool(tool)} className="cursor-pointer">
-                    <TableCell className="font-medium">{tool.name}</TableCell>
-                    <TableCell>{tool.serialNumber}</TableCell>
-                    <TableCell><Badge variant={conditionVariant[tool.condition]}>{tool.condition}</Badge></TableCell>
-                    <TableCell className="text-right">
-                      <Button variant="outline" size="sm" onClick={(e) => {e.stopPropagation(); setSelectedTool(tool);}}>Complete Maintenance</Button>
-                    </TableCell>
-                  </TableRow>
-                ))
-              ) : (
-                <TableRow>
-                  <TableCell colSpan={4} className="h-24 text-center">
-                    No tools are currently under maintenance.
-                  </TableCell>
-                </TableRow>
-              )}
-            </TableBody>
-          </Table>
-        </CardContent>
-      </Card>
 
       {selectedTool && (
         <Dialog open={!!selectedTool} onOpenChange={(open) => !open && setSelectedTool(null)}>
