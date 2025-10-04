@@ -1,7 +1,7 @@
 
 import { db, storage, auth } from "@/lib/firebase";
 import { collection, getDocs, getDoc, doc, orderBy, query, limit, Timestamp, where, DocumentReference, addDoc, updateDoc, deleteDoc, arrayUnion, runTransaction, writeBatch, setDoc } from "firebase/firestore";
-import { EmailAuthProvider, reauthenticateWithCredential, updatePassword } from "firebase/auth";
+import { EmailAuthProvider, reauthenticateWithCredential, updatePassword, createUserWithEmailAndPassword } from "firebase/auth";
 import type { Activity, Notification, Order, Product, Client, Issuance, Supplier, PurchaseOrder, Shipment, Return, ReturnItem, OutboundReturn, OutboundReturnItem, UserProfile, OrderItem, PurchaseOrderItem, IssuanceItem, Backorder, UserRole, PagePermission, ProductCategory, ProductLocation, Tool, ToolBorrowRecord, SalvagedPart, DisposalRecord, ToolMaintenanceRecord } from "@/types";
 import { format, subDays, addDays } from 'date-fns';
 
@@ -2018,9 +2018,9 @@ export async function updateToolConditionAndStatus(toolId: string, condition: To
 
 export async function getToolHistory(toolId: string): Promise<ToolBorrowRecord[]> {
     try {
-        const q = query(collection(db, "toolBorrowRecords"), where("toolId", "==", toolId));
+        const q = query(collection(db, "toolBorrowRecords"), where("toolId", "==", toolId), orderBy("dateBorrowed", "desc"));
         const snapshot = await getDocs(q);
-        const records = snapshot.docs.map(doc => {
+        return snapshot.docs.map(doc => {
             const data = doc.data();
              return { 
                 id: doc.id, 
@@ -2030,8 +2030,6 @@ export async function getToolHistory(toolId: string): Promise<ToolBorrowRecord[]
                 dateReturned: data.dateReturned ? (data.dateReturned as Timestamp).toDate() : undefined,
             } as ToolBorrowRecord;
         });
-        // Sort in application code to avoid composite index
-        return records.sort((a, b) => b.dateBorrowed.getTime() - a.dateBorrowed.getTime());
     } catch (error) {
         console.error("Error fetching tool history:", error);
         return [];
