@@ -653,7 +653,7 @@ export default function ToolManagementPage() {
                                     name="condition"
                                     control={form.control}
                                     render={({ field }) => (
-                                        <Select onValueChange={field.onChange} defaultValue={field.value}>
+                                        <Select onValueChange={field.onChange} defaultValue={field.value} disabled>
                                             <SelectTrigger><SelectValue placeholder="Select condition" /></SelectTrigger>
                                             <SelectContent>
                                                 <SelectItem value="Good">Good</SelectItem>
