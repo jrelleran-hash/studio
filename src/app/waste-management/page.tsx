@@ -18,7 +18,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { format } from "date-fns";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { Checkbox } from "@/components/ui/checkbox";
-import { Trash2, ChevronDown, PlusCircle, X } from "lucide-react";
+import { Trash2, ChevronDown, PlusCircle, X, Package } from "lucide-react";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, DropdownMenuSeparator } from "@/components/ui/dropdown-menu";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
@@ -66,6 +66,8 @@ export default function WasteManagementPage() {
   const [isDisposeDialogOpen, setIsDisposeDialogOpen] = useState(false);
   const [isPartsOutDialogOpen, setIsPartsOutDialogOpen] = useState(false);
   const [disposalReason, setDisposalReason] = useState<"For Parts Out" | "Recycle" | "Dispose">("Dispose");
+  const [detailedTool, setDetailedTool] = useState<DisposalItem | null>(null);
+  const [detailedProduct, setDetailedProduct] = useState<DisposalItem | null>(null);
 
 
   const damagedTools = useMemo(() => {
@@ -277,8 +279,8 @@ export default function WasteManagementPage() {
                                 ))
                             ) : productsForDisposal.length > 0 ? (
                                 productsForDisposal.map((item) => (
-                                    <TableRow key={item.id}>
-                                        <TableCell><Checkbox checked={selectedItems.has(item.id)} onCheckedChange={(c) => handleSelectItem(item.id, !!c)} /></TableCell>
+                                    <TableRow key={item.id} onClick={() => setDetailedProduct(item)} className="cursor-pointer">
+                                        <TableCell onClick={(e) => e.stopPropagation()}><Checkbox checked={selectedItems.has(item.id)} onCheckedChange={(c) => handleSelectItem(item.id, !!c)} /></TableCell>
                                         <TableCell>{item.name}</TableCell>
                                         <TableCell>{item.sku}</TableCell>
                                         <TableCell>{item.quantity}</TableCell>
@@ -321,8 +323,8 @@ export default function WasteManagementPage() {
                                 ))
                             ) : toolsForDisposal.length > 0 ? (
                                 toolsForDisposal.map((item) => (
-                                    <TableRow key={item.id}>
-                                        <TableCell><Checkbox checked={selectedItems.has(item.id)} onCheckedChange={(c) => handleSelectItem(item.id, !!c)} /></TableCell>
+                                    <TableRow key={item.id} onClick={() => setDetailedTool(item)} className="cursor-pointer">
+                                        <TableCell onClick={(e) => e.stopPropagation()}><Checkbox checked={selectedItems.has(item.id)} onCheckedChange={(c) => handleSelectItem(item.id, !!c)} /></TableCell>
                                         <TableCell>{item.name}</TableCell>
                                         <TableCell>{item.serialNumber}</TableCell>
                                         <TableCell>{format(item.dateMarked, "PPP")}</TableCell>
@@ -440,6 +442,44 @@ export default function WasteManagementPage() {
                 </form>
             </DialogContent>
         </Dialog>
+        
+        {detailedTool && (
+             <Dialog open={!!detailedTool} onOpenChange={(open) => !open && setDetailedTool(null)}>
+                <DialogContent>
+                    <DialogHeader>
+                        <DialogTitle>{detailedTool.name}</DialogTitle>
+                        <DialogDescription>Serial #: {detailedTool.serialNumber}</DialogDescription>
+                    </DialogHeader>
+                     <div className="py-4 space-y-2">
+                        <p><strong>Status:</strong> <Badge variant="destructive">Damaged</Badge></p>
+                        <p><strong>Source:</strong> {detailedTool.source}</p>
+                        <p><strong>Date Marked for Disposal:</strong> {format(detailedTool.dateMarked, "PPP")}</p>
+                    </div>
+                    <DialogFooter>
+                         <Button variant="outline" onClick={() => setDetailedTool(null)}>Close</Button>
+                    </DialogFooter>
+                </DialogContent>
+            </Dialog>
+        )}
+
+        {detailedProduct && (
+             <Dialog open={!!detailedProduct} onOpenChange={(open) => !open && setDetailedProduct(null)}>
+                <DialogContent>
+                    <DialogHeader>
+                        <DialogTitle>{detailedProduct.name}</DialogTitle>
+                        <DialogDescription>SKU: {detailedProduct.sku}</DialogDescription>
+                    </DialogHeader>
+                    <div className="py-4 space-y-2">
+                         <p><strong>Quantity for Disposal:</strong> {detailedProduct.quantity}</p>
+                        <p><strong>Source:</strong> {detailedProduct.source}</p>
+                        <p><strong>Date Marked for Disposal:</strong> {format(detailedProduct.dateMarked, "PPP")}</p>
+                    </div>
+                    <DialogFooter>
+                         <Button variant="outline" onClick={() => setDetailedProduct(null)}>Close</Button>
+                    </DialogFooter>
+                </DialogContent>
+            </Dialog>
+        )}
     </div>
   );
 }
