@@ -76,7 +76,7 @@ export default function WasteManagementPage() {
             serialNumber: tool.serialNumber,
             quantity: 1,
             source: `Tool ID: ${tool.id.substring(0,6)}`,
-            dateMarked: tool.createdAt.toDate(),
+            dateMarked: tool.createdAt,
         });
     });
 
