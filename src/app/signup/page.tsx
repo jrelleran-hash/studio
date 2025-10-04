@@ -22,6 +22,7 @@ import { createUserProfile } from "@/services/data-service";
 import type { UserRole, PagePermission } from "@/types";
 import { FirebaseError } from "firebase/app";
 import { useAuth } from "@/hooks/use-auth";
+import { useData } from "@/context/data-context";
 
 const signupSchema = z.object({
   firstName: z.string().min(1, "First name is required."),
@@ -39,6 +40,7 @@ export default function SignupPage() {
   const { toast } = useToast();
   const router = useRouter();
   const { userProfile, loading: authLoading } = useAuth();
+  const { refetchData } = useData();
   
   useEffect(() => {
     if (!authLoading && userProfile?.role !== 'Admin') {
@@ -81,6 +83,8 @@ export default function SignupPage() {
         role: "Staff", // Default role
         permissions: ["/"], // Default permissions
       });
+      
+      await refetchData();
 
       toast({ title: "User Created", description: `A verification email has been sent to ${data.email}.`});
       router.push(`/settings?tab=users`); 
