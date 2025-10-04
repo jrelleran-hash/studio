@@ -43,18 +43,7 @@ export default function LoginPage() {
   const onSubmit = async (data: LoginFormValues) => {
     setIsLoading(true);
     try {
-      const userCredential = await signInWithEmailAndPassword(auth, data.email, data.password);
-       if (!userCredential.user.emailVerified) {
-        toast({
-          variant: "destructive",
-          title: "Email Not Verified",
-          description: "Please verify your email address before signing in.",
-        });
-        await auth.signOut(); // Log them out so they can't access protected routes
-        router.push(`/verify-email?email=${data.email}`);
-        return;
-      }
-      
+      await signInWithEmailAndPassword(auth, data.email, data.password);
       router.push("/");
     } catch (error: any) {
       let errorMessage = "An unexpected error occurred.";

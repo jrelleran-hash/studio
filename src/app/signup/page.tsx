@@ -6,7 +6,7 @@ import { useState, useEffect } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
-import { createUserWithEmailAndPassword, updateProfile, sendEmailVerification } from "firebase/auth";
+import { createUserWithEmailAndPassword, updateProfile } from "firebase/auth";
 import { auth } from "@/lib/firebase";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
@@ -72,12 +72,6 @@ export default function SignupPage() {
       const user = userCredential.user;
       const displayName = `${data.firstName} ${data.lastName}`.trim();
 
-      // This will send an email to the new user.
-      await sendEmailVerification(user, {
-        url: `${window.location.origin}/login`,
-      });
-
-      // We still update the profile locally, but the user has to verify.
       await updateProfile(user, { displayName });
 
       await createUserProfile(user.uid, {
@@ -90,7 +84,7 @@ export default function SignupPage() {
       
       await refetchData();
 
-      toast({ title: "User Created", description: `A verification email has been sent to ${data.email}.`});
+      toast({ title: "User Created", description: `User ${data.email} has been successfully created.`});
       router.push(`/settings?tab=users`); 
 
     } catch (error: any) {
@@ -110,7 +104,7 @@ export default function SignupPage() {
     }
   };
   
-  if (authLoading || userProfile?.role !== 'Admin') {
+  if (authLoading || (userProfile && userProfile.role !== 'Admin')) {
     return (
         <div className="flex min-h-screen items-center justify-center bg-background p-4">
             <p>Loading...</p>
@@ -126,7 +120,7 @@ export default function SignupPage() {
             <CoreFlowLogo className="h-8 w-8 text-primary" />
           </div>
           <CardTitle className="text-2xl font-headline">Create New User</CardTitle>
-          <CardDescription>Enter the new user's details. They will receive a verification email.</CardDescription>
+          <CardDescription>Enter the new user's details. They will be able to log in immediately.</CardDescription>
         </CardHeader>
         <CardContent>
           <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
