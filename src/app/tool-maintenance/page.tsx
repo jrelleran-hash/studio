@@ -11,15 +11,18 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Button } from "@/components/ui/button";
+import { Button, buttonVariants } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
 import type { Tool, ToolBorrowRecord, ToolMaintenanceRecord } from "@/types";
-import { updateToolConditionAndStatus, getToolHistory, getToolMaintenanceHistory } from "@/services/data-service";
+import { updateToolConditionAndStatus, getToolHistory, getToolMaintenanceHistory, deleteMaintenanceRecords } from "@/services/data-service";
 import { format } from "date-fns";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Checkbox } from "@/components/ui/checkbox";
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
+import { Trash2 } from "lucide-react";
 
 const maintenanceSchema = z.object({
   condition: z.enum(["Good", "Needs Repair", "Damaged"]),
@@ -51,6 +54,9 @@ export default function ToolMaintenancePage() {
   const [maintenanceHistory, setMaintenanceHistory] = useState<ToolMaintenanceRecord[]>([]);
   const [maintenanceHistoryLoading, setMaintenanceHistoryLoading] = useState(true);
   const [historyFilter, setHistoryFilter] = useState<HistoryFilter>("all");
+  const [selectedHistory, setSelectedHistory] = useState<Set<string>>(new Set());
+  const [isDeleteHistoryOpen, setIsDeleteHistoryOpen] = useState(false);
+
 
   const maintenanceTools = useMemo(() => {
     return tools.filter(t => t.status === "Under Maintenance");
@@ -70,13 +76,14 @@ export default function ToolMaintenancePage() {
     resolver: zodResolver(maintenanceSchema),
   });
 
+  const fetchMaintenanceHistory = async () => {
+    setMaintenanceHistoryLoading(true);
+    const history = await getToolMaintenanceHistory();
+    setMaintenanceHistory(history);
+    setMaintenanceHistoryLoading(false);
+  };
+
   useEffect(() => {
-    const fetchMaintenanceHistory = async () => {
-        setMaintenanceHistoryLoading(true);
-        const history = await getToolMaintenanceHistory();
-        setMaintenanceHistory(history);
-        setMaintenanceHistoryLoading(false);
-    };
     fetchMaintenanceHistory();
   }, []);
 
@@ -91,6 +98,10 @@ export default function ToolMaintenancePage() {
       fetchHistory();
     }
   }, [detailedTool]);
+  
+  useEffect(() => {
+    setSelectedHistory(new Set());
+  }, [historyFilter]);
 
   const onMaintenanceComplete = async (data: MaintenanceFormValues) => {
     if (!selectedTool) return;
@@ -115,6 +126,38 @@ export default function ToolMaintenancePage() {
     }
   };
   
+  const handleSelectHistory = (id: string, checked: boolean) => {
+    const newSelection = new Set(selectedHistory);
+    if (checked) {
+      newSelection.add(id);
+    } else {
+      newSelection.delete(id);
+    }
+    setSelectedHistory(newSelection);
+  };
+  
+  const handleSelectAllHistory = (checked: boolean) => {
+    if (checked) {
+      setSelectedHistory(new Set(filteredMaintenanceHistory.map(h => h.id)));
+    } else {
+      setSelectedHistory(new Set());
+    }
+  };
+  
+  const handleDeleteSelectedHistory = async () => {
+    try {
+      await deleteMaintenanceRecords(Array.from(selectedHistory));
+      toast({ title: "Success", description: "Selected history records deleted." });
+      await fetchMaintenanceHistory();
+      setSelectedHistory(new Set());
+    } catch (error) {
+      toast({ variant: "destructive", title: "Error", description: "Failed to delete history records." });
+    } finally {
+      setIsDeleteHistoryOpen(false);
+    }
+  };
+
+
   const formatDate = (date?: Date) => {
     if (!date) return 'N/A';
     return format(date, 'PPpp');
@@ -125,7 +168,10 @@ export default function ToolMaintenancePage() {
     return format(date, 'PPP');
   }
 
+  const isAllHistorySelected = filteredMaintenanceHistory.length > 0 && selectedHistory.size === filteredMaintenanceHistory.length;
+
   return (
+    <>
     <div className="space-y-6">
       <div>
         <h1 className="text-2xl font-bold font-headline tracking-tight">Tool Maintenance</h1>
@@ -190,9 +236,17 @@ export default function ToolMaintenancePage() {
           </TabsContent>
           <TabsContent value="history">
             <Card>
-                <CardHeader>
-                    <CardTitle>Maintenance History</CardTitle>
-                    <CardDescription>A log of all completed maintenance activities.</CardDescription>
+                <CardHeader className="flex flex-row items-center justify-between">
+                    <div>
+                        <CardTitle>Maintenance History</CardTitle>
+                        <CardDescription>A log of all completed maintenance activities.</CardDescription>
+                    </div>
+                     {selectedHistory.size > 0 && (
+                        <Button variant="destructive" size="sm" onClick={() => setIsDeleteHistoryOpen(true)}>
+                            <Trash2 className="mr-2 h-4 w-4" />
+                            Delete Selected ({selectedHistory.size})
+                        </Button>
+                    )}
                 </CardHeader>
                 <CardContent>
                     <div className="flex items-center gap-2 mb-4">
@@ -210,6 +264,7 @@ export default function ToolMaintenancePage() {
                      <Table>
                         <TableHeader>
                             <TableRow>
+                                <TableHead className="w-12"><Checkbox checked={isAllHistorySelected} onCheckedChange={handleSelectAllHistory} aria-label="Select all" /></TableHead>
                                 <TableHead>Tool Name</TableHead>
                                 <TableHead>Serial #</TableHead>
                                 <TableHead>Date Entered</TableHead>
@@ -220,15 +275,13 @@ export default function ToolMaintenancePage() {
                             {maintenanceHistoryLoading ? (
                                 Array.from({ length: 5 }).map((_, i) => (
                                     <TableRow key={i}>
-                                        <TableCell><Skeleton className="h-4 w-32" /></TableCell>
-                                        <TableCell><Skeleton className="h-4 w-24" /></TableCell>
-                                        <TableCell><Skeleton className="h-4 w-24" /></TableCell>
-                                        <TableCell><Skeleton className="h-6 w-20 rounded-full" /></TableCell>
+                                        <TableCell colSpan={5}><Skeleton className="h-8 w-full" /></TableCell>
                                     </TableRow>
                                 ))
                             ) : filteredMaintenanceHistory.length > 0 ? (
                                 filteredMaintenanceHistory.map(record => (
                                     <TableRow key={record.id}>
+                                        <TableCell><Checkbox checked={selectedHistory.has(record.id)} onCheckedChange={(checked) => handleSelectHistory(record.id, !!checked)} /></TableCell>
                                         <TableCell>{record.toolName}</TableCell>
                                         <TableCell>{record.serialNumber}</TableCell>
                                         <TableCell>{formatDateSimple(record.dateEntered)}</TableCell>
@@ -239,7 +292,7 @@ export default function ToolMaintenancePage() {
                                 ))
                             ) : (
                                 <TableRow>
-                                    <TableCell colSpan={4} className="h-24 text-center">
+                                    <TableCell colSpan={5} className="h-24 text-center">
                                         No maintenance history found.
                                     </TableCell>
                                 </TableRow>
@@ -336,6 +389,25 @@ export default function ToolMaintenancePage() {
           </DialogContent>
         </Dialog>
       )}
+
+      <AlertDialog open={isDeleteHistoryOpen} onOpenChange={setIsDeleteHistoryOpen}>
+        <AlertDialogContent>
+            <AlertDialogHeader>
+                <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
+                <AlertDialogDescription>
+                    This action cannot be undone. This will permanently delete the selected maintenance history records.
+                </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+                <AlertDialogCancel>Cancel</AlertDialogCancel>
+                <AlertDialogAction onClick={handleDeleteSelectedHistory} className={buttonVariants({ variant: "destructive" })}>
+                    Delete
+                </AlertDialogAction>
+            </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
     </div>
+    </>
   );
 }

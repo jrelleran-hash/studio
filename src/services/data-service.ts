@@ -2232,7 +2232,6 @@ export async function deleteDisposalRecord(recordId: string): Promise<void> {
 
 export async function getToolMaintenanceHistory(): Promise<ToolMaintenanceRecord[]> {
   try {
-    // Get all completed borrow records that resulted in maintenance
     const borrowRecordsCol = collection(db, "toolBorrowRecords");
     const maintenanceBorrowQuery = query(
       borrowRecordsCol,
@@ -2242,7 +2241,7 @@ export async function getToolMaintenanceHistory(): Promise<ToolMaintenanceRecord
 
     const maintenanceMap = new Map<string, ToolMaintenanceRecord>();
 
-    borrowSnapshot.docs.forEach(doc => {
+    borrowSnapshot.forEach(doc => {
       const data = doc.data() as ToolBorrowRecord;
       maintenanceMap.set(data.toolId, {
         id: doc.id,
@@ -2254,14 +2253,12 @@ export async function getToolMaintenanceHistory(): Promise<ToolMaintenanceRecord
       });
     });
 
-    // Get all tools that were disposed
     const disposalRecordsCol = collection(db, "disposalRecords");
     const disposedToolsQuery = query(disposalRecordsCol, where("itemType", "==", "tool"));
     const disposalSnapshot = await getDocs(disposedToolsQuery);
 
     const toolIds = Array.from(maintenanceMap.keys());
     
-    // Add disposed tool IDs to the list if they are not already there
     disposalSnapshot.docs.forEach(doc => {
         const disposalData = doc.data() as DisposalRecord;
         if (disposalData.itemId && !maintenanceMap.has(disposalData.itemId)) {
@@ -2269,11 +2266,9 @@ export async function getToolMaintenanceHistory(): Promise<ToolMaintenanceRecord
         }
     });
 
-    // Fetch tool details for all relevant tools
     const toolDetailsMap = new Map<string, {name: string, serialNumber: string}>();
     if (toolIds.length > 0) {
-        // Firestore 'in' query is limited to 30 items. We may need to batch this.
-        const toolQuery = query(collection(db, "tools"), where("__name__", "in", toolIds));
+        const toolQuery = query(collection(db, "tools"), where("__name__", "in", toolIds.slice(0, 30)));
         const toolSnapshot = await getDocs(toolQuery);
         toolSnapshot.docs.forEach(doc => {
             const data = doc.data();
@@ -2281,14 +2276,12 @@ export async function getToolMaintenanceHistory(): Promise<ToolMaintenanceRecord
         });
     }
     
-    // Update outcomes for disposed tools
     disposalSnapshot.docs.forEach(doc => {
       const disposalData = doc.data() as DisposalRecord;
       if (disposalData.itemId) {
          if (maintenanceMap.has(disposalData.itemId)) {
             maintenanceMap.get(disposalData.itemId)!.outcome = 'Disposed';
          } else {
-            // This was a tool that was disposed without a maintenance record (e.g. from recall)
             maintenanceMap.set(disposalData.itemId, {
                 id: doc.id,
                 toolId: disposalData.itemId,
@@ -2301,15 +2294,12 @@ export async function getToolMaintenanceHistory(): Promise<ToolMaintenanceRecord
       }
     });
     
-    // Fill in tool details
     maintenanceMap.forEach((record, toolId) => {
         const details = toolDetailsMap.get(toolId);
         if (details) {
             record.toolName = details.name;
             record.serialNumber = details.serialNumber;
         } else if (!record.toolName) {
-            // This case handles tools that were in the maintenance map but have since been deleted (disposed)
-            // and their details weren't in the initial tool fetch.
             const disposalRecord = disposalSnapshot.docs.find(d => d.data().itemId === toolId)?.data() as DisposalRecord;
             if (disposalRecord) {
                 record.toolName = disposalRecord.itemName;
@@ -2325,6 +2315,28 @@ export async function getToolMaintenanceHistory(): Promise<ToolMaintenanceRecord
     return [];
   }
 }
+
+export async function deleteMaintenanceRecords(recordIds: string[]): Promise<void> {
+  if (recordIds.length === 0) return;
+  try {
+    const batch = writeBatch(db);
+    recordIds.forEach(id => {
+      // These records are derived, so we delete from the source collections
+      const borrowRecordRef = doc(db, "toolBorrowRecords", id);
+      const disposalRecordRef = doc(db, "disposalRecords", id);
+      
+      // We don't know which collection the ID belongs to, so we try to delete from both.
+      // Firestore's batch delete doesn't throw an error if the doc doesn't exist.
+      batch.delete(borrowRecordRef);
+      batch.delete(disposalRecordRef);
+    });
+    await batch.commit();
+  } catch (error) {
+    console.error("Error deleting maintenance records:", error);
+    throw new Error("Failed to delete maintenance history records.");
+  }
+}
+
 
 type NewBookingRequestData = {
     toolId: string;
