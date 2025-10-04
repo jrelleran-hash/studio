@@ -1,8 +1,9 @@
 
+
 import { db, storage, auth } from "@/lib/firebase";
 import { collection, getDocs, getDoc, doc, orderBy, query, limit, Timestamp, where, DocumentReference, addDoc, updateDoc, deleteDoc, arrayUnion, runTransaction, writeBatch, setDoc } from "firebase/firestore";
 import { EmailAuthProvider, reauthenticateWithCredential, updatePassword, createUserWithEmailAndPassword } from "firebase/auth";
-import type { Activity, Notification, Order, Product, Client, Issuance, Supplier, PurchaseOrder, Shipment, Return, ReturnItem, OutboundReturn, OutboundReturnItem, UserProfile, OrderItem, PurchaseOrderItem, IssuanceItem, Backorder, UserRole, PagePermission, ProductCategory, ProductLocation, Tool, ToolBorrowRecord, SalvagedPart, DisposalRecord, ToolMaintenanceRecord } from "@/types";
+import type { Activity, Notification, Order, Product, Client, Issuance, Supplier, PurchaseOrder, Shipment, Return, ReturnItem, OutboundReturn, OutboundReturnItem, UserProfile, OrderItem, PurchaseOrderItem, IssuanceItem, Backorder, UserRole, PagePermission, ProductCategory, ProductLocation, Tool, ToolBorrowRecord, SalvagedPart, DisposalRecord, ToolMaintenanceRecord, ToolBookingRequest } from "@/types";
 import { format, subDays, addDays } from 'date-fns';
 
 function timeSince(date: Date) {
@@ -2312,4 +2313,53 @@ export async function getToolMaintenanceHistory(): Promise<ToolMaintenanceRecord
     console.error("Error fetching tool maintenance history:", error);
     return [];
   }
+}
+
+type NewBookingRequestData = {
+    toolId: string;
+    requestedById: string;
+    startDate: Date;
+    endDate: Date;
+    notes?: string;
+};
+
+export async function createToolBookingRequest(data: NewBookingRequestData): Promise<void> {
+    try {
+        const toolRef = doc(db, "tools", data.toolId);
+        const userRef = doc(db, "users", data.requestedById);
+
+        const [toolDoc, userDoc] = await Promise.all([getDoc(toolRef), getDoc(userRef)]);
+
+        if (!toolDoc.exists()) throw new Error("Tool not found.");
+        if (toolDoc.data().status !== 'Available') throw new Error("Tool is not currently available for booking.");
+        if (!userDoc.exists()) throw new Error("Requesting user not found.");
+
+        const toolData = toolDoc.data() as Tool;
+        const userData = userDoc.data() as UserProfile;
+
+        const newRequest = {
+            toolId: data.toolId,
+            toolName: toolData.name,
+            requestedById: data.requestedById,
+            requestedByName: `${userData.firstName} ${userData.lastName}`,
+            startDate: Timestamp.fromDate(data.startDate),
+            endDate: Timestamp.fromDate(data.endDate),
+            notes: data.notes || "",
+            status: "Pending",
+            createdAt: Timestamp.now(),
+        };
+
+        await addDoc(collection(db, "toolBookingRequests"), newRequest);
+
+        await createNotification({
+            title: "New Tool Request",
+            description: `${newRequest.requestedByName} requested to borrow the ${newRequest.toolName}.`,
+            details: `A new tool booking request has been submitted for approval.`,
+            href: "/tools",
+            icon: "Package",
+        });
+    } catch (error) {
+        console.error("Error creating tool booking request:", error);
+        throw error;
+    }
 }

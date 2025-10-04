@@ -1,4 +1,5 @@
 
+
 import { Timestamp, DocumentReference } from "firebase/firestore";
 
 export interface Activity {
@@ -205,7 +206,7 @@ export interface OutboundReturn {
 }
 
 export type UserRole = "Admin" | "Manager" | "Staff";
-export type PagePermission = "/" | "/clients" | "/logistics" | "/analytics" | "/orders" | "/purchase-orders" | "/suppliers" | "/inventory" | "/issuance" | "/returns" | "/quality-control" | "/settings" | "/warehouse" | "/tools" | "/tool-maintenance" | "/waste-management" | "/logistics-booking";
+export type PagePermission = "/" | "/clients" | "/logistics" | "/analytics" | "/orders" | "/purchase-orders" | "/suppliers" | "/inventory" | "/issuance" | "/returns" | "/quality-control" | "/settings" | "/warehouse" | "/tools" | "/tool-maintenance" | "/waste-management" | "/logistics-booking" | "/tool-booking";
 
 export interface UserProfile {
     uid: string;
@@ -276,4 +277,17 @@ export interface ToolMaintenanceRecord {
     serialNumber: string;
     dateEntered: Date;
     outcome: "Repaired" | "Disposed";
+}
+
+export interface ToolBookingRequest {
+    id: string;
+    toolId: string;
+    toolName: string;
+    requestedById: string;
+    requestedByName: string;
+    startDate: Timestamp;
+    endDate: Timestamp;
+    status: 'Pending' | 'Approved' | 'Rejected';
+    notes?: string;
+    createdAt: Timestamp;
 }
