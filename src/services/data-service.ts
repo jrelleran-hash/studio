@@ -2007,12 +2007,12 @@ export async function returnTool(toolId: string, condition: Tool['condition'], n
 }
 
 export async function updateToolConditionAndStatus(toolId: string, condition: Tool['condition'], status: Tool['status']): Promise<void> {
-    try {
-        const toolRef = doc(db, "tools", toolId);
-        await updateDoc(toolRef, { condition, status });
-    } catch (error) {
-        console.error("Error updating tool condition and status:", error);
-        throw new Error("Failed to update tool.");
+  try {
+    const toolRef = doc(db, "tools", toolId);
+    await updateDoc(toolRef, { condition, status });
+  } catch (error) {
+    console.error("Error updating tool condition and status:", error);
+    throw new Error("Failed to update tool.");
   }
 }
 
@@ -2068,7 +2068,7 @@ export async function recallTool(toolId: string, condition: Tool['condition'], n
         if (!toolDoc.exists()) throw new Error("Tool not found.");
         if (toolDoc.data().status !== 'Assigned') throw new Error("Can only recall an assigned tool.");
         
-        const newStatus = condition === 'Good' ? 'Available' : 'Under Maintenance';
+        const newStatus: Tool['status'] = condition === 'Good' ? 'Available' : 'Under Maintenance';
         
         transaction.update(toolRef, {
             status: newStatus,
@@ -2203,6 +2203,7 @@ export async function partOutTools(toolIds: string[], parts: SalvagedPartData[],
     await batch.commit();
 }
     
+
 
 
 
