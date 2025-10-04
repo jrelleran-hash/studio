@@ -1,4 +1,3 @@
-
 "use client";
 
 import Link from "next/link";
@@ -56,6 +55,7 @@ const warehouseNavItems = [
     { href: "/inventory", label: "Products", icon: Package },
     { href: "/issuance", label: "Issuance", icon: FileText },
     { href: "/tools", label: "Tool Management", icon: Wrench },
+    { href: "/tool-booking", label: "Tool Booking", icon: Book },
     { href: "/warehouse", label: "Warehouse Map", icon: Map },
 ];
 
