@@ -3,7 +3,7 @@
 import { db, storage, auth } from "@/lib/firebase";
 import { collection, getDocs, getDoc, doc, orderBy, query, limit, Timestamp, where, DocumentReference, addDoc, updateDoc, deleteDoc, arrayUnion, runTransaction, writeBatch, setDoc } from "firebase/firestore";
 import { EmailAuthProvider, reauthenticateWithCredential, updatePassword, createUserWithEmailAndPassword } from "firebase/auth";
-import type { Activity, Notification, Order, Product, Client, Issuance, Supplier, PurchaseOrder, Shipment, Return, ReturnItem, OutboundReturn, OutboundReturnItem, UserProfile, OrderItem, PurchaseOrderItem, IssuanceItem, Backorder, UserRole, PagePermission, ProductCategory, ProductLocation, Tool, ToolBorrowRecord, SalvagedPart, DisposalRecord, ToolMaintenanceRecord, ToolBookingRequest } from "@/types";
+import type { Activity, Notification, Order, Product, Client, Issuance, Supplier, PurchaseOrder, Shipment, Return, ReturnItem, OutboundReturn, OutboundReturnItem, UserProfile, OrderItem, PurchaseOrderItem, IssuanceItem, Backorder, UserRole, PagePermission, ProductCategory, ProductLocation, Tool, ToolBorrowRecord, SalvagedPart, DisposalRecord, ToolMaintenanceRecord, ToolBookingRequest, Transaction } from "@/types";
 import { format, subDays, addDays } from 'date-fns';
 
 function timeSince(date: Date) {
@@ -2231,89 +2231,91 @@ export async function deleteDisposalRecord(recordId: string): Promise<void> {
 
 
 export async function getToolMaintenanceHistory(): Promise<ToolMaintenanceRecord[]> {
-  try {
-    const borrowRecordsCol = collection(db, "toolBorrowRecords");
-    const maintenanceBorrowQuery = query(
-      borrowRecordsCol,
-      where("returnCondition", "in", ["Needs Repair", "Damaged"])
-    );
-    const borrowSnapshot = await getDocs(maintenanceBorrowQuery);
+    try {
+        const borrowRecordsCol = collection(db, "toolBorrowRecords");
+        const maintenanceBorrowQuery = query(
+        borrowRecordsCol,
+        where("returnCondition", "in", ["Needs Repair", "Damaged"])
+        );
+        const borrowSnapshot = await getDocs(maintenanceBorrowQuery);
 
-    const maintenanceMap = new Map<string, ToolMaintenanceRecord>();
+        const maintenanceMap = new Map<string, ToolMaintenanceRecord>();
 
-    borrowSnapshot.forEach(doc => {
-      const data = doc.data() as ToolBorrowRecord;
-      maintenanceMap.set(data.toolId, {
-        id: doc.id,
-        toolId: data.toolId,
-        toolName: '', // Will be filled later
-        serialNumber: '', // Will be filled later
-        dateEntered: (data.dateReturned as Timestamp)?.toDate(),
-        outcome: 'Repaired' // Default to Repaired
-      });
-    });
-
-    const disposalRecordsCol = collection(db, "disposalRecords");
-    const disposedToolsQuery = query(disposalRecordsCol, where("itemType", "==", "tool"));
-    const disposalSnapshot = await getDocs(disposedToolsQuery);
-
-    const toolIds = Array.from(maintenanceMap.keys());
-    
-    disposalSnapshot.docs.forEach(doc => {
-        const disposalData = doc.data() as DisposalRecord;
-        if (disposalData.itemId && !maintenanceMap.has(disposalData.itemId)) {
-             toolIds.push(disposalData.itemId);
-        }
-    });
-
-    const toolDetailsMap = new Map<string, {name: string, serialNumber: string}>();
-    if (toolIds.length > 0) {
-        const toolQuery = query(collection(db, "tools"), where("__name__", "in", toolIds.slice(0, 30)));
-        const toolSnapshot = await getDocs(toolQuery);
-        toolSnapshot.docs.forEach(doc => {
-            const data = doc.data();
-            toolDetailsMap.set(doc.id, { name: data.name, serialNumber: data.serialNumber });
-        });
-    }
-    
-    disposalSnapshot.docs.forEach(doc => {
-      const disposalData = doc.data() as DisposalRecord;
-      if (disposalData.itemId) {
-         if (maintenanceMap.has(disposalData.itemId)) {
-            maintenanceMap.get(disposalData.itemId)!.outcome = 'Disposed';
-         } else {
-            maintenanceMap.set(disposalData.itemId, {
+        borrowSnapshot.forEach(doc => {
+            const data = doc.data() as ToolBorrowRecord;
+            maintenanceMap.set(data.toolId, {
                 id: doc.id,
-                toolId: disposalData.itemId,
-                toolName: disposalData.itemName,
-                serialNumber: disposalData.itemIdentifier || 'N/A',
-                dateEntered: disposalData.date,
-                outcome: 'Disposed',
+                toolId: data.toolId,
+                toolName: '', // Will be filled later
+                serialNumber: '', // Will be filled later
+                dateEntered: (data.dateReturned as Timestamp)?.toDate(),
+                outcome: 'Repaired' // Default to Repaired
             });
-         }
-      }
-    });
-    
-    maintenanceMap.forEach((record, toolId) => {
-        const details = toolDetailsMap.get(toolId);
-        if (details) {
-            record.toolName = details.name;
-            record.serialNumber = details.serialNumber;
-        } else if (!record.toolName) {
-            const disposalRecord = disposalSnapshot.docs.find(d => d.data().itemId === toolId)?.data() as DisposalRecord;
-            if (disposalRecord) {
-                record.toolName = disposalRecord.itemName;
-                record.serialNumber = disposalRecord.itemIdentifier || 'N/A';
+        });
+
+        const disposalRecordsCol = collection(db, "disposalRecords");
+        const disposedToolsQuery = query(disposalRecordsCol, where("itemType", "==", "tool"));
+        const disposalSnapshot = await getDocs(disposedToolsQuery);
+
+        const toolIds = Array.from(maintenanceMap.keys());
+        
+        disposalSnapshot.docs.forEach(doc => {
+            const disposalData = doc.data() as DisposalRecord;
+            if (disposalData.itemId && !maintenanceMap.has(disposalData.itemId)) {
+                toolIds.push(disposalData.itemId);
+            }
+        });
+
+        const toolDetailsMap = new Map<string, {name: string, serialNumber: string}>();
+        if (toolIds.length > 0) {
+            // Firestore 'in' query has a limit of 30 elements.
+            // For a real-world app, you might need to batch this.
+            const toolQuery = query(collection(db, "tools"), where("__name__", "in", toolIds.slice(0, 30)));
+            const toolSnapshot = await getDocs(toolQuery);
+            toolSnapshot.docs.forEach(doc => {
+                const data = doc.data();
+                toolDetailsMap.set(doc.id, { name: data.name, serialNumber: data.serialNumber });
+            });
+        }
+        
+        disposalSnapshot.docs.forEach(doc => {
+        const disposalData = doc.data() as DisposalRecord;
+        if (disposalData.itemId) {
+            if (maintenanceMap.has(disposalData.itemId)) {
+                maintenanceMap.get(disposalData.itemId)!.outcome = 'Disposed';
+            } else {
+                maintenanceMap.set(disposalData.itemId, {
+                    id: doc.id,
+                    toolId: disposalData.itemId,
+                    toolName: disposalData.itemName,
+                    serialNumber: disposalData.itemIdentifier || 'N/A',
+                    dateEntered: disposalData.date,
+                    outcome: 'Disposed',
+                });
             }
         }
-    });
+        });
+        
+        maintenanceMap.forEach((record, toolId) => {
+            const details = toolDetailsMap.get(toolId);
+            if (details) {
+                record.toolName = details.name;
+                record.serialNumber = details.serialNumber;
+            } else if (!record.toolName) {
+                const disposalRecord = disposalSnapshot.docs.find(d => d.data().itemId === toolId)?.data() as DisposalRecord;
+                if (disposalRecord) {
+                    record.toolName = disposalRecord.itemName;
+                    record.serialNumber = disposalRecord.itemIdentifier || 'N/A';
+                }
+            }
+        });
 
-    const history = Array.from(maintenanceMap.values());
-    return history.sort((a,b) => b.dateEntered.getTime() - a.dateEntered.getTime());
-  } catch (error) {
-    console.error("Error fetching tool maintenance history:", error);
-    return [];
-  }
+        const history = Array.from(maintenanceMap.values());
+        return history.sort((a,b) => b.dateEntered.getTime() - a.dateEntered.getTime());
+    } catch (error) {
+        console.error("Error fetching tool maintenance history:", error);
+        return [];
+    }
 }
 
 export async function deleteMaintenanceRecords(recordIds: string[]): Promise<void> {
@@ -2451,4 +2453,64 @@ export async function rejectToolBookingRequest(requestId: string): Promise<void>
     if (requestDoc.data().status !== 'Pending') throw new Error("Request has already been actioned.");
 
     await updateDoc(requestRef, { status: 'Rejected' });
+}
+
+
+export async function getTransactions(): Promise<Transaction[]> {
+    try {
+        const orders = await getOrders();
+        const purchaseOrders = await getPurchaseOrders();
+        const tools = await getTools();
+
+        const revenueTransactions: Transaction[] = orders
+            .filter(order => order.status === "Completed" || order.status === "Fulfilled")
+            .map(order => ({
+                id: `rev-${order.id}`,
+                date: order.date,
+                type: 'Revenue',
+                description: `Sale to ${order.client.clientName}`,
+                amount: order.total,
+                sourceId: order.id,
+                sourceType: 'Order',
+            }));
+
+        const expenseTransactions: Transaction[] = [];
+
+        purchaseOrders
+            .filter(po => po.status === "Completed")
+            .forEach(po => {
+                const totalCost = po.items.reduce((acc, item) => acc + (item.product.price * item.quantity), 0);
+                expenseTransactions.push({
+                    id: `exp-po-${po.id}`,
+                    date: po.receivedDate || po.orderDate,
+                    type: 'Expense',
+                    description: `Purchase from ${po.supplier.name}`,
+                    amount: totalCost,
+                    sourceId: po.id,
+                    sourceType: 'Purchase Order',
+                });
+            });
+
+        tools
+            .filter(tool => tool.purchaseCost && tool.purchaseCost > 0 && tool.purchaseDate)
+            .forEach(tool => {
+                expenseTransactions.push({
+                    id: `exp-tool-${tool.id}`,
+                    date: tool.purchaseDate!,
+                    type: 'Expense',
+                    description: `Tool Purchase: ${tool.name}`,
+                    amount: tool.purchaseCost!,
+                    sourceId: tool.id,
+                    sourceType: 'Tool Purchase',
+                });
+            });
+        
+        const allTransactions = [...revenueTransactions, ...expenseTransactions];
+
+        return allTransactions.sort((a, b) => b.date.getTime() - a.date.getTime());
+        
+    } catch (error) {
+        console.error("Error fetching transactions:", error);
+        return [];
+    }
 }
