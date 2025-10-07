@@ -38,25 +38,23 @@ import {
   DialogTitle,
   DialogTrigger,
 } from '@/components/ui/dialog';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Badge } from '@/components/ui/badge';
+import { Textarea } from '@/components/ui/textarea';
 
 const vehicleSchema = z.object({
-  type: z.enum(['Van', 'Motorcycle', 'Truck (10ft)', 'Truck (14ft)']),
+  type: z.string().min(1, "Vehicle type is required."),
   plateNumber: z.string().min(1, "Plate number is required."),
   make: z.string().min(1, "Make is required."),
   model: z.string().min(1, "Model is required."),
   year: z.coerce.number().int().min(1900, "Invalid year.").max(new Date().getFullYear() + 1, "Invalid year."),
+  weightLimit: z.string().optional(),
+  sizeLimit: z.string().optional(),
+  description: z.string().optional(),
 });
+
 
 type VehicleFormValues = z.infer<typeof vehicleSchema>;
 
@@ -117,7 +115,7 @@ export default function VehiclesPage() {
               Add Vehicle
             </Button>
           </DialogTrigger>
-          <DialogContent>
+          <DialogContent className="sm:max-w-2xl">
             <DialogHeader>
               <DialogTitle>Add New Vehicle</DialogTitle>
               <DialogDescription>
@@ -127,27 +125,9 @@ export default function VehiclesPage() {
             <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div className="space-y-2">
-                  <Label>Vehicle Type</Label>
-                  <Controller
-                    name="type"
-                    control={form.control}
-                    render={({ field }) => (
-                      <Select
-                        onValueChange={field.onChange}
-                        defaultValue={field.value}
-                      >
-                        <SelectTrigger>
-                          <SelectValue placeholder="Select vehicle type" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="Van">Van</SelectItem>
-                          <SelectItem value="Motorcycle">Motorcycle</SelectItem>
-                          <SelectItem value="Truck (10ft)">Truck (10ft)</SelectItem>
-                          <SelectItem value="Truck (14ft)">Truck (14ft)</SelectItem>
-                        </SelectContent>
-                      </Select>
-                    )}
-                  />
+                  <Label htmlFor="type">Vehicle Type</Label>
+                  <Input id="type" {...form.register("type")} placeholder="e.g. Passenger Type, 6-Wheeler Truck" />
+                  {form.formState.errors.type && <p className="text-sm text-destructive">{form.formState.errors.type.message}</p>}
                 </div>
                 <div className="space-y-2">
                     <Label htmlFor="plateNumber">Plate Number</Label>
@@ -157,22 +137,39 @@ export default function VehiclesPage() {
               </div>
 
                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-                 <div className="space-y-2 sm:col-span-1">
+                 <div className="space-y-2">
                     <Label htmlFor="make">Make</Label>
                     <Input id="make" {...form.register("make")} />
                     {form.formState.errors.make && <p className="text-sm text-destructive">{form.formState.errors.make.message}</p>}
                 </div>
-                 <div className="space-y-2 sm:col-span-1">
+                 <div className="space-y-2">
                     <Label htmlFor="model">Model</Label>
                     <Input id="model" {...form.register("model")} />
                     {form.formState.errors.model && <p className="text-sm text-destructive">{form.formState.errors.model.message}</p>}
                 </div>
-                 <div className="space-y-2 sm:col-span-1">
+                 <div className="space-y-2">
                     <Label htmlFor="year">Year</Label>
                     <Input id="year" type="number" {...form.register("year")} />
                     {form.formState.errors.year && <p className="text-sm text-destructive">{form.formState.errors.year.message}</p>}
                 </div>
                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                        <Label htmlFor="weightLimit">Weight Limit (Optional)</Label>
+                        <Input id="weightLimit" {...form.register("weightLimit")} placeholder="e.g. Up to 200 kg" />
+                    </div>
+                     <div className="space-y-2">
+                        <Label htmlFor="sizeLimit">Size Limit (Optional)</Label>
+                        <Input id="sizeLimit" {...form.register("sizeLimit")} placeholder="e.g. 3.2 x 1.9 x 2.3 ft" />
+                    </div>
+                </div>
+
+                <div className="space-y-2">
+                    <Label htmlFor="description">Description / Suitable for (Optional)</Label>
+                    <Textarea id="description" {...form.register("description")} placeholder="e.g. Cheapest 4-wheel option. Max. of 4 Passengers Only." />
+                </div>
+
 
               <DialogFooter>
                 <Button
@@ -198,12 +195,11 @@ export default function VehiclesPage() {
           <Table>
             <TableHeader>
               <TableRow>
-                <TableHead>Type</TableHead>
-                <TableHead>Make & Model</TableHead>
+                <TableHead>Vehicle</TableHead>
                 <TableHead>Plate Number</TableHead>
-                <TableHead>Year</TableHead>
+                <TableHead className="hidden md:table-cell">Description</TableHead>
                 <TableHead>Status</TableHead>
-                <TableHead>Date Added</TableHead>
+                <TableHead className="hidden sm:table-cell">Date Added</TableHead>
                 <TableHead className="text-right">Actions</TableHead>
               </TableRow>
             </TableHeader>
@@ -211,26 +207,27 @@ export default function VehiclesPage() {
               {loading ? (
                 Array.from({ length: 5 }).map((_, i) => (
                   <TableRow key={i}>
-                    <TableCell><Skeleton className="h-4 w-24" /></TableCell>
                     <TableCell><Skeleton className="h-4 w-32" /></TableCell>
                     <TableCell><Skeleton className="h-4 w-24" /></TableCell>
-                    <TableCell><Skeleton className="h-4 w-16" /></TableCell>
+                    <TableCell className="hidden md:table-cell"><Skeleton className="h-4 w-48" /></TableCell>
                     <TableCell><Skeleton className="h-6 w-24 rounded-full" /></TableCell>
-                    <TableCell><Skeleton className="h-4 w-24" /></TableCell>
+                    <TableCell className="hidden sm:table-cell"><Skeleton className="h-4 w-24" /></TableCell>
                     <TableCell className="text-right"><Skeleton className="h-8 w-8 ml-auto" /></TableCell>
                   </TableRow>
                 ))
               ) : (
                 vehicles.map((vehicle) => (
                   <TableRow key={vehicle.id}>
-                    <TableCell className="font-medium">{vehicle.type}</TableCell>
-                    <TableCell>{vehicle.make} {vehicle.model}</TableCell>
+                    <TableCell>
+                        <div className="font-medium">{vehicle.make} {vehicle.model} ({vehicle.year})</div>
+                        <div className="text-sm text-muted-foreground">{vehicle.type}</div>
+                    </TableCell>
                     <TableCell>{vehicle.plateNumber}</TableCell>
-                    <TableCell>{vehicle.year}</TableCell>
+                    <TableCell className="hidden md:table-cell max-w-xs truncate">{vehicle.description}</TableCell>
                     <TableCell>
                       <Badge variant={statusVariant[vehicle.status] || 'default'}>{vehicle.status}</Badge>
                     </TableCell>
-                    <TableCell>{formatDate(vehicle.createdAt)}</TableCell>
+                    <TableCell className="hidden sm:table-cell">{formatDate(vehicle.createdAt)}</TableCell>
                     <TableCell className="text-right">
                        <Button variant="ghost" size="icon">
                             <MoreHorizontal className="h-4 w-4" />

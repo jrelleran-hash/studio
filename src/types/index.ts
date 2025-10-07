@@ -1,5 +1,4 @@
 
-
 import { Timestamp, DocumentReference } from "firebase/firestore";
 
 export interface Activity {
@@ -294,11 +293,14 @@ export interface ToolBookingRequest {
 
 export interface Vehicle {
     id: string;
-    type: 'Van' | 'Motorcycle' | 'Truck (10ft)' | 'Truck (14ft)';
+    type: string;
     plateNumber: string;
     make: string;
     model: string;
     year: number;
     status: 'Available' | 'In Use' | 'Under Maintenance';
     createdAt: Timestamp;
+    weightLimit?: string;
+    sizeLimit?: string;
+    description?: string;
 }
