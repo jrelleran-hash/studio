@@ -1,4 +1,5 @@
 
+
 "use client";
 
 import React, { useState, useEffect, useRef, useCallback } from "react";
@@ -69,18 +70,23 @@ const allPermissions: { group: string; permissions: { value: PagePermission; lab
     { group: "Core", permissions: [
         { value: "/", label: "Dashboard" },
         { value: "/clients", label: "Clients" },
-        { value: "/logistics", label: "Logistics" },
         { value: "/analytics", label: "Analytics" },
+    ]},
+    { group: "Logistics", permissions: [
+        { value: "/logistics", label: "Logistics & Shipment" },
+        { value: "/logistics-booking", label: "Logistics Booking" },
+        { value: "/vehicles", label: "Vehicle Management" },
     ]},
     { group: "Procurement", permissions: [
         { value: "/orders", label: "Orders" },
         { value: "/purchase-orders", label: "Purchase Orders" },
         { value: "/suppliers", label: "Suppliers" },
     ]},
-    { group: "Inventory", permissions: [
-        { value: "/inventory", label: "Products" },
+    { group: "Warehouse", permissions: [
+        { value: "/inventory", label: "Warehouse Inventory" },
         { value: "/issuance", label: "Issuance" },
         { value: "/tools", label: "Tool Management" },
+        { value: "/tool-booking", label: "Tool Booking" },
         { value: "/warehouse", label: "Warehouse Map" },
     ]},
     { group: "Assurance", permissions: [
