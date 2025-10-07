@@ -56,6 +56,7 @@ import { useToast } from "@/hooks/use-toast";
 const bookingSchema = z.object({
   bookingType: z.enum(["Inbound", "Outbound"]),
   serviceType: z.enum(["Standard", "Express", "Bulk"]),
+  vehicle: z.string().min(1, "Vehicle is required."),
   pickupAddress: z.string().min(1, "Pickup address is required."),
   deliveryAddress: z.string().min(1, "Delivery address is required."),
   pickupDate: z.date({ required_error: "Pickup date is required." }),
@@ -112,7 +113,7 @@ export default function LogisticsBookingPage() {
               </DialogDescription>
             </DialogHeader>
             <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                 <div className="space-y-2">
                   <Label>Booking Type</Label>
                   <Controller
@@ -155,6 +156,30 @@ export default function LogisticsBookingPage() {
                       </Select>
                     )}
                   />
+                </div>
+                 <div className="space-y-2">
+                  <Label>Vehicle</Label>
+                  <Controller
+                    name="vehicle"
+                    control={form.control}
+                    render={({ field }) => (
+                      <Select
+                        onValueChange={field.onChange}
+                        defaultValue={field.value}
+                      >
+                        <SelectTrigger>
+                          <SelectValue placeholder="Select vehicle" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="Van">Van</SelectItem>
+                          <SelectItem value="Truck (10ft)">Truck (10ft)</SelectItem>
+                          <SelectItem value="Truck (14ft)">Truck (14ft)</SelectItem>
+                          <SelectItem value="Motorcycle">Motorcycle</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    )}
+                  />
+                   {form.formState.errors.vehicle && <p className="text-sm text-destructive">{form.formState.errors.vehicle.message}</p>}
                 </div>
               </div>
 
@@ -258,13 +283,14 @@ export default function LogisticsBookingPage() {
                 <TableHead>Type</TableHead>
                 <TableHead>Pickup</TableHead>
                 <TableHead>Delivery</TableHead>
+                <TableHead>Vehicle</TableHead>
                 <TableHead>Date</TableHead>
                 <TableHead>Status</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
                 <TableRow>
-                    <TableCell colSpan={6} className="h-24 text-center">
+                    <TableCell colSpan={7} className="h-24 text-center">
                         No bookings created yet.
                     </TableCell>
                 </TableRow>
