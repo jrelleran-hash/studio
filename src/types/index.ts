@@ -206,7 +206,7 @@ export interface OutboundReturn {
 }
 
 export type UserRole = "Admin" | "Manager" | "Staff";
-export type PagePermission = "/" | "/clients" | "/logistics" | "/analytics" | "/orders" | "/purchase-orders" | "/suppliers" | "/inventory" | "/issuance" | "/returns" | "/quality-control" | "/settings" | "/warehouse" | "/tools" | "/tool-maintenance" | "/waste-management" | "/logistics-booking" | "/tool-booking";
+export type PagePermission = "/" | "/clients" | "/logistics" | "/analytics" | "/orders" | "/purchase-orders" | "/suppliers" | "/inventory" | "/issuance" | "/returns" | "/quality-control" | "/settings" | "/warehouse" | "/tools" | "/tool-maintenance" | "/waste-management" | "/logistics-booking" | "/tool-booking" | "/vehicles";
 
 export interface UserProfile {
     uid: string;
@@ -290,4 +290,15 @@ export interface ToolBookingRequest {
     status: 'Pending' | 'Approved' | 'Rejected';
     notes?: string;
     createdAt: Date;
+}
+
+export interface Vehicle {
+    id: string;
+    type: 'Van' | 'Motorcycle' | 'Truck (10ft)' | 'Truck (14ft)';
+    plateNumber: string;
+    make: string;
+    model: string;
+    year: number;
+    status: 'Available' | 'In Use' | 'Under Maintenance';
+    createdAt: Timestamp;
 }

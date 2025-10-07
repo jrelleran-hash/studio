@@ -44,6 +44,7 @@ const navItems = [
 const logisticsNavItems = [
     { href: "/logistics", label: "Logistics & Shipment", icon: Truck },
     { href: "/logistics-booking", label: "Logistics Booking", icon: Book },
+    { href: "/vehicles", label: "Vehicle Management", icon: Truck },
 ];
 
 const procurementNavItems = [
@@ -53,7 +54,7 @@ const procurementNavItems = [
 ];
 
 const warehouseNavItems = [
-    { href: "/inventory", label: "Products", icon: Package },
+    { href: "/inventory", label: "Warehouse Inventory", icon: Package },
     { href: "/issuance", label: "Issuance", icon: FileText },
     { href: "/tools", label: "Tool Management", icon: Wrench },
     { href: "/tool-booking", label: "Tool Booking", icon: Book },
@@ -220,7 +221,7 @@ export function Sidebar({ className, inSheet, isCollapsed, setIsCollapsed }: Sid
               <SidebarLink key={item.href} {...item} pathname={pathname} inSheet={inSheet} isCollapsed={isCollapsed}/>
             ))}
             
-            <NavSection title="Logistics Management" items={logisticsNavItems as any} pathname={pathname} inSheet={inSheet} userPermissions={userPermissions} isCollapsed={isCollapsed} />
+            <NavSection title="Logistics" items={logisticsNavItems as any} pathname={pathname} inSheet={inSheet} userPermissions={userPermissions} isCollapsed={isCollapsed} />
             <NavSection title="Procurement" items={procurementNavItems as any} pathname={pathname} inSheet={inSheet} userPermissions={userPermissions} isCollapsed={isCollapsed} />
             <NavSection title="Warehouse" items={warehouseNavItems as any} pathname={pathname} inSheet={inSheet} userPermissions={userPermissions} isCollapsed={isCollapsed} />
             <NavSection title="Assurance" items={assuranceNavItems as any} pathname={pathname} inSheet={inSheet} userPermissions={userPermissions} isCollapsed={isCollapsed} />

@@ -3,7 +3,7 @@
 import { db, storage, auth } from "@/lib/firebase";
 import { collection, getDocs, getDoc, doc, orderBy, query, limit, Timestamp, where, DocumentReference, addDoc, updateDoc, deleteDoc, arrayUnion, runTransaction, writeBatch, setDoc } from "firebase/firestore";
 import { EmailAuthProvider, reauthenticateWithCredential, updatePassword, createUserWithEmailAndPassword } from "firebase/auth";
-import type { Activity, Notification, Order, Product, Client, Issuance, Supplier, PurchaseOrder, Shipment, Return, ReturnItem, OutboundReturn, OutboundReturnItem, UserProfile, OrderItem, PurchaseOrderItem, IssuanceItem, Backorder, UserRole, PagePermission, ProductCategory, ProductLocation, Tool, ToolBorrowRecord, SalvagedPart, DisposalRecord, ToolMaintenanceRecord, ToolBookingRequest } from "@/types";
+import type { Activity, Notification, Order, Product, Client, Issuance, Supplier, PurchaseOrder, Shipment, Return, ReturnItem, OutboundReturn, OutboundReturnItem, UserProfile, OrderItem, PurchaseOrderItem, IssuanceItem, Backorder, UserRole, PagePermission, ProductCategory, ProductLocation, Tool, ToolBorrowRecord, SalvagedPart, DisposalRecord, ToolMaintenanceRecord, ToolBookingRequest, Vehicle } from "@/types";
 import { format, subDays, addDays } from 'date-fns';
 
 function timeSince(date: Date) {
@@ -2453,4 +2453,37 @@ export async function rejectToolBookingRequest(requestId: string): Promise<void>
     if (requestDoc.data().status !== 'Pending') throw new Error("Request has already been actioned.");
 
     await updateDoc(requestRef, { status: 'Rejected' });
+}
+
+export async function getVehicles(): Promise<Vehicle[]> {
+    try {
+        const vehiclesCol = collection(db, "vehicles");
+        const q = query(vehiclesCol, orderBy("make", "asc"));
+        const vehicleSnapshot = await getDocs(q);
+        return vehicleSnapshot.docs.map(doc => {
+            const data = doc.data();
+            return {
+                id: doc.id,
+                ...data,
+                createdAt: data.createdAt,
+            } as Vehicle;
+        });
+    } catch (error) {
+        console.error("Error fetching vehicles:", error);
+        return [];
+    }
+}
+
+export async function addVehicle(vehicle: Omit<Vehicle, 'id' | 'createdAt' | 'status'>): Promise<DocumentReference> {
+  try {
+    const vehicleWithDefaults = {
+      ...vehicle,
+      status: 'Available' as const,
+      createdAt: Timestamp.now(),
+    };
+    return await addDoc(collection(db, "vehicles"), vehicleWithDefaults);
+  } catch (error) {
+    console.error("Error adding vehicle:", error);
+    throw new Error("Failed to add vehicle.");
+  }
 }

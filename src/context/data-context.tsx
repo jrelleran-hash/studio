@@ -4,8 +4,8 @@
 import { createContext, useContext, useEffect, useState, ReactNode, useCallback, useMemo } from "react";
 import { onAuthStateChanged } from "firebase/auth";
 import { auth } from "@/lib/firebase";
-import { getProducts, getClients, getOrders, getIssuances, getSuppliers, getPurchaseOrders, getShipments, getUnshippedIssuances, getReturns, getOutboundReturns, getBackorders, getAllUsers, getTools, getToolBookingRequests } from "@/services/data-service";
-import type { Product, Client, Order, Issuance, Supplier, PurchaseOrder, Shipment, Return, OutboundReturn, Backorder, UserProfile, Tool, ToolBookingRequest } from "@/types";
+import { getProducts, getClients, getOrders, getIssuances, getSuppliers, getPurchaseOrders, getShipments, getUnshippedIssuances, getReturns, getOutboundReturns, getBackorders, getAllUsers, getTools, getToolBookingRequests, getVehicles } from "@/services/data-service";
+import type { Product, Client, Order, Issuance, Supplier, PurchaseOrder, Shipment, Return, OutboundReturn, Backorder, UserProfile, Tool, ToolBookingRequest, Vehicle } from "@/types";
 
 interface DataContextType {
   products: Product[];
@@ -22,6 +22,7 @@ interface DataContextType {
   users: UserProfile[];
   tools: Tool[];
   toolBookingRequests: ToolBookingRequest[];
+  vehicles: Vehicle[];
   loading: boolean;
   refetchData: () => Promise<void>;
 }
@@ -43,6 +44,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
   const [users, setUsers] = useState<UserProfile[]>([]);
   const [tools, setTools] = useState<Tool[]>([]);
   const [toolBookingRequests, setToolBookingRequests] = useState<ToolBookingRequest[]>([]);
+  const [vehicles, setVehicles] = useState<Vehicle[]>([]);
   const [loading, setLoading] = useState(true);
   const [isAuthenticated, setIsAuthenticated] = useState(false);
 
@@ -71,6 +73,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
       setUsers([]);
       setTools([]);
       setToolBookingRequests([]);
+      setVehicles([]);
       setLoading(false);
       return;
     };
@@ -92,6 +95,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
         fetchedUsers,
         fetchedTools,
         fetchedToolBookingRequests,
+        fetchedVehicles,
       ] = await Promise.all([
         getProducts(),
         getClients(),
@@ -107,6 +111,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
         getAllUsers(),
         getTools(),
         getToolBookingRequests(),
+        getVehicles(),
       ]);
       setProducts(fetchedProducts);
       setClients(fetchedClients);
@@ -122,6 +127,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
       setUsers(fetchedUsers);
       setTools(fetchedTools);
       setToolBookingRequests(fetchedToolBookingRequests);
+      setVehicles(fetchedVehicles);
     } catch (error) {
       console.error("Failed to fetch global data", error);
       // Optionally, set an error state here
@@ -149,9 +155,10 @@ export function DataProvider({ children }: { children: ReactNode }) {
     users,
     tools,
     toolBookingRequests,
+    vehicles,
     loading,
     refetchData: fetchData,
-  }), [products, clients, orders, issuances, suppliers, purchaseOrders, shipments, unshippedIssuances, returns, outboundReturns, backorders, users, tools, toolBookingRequests, loading, fetchData]);
+  }), [products, clients, orders, issuances, suppliers, purchaseOrders, shipments, unshippedIssuances, returns, outboundReturns, backorders, users, tools, toolBookingRequests, vehicles, loading, fetchData]);
 
   return <DataContext.Provider value={value}>{children}</DataContext.Provider>;
 }

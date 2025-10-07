@@ -52,11 +52,12 @@ import { Calendar } from "@/components/ui/calendar";
 import { Skeleton } from "@/components/ui/skeleton";
 import { cn } from "@/lib/utils";
 import { useToast } from "@/hooks/use-toast";
+import { useData } from "@/context/data-context";
 
 const bookingSchema = z.object({
   bookingType: z.enum(["Inbound", "Outbound"]),
   serviceType: z.enum(["Standard", "Express", "Bulk"]),
-  vehicle: z.string().min(1, "Vehicle is required."),
+  vehicleId: z.string().min(1, "Vehicle is required."),
   pickupAddress: z.string().min(1, "Pickup address is required."),
   deliveryAddress: z.string().min(1, "Delivery address is required."),
   pickupDate: z.date({ required_error: "Pickup date is required." }),
@@ -69,6 +70,7 @@ type BookingFormValues = z.infer<typeof bookingSchema>;
 export default function LogisticsBookingPage() {
   const [isBookingDialogOpen, setIsBookingDialogOpen] = useState(false);
   const { toast } = useToast();
+  const { vehicles, loading } = useData();
 
   const form = useForm<BookingFormValues>({
     resolver: zodResolver(bookingSchema),
@@ -160,7 +162,7 @@ export default function LogisticsBookingPage() {
                  <div className="space-y-2">
                   <Label>Vehicle</Label>
                   <Controller
-                    name="vehicle"
+                    name="vehicleId"
                     control={form.control}
                     render={({ field }) => (
                       <Select
@@ -171,15 +173,18 @@ export default function LogisticsBookingPage() {
                           <SelectValue placeholder="Select vehicle" />
                         </SelectTrigger>
                         <SelectContent>
-                          <SelectItem value="Van">Van</SelectItem>
-                          <SelectItem value="Truck (10ft)">Truck (10ft)</SelectItem>
-                          <SelectItem value="Truck (14ft)">Truck (14ft)</SelectItem>
-                          <SelectItem value="Motorcycle">Motorcycle</SelectItem>
+                          {loading ? (
+                            <SelectItem value="loading" disabled>Loading...</SelectItem>
+                          ) : (
+                            vehicles.map(v => (
+                              <SelectItem key={v.id} value={v.id}>{v.make} {v.model} ({v.plateNumber})</SelectItem>
+                            ))
+                          )}
                         </SelectContent>
                       </Select>
                     )}
                   />
-                   {form.formState.errors.vehicle && <p className="text-sm text-destructive">{form.formState.errors.vehicle.message}</p>}
+                   {form.formState.errors.vehicleId && <p className="text-sm text-destructive">{form.formState.errors.vehicleId.message}</p>}
                 </div>
               </div>
 
