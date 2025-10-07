@@ -3,7 +3,7 @@
 import { db, storage, auth } from "@/lib/firebase";
 import { collection, getDocs, getDoc, doc, orderBy, query, limit, Timestamp, where, DocumentReference, addDoc, updateDoc, deleteDoc, arrayUnion, runTransaction, writeBatch, setDoc } from "firebase/firestore";
 import { EmailAuthProvider, reauthenticateWithCredential, updatePassword, createUserWithEmailAndPassword } from "firebase/auth";
-import type { Activity, Notification, Order, Product, Client, Issuance, Supplier, PurchaseOrder, Shipment, Return, ReturnItem, OutboundReturn, OutboundReturnItem, UserProfile, OrderItem, PurchaseOrderItem, IssuanceItem, Backorder, UserRole, PagePermission, ProductCategory, ProductLocation, Tool, ToolBorrowRecord, SalvagedPart, DisposalRecord, ToolMaintenanceRecord, ToolBookingRequest, Transaction } from "@/types";
+import type { Activity, Notification, Order, Product, Client, Issuance, Supplier, PurchaseOrder, Shipment, Return, ReturnItem, OutboundReturn, OutboundReturnItem, UserProfile, OrderItem, PurchaseOrderItem, IssuanceItem, Backorder, UserRole, PagePermission, ProductCategory, ProductLocation, Tool, ToolBorrowRecord, SalvagedPart, DisposalRecord, ToolMaintenanceRecord, ToolBookingRequest } from "@/types";
 import { format, subDays, addDays } from 'date-fns';
 
 function timeSince(date: Date) {
@@ -2453,64 +2453,4 @@ export async function rejectToolBookingRequest(requestId: string): Promise<void>
     if (requestDoc.data().status !== 'Pending') throw new Error("Request has already been actioned.");
 
     await updateDoc(requestRef, { status: 'Rejected' });
-}
-
-
-export async function getTransactions(): Promise<Transaction[]> {
-    try {
-        const orders = await getOrders();
-        const purchaseOrders = await getPurchaseOrders();
-        const tools = await getTools();
-
-        const revenueTransactions: Transaction[] = orders
-            .filter(order => order.status === "Completed" || order.status === "Fulfilled")
-            .map(order => ({
-                id: `rev-${order.id}`,
-                date: order.date,
-                type: 'Revenue',
-                description: `Sale to ${order.client.clientName}`,
-                amount: order.total,
-                sourceId: order.id,
-                sourceType: 'Order',
-            }));
-
-        const expenseTransactions: Transaction[] = [];
-
-        purchaseOrders
-            .filter(po => po.status === "Completed")
-            .forEach(po => {
-                const totalCost = po.items.reduce((acc, item) => acc + (item.product.price * item.quantity), 0);
-                expenseTransactions.push({
-                    id: `exp-po-${po.id}`,
-                    date: po.receivedDate || po.orderDate,
-                    type: 'Expense',
-                    description: `Purchase from ${po.supplier.name}`,
-                    amount: totalCost,
-                    sourceId: po.id,
-                    sourceType: 'Purchase Order',
-                });
-            });
-
-        tools
-            .filter(tool => tool.purchaseCost && tool.purchaseCost > 0 && tool.purchaseDate)
-            .forEach(tool => {
-                expenseTransactions.push({
-                    id: `exp-tool-${tool.id}`,
-                    date: tool.purchaseDate!,
-                    type: 'Expense',
-                    description: `Tool Purchase: ${tool.name}`,
-                    amount: tool.purchaseCost!,
-                    sourceId: tool.id,
-                    sourceType: 'Tool Purchase',
-                });
-            });
-        
-        const allTransactions = [...revenueTransactions, ...expenseTransactions];
-
-        return allTransactions.sort((a, b) => b.date.getTime() - a.date.getTime());
-        
-    } catch (error) {
-        console.error("Error fetching transactions:", error);
-        return [];
-    }
 }

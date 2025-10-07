@@ -24,7 +24,6 @@ import {
   Wrench,
   Trash2,
   Book,
-  Wallet,
 } from "lucide-react";
 import { CoreFlowLogo } from "@/components/icons";
 import { cn } from "@/lib/utils";
@@ -39,7 +38,6 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "../ui/
 const navItems = [
   { href: "/", label: "Dashboard", icon: Home },
   { href: "/clients", label: "Clients", icon: Users },
-  { href: "/accounting", label: "Accounting", icon: Wallet },
   { href: "/analytics", label: "Analytics", icon: BarChart },
 ];
 
