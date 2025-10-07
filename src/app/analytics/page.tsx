@@ -53,22 +53,14 @@ export default function AnalyticsPage() {
         />
       </div>
 
-      <div className="grid grid-cols-1 gap-6 lg:grid-cols-5">
-        <div className="lg:col-span-3">
-          <SalesChart orders={orders} loading={loading} />
-        </div>
-        <div className="lg:col-span-2">
-           <ActivityChart orders={orders} issuances={issuances} loading={loading} />
-        </div>
+      <div className="grid grid-cols-1 gap-6 xl:grid-cols-2">
+        <SalesChart orders={orders} loading={loading} />
+        <ActivityChart orders={orders} issuances={issuances} loading={loading} />
       </div>
       
-      <div className="grid grid-cols-1 gap-6 lg:grid-cols-5">
-        <div className="lg:col-span-2">
-            <TopProducts orders={orders} loading={loading} />
-        </div>
-         <div className="lg:col-span-3">
-            <ActiveClients orders={orders} loading={loading} />
-        </div>
+      <div className="grid grid-cols-1 gap-6 xl:grid-cols-2">
+        <TopProducts orders={orders} loading={loading} />
+        <ActiveClients orders={orders} loading={loading} />
       </div>
 
     </div>

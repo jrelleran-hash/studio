@@ -12,7 +12,7 @@ import {
 } from "@/components/ui/chart";
 import { Skeleton } from "@/components/ui/skeleton";
 import type { Order, Issuance } from "@/types";
-import { format } from "date-fns";
+import { format, startOfMonth } from "date-fns";
 
 const chartConfig = {
   orders: {
@@ -33,7 +33,17 @@ interface ActivityChartProps {
 
 export function ActivityChart({ orders, issuances, loading }: ActivityChartProps) {
   const data = useMemo(() => {
+    if (orders.length === 0 && issuances.length === 0) return [];
+    
     const monthlyActivity: { [key: string]: { orders: number; issuances: number } } = {};
+    let firstDate = new Date();
+    let lastDate = new Date(1970, 0, 1);
+
+    const allItems = [...orders, ...issuances];
+    allItems.forEach(item => {
+        if(item.date < firstDate) firstDate = item.date;
+        if(item.date > lastDate) lastDate = item.date;
+    });
 
     const processItems = (items: (Order | Issuance)[], type: "orders" | "issuances") => {
         items.forEach(item => {
@@ -48,17 +58,19 @@ export function ActivityChart({ orders, issuances, loading }: ActivityChartProps
     processItems(orders, 'orders');
     processItems(issuances, 'issuances');
 
-    const sortedMonths = Object.keys(monthlyActivity).sort((a, b) => {
-       const dateA = new Date(a);
-       const dateB = new Date(b);
-       return dateA.getTime() - dateB.getTime();
-    });
+    const allMonths = [];
+    let currentDate = startOfMonth(firstDate);
 
-    return sortedMonths.map(month => ({
+    while (currentDate <= lastDate) {
+        allMonths.push(format(currentDate, "MMM yyyy"));
+        currentDate.setMonth(currentDate.getMonth() + 1);
+    }
+
+    return allMonths.map(month => ({
       month: format(new Date(month), "MMM"),
-      orders: monthlyActivity[month].orders,
-      issuances: monthlyActivity[month].issuances,
-    })).slice(-12); // Show last 12 months
+      orders: monthlyActivity[month]?.orders || 0,
+      issuances: monthlyActivity[month]?.issuances || 0,
+    }));
   }, [orders, issuances]);
 
   return (

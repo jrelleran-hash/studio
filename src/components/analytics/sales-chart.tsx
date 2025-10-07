@@ -11,7 +11,7 @@ import {
 } from "@/components/ui/chart";
 import { Skeleton } from "@/components/ui/skeleton";
 import type { Order } from "@/types";
-import { format } from "date-fns";
+import { format, getYear, getMonth, startOfMonth } from "date-fns";
 import { formatCurrency } from "@/lib/currency";
 
 const chartConfig = {
@@ -28,26 +28,37 @@ interface SalesChartProps {
 
 export function SalesChart({ orders, loading }: SalesChartProps) {
   const data = useMemo(() => {
+    if (orders.length === 0) return [];
+    
     const monthlySales: { [key: string]: number } = {};
+    let firstDate = new Date();
+    let lastDate = new Date(1970, 0, 1);
 
     orders.forEach(order => {
-      const month = format(order.date, "MMM yyyy");
+      const orderDate = order.date;
+      if (orderDate < firstDate) firstDate = orderDate;
+      if (orderDate > lastDate) lastDate = orderDate;
+
+      const month = format(orderDate, "MMM yyyy");
       if (!monthlySales[month]) {
         monthlySales[month] = 0;
       }
       monthlySales[month] += order.total;
     });
+    
+    const allMonths = [];
+    let currentDate = startOfMonth(firstDate);
 
-    const sortedMonths = Object.keys(monthlySales).sort((a, b) => {
-       const dateA = new Date(a);
-       const dateB = new Date(b);
-       return dateA.getTime() - dateB.getTime();
-    });
+    while (currentDate <= lastDate) {
+        allMonths.push(format(currentDate, "MMM yyyy"));
+        currentDate.setMonth(currentDate.getMonth() + 1);
+    }
 
-    return sortedMonths.map(month => ({
+    return allMonths.map(month => ({
       month: format(new Date(month), "MMM"),
-      revenue: monthlySales[month],
-    })).slice(-12); // Show last 12 months
+      revenue: monthlySales[month] || 0,
+    }));
+
   }, [orders]);
 
   return (
@@ -55,7 +66,7 @@ export function SalesChart({ orders, loading }: SalesChartProps) {
       <CardHeader>
         <CardTitle>Revenue Over Time</CardTitle>
         <CardDescription>
-          Showing total revenue per month for the last year.
+          Showing total revenue per month for the lifetime of the app.
         </CardDescription>
       </CardHeader>
       <CardContent>
