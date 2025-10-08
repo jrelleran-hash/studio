@@ -126,7 +126,8 @@ export interface PurchaseOrder {
     supplier: Supplier;
     client?: Client;
     items: PurchaseOrderItem[];
-    status: "Pending" | "Shipped" | "Delivered" | "Completed" | "Cancelled" | "PO Shipped" | "PO Delivered";
+    status: "Pending" | "Shipped" | "Delivered" | "Completed" | "Cancelled";
+    paymentStatus: "Unpaid" | "Paid";
     orderDate: Date;
     expectedDate?: Date;
     receivedDate?: Date;
@@ -217,7 +218,7 @@ export interface OutboundReturn {
 }
 
 export type UserRole = "Admin" | "Manager" | "Staff";
-export type PagePermission = "/" | "/clients" | "/logistics" | "/analytics" | "/orders" | "/purchase-orders" | "/suppliers" | "/inventory" | "/issuance" | "/returns" | "/quality-control" | "/settings" | "/warehouse" | "/tools" | "/tool-maintenance" | "/waste-management" | "/logistics-booking" | "/tool-booking" | "/vehicles" | "/production" | "/general-ledger";
+export type PagePermission = "/" | "/clients" | "/logistics" | "/analytics" | "/orders" | "/purchase-orders" | "/suppliers" | "/inventory" | "/issuance" | "/returns" | "/quality-control" | "/settings" | "/warehouse" | "/tools" | "/tool-maintenance" | "/waste-management" | "/logistics-booking" | "/tool-booking" | "/vehicles" | "/production" | "/general-ledger" | "/accounts-payable";
 
 export interface UserProfile {
     uid: string;

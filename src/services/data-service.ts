@@ -197,7 +197,7 @@ async function checkStockAndCreateNotification(product: Omit<Product, 'id' | 'hi
       title: `${status} Alert: ${product.name}`,
       description: `${product.name} is ${status.toLowerCase()}.`,
       details: `Product "${product.name}" (SKU: ${product.sku}) has a stock level of ${product.stock}, which is at or below the reorder limit of ${product.reorderLimit}. Please reorder soon.`,
-      href: `/inventory`,
+      href: "/inventory",
       icon: "Package",
     };
 
@@ -1113,6 +1113,7 @@ export async function addPurchaseOrder(poData: NewPurchaseOrderData): Promise<Do
             supplierRef: supplierRef,
             orderDate: poDate,
             status: "Pending",
+            paymentStatus: "Unpaid",
             items: resolvedItems,
             total: total,
             poNumber: `PO-${Date.now()}`,
@@ -1687,7 +1688,7 @@ export async function completePOInspection(poId: string, inspectionItems: POInsp
                 }
             }
 
-            transaction.update(poRef, { status: "Completed" });
+            transaction.update(poRef, { status: "Completed", paymentStatus: "Unpaid" });
 
             // Create Accounting Transactions
             const inventoryTx = {
@@ -2639,4 +2640,46 @@ export async function getTransactions(): Promise<Transaction[]> {
         console.error("Error fetching transactions:", error);
         return [];
     }
+}
+
+export async function payPurchaseOrder(poId: string, amount: number): Promise<void> {
+  const poRef = doc(db, "purchaseOrders", poId);
+  const now = Timestamp.now();
+
+  return runTransaction(db, async (transaction) => {
+    // --- 1. READS ---
+    const poDoc = await transaction.get(poRef);
+    if (!poDoc.exists()) throw new Error("Purchase Order not found.");
+    const poData = poDoc.data() as PurchaseOrder;
+
+    const supplier = await resolveDoc<Supplier>(poData.supplierRef as DocumentReference);
+    if(!supplier) throw new Error("Supplier not found for PO.");
+
+    // --- 2. LOGIC ---
+    if (poData.paymentStatus === 'Paid') throw new Error("This Purchase Order has already been paid.");
+    
+    // --- 3. WRITES ---
+    // Update PO payment status
+    transaction.update(poRef, { paymentStatus: 'Paid' });
+
+    // Create GL entries for the payment
+    const cashTx = {
+        date: now,
+        description: `Payment for PO #${poData.poNumber}`,
+        account: 'Cash',
+        debit: 0,
+        credit: amount,
+        entity: supplier.name,
+    };
+    const accountsPayableTx = {
+        date: now,
+        description: `Payment to ${supplier.name} for PO #${poData.poNumber}`,
+        account: 'Accounts Payable',
+        debit: amount,
+        credit: 0,
+        entity: supplier.name,
+    };
+    transaction.set(doc(collection(db, 'transactions')), cashTx);
+    transaction.set(doc(collection(db, 'transactions')), accountsPayableTx);
+  });
 }

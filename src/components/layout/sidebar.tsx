@@ -26,6 +26,7 @@ import {
   Book,
   Factory,
   BookCopy,
+  Landmark,
 } from "lucide-react";
 import { CoreFlowLogo } from "@/components/icons";
 import { cn } from "@/lib/utils";
@@ -45,6 +46,7 @@ const navItems = [
 
 const accountingNavItems = [
     { href: "/general-ledger", label: "General Ledger", icon: BookCopy },
+    { href: "/accounts-payable", label: "Accounts Payable", icon: Landmark },
 ]
 
 const logisticsNavItems = [
