@@ -1,7 +1,7 @@
 
 "use client";
 
-import { useState, useEffect, useMemo, useRef, useCallback, use } from "react";
+import { useState, useEffect, useMemo, useRef, useCallback } from "react";
 import { useForm, Controller } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
@@ -161,7 +161,7 @@ export default function InventoryPage() {
   const [autoGenerateSku, setAutoGenerateSku] = useState(true);
   const [isSupplierPopoverOpen, setIsSupplierPopoverOpen] = useState(false);
   const [isAddSupplierOpen, setIsAddSupplierOpen] = useState(false);
-  const searchParams = use(useSearchParams());
+  const searchParams = useSearchParams();
 
   const canEditProduct = userProfile?.role === 'Admin' || userProfile?.role === 'Manager';
 
@@ -1055,5 +1055,7 @@ export default function InventoryPage() {
     </>
   );
 }
+
+    
 
     
