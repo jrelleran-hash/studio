@@ -352,5 +352,3 @@ export interface Expense {
     amount: number;
     paymentMode: string;
 }
-
-    

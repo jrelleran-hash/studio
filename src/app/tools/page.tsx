@@ -81,7 +81,7 @@ const assignSchema = z.object({
     notes: z.string().optional(),
 });
 
-type AssignFormValues = z_infer<typeof assignSchema>;
+type AssignFormValues = z.infer<typeof assignSchema>;
 
 const recallSchema = z.object({
     condition: z.enum(["Good", "Needs Repair", "Damaged"]),

@@ -50,6 +50,10 @@ const accountingNavItems = [
     { href: "/accounts-payable", label: "Accounts Payable", icon: Landmark },
 ]
 
+const hrNavItems = [
+    { href: "/daily-labor", label: "Daily Labor", icon: Clock },
+]
+
 const logisticsNavItems = [
     { href: "/logistics", label: "Logistics & Shipment", icon: Truck },
     { href: "/logistics-booking", label: "Logistics Booking", icon: Book },
@@ -81,9 +85,6 @@ const assuranceNavItems = [
     { href: "/waste-management", label: "Waste Management", icon: Trash2 },
 ];
 
-const hrNavItems = [
-    { href: "/daily-labor", label: "Daily Labor", icon: Clock },
-]
 
 export const navItemsPermissions = [
   ...navItems,
