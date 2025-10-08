@@ -24,6 +24,8 @@ import {
   Wrench,
   Trash2,
   Book,
+  Factory,
+  BookCopy,
 } from "lucide-react";
 import { CoreFlowLogo } from "@/components/icons";
 import { cn } from "@/lib/utils";
@@ -40,6 +42,10 @@ const navItems = [
   { href: "/clients", label: "Clients", icon: Users },
   { href: "/analytics", label: "Analytics", icon: BarChart },
 ];
+
+const accountingNavItems = [
+    { href: "/general-ledger", label: "General Ledger", icon: BookCopy },
+]
 
 const logisticsNavItems = [
     { href: "/logistics", label: "Logistics & Shipment", icon: Truck },
@@ -61,6 +67,10 @@ const warehouseNavItems = [
     { href: "/warehouse", label: "Warehouse Map", icon: Map },
 ];
 
+const productionNavItems = [
+    { href: "/production", label: "Production", icon: Factory },
+]
+
 const assuranceNavItems = [
     { href: "/returns", label: "Returns", icon: RefreshCcw },
     { href: "/quality-control", label: "Quality Control", icon: ClipboardCheck },
@@ -70,9 +80,11 @@ const assuranceNavItems = [
 
 export const navItemsPermissions = [
   ...navItems,
+  ...accountingNavItems,
   ...logisticsNavItems,
   ...procurementNavItems,
   ...warehouseNavItems,
+  ...productionNavItems,
   ...assuranceNavItems,
   { href: "/settings", label: "Settings", icon: Settings },
 ] as const;
@@ -221,9 +233,11 @@ export function Sidebar({ className, inSheet, isCollapsed, setIsCollapsed }: Sid
               <SidebarLink key={item.href} {...item} pathname={pathname} inSheet={inSheet} isCollapsed={isCollapsed}/>
             ))}
             
+            <NavSection title="Accounting" items={accountingNavItems as any} pathname={pathname} inSheet={inSheet} userPermissions={userPermissions} isCollapsed={isCollapsed} />
             <NavSection title="Logistics" items={logisticsNavItems as any} pathname={pathname} inSheet={inSheet} userPermissions={userPermissions} isCollapsed={isCollapsed} />
             <NavSection title="Procurement" items={procurementNavItems as any} pathname={pathname} inSheet={inSheet} userPermissions={userPermissions} isCollapsed={isCollapsed} />
             <NavSection title="Warehouse" items={warehouseNavItems as any} pathname={pathname} inSheet={inSheet} userPermissions={userPermissions} isCollapsed={isCollapsed} />
+            <NavSection title="Production" items={productionNavItems as any} pathname={pathname} inSheet={inSheet} userPermissions={userPermissions} isCollapsed={isCollapsed} />
             <NavSection title="Assurance" items={assuranceNavItems as any} pathname={pathname} inSheet={inSheet} userPermissions={userPermissions} isCollapsed={isCollapsed} />
             
           </nav>

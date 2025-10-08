@@ -3,7 +3,7 @@
 import { db, storage, auth } from "@/lib/firebase";
 import { collection, getDocs, getDoc, doc, orderBy, query, limit, Timestamp, where, DocumentReference, addDoc, updateDoc, deleteDoc, arrayUnion, runTransaction, writeBatch, setDoc } from "firebase/firestore";
 import { EmailAuthProvider, reauthenticateWithCredential, updatePassword, createUserWithEmailAndPassword } from "firebase/auth";
-import type { Activity, Notification, Order, Product, Client, Issuance, Supplier, PurchaseOrder, Shipment, Return, ReturnItem, OutboundReturn, OutboundReturnItem, UserProfile, OrderItem, PurchaseOrderItem, IssuanceItem, Backorder, UserRole, PagePermission, ProductCategory, ProductLocation, Tool, ToolBorrowRecord, SalvagedPart, DisposalRecord, ToolMaintenanceRecord, ToolBookingRequest, Vehicle } from "@/types";
+import type { Activity, Notification, Order, Product, Client, Issuance, Supplier, PurchaseOrder, Shipment, Return, ReturnItem, OutboundReturn, OutboundReturnItem, UserProfile, OrderItem, PurchaseOrderItem, IssuanceItem, Backorder, UserRole, PagePermission, ProductCategory, ProductLocation, Tool, ToolBorrowRecord, SalvagedPart, DisposalRecord, ToolMaintenanceRecord, ToolBookingRequest, Vehicle, Transaction } from "@/types";
 import { format, subDays, addDays } from 'date-fns';
 
 function timeSince(date: Date) {
@@ -2489,4 +2489,35 @@ export async function addVehicle(vehicle: Omit<Vehicle, 'id' | 'createdAt' | 'st
     console.error("Error adding vehicle:", error);
     throw new Error("Failed to add vehicle.");
   }
+}
+
+export async function getTransactions(): Promise<Transaction[]> {
+    try {
+        const transactionsCol = collection(db, "transactions");
+        const q = query(transactionsCol, orderBy("date", "desc"));
+        const snapshot = await getDocs(q);
+        
+        let runningBalance = 0;
+        const transactions = snapshot.docs.map(doc => {
+            const data = doc.data();
+            const transactionAmount = data.type === 'Credit' ? data.amount : -data.amount;
+            runningBalance += transactionAmount; // This is incorrect for a proper ledger, balance should be calculated based on all previous transactions.
+                                                 // For this implementation, we will fake it by calculating it backwards.
+            return {
+                id: doc.id,
+                ...data
+            } as Transaction;
+        }).reverse(); // Reverse to calculate balance correctly from start
+
+        let currentBalance = 0;
+        return transactions.map(t => {
+            const transactionAmount = t.credit || -(t.debit || 0);
+            currentBalance += transactionAmount;
+            return {...t, balance: currentBalance};
+        }).reverse(); // Reverse back to descending order
+
+    } catch (error) {
+        console.error("Error fetching transactions:", error);
+        return [];
+    }
 }
