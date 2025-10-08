@@ -311,11 +311,8 @@ export interface Transaction {
     date: Timestamp;
     description: string;
     account: string; // e.g., "Accounts Receivable", "Cash", "Sales Revenue", "Material Expense"
-    type: 'Debit' | 'Credit';
-    amount: number;
     debit?: number;
     credit?: number;
     balance: number;
-    project?: string;
     entity: string;
 }

@@ -1,5 +1,4 @@
 
-
 import { db, storage, auth } from "@/lib/firebase";
 import { collection, getDocs, getDoc, doc, orderBy, query, limit, Timestamp, where, DocumentReference, addDoc, updateDoc, deleteDoc, arrayUnion, runTransaction, writeBatch, setDoc } from "firebase/firestore";
 import { EmailAuthProvider, reauthenticateWithCredential, updatePassword, createUserWithEmailAndPassword } from "firebase/auth";
@@ -496,6 +495,7 @@ export async function addOrder(orderData: NewOrderData): Promise<DocumentReferen
     const clientRef = doc(db, "clients", orderData.clientId);
     const clientDoc = await transaction.get(clientRef);
     if (!clientDoc.exists()) throw new Error("Client not found.");
+    const clientData = clientDoc.data();
 
     const productRefs = orderData.items.map(item => doc(db, "inventory", item.productId));
     const productDocs = await Promise.all(productRefs.map(ref => transaction.get(ref)));
@@ -552,6 +552,7 @@ export async function addOrder(orderData: NewOrderData): Promise<DocumentReferen
     const overallStatus = hasBackorders ? "Awaiting Purchase" : "Ready for Issuance";
     
     // --- 3. WRITES ---
+    // Create Order
     const newOrder: any = {
       clientRef: clientRef,
       date: orderDate,
@@ -565,11 +566,32 @@ export async function addOrder(orderData: NewOrderData): Promise<DocumentReferen
     }
     transaction.set(orderRef, newOrder);
 
-    // Create backorder records
+    // Create Backorder records
     for (const backorderItem of backorderItems) {
         const backorderRef = doc(collection(db, 'backorders'));
         transaction.set(backorderRef, backorderItem);
     }
+    
+    // Create Accounting Transactions
+    const accountsReceivableTx = {
+        date: orderDate,
+        description: `Invoice for Order #${orderRef.id.substring(0,7)}`,
+        account: 'Accounts Receivable',
+        debit: total,
+        credit: 0,
+        entity: clientData.clientName,
+    };
+    const salesRevenueTx = {
+        date: orderDate,
+        description: `Sales from Order #${orderRef.id.substring(0,7)}`,
+        account: 'Sales Revenue',
+        debit: 0,
+        credit: total,
+        entity: clientData.clientName,
+    };
+    transaction.set(doc(collection(db, 'transactions')), accountsReceivableTx);
+    transaction.set(doc(collection(db, 'transactions')), salesRevenueTx);
+
     
     // Defer notification creation until after the transaction
     return { orderRef, clientName: clientDoc.data().clientName, overallStatus };
@@ -2498,23 +2520,23 @@ export async function getTransactions(): Promise<Transaction[]> {
         const snapshot = await getDocs(q);
         
         let runningBalance = 0;
-        const transactions = snapshot.docs.map(doc => {
+        const transactions: Transaction[] = [];
+        
+        // Go through docs in reverse to calculate running balance correctly
+        const docs = snapshot.docs.reverse();
+        for (const doc of docs) {
             const data = doc.data();
-            const transactionAmount = data.type === 'Credit' ? data.amount : -data.amount;
-            runningBalance += transactionAmount; // This is incorrect for a proper ledger, balance should be calculated based on all previous transactions.
-                                                 // For this implementation, we will fake it by calculating it backwards.
-            return {
+            const transactionAmount = data.credit ? data.credit : -(data.debit || 0);
+            runningBalance += transactionAmount;
+            transactions.push({
                 id: doc.id,
+                balance: runningBalance,
                 ...data
-            } as Transaction;
-        }).reverse(); // Reverse to calculate balance correctly from start
-
-        let currentBalance = 0;
-        return transactions.map(t => {
-            const transactionAmount = t.credit || -(t.debit || 0);
-            currentBalance += transactionAmount;
-            return {...t, balance: currentBalance};
-        }).reverse(); // Reverse back to descending order
+            } as Transaction);
+        }
+        
+        // Reverse back to get descending date order
+        return transactions.reverse();
 
     } catch (error) {
         console.error("Error fetching transactions:", error);
