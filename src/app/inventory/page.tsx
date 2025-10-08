@@ -242,6 +242,11 @@ export default function InventoryPage() {
 
   const filteredProducts = useMemo(() => {
     return products.filter(product => {
+      // Exclude tools from this inventory list
+      if (product.category === "Tools") {
+        return false;
+      }
+      
       const statusCheck = statusFilter === "all" || getStatus(product).text.replace(' ', '-')
 .toLowerCase() === statusFilter;
       const categoryCheck = categoryFilter === "all" || product.category === categoryFilter;
@@ -441,7 +446,7 @@ export default function InventoryPage() {
         <Card>
           <CardHeader className="flex flex-col md:flex-row md:items-start md:justify-between gap-4 print-hidden">
             <div>
-              <CardTitle>Inventory</CardTitle>
+              <CardTitle>Warehouse Inventory</CardTitle>
               <CardDescription>Manage your product inventory.</CardDescription>
                <div className="mt-4 flex items-center gap-2">
                 <div className="relative flex-1">
@@ -1055,6 +1060,8 @@ export default function InventoryPage() {
     </>
   );
 }
+
+    
 
     
 
