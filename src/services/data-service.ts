@@ -719,6 +719,7 @@ type NewIssuanceData = {
   issuedBy: string;
   receivedBy: string;
   orderId?: string;
+  materialRequisitionId?: string;
 };
 
 export async function addIssuance(issuanceData: NewIssuanceData): Promise<DocumentReference> {
@@ -729,7 +730,7 @@ export async function addIssuance(issuanceData: NewIssuanceData): Promise<Docume
 
   const backorderQuery = query(
     collection(db, "backorders"),
-    where("productId", "in", allProductIds.length > 0 ? allProductIds : ['dummy-id']), // Firestore 'in' query needs a non-empty array
+    where("productId", "in", allProductIds.length > 0 ? allProductIds : ['dummy-id']),
     where("orderId", "==", "REORDER")
   );
   const backorderSnapshot = await getDocs(backorderQuery);
@@ -748,6 +749,11 @@ export async function addIssuance(issuanceData: NewIssuanceData): Promise<Docume
     if (issuanceData.orderId) {
       const orderRef = doc(db, "orders", issuanceData.orderId);
       orderDoc = await transaction.get(orderRef);
+    }
+    
+    if (issuanceData.materialRequisitionId) {
+        const mrfRef = doc(db, "materialRequisitions", issuanceData.materialRequisitionId);
+        transaction.update(mrfRef, { status: 'Fulfilled' });
     }
 
     const backordersToCreate: any[] = [];
@@ -2841,14 +2847,29 @@ export async function getMaterialRequisitions(): Promise<MaterialRequisition[]> 
         const requisitionsCol = collection(db, "materialRequisitions");
         const q = query(requisitionsCol, orderBy("date", "desc"));
         const snapshot = await getDocs(q);
-        return snapshot.docs.map(doc => {
+        const requisitions = await Promise.all(snapshot.docs.map(async doc => {
             const data = doc.data();
+            
+            // Resolve projectRef to get project details
+            const projectDoc = await getDoc(data.projectRef);
+            const projectData = projectDoc.exists() ? {id: projectDoc.id, ...projectDoc.data()} : null;
+
+            // Resolve product details within items
+            const items = await Promise.all(data.items.map(async (item: any) => {
+                const productDoc = await getDoc(item.productRef);
+                const productData = productDoc.exists() ? {id: productDoc.id, ...productDoc.data()} : null;
+                return { ...item, productRef: { ...productData } };
+            }));
+
             return {
                 id: doc.id,
                 ...data,
-                date: (data.date as Timestamp).toDate(),
+                date: (data.date as Timestamp),
+                projectRef: projectData, // Replace ref with resolved data
+                items: items, // Replace refs in items with resolved data
             } as MaterialRequisition;
-        });
+        }));
+        return requisitions;
     } catch (error) {
         console.error("Error fetching material requisitions:", error);
         return [];
@@ -2890,5 +2911,3 @@ export async function addMaterialRequisition(data: NewMaterialRequisitionData): 
         transaction.set(requisitionRef, newRequisition);
     });
 }
-
-    

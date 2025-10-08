@@ -45,7 +45,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useToast } from "@/hooks/use-toast";
 import { addIssuance, deleteIssuance, addShipment, initiateReturn, processReturn, updateOrderStatus, addClient } from "@/services/data-service";
-import type { Issuance, Product, Order, Return, ReturnItem, Client } from "@/types";
+import type { Issuance, Product, Order, Return, ReturnItem, Client, MaterialRequisition } from "@/types";
 import { format, addDays } from "date-fns";
 import React from 'react';
 import { useAuth } from "@/hooks/use-auth";
@@ -70,6 +70,7 @@ const issuanceItemSchema = z.object({
 const createIssuanceSchema = (products: Product[]) => z.object({
   clientId: z.string().min(1, "Client is required."),
   orderId: z.string().optional(), // Track the order this issuance is for
+  materialRequisitionId: z.string().optional(), // Track the MRF this is for
   receivedBy: z.string().min(1, "Receiver's name is required."),
   items: z.array(issuanceItemSchema)
     .min(1, "At least one item is required.")
@@ -270,9 +271,46 @@ const QueueRow = ({ order, onIssue }: { order: Order; onIssue: (order: Order) =>
     );
 };
 
+const MRFQueueRow = ({ mrf, onIssue }: { mrf: MaterialRequisition; onIssue: (mrf: MaterialRequisition) => void; }) => {
+    const [isOpen, setIsOpen] = useState(false);
+    return (
+        <React.Fragment>
+            <TableRow>
+                <TableCell className="font-medium">{mrf.mrfNumber}</TableCell>
+                <TableCell>{(mrf.projectRef as any)?.id || 'N/A'}</TableCell>
+                <TableCell>{format(mrf.date.toDate(), 'PPP')}</TableCell>
+                <TableCell>{mrf.items.length} types</TableCell>
+                <TableCell className="text-right flex items-center justify-end gap-2">
+                    <Button size="sm" onClick={() => onIssue(mrf)}>Create Issuance</Button>
+                     <Button variant="ghost" size="icon" className="w-8 h-8" onClick={() => setIsOpen(!isOpen)}>
+                        <ChevronDown className={cn("h-4 w-4 transition-transform", isOpen && "rotate-180")} />
+                    </Button>
+                </TableCell>
+            </TableRow>
+            {isOpen && (
+                 <TableRow className="bg-muted/50">
+                    <TableCell colSpan={5} className="p-0">
+                    <div className="p-4">
+                        <h4 className="text-sm font-semibold mb-2">Items for MRF {mrf.mrfNumber}:</h4>
+                        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-2">
+                        {mrf.items.map((item, index) => (
+                            <div key={index} className="text-xs flex justify-between items-center bg-background p-2 rounded-md border">
+                            <span>{(item.productRef as any)?.name || 'Loading...'}</span>
+                            <Badge variant="outline" className="font-mono ml-2">Qty: {item.quantity}</Badge>
+                            </div>
+                        ))}
+                        </div>
+                    </div>
+                    </TableCell>
+                </TableRow>
+            )}
+        </React.Fragment>
+    );
+};
+
 
 export default function IssuancePage() {
-  const { issuances, clients, products, orders, loading, refetchData } = useData();
+  const { issuances, clients, products, orders, materialRequisitions, loading, refetchData } = useData();
   const { toast } = useToast();
   const { user } = useAuth();
   const searchParams = useSearchParams();
@@ -299,6 +337,10 @@ export default function IssuancePage() {
     return orders.filter(order => order.status === 'Ready for Issuance');
   }, [orders]);
 
+  const mrfQueue = useMemo(() => {
+      return materialRequisitions.filter(mrf => mrf.status === 'Pending');
+  }, [materialRequisitions]);
+
   const issuanceSchema = useMemo(() => createIssuanceSchema(products), [products]);
   const returnSchema = useMemo(() => createReturnSchema(issuanceForReturn), [issuanceForReturn]);
 
@@ -309,6 +351,7 @@ export default function IssuancePage() {
       items: [{ productId: "", quantity: 1 }],
       remarks: "",
       orderId: "",
+      materialRequisitionId: "",
       receivedBy: "",
     },
     mode: "onChange",
@@ -366,6 +409,7 @@ export default function IssuancePage() {
         items: [{ productId: "", quantity: 1 }],
         remarks: "",
         orderId: "",
+        materialRequisitionId: "",
         receivedBy: "",
       });
     }
@@ -607,6 +651,32 @@ export default function IssuancePage() {
     });
     setIsAddDialogOpen(true);
   };
+  
+  const handleCreateIssuanceFromMRF = async (mrf: MaterialRequisition) => {
+    for (const item of mrf.items) {
+      const product = products.find(p => p.id === (item.productRef as any).id);
+      if (!product || product.stock < item.quantity) {
+        toast({
+          variant: "destructive",
+          title: "Insufficient Stock",
+          description: `Cannot issue for MRF ${mrf.mrfNumber}. Item "${(item.productRef as any).name}" has insufficient stock.`,
+        });
+        return;
+      }
+    }
+
+    form.reset({
+      clientId: (mrf.projectRef as any).id,
+      materialRequisitionId: mrf.id,
+      items: mrf.items.map(item => ({
+        productId: (item.productRef as any).id,
+        quantity: item.quantity,
+      })),
+      remarks: `For MRF #${mrf.mrfNumber}`,
+      receivedBy: "",
+    });
+    setIsAddDialogOpen(true);
+  };
 
 
   const formatDate = (date: Date) => format(date, 'PPpp');
@@ -614,49 +684,100 @@ export default function IssuancePage() {
   return (
     <>
     <div className="space-y-4">
-      <Card>
-        <CardHeader>
-          <CardTitle>Issuance Queue</CardTitle>
-          <CardDescription>Orders with items in stock and ready for material issuance.</CardDescription>
-        </CardHeader>
-        <CardContent>
-           <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Order</TableHead>
-                  <TableHead>Client</TableHead>
-                  <TableHead>Date</TableHead>
-                  <TableHead>Items</TableHead>
-                  <TableHead className="text-right w-[140px]">Action</TableHead>
-                </TableRow>
-              </TableHeader>
-                
-                <TableBody>
-                {loading ? (
-                    Array.from({ length: 3 }).map((_, i) => (
-                      <TableRow key={i}>
-                        <TableCell><Skeleton className="h-4 w-24" /></TableCell>
-                        <TableCell><Skeleton className="h-4 w-40" /></TableCell>
-                        <TableCell><Skeleton className="h-4 w-32" /></TableCell>
-                        <TableCell><Skeleton className="h-4 w-16" /></TableCell>
-                        <TableCell className="text-right"><Skeleton className="h-8 w-32 ml-auto" /></TableCell>
-                      </TableRow>
-                    ))
-                ) : issuanceQueue.length > 0 ? (
-                  issuanceQueue.map((order) => (
-                    <QueueRow key={order.id} order={order} onIssue={handleCreateIssuanceFromOrder} />
-                  ))
-                ) : (
-                    <TableRow>
-                      <TableCell colSpan={5} className="h-24 text-center">
-                        No orders are currently ready for issuance.
-                      </TableCell>
-                    </TableRow>
-                )}
-                </TableBody>
-            </Table>
-        </CardContent>
-      </Card>
+      <Tabs defaultValue="orders-queue">
+        <TabsList>
+            <TabsTrigger value="orders-queue">Orders Queue</TabsTrigger>
+            <TabsTrigger value="mrf-queue">MRF Queue</TabsTrigger>
+        </TabsList>
+        <TabsContent value="orders-queue">
+            <Card>
+                <CardHeader>
+                <CardTitle>Issuance Queue</CardTitle>
+                <CardDescription>Orders with items in stock and ready for material issuance.</CardDescription>
+                </CardHeader>
+                <CardContent>
+                <Table>
+                    <TableHeader>
+                        <TableRow>
+                        <TableHead>Order</TableHead>
+                        <TableHead>Client</TableHead>
+                        <TableHead>Date</TableHead>
+                        <TableHead>Items</TableHead>
+                        <TableHead className="text-right w-[140px]">Action</TableHead>
+                        </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                        {loading ? (
+                            Array.from({ length: 3 }).map((_, i) => (
+                            <TableRow key={i}>
+                                <TableCell><Skeleton className="h-4 w-24" /></TableCell>
+                                <TableCell><Skeleton className="h-4 w-40" /></TableCell>
+                                <TableCell><Skeleton className="h-4 w-32" /></TableCell>
+                                <TableCell><Skeleton className="h-4 w-16" /></TableCell>
+                                <TableCell className="text-right"><Skeleton className="h-8 w-32 ml-auto" /></TableCell>
+                            </TableRow>
+                            ))
+                        ) : issuanceQueue.length > 0 ? (
+                        issuanceQueue.map((order) => (
+                            <QueueRow key={order.id} order={order} onIssue={handleCreateIssuanceFromOrder} />
+                        ))
+                        ) : (
+                            <TableRow>
+                            <TableCell colSpan={5} className="h-24 text-center">
+                                No orders are currently ready for issuance.
+                            </TableCell>
+                            </TableRow>
+                        )}
+                    </TableBody>
+                    </Table>
+                </CardContent>
+            </Card>
+        </TabsContent>
+        <TabsContent value="mrf-queue">
+             <Card>
+                <CardHeader>
+                <CardTitle>Material Requisition Queue</CardTitle>
+                <CardDescription>Pending requests from production for warehouse issuance.</CardDescription>
+                </CardHeader>
+                <CardContent>
+                <Table>
+                    <TableHeader>
+                        <TableRow>
+                            <TableHead>MRF #</TableHead>
+                            <TableHead>Project</TableHead>
+                            <TableHead>Date</TableHead>
+                            <TableHead>Items</TableHead>
+                            <TableHead className="text-right w-[140px]">Action</TableHead>
+                        </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                        {loading ? (
+                            Array.from({ length: 3 }).map((_, i) => (
+                            <TableRow key={i}>
+                                <TableCell><Skeleton className="h-4 w-24" /></TableCell>
+                                <TableCell><Skeleton className="h-4 w-40" /></TableCell>
+                                <TableCell><Skeleton className="h-4 w-32" /></TableCell>
+                                <TableCell><Skeleton className="h-4 w-16" /></TableCell>
+                                <TableCell className="text-right"><Skeleton className="h-8 w-32 ml-auto" /></TableCell>
+                            </TableRow>
+                            ))
+                        ) : mrfQueue.length > 0 ? (
+                        mrfQueue.map((mrf) => (
+                            <MRFQueueRow key={mrf.id} mrf={mrf} onIssue={handleCreateIssuanceFromMRF} />
+                        ))
+                        ) : (
+                            <TableRow>
+                            <TableCell colSpan={5} className="h-24 text-center">
+                                No pending material requisitions.
+                            </TableCell>
+                            </TableRow>
+                        )}
+                    </TableBody>
+                    </Table>
+                </CardContent>
+            </Card>
+        </TabsContent>
+      </Tabs>
       
       <Card className="printable-content">
       <CardHeader className="flex flex-col md:flex-row md:items-start md:justify-between">
@@ -698,7 +819,7 @@ export default function IssuancePage() {
                                         variant="outline"
                                         role="combobox"
                                         className={cn("w-full justify-between", !field.value && "text-muted-foreground")}
-                                        disabled={!!form.getValues('orderId')}
+                                        disabled={!!form.getValues('orderId') || !!form.getValues('materialRequisitionId')}
                                     >
                                         {field.value
                                             ? clients.find(c => c.id === field.value)?.clientName
@@ -774,7 +895,7 @@ export default function IssuancePage() {
                                                         variant="outline"
                                                         role="combobox"
                                                         className={cn("w-full justify-between", !controllerField.value && "text-muted-foreground")}
-                                                        disabled={!!form.getValues('orderId')}
+                                                        disabled={!!form.getValues('orderId') || !!form.getValues('materialRequisitionId')}
                                                     >
                                                         {controllerField.value ? products.find(p => p.id === controllerField.value)?.name : "Select a product"}
                                                         <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
@@ -827,7 +948,7 @@ export default function IssuancePage() {
                                         placeholder="Qty"
                                         className="w-24"
                                         {...form.register(`items.${index}.quantity`, { valueAsNumber: true })}
-                                        readOnly={!!form.getValues('orderId')}
+                                        readOnly={!!form.getValues('orderId') || !!form.getValues('materialRequisitionId')}
                                     />
                                     {form.formState.errors.items?.[index]?.quantity ? (
                                         <p className="text-sm text-destructive">{form.formState.errors.items?.[index]?.quantity?.message}</p>
@@ -836,7 +957,7 @@ export default function IssuancePage() {
                                     ) : null
                                 }
                                 </div>
-                                <Button variant="ghost" size="icon" onClick={() => !form.getValues('orderId') && remove(index)} disabled={!!form.getValues('orderId')}>
+                                <Button variant="ghost" size="icon" onClick={() => !form.getValues('orderId') && !form.getValues('materialRequisitionId') && remove(index)} disabled={!!form.getValues('orderId') || !!form.getValues('materialRequisitionId')}>
                                     <X className="h-4 w-4" />
                                 </Button>
                             </div>
@@ -851,7 +972,7 @@ export default function IssuancePage() {
                        })}
                     </div>
                      {form.formState.errors.items && typeof form.formState.errors.items === 'object' && !Array.isArray(form.formState.errors.items) && <p className="text-sm text-destructive">{form.formState.errors.items.message}</p>}
-                    <Button type="button" variant="outline" size="sm" onClick={() => append({ productId: "", quantity: 1 })} disabled={!!form.getValues('orderId')}>
+                    <Button type="button" variant="outline" size="sm" onClick={() => append({ productId: "", quantity: 1 })} disabled={!!form.getValues('orderId') || !!form.getValues('materialRequisitionId')}>
                       <PlusCircle className="h-4 w-4 mr-2" /> Add Item
                     </Button>
                   </div>
