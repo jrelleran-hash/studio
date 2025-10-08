@@ -125,6 +125,8 @@ export interface PurchaseOrder {
     docRef?: DocumentReference;
     clientRef?: DocumentReference;
     backorderRef?: DocumentReference;
+    total: number;
+    supplierRef?: DocumentReference;
 }
 
 export interface IssuanceItem {

@@ -929,6 +929,7 @@ export async function getPurchaseOrders(): Promise<PurchaseOrder[]> {
                 supplier,
                 client,
                 items: items as PurchaseOrderItem[],
+                total: poData.total || 0,
             } as PurchaseOrder;
         }));
 
@@ -950,6 +951,9 @@ export async function addPurchaseOrder(poData: NewPurchaseOrderData): Promise<Do
         const supplierRef = doc(db, "suppliers", poData.supplierId);
         const supplierDoc = await transaction.get(supplierRef);
         if (!supplierDoc.exists()) throw new Error("Supplier not found.");
+        
+        const productRefs = poData.items.map(item => doc(db, "inventory", item.productId));
+        const productDocs = await Promise.all(productRefs.map(ref => transaction.get(ref)));
 
         const backorderIds = poData.items.map(item => item.backorderId).filter(Boolean) as string[];
         const backorderRefs = backorderIds.map(id => doc(db, 'backorders', id));
@@ -1032,16 +1036,24 @@ export async function addPurchaseOrder(poData: NewPurchaseOrderData): Promise<Do
             transaction.update(group.orderRef, { items: updatedItems, status: newStatus });
         }
         
-        const resolvedItems = poData.items.map(item => ({
-            productRef: doc(db, "inventory", item.productId),
-            quantity: item.quantity,
-        }));
+        let total = 0;
+        const resolvedItems = productDocs.map((doc, i) => {
+          if (!doc.exists()) throw new Error(`Product not found during PO creation.`);
+          const productData = doc.data() as Product;
+          const quantity = poData.items[i].quantity;
+          total += (productData.price || 0) * quantity;
+          return {
+            productRef: doc.ref,
+            quantity: quantity,
+          };
+        });
 
         const newPurchaseOrder: any = {
             supplierRef: supplierRef,
             orderDate: poDate,
             status: "Pending",
             items: resolvedItems,
+            total: total,
             poNumber: `PO-${Date.now()}`,
         };
         if (poData.clientId) {
@@ -1583,9 +1595,12 @@ export async function completePOInspection(poId: string, inspectionItems: POInsp
             // --- 1. READS ---
             const poDoc = await transaction.get(poRef);
             if (!poDoc.exists()) throw new Error("Purchase order not found.");
-            if (poDoc.data().status !== 'Delivered') throw new Error("Can only inspect 'Delivered' purchase orders.");
+            const poData = poDoc.data() as PurchaseOrder;
+            if (poData.status !== 'Delivered') throw new Error("Can only inspect 'Delivered' purchase orders.");
 
-            const poData = poDoc.data();
+            const supplier = await resolveDoc<Supplier>(poData.supplierRef as DocumentReference);
+            if (!supplier) throw new Error("Supplier not found for PO.");
+
             const productRefs = inspectionItems.map(item => doc(db, "inventory", item.productId));
             const productDocs = await Promise.all(productRefs.map(ref => transaction.get(ref)));
 
@@ -1612,6 +1627,27 @@ export async function completePOInspection(poId: string, inspectionItems: POInsp
             }
 
             transaction.update(poRef, { status: "Completed" });
+
+            // Create Accounting Transactions
+            const inventoryTx = {
+                date: now,
+                description: `Inventory from PO #${poData.poNumber}`,
+                account: 'Inventory',
+                debit: poData.total,
+                credit: 0,
+                entity: supplier.name,
+            };
+            const accountsPayableTx = {
+                date: now,
+                description: `Payable for PO #${poData.poNumber}`,
+                account: 'Accounts Payable',
+                debit: 0,
+                credit: poData.total,
+                entity: supplier.name,
+            };
+            transaction.set(doc(collection(db, 'transactions')), inventoryTx);
+            transaction.set(doc(collection(db, 'transactions')), accountsPayableTx);
+
         });
 
         // After the main transaction, check if this fulfilled any backorders
