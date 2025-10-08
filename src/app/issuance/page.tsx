@@ -59,6 +59,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { DialogTrigger } from "@/components/ui/dialog";
 import { formatCurrency } from "@/lib/currency";
 import { Separator } from "@/components/ui/separator";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
 
 const issuanceItemSchema = z.object({
