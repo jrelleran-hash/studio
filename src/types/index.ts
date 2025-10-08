@@ -104,6 +104,7 @@ export interface Order {
     client: Client;
     items: OrderItem[];
     reorderedFrom?: string;
+    purpose?: string;
 }
 
 export interface PurchaseOrderItem {

@@ -10,6 +10,7 @@ export const orderItemSchema = z.object({
 export const orderSchema = z.object({
   clientId: z.string().min(1, "Client is required."),
   items: z.array(orderItemSchema).min(1, "At least one item is required."),
+  purpose: z.string().optional(),
 });
 
 export type OrderFormValues = z.infer<typeof orderSchema>;

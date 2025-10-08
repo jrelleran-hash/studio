@@ -387,6 +387,7 @@ export async function getOrders(): Promise<Order[]> {
                 date: (orderData.date as Timestamp).toDate(),
                 client,
                 items: items as OrderItem[],
+                purpose: orderData.purpose,
             } as Order;
         }));
 
@@ -484,6 +485,7 @@ type NewOrderData = {
   clientId: string;
   items: { productId: string; quantity: number }[];
   reorderedFrom?: string;
+  purpose?: string;
 };
 
 export async function addOrder(orderData: NewOrderData): Promise<DocumentReference> {
@@ -556,6 +558,7 @@ export async function addOrder(orderData: NewOrderData): Promise<DocumentReferen
       items: orderItems,
       status: overallStatus,
       total: total,
+      purpose: orderData.purpose || "",
     };
     if (orderData.reorderedFrom) {
       newOrder.reorderedFrom = orderData.reorderedFrom;

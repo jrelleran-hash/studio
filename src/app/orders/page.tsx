@@ -55,6 +55,7 @@ import { Switch } from "@/components/ui/switch";
 import { useData } from "@/context/data-context";
 import { Separator } from "@/components/ui/separator";
 import { orderSchema, createProductSchema, supplierSchema, clientSchema, type OrderFormValues, type ProductFormValues, type SupplierFormValues, type ClientFormValues } from "@/lib/schemas";
+import { Textarea } from "@/components/ui/textarea";
 
 
 const statusVariant: { [key: string]: "default" | "secondary" | "destructive" | "outline" } = {
@@ -111,6 +112,7 @@ export default function OrdersPage() {
     defaultValues: {
       clientId: "",
       items: [{ productId: "", quantity: 1 }],
+      purpose: "",
     },
   });
 
@@ -156,6 +158,7 @@ export default function OrdersPage() {
       orderForm.reset({
         clientId: "",
         items: [{ productId: "", quantity: 1 }],
+        purpose: "",
       });
     }
   }, [isAddOrderOpen, orderForm]);
@@ -426,6 +429,15 @@ export default function OrdersPage() {
                       )}
                   />
                   {orderForm.formState.errors.clientId && <p className="text-sm text-destructive">{orderForm.formState.errors.clientId.message}</p>}
+              </div>
+
+               <div className="space-y-2">
+                <Label htmlFor="purpose">Purpose (Optional)</Label>
+                <Textarea
+                  id="purpose"
+                  placeholder="e.g., For initial site mobilization, client request, etc."
+                  {...orderForm.register("purpose")}
+                />
               </div>
 
               <div className="space-y-2">
@@ -761,6 +773,12 @@ export default function OrdersPage() {
                 <div><p><strong>Status:</strong></p><p><Badge variant={statusVariant[selectedOrder.status] || "default"}>{selectedOrder.status}</Badge></p></div>
                 <div><p><strong>BOQ Number:</strong></p><p className="text-sm text-muted-foreground">{selectedOrder.client.boqNumber}</p></div>
             </div>
+             {selectedOrder.purpose && (
+              <div>
+                <p><strong>Purpose:</strong></p>
+                <p className="text-sm text-muted-foreground bg-muted/50 p-2 rounded-md">{selectedOrder.purpose}</p>
+              </div>
+            )}
             <div>
                 <p><strong>Address:</strong></p><p className="text-sm text-muted-foreground">{selectedOrder.client.address}</p>
             </div>
