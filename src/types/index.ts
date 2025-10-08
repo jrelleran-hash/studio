@@ -1,4 +1,5 @@
 
+
 import { Timestamp, DocumentReference } from "firebase/firestore";
 
 export interface Activity {
@@ -367,3 +368,5 @@ export interface MaterialRequisition {
     status: 'Pending' | 'Approved' | 'Rejected' | 'Fulfilled';
     items: MaterialRequisitionItem[];
 }
+
+    
