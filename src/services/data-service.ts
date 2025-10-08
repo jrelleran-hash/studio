@@ -2,7 +2,7 @@
 import { db, storage, auth } from "@/lib/firebase";
 import { collection, getDocs, getDoc, doc, orderBy, query, limit, Timestamp, where, DocumentReference, addDoc, updateDoc, deleteDoc, arrayUnion, runTransaction, writeBatch, setDoc } from "firebase/firestore";
 import { EmailAuthProvider, reauthenticateWithCredential, updatePassword, createUserWithEmailAndPassword } from "firebase/auth";
-import type { Activity, Notification, Order, Product, Client, Issuance, Supplier, PurchaseOrder, Shipment, Return, ReturnItem, OutboundReturn, OutboundReturnItem, UserProfile, OrderItem, PurchaseOrderItem, IssuanceItem, Backorder, UserRole, PagePermission, ProductCategory, ProductLocation, Tool, ToolBorrowRecord, SalvagedPart, DisposalRecord, ToolMaintenanceRecord, ToolBookingRequest, Vehicle, Transaction } from "@/types";
+import type { Activity, Notification, Order, Product, Client, Issuance, Supplier, PurchaseOrder, Shipment, Return, ReturnItem, OutboundReturn, OutboundReturnItem, UserProfile, OrderItem, PurchaseOrderItem, IssuanceItem, Backorder, UserRole, PagePermission, ProductCategory, ProductLocation, Tool, ToolBorrowRecord, SalvagedPart, DisposalRecord, ToolMaintenanceRecord, ToolBookingRequest, Vehicle, Transaction, PaymentMilestone } from "@/types";
 import { format, subDays, addDays } from 'date-fns';
 
 function timeSince(date: Date) {
@@ -387,6 +387,7 @@ export async function getOrders(): Promise<Order[]> {
                 client,
                 items: items as OrderItem[],
                 purpose: orderData.purpose,
+                paymentMilestones: orderData.paymentMilestones
             } as Order;
         }));
 
@@ -553,6 +554,12 @@ export async function addOrder(orderData: NewOrderData): Promise<DocumentReferen
     
     // --- 3. WRITES ---
     // Create Order
+    const paymentMilestones: PaymentMilestone[] = [
+        { name: "Down Payment", percentage: 50, amount: total * 0.5, status: "Pending" },
+        { name: "Mid Payment", percentage: 40, amount: total * 0.4, status: "Pending" },
+        { name: "Final Payment", percentage: 10, amount: total * 0.1, status: "Pending" },
+    ];
+
     const newOrder: any = {
       clientRef: clientRef,
       date: orderDate,
@@ -560,6 +567,7 @@ export async function addOrder(orderData: NewOrderData): Promise<DocumentReferen
       status: overallStatus,
       total: total,
       purpose: orderData.purpose || "",
+      paymentMilestones: paymentMilestones,
     };
     if (orderData.reorderedFrom) {
       newOrder.reorderedFrom = orderData.reorderedFrom;
@@ -607,6 +615,59 @@ export async function addOrder(orderData: NewOrderData): Promise<DocumentReferen
     return orderRef;
   });
 }
+
+export async function recordPayment(orderId: string, milestoneName: string): Promise<void> {
+  const orderRef = doc(db, "orders", orderId);
+  const now = Timestamp.now();
+
+  return runTransaction(db, async (transaction) => {
+    // --- 1. READS ---
+    const orderDoc = await transaction.get(orderRef);
+    if (!orderDoc.exists()) throw new Error("Order not found.");
+    const orderData = orderDoc.data() as Order;
+
+    const client = await resolveDoc<Client>(orderData.clientRef as DocumentReference);
+    if(!client) throw new Error("Client not found for order.");
+
+    // --- 2. LOGIC ---
+    let paymentAmount = 0;
+    const updatedMilestones = orderData.paymentMilestones?.map(m => {
+      if (m.name === milestoneName) {
+        if (m.status === 'Paid') throw new Error("This milestone has already been paid.");
+        paymentAmount = m.amount;
+        return { ...m, status: 'Paid', receivedDate: now };
+      }
+      return m;
+    });
+
+    if (paymentAmount === 0) throw new Error("Milestone not found or payment amount is zero.");
+    
+    // --- 3. WRITES ---
+    // Update order payment status
+    transaction.update(orderRef, { paymentMilestones: updatedMilestones });
+
+    // Create GL entries for the payment
+    const cashTx = {
+        date: now,
+        description: `${milestoneName} for Order #${orderId.substring(0,7)}`,
+        account: 'Cash',
+        debit: paymentAmount,
+        credit: 0,
+        entity: client.clientName,
+    };
+    const accountsReceivableTx = {
+        date: now,
+        description: `Payment for Order #${orderId.substring(0,7)}`,
+        account: 'Accounts Receivable',
+        debit: 0,
+        credit: paymentAmount,
+        entity: client.clientName,
+    };
+    transaction.set(doc(collection(db, 'transactions')), cashTx);
+    transaction.set(doc(collection(db, 'transactions')), accountsReceivableTx);
+  });
+}
+
 
 export async function getIssuances(): Promise<Issuance[]> {
     try {

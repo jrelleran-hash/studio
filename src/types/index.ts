@@ -95,6 +95,13 @@ export interface Backorder {
     parentBackorderId?: string;
 }
 
+export interface PaymentMilestone {
+    name: string;
+    percentage: number;
+    amount: number;
+    status: 'Pending' | 'Paid';
+    receivedDate?: Timestamp;
+}
 
 export interface Order {
     id: string;
@@ -105,6 +112,8 @@ export interface Order {
     items: OrderItem[];
     reorderedFrom?: string;
     purpose?: string;
+    paymentMilestones?: PaymentMilestone[];
+    clientRef?: DocumentReference;
 }
 
 export interface PurchaseOrderItem {

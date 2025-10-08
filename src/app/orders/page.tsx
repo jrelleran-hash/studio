@@ -4,7 +4,7 @@
 import { useState, useEffect, useMemo, useCallback } from "react";
 import { useForm, useFieldArray, Controller } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { PlusCircle, MoreHorizontal, ChevronsUpDown, Check, Printer, X } from "lucide-react";
+import { PlusCircle, MoreHorizontal, ChevronsUpDown, Check, Printer, X, FileText, Banknote } from "lucide-react";
 import { Timestamp } from "firebase/firestore";
 import { format } from "date-fns";
 import { useRouter } from "next/navigation";
@@ -46,8 +46,8 @@ import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useToast } from "@/hooks/use-toast";
-import { updateOrderStatus, addOrder, addProduct, addSupplier, deleteOrder, addClient } from "@/services/data-service";
-import type { Order, Supplier, Product, Client, Backorder, OrderItem, Issuance } from "@/types";
+import { updateOrderStatus, addOrder, addProduct, addSupplier, deleteOrder, addClient, recordPayment } from "@/services/data-service";
+import type { Order, Supplier, Product, Client, Backorder, OrderItem, Issuance, PaymentMilestone } from "@/types";
 import { formatCurrency } from "@/lib/currency";
 import { CURRENCY_CONFIG } from "@/config/currency";
 import { cn } from "@/lib/utils";
@@ -207,6 +207,35 @@ export default function OrdersPage() {
         });
     }
   };
+
+  const handleRecordPayment = async (orderId: string, milestoneName: string) => {
+    try {
+      await recordPayment(orderId, milestoneName);
+      toast({ title: "Payment Recorded", description: `${milestoneName} marked as paid.` });
+      await refetchData();
+      // Refetch selected order to show updated payment status
+      const updatedOrder = await orders.find(o => o.id === orderId);
+      if(updatedOrder) {
+        const fullOrder = await getOrderById(orderId); // Assumes a function getOrderById exists
+        setSelectedOrder(fullOrder);
+      }
+    } catch (error) {
+       console.error(error);
+        const errorMessage = error instanceof Error ? error.message : "Failed to record payment.";
+        toast({
+            variant: "destructive",
+            title: "Error",
+            description: errorMessage,
+        });
+    }
+  }
+
+  const getOrderById = async (id: string): Promise<Order | null> => {
+    // This function simulates fetching a single, updated order.
+    // In a real app, this would be another call to your data service.
+    const allOrders = await getOrders(); // Re-using existing function for simplicity
+    return allOrders.find(o => o.id === id) || null;
+  }
 
   const handleReorder = async (order: Order) => {
     try {
@@ -618,6 +647,7 @@ export default function OrdersPage() {
                             onClick={() => handleViewIssuance(order)}
                             disabled={!['Fulfilled', 'Partially Fulfilled', 'Shipped', 'Completed', 'Delivered'].includes(order.status)}
                           >
+                            <FileText />
                               View Issuance Details
                           </DropdownMenuItem>
                           <DropdownMenuSeparator />
@@ -759,39 +789,67 @@ export default function OrdersPage() {
 
     {selectedOrder && (
       <Dialog open={!!selectedOrder} onOpenChange={(open) => !open && setSelectedOrder(null)}>
-        <DialogContent className="sm:max-w-lg">
+        <DialogContent className="sm:max-w-2xl">
           <DialogHeader>
             <DialogTitle>Order Details: {selectedOrder.id.substring(0,7)}</DialogTitle>
             <DialogDescription>
               Client: {selectedOrder.client.clientName} ({selectedOrder.client.projectName})
             </DialogDescription>
           </DialogHeader>
-          <div className="py-4 space-y-4">
-              <div className="grid grid-cols-2 gap-4">
-                <div><p><strong>Date:</strong></p><p className="text-sm text-muted-foreground">{formatDateSimple(selectedOrder.date)}</p></div>
-                <div><p><strong>Total:</strong></p><p className="text-sm text-muted-foreground">{formatCurrency(selectedOrder.total)}</p></div>
-                <div><p><strong>Status:</strong></p><p><Badge variant={statusVariant[selectedOrder.status] || "default"}>{selectedOrder.status}</Badge></p></div>
-                <div><p><strong>BOQ Number:</strong></p><p className="text-sm text-muted-foreground">{selectedOrder.client.boqNumber}</p></div>
+          <div className="py-4 grid md:grid-cols-2 gap-6">
+            <div className="space-y-4">
+                <div className="grid grid-cols-2 gap-4">
+                    <div><p className="font-semibold">Date:</p><p className="text-sm text-muted-foreground">{formatDateSimple(selectedOrder.date)}</p></div>
+                    <div><p className="font-semibold">Total:</p><p className="text-sm text-muted-foreground">{formatCurrency(selectedOrder.total)}</p></div>
+                    <div><p className="font-semibold">Status:</p><p><Badge variant={statusVariant[selectedOrder.status] || "default"}>{selectedOrder.status}</Badge></p></div>
+                    <div><p className="font-semibold">BOQ Number:</p><p className="text-sm text-muted-foreground">{selectedOrder.client.boqNumber}</p></div>
+                </div>
+                {selectedOrder.purpose && (
+                <div>
+                    <p className="font-semibold">Purpose:</p>
+                    <p className="text-sm text-muted-foreground bg-muted/50 p-2 rounded-md">{selectedOrder.purpose}</p>
+                </div>
+                )}
+                <div>
+                    <p className="font-semibold">Address:</p><p className="text-sm text-muted-foreground">{selectedOrder.client.address}</p>
+                </div>
+                 <div>
+                    <h4 className="font-semibold mt-2">Items Ordered:</h4>
+                    <ul className="list-disc list-inside text-muted-foreground mt-1 space-y-1">
+                        {selectedOrder.items.map(item => (
+                            <li key={item.product.id} className="flex justify-between items-center">
+                                <span>{item.quantity} x {item.product.name}</span>
+                                <Badge variant={statusVariant[item.status] || "secondary"} className="text-xs">{item.status.replace(/Ready for /g, '')}</Badge>
+                            </li>
+                        ))}
+                    </ul>
+                </div>
             </div>
-             {selectedOrder.purpose && (
-              <div>
-                <p><strong>Purpose:</strong></p>
-                <p className="text-sm text-muted-foreground bg-muted/50 p-2 rounded-md">{selectedOrder.purpose}</p>
-              </div>
-            )}
-            <div>
-                <p><strong>Address:</strong></p><p className="text-sm text-muted-foreground">{selectedOrder.client.address}</p>
-            </div>
-            <div>
-              <h4 className="font-semibold mt-2">Items Ordered:</h4>
-              <ul className="list-disc list-inside text-muted-foreground mt-1 space-y-1">
-                {selectedOrder.items.map(item => (
-                    <li key={item.product.id} className="flex justify-between items-center">
-                        <span>{item.quantity} x {item.product.name}</span>
-                        <Badge variant={statusVariant[item.status] || "secondary"} className="text-xs">{item.status.replace(/Ready for /g, '')}</Badge>
-                    </li>
-                ))}
-              </ul>
+            <div className="space-y-4">
+                <h4 className="font-semibold">Payment Milestones</h4>
+                <div className="space-y-2">
+                    {selectedOrder.paymentMilestones?.map((milestone) => (
+                        <Card key={milestone.name} className={cn("p-4", milestone.status === 'Paid' && "bg-green-500/10 border-green-500/50")}>
+                            <div className="flex justify-between items-center">
+                                <div>
+                                    <p className="font-medium">{milestone.name} ({milestone.percentage}%)</p>
+                                    <p className="text-lg font-bold">{formatCurrency(milestone.amount)}</p>
+                                    {milestone.status === 'Paid' && milestone.receivedDate && (
+                                        <p className="text-xs text-muted-foreground">Paid on {format(milestone.receivedDate.toDate(), 'PP')}</p>
+                                    )}
+                                </div>
+                                <Button 
+                                    size="sm"
+                                    disabled={milestone.status === 'Paid'}
+                                    onClick={() => handleRecordPayment(selectedOrder.id, milestone.name)}
+                                >
+                                    <Banknote />
+                                    {milestone.status === 'Paid' ? 'Paid' : 'Mark as Paid'}
+                                </Button>
+                            </div>
+                        </Card>
+                    ))}
+                </div>
             </div>
           </div>
           <DialogFooter className="!justify-between flex-col-reverse sm:flex-row gap-2">
