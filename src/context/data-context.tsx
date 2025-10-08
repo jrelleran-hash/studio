@@ -5,8 +5,8 @@
 import { createContext, useContext, useEffect, useState, ReactNode, useCallback, useMemo } from "react";
 import { onAuthStateChanged } from "firebase/auth";
 import { auth } from "@/lib/firebase";
-import { getProducts, getClients, getOrders, getIssuances, getSuppliers, getPurchaseOrders, getShipments, getUnshippedIssuances, getReturns, getOutboundReturns, getBackorders, getAllUsers, getTools, getToolBookingRequests, getVehicles, getTransactions, getLaborEntries, getExpenses } from "@/services/data-service";
-import type { Product, Client, Order, Issuance, Supplier, PurchaseOrder, Shipment, Return, OutboundReturn, Backorder, UserProfile, Tool, ToolBookingRequest, Vehicle, Transaction, LaborEntry, Expense } from "@/types";
+import { getProducts, getClients, getOrders, getIssuances, getSuppliers, getPurchaseOrders, getShipments, getUnshippedIssuances, getReturns, getOutboundReturns, getBackorders, getAllUsers, getTools, getToolBookingRequests, getVehicles, getTransactions, getLaborEntries, getExpenses, getMaterialRequisitions } from "@/services/data-service";
+import type { Product, Client, Order, Issuance, Supplier, PurchaseOrder, Shipment, Return, OutboundReturn, Backorder, UserProfile, Tool, ToolBookingRequest, Vehicle, Transaction, LaborEntry, Expense, MaterialRequisition } from "@/types";
 
 interface DataContextType {
   products: Product[];
@@ -27,6 +27,7 @@ interface DataContextType {
   transactions: Transaction[];
   laborEntries: LaborEntry[];
   expenses: Expense[];
+  materialRequisitions: MaterialRequisition[];
   loading: boolean;
   refetchData: () => Promise<void>;
 }
@@ -52,6 +53,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [laborEntries, setLaborEntries] = useState<LaborEntry[]>([]);
   const [expenses, setExpenses] = useState<Expense[]>([]);
+  const [materialRequisitions, setMaterialRequisitions] = useState<MaterialRequisition[]>([]);
   const [loading, setLoading] = useState(true);
   const [isAuthenticated, setIsAuthenticated] = useState(false);
 
@@ -84,6 +86,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
       setTransactions([]);
       setLaborEntries([]);
       setExpenses([]);
+      setMaterialRequisitions([]);
       setLoading(false);
       return;
     };
@@ -109,6 +112,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
         fetchedTransactions,
         fetchedLaborEntries,
         fetchedExpenses,
+        fetchedMaterialRequisitions,
       ] = await Promise.all([
         getProducts(),
         getClients(),
@@ -128,6 +132,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
         getTransactions(),
         getLaborEntries(),
         getExpenses(),
+        getMaterialRequisitions(),
       ]);
       setProducts(fetchedProducts);
       setClients(fetchedClients);
@@ -147,6 +152,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
       setTransactions(fetchedTransactions);
       setLaborEntries(fetchedLaborEntries);
       setExpenses(fetchedExpenses);
+      setMaterialRequisitions(fetchedMaterialRequisitions);
     } catch (error) {
       console.error("Failed to fetch global data", error);
       // Optionally, set an error state here
@@ -178,9 +184,10 @@ export function DataProvider({ children }: { children: ReactNode }) {
     transactions,
     laborEntries,
     expenses,
+    materialRequisitions,
     loading,
     refetchData: fetchData,
-  }), [products, clients, orders, issuances, suppliers, purchaseOrders, shipments, unshippedIssuances, returns, outboundReturns, backorders, users, tools, toolBookingRequests, vehicles, transactions, laborEntries, expenses, loading, fetchData]);
+  }), [products, clients, orders, issuances, suppliers, purchaseOrders, shipments, unshippedIssuances, returns, outboundReturns, backorders, users, tools, toolBookingRequests, vehicles, transactions, laborEntries, expenses, materialRequisitions, loading, fetchData]);
 
   return <DataContext.Provider value={value}>{children}</DataContext.Provider>;
 }

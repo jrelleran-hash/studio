@@ -3,7 +3,7 @@
 import { db, storage, auth } from "@/lib/firebase";
 import { collection, getDocs, getDoc, doc, orderBy, query, limit, Timestamp, where, DocumentReference, addDoc, updateDoc, deleteDoc, arrayUnion, runTransaction, writeBatch, setDoc } from "firebase/firestore";
 import { EmailAuthProvider, reauthenticateWithCredential, updatePassword, createUserWithEmailAndPassword } from "firebase/auth";
-import type { Activity, Notification, Order, Product, Client, Issuance, Supplier, PurchaseOrder, Shipment, Return, ReturnItem, OutboundReturn, OutboundReturnItem, UserProfile, OrderItem, PurchaseOrderItem, IssuanceItem, Backorder, UserRole, PagePermission, ProductCategory, ProductLocation, Tool, ToolBorrowRecord, SalvagedPart, DisposalRecord, ToolMaintenanceRecord, ToolBookingRequest, Vehicle, Transaction, LaborEntry, Expense } from "@/types";
+import type { Activity, Notification, Order, Product, Client, Issuance, Supplier, PurchaseOrder, Shipment, Return, ReturnItem, OutboundReturn, OutboundReturnItem, UserProfile, OrderItem, PurchaseOrderItem, IssuanceItem, Backorder, UserRole, PagePermission, ProductCategory, ProductLocation, Tool, ToolBorrowRecord, SalvagedPart, DisposalRecord, ToolMaintenanceRecord, ToolBookingRequest, Vehicle, Transaction, LaborEntry, Expense, MaterialRequisition } from "@/types";
 import { format, subDays, addDays } from 'date-fns';
 
 function timeSince(date: Date) {
@@ -2836,4 +2836,57 @@ export async function addExpense(expenseData: NewExpenseData): Promise<void> {
   });
 }
 
+export async function getMaterialRequisitions(): Promise<MaterialRequisition[]> {
+    try {
+        const requisitionsCol = collection(db, "materialRequisitions");
+        const q = query(requisitionsCol, orderBy("date", "desc"));
+        const snapshot = await getDocs(q);
+        return snapshot.docs.map(doc => {
+            const data = doc.data();
+            return {
+                id: doc.id,
+                ...data,
+                date: (data.date as Timestamp).toDate(),
+            } as MaterialRequisition;
+        });
+    } catch (error) {
+        console.error("Error fetching material requisitions:", error);
+        return [];
+    }
+}
+
+type NewMaterialRequisitionData = {
+    projectId: string;
+    requestedBy: string;
+    items: { productId: string, quantity: number }[];
+}
+
+export async function addMaterialRequisition(data: NewMaterialRequisitionData): Promise<void> {
+    const requisitionRef = doc(collection(db, "materialRequisitions"));
     
+    await runTransaction(db, async (transaction) => {
+        const projectRef = doc(db, "clients", data.projectId);
+        const projectDoc = await transaction.get(projectRef);
+        if (!projectDoc.exists()) throw new Error("Project not found.");
+
+        const productRefs = data.items.map(item => doc(db, 'inventory', item.productId));
+        const productDocs = await Promise.all(productRefs.map(ref => transaction.get(ref)));
+
+        const newRequisition = {
+            mrfNumber: `MRF-${Date.now()}`,
+            projectRef,
+            requestedByRef: doc(db, 'users', data.requestedBy),
+            date: Timestamp.now(),
+            status: 'Pending',
+            items: data.items.map((item, index) => {
+                if (!productDocs[index].exists()) throw new Error(`Product with ID ${item.productId} not found.`);
+                return {
+                    productRef: productDocs[index].ref,
+                    quantity: item.quantity,
+                }
+            })
+        };
+        
+        transaction.set(requisitionRef, newRequisition);
+    });
+}

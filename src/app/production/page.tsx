@@ -2,83 +2,80 @@
 "use client";
 
 import { useState, useMemo } from "react";
-import { useForm, Controller } from "react-hook-form";
+import { useForm, useFieldArray, Controller } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
 import { format } from "date-fns";
+import { PlusCircle, X, Briefcase, ChevronsUpDown, Check } from "lucide-react";
 
 import { useData } from "@/context/data-context";
+import { useAuth } from "@/hooks/use-auth";
 import { useToast } from "@/hooks/use-toast";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Skeleton } from "@/components/ui/skeleton";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { addExpense } from "@/services/data-service";
-import { formatCurrency } from "@/lib/currency";
+import { addMaterialRequisition } from "@/services/data-service";
 import { Popover, PopoverTrigger, PopoverContent } from "@/components/ui/popover";
-import { Calendar } from "@/components/ui/calendar";
-import { CalendarIcon, Briefcase, DollarSign, Tag } from "lucide-react";
+import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
 import { cn } from "@/lib/utils";
+import type { MaterialRequisition } from "@/types";
 
-const expenseCategories = [
-    "Material Purchases",
-    "Labor Wages",
-    "Transportation / Logistics",
-    "Tools & Equipment Maintenance",
-    "Overheads",
-    "Marketing / Client Acquisition",
-    "Subcontractor Fees",
-    "Other"
-];
-
-const expenseSchema = z.object({
-  date: z.date({ required_error: "Date is required."}),
-  clientId: z.string().optional(),
-  category: z.string().min(1, "Category is required."),
-  description: z.string().min(1, "Description is required."),
-  payee: z.string().min(1, "Payee is required."),
-  amount: z.coerce.number().min(0.01, "Amount must be greater than zero."),
-  paymentMode: z.string().min(1, "Payment mode is required."),
+const requisitionItemSchema = z.object({
+  productId: z.string().min(1, "Product is required."),
+  quantity: z.coerce.number().min(1, "Quantity must be at least 1."),
 });
 
-type ExpenseFormValues = z.infer<typeof expenseSchema>;
+const requisitionSchema = z.object({
+  projectId: z.string().min(1, "A project must be selected."),
+  items: z.array(requisitionItemSchema).min(1, "At least one material is required."),
+});
+
+type RequisitionFormValues = z.infer<typeof requisitionSchema>;
 
 export default function ProductionPage() {
-  const { clients, expenses, loading, refetchData } = useData();
+  const { clients, products, loading, refetchData } = useData();
+  const { userProfile } = useAuth();
   const { toast } = useToast();
 
-  const form = useForm<ExpenseFormValues>({
-    resolver: zodResolver(expenseSchema),
+  const [isClientPopoverOpen, setClientPopoverOpen] = useState(false);
+  const [productPopovers, setProductPopovers] = useState<Record<number, boolean>>({});
+
+  const form = useForm<RequisitionFormValues>({
+    resolver: zodResolver(requisitionSchema),
     defaultValues: {
-      date: new Date(),
-      paymentMode: "Cash",
-    }
+      items: [{ productId: "", quantity: 1 }],
+    },
   });
   
-  const { handleSubmit, control, register, formState: { errors } } = form;
+  const { control, handleSubmit, register, formState: { errors } } = form;
+  const { fields, append, remove } = useFieldArray({
+    control,
+    name: "items"
+  });
 
-  const onSubmit = async (data: ExpenseFormValues) => {
+  const onSubmit = async (data: RequisitionFormValues) => {
+    if (!userProfile) {
+        toast({ variant: "destructive", title: "Not Authenticated", description: "You must be logged in to create a request." });
+        return;
+    }
     try {
-      await addExpense(data);
+      await addMaterialRequisition({
+        ...data,
+        requestedBy: userProfile.uid,
+      });
       toast({
         title: "Success",
-        description: "Expense has been logged successfully.",
+        description: "Material requisition has been submitted.",
       });
       form.reset({
-        date: new Date(),
-        paymentMode: "Cash",
-        clientId: '',
-        category: '',
-        description: '',
-        payee: '',
-        amount: undefined,
+        projectId: "",
+        items: [{ productId: "", quantity: 1 }],
       });
       await refetchData();
     } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : "Failed to log expense.";
+      const errorMessage = error instanceof Error ? error.message : "Failed to submit requisition.";
       toast({
         variant: "destructive",
         title: "Error",
@@ -94,157 +91,151 @@ export default function ProductionPage() {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-2xl font-bold font-headline tracking-tight">Production & Expenses</h1>
-        <p className="text-muted-foreground">Log expenses related to projects and general operations.</p>
+        <h1 className="text-2xl font-bold font-headline tracking-tight">Production Management</h1>
+        <p className="text-muted-foreground">Create material requisitions and manage production workflows.</p>
       </div>
       
-      <div className="grid lg:grid-cols-3 gap-6">
-        <Card className="lg:col-span-1">
+      <div className="grid lg:grid-cols-2 gap-6">
+        <Card>
             <CardHeader>
-                <CardTitle>New Expense Entry</CardTitle>
-                <CardDescription>Log a new business or project-related expense.</CardDescription>
+                <CardTitle>New Material Requisition</CardTitle>
+                <CardDescription>Request materials from the warehouse for a specific project.</CardDescription>
             </CardHeader>
             <CardContent>
                  <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
                     <div className="space-y-2">
-                        <Label>Date</Label>
+                        <Label>Project</Label>
                         <Controller
+                            name="projectId"
                             control={control}
-                            name="date"
                             render={({ field }) => (
-                                <Popover>
+                                <Popover open={isClientPopoverOpen} onOpenChange={setClientPopoverOpen}>
                                     <PopoverTrigger asChild>
-                                        <Button variant="outline" className={cn("w-full justify-start text-left font-normal", !field.value && "text-muted-foreground")}>
-                                            <CalendarIcon className="mr-2 h-4 w-4" />
-                                            {field.value ? format(field.value, "PPP") : <span>Pick a date</span>}
+                                        <Button
+                                            variant="outline"
+                                            role="combobox"
+                                            className={cn("w-full justify-between", !field.value && "text-muted-foreground")}
+                                        >
+                                            <div className="flex items-center gap-2">
+                                                <Briefcase />
+                                                {field.value
+                                                    ? clients.find(c => c.id === field.value)?.projectName
+                                                    : "Select a project"}
+                                            </div>
+                                            <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
                                         </Button>
                                     </PopoverTrigger>
-                                    <PopoverContent className="w-auto p-0"><Calendar mode="single" selected={field.value} onSelect={field.onChange} initialFocus /></PopoverContent>
+                                    <PopoverContent className="w-[--radix-popover-trigger-width] p-0">
+                                        <Command>
+                                            <CommandInput placeholder="Search project..." />
+                                            <CommandEmpty>No project found.</CommandEmpty>
+                                            <CommandList>
+                                                <CommandGroup>
+                                                    {clients.map(c => (
+                                                        <CommandItem
+                                                            key={c.id}
+                                                            value={c.id}
+                                                            onSelect={(currentValue) => {
+                                                                field.onChange(currentValue === field.value ? "" : currentValue)
+                                                                setClientPopoverOpen(false);
+                                                            }}
+                                                        >
+                                                            <Check className={cn("mr-2 h-4 w-4", field.value === c.id ? "opacity-100" : "opacity-0")} />
+                                                            {c.projectName} ({c.clientName})
+                                                        </CommandItem>
+                                                    ))}
+                                                </CommandGroup>
+                                            </CommandList>
+                                        </Command>
+                                    </PopoverContent>
                                 </Popover>
                             )}
                         />
-                         {errors.date && <p className="text-sm text-destructive">{errors.date.message}</p>}
+                         {errors.projectId && <p className="text-sm text-destructive">{errors.projectId.message}</p>}
                     </div>
-                     <div className="space-y-2">
-                        <Label>Category</Label>
-                        <Controller
-                            name="category"
-                            control={control}
-                            render={({ field }) => (
-                                <Select onValueChange={field.onChange} defaultValue={field.value}>
-                                    <SelectTrigger><div className="flex items-center gap-2"><Tag /> <SelectValue placeholder="Select a category" /></div></SelectTrigger>
-                                    <SelectContent>
-                                        {expenseCategories.map(c => <SelectItem key={c} value={c}>{c}</SelectItem>)}
-                                    </SelectContent>
-                                </Select>
-                            )}
-                        />
-                         {errors.category && <p className="text-sm text-destructive">{errors.category.message}</p>}
+
+                    <div className="space-y-4">
+                      <Label>Materials</Label>
+                      {fields.map((item, index) => {
+                        const selectedProduct = products.find(p => p.id === form.watch(`items.${index}.productId`));
+                        return (
+                            <div key={item.id} className="grid grid-cols-[1fr_100px_auto] gap-2 items-start p-3 border rounded-md">
+                                <div className="flex flex-col gap-1">
+                                    <Controller
+                                      name={`items.${index}.productId`}
+                                      control={control}
+                                      render={({ field }) => (
+                                        <Popover open={productPopovers[index]} onOpenChange={(open) => setProductPopovers(prev => ({ ...prev, [index]: open }))}>
+                                            <PopoverTrigger asChild>
+                                                <Button variant="outline" role="combobox" className="w-full justify-between">
+                                                    {field.value ? products.find(p => p.id === field.value)?.name : "Select material"}
+                                                    <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                                                </Button>
+                                            </PopoverTrigger>
+                                            <PopoverContent className="w-[--radix-popover-trigger-width] p-0">
+                                                 <Command>
+                                                    <CommandInput placeholder="Search material..." />
+                                                    <CommandEmpty>No material found.</CommandEmpty>
+                                                    <CommandList>
+                                                        {products.map(p => (
+                                                            <CommandItem
+                                                                key={p.id}
+                                                                value={p.name}
+                                                                onSelect={() => {
+                                                                    field.onChange(p.id)
+                                                                    setProductPopovers(prev => ({...prev, [index]: false}))
+                                                                }}
+                                                            >
+                                                                <Check className={cn("mr-2 h-4 w-4", field.value === p.id ? "opacity-100" : "opacity-0")} />
+                                                                {p.name}
+                                                            </CommandItem>
+                                                        ))}
+                                                    </CommandList>
+                                                 </Command>
+                                            </PopoverContent>
+                                        </Popover>
+                                      )}
+                                    />
+                                    {selectedProduct && <p className="text-xs text-muted-foreground px-1">Stock: {selectedProduct.stock}</p>}
+                                    {errors.items?.[index]?.productId && <p className="text-xs text-destructive">{errors.items[index]?.productId?.message}</p>}
+                                </div>
+                                <div>
+                                    <Input type="number" placeholder="Qty" {...register(`items.${index}.quantity`)} />
+                                    {errors.items?.[index]?.quantity && <p className="text-xs text-destructive">{errors.items[index]?.quantity?.message}</p>}
+                                </div>
+                                <Button variant="ghost" size="icon" onClick={() => remove(index)}><X className="h-4 w-4" /></Button>
+                            </div>
+                        )
+                      })}
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        className="mt-2"
+                        onClick={() => append({ productId: "", quantity: 1 })}
+                      >
+                        <PlusCircle className="mr-2 h-4 w-4" />
+                        Add Material
+                      </Button>
+                       {errors.items && <p className="text-sm text-destructive mt-2">{errors.items.root?.message || errors.items.message}</p>}
                     </div>
-                     <div className="space-y-2">
-                        <Label>Project (Optional)</Label>
-                        <Controller
-                            name="clientId"
-                            control={control}
-                            render={({ field }) => (
-                                <Select onValueChange={field.onChange} defaultValue={field.value}>
-                                    <SelectTrigger><div className="flex items-center gap-2"><Briefcase /> <SelectValue placeholder="Select a project" /></div></SelectTrigger>
-                                    <SelectContent>
-                                        <SelectItem value="none">None (General Expense)</SelectItem>
-                                        {clients.map(c => <SelectItem key={c.id} value={c.id}>{c.projectName} ({c.clientName})</SelectItem>)}
-                                    </SelectContent>
-                                </Select>
-                            )}
-                        />
-                    </div>
-                    <div className="space-y-2">
-                        <Label htmlFor="description">Description</Label>
-                        <Input id="description" {...register("description")} />
-                        {errors.description && <p className="text-sm text-destructive">{errors.description.message}</p>}
-                    </div>
-                    <div className="space-y-2">
-                        <Label htmlFor="payee">Supplier / Payee</Label>
-                        <Input id="payee" {...register("payee")} />
-                        {errors.payee && <p className="text-sm text-destructive">{errors.payee.message}</p>}
-                    </div>
-                    <div className="space-y-2">
-                        <Label htmlFor="amount">Amount</Label>
-                        <Input id="amount" type="number" step="0.01" {...register("amount")} />
-                         {errors.amount && <p className="text-sm text-destructive">{errors.amount.message}</p>}
-                    </div>
-                     <div className="space-y-2">
-                        <Label>Payment Mode</Label>
-                        <Controller
-                            name="paymentMode"
-                            control={control}
-                            render={({ field }) => (
-                                <Select onValueChange={field.onChange} defaultValue={field.value}>
-                                    <SelectTrigger><div className="flex items-center gap-2"><DollarSign /> <SelectValue placeholder="Select payment mode" /></div></SelectTrigger>
-                                    <SelectContent>
-                                        <SelectItem value="Cash">Cash</SelectItem>
-                                        <SelectItem value="Bank Transfer">Bank Transfer</SelectItem>
-                                        <SelectItem value="GCash">GCash</SelectItem>
-                                        <SelectItem value="Credit Card">Credit Card</SelectItem>
-                                    </SelectContent>
-                                </Select>
-                            )}
-                        />
-                    </div>
+                    
                     <div className="pt-2">
                         <Button type="submit" className="w-full" disabled={form.formState.isSubmitting}>
-                            {form.formState.isSubmitting ? "Logging..." : "Log Expense"}
+                            {form.formState.isSubmitting ? "Submitting..." : "Submit Material Requisition"}
                         </Button>
                     </div>
                  </form>
             </CardContent>
         </Card>
         
-        <Card className="lg:col-span-2">
+        <Card>
             <CardHeader>
-                <CardTitle>Recent Expenses</CardTitle>
-                <CardDescription>A log of the most recent expenses.</CardDescription>
+                <CardTitle>Recent Requisitions</CardTitle>
+                <CardDescription>A log of the most recent material requests.</CardDescription>
             </CardHeader>
             <CardContent>
-                <Table>
-                    <TableHeader>
-                        <TableRow>
-                            <TableHead>Date</TableHead>
-                            <TableHead>Description</TableHead>
-                            <TableHead>Category</TableHead>
-                            <TableHead>Project</TableHead>
-                            <TableHead className="text-right">Amount</TableHead>
-                        </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                        {loading ? (
-                             Array.from({ length: 5 }).map((_, i) => (
-                                <TableRow key={i}>
-                                    <TableCell><Skeleton className="h-4 w-24" /></TableCell>
-                                    <TableCell><Skeleton className="h-4 w-40" /></TableCell>
-                                    <TableCell><Skeleton className="h-4 w-32" /></TableCell>
-                                    <TableCell><Skeleton className="h-4 w-32" /></TableCell>
-                                    <TableCell className="text-right"><Skeleton className="h-4 w-16 ml-auto" /></TableCell>
-                                </TableRow>
-                            ))
-                        ) : expenses.length > 0 ? (
-                            expenses.map(entry => (
-                                <TableRow key={entry.id}>
-                                    <TableCell>{formatDate(entry.date)}</TableCell>
-                                    <TableCell>{entry.description}</TableCell>
-                                    <TableCell><Badge variant="outline">{entry.category}</Badge></TableCell>
-                                    <TableCell>{entry.projectName || 'N/A'}</TableCell>
-                                    <TableCell className="text-right">{formatCurrency(entry.amount)}</TableCell>
-                                </TableRow>
-                            ))
-                        ) : (
-                             <TableRow>
-                                <TableCell colSpan={5} className="h-24 text-center">
-                                    No expenses have been logged yet.
-                                </TableCell>
-                            </TableRow>
-                        )}
-                    </TableBody>
-                </Table>
+               <p className="text-sm text-muted-foreground text-center py-10">No material requisitions have been created yet.</p>
             </CardContent>
         </Card>
       </div>
@@ -252,5 +243,3 @@ export default function ProductionPage() {
     </div>
   );
 }
-
-    

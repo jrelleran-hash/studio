@@ -291,3 +291,79 @@ export interface ToolMaintenanceRecord {
     dateEntered: Date;
     outcome: "Repaired" | "Disposed";
 }
+
+export interface ToolBookingRequest {
+    id: string;
+    toolId: string;
+    toolName: string;
+    requestedById: string;
+    requestedByName: string;
+    startDate: Date;
+    endDate: Date;
+    notes: string;
+    status: 'Pending' | 'Approved' | 'Rejected';
+    createdAt: Date;
+}
+
+export interface Vehicle {
+    id: string;
+    type: string;
+    plateNumber: string;
+    make: string;
+    model: string;
+    year: number;
+    status: "Available" | "In Use" | "Under Maintenance";
+    weightLimit?: string;
+    sizeLimit?: string;
+    description?: string;
+    createdAt: Timestamp;
+}
+
+export interface Transaction {
+  id: string;
+  date: Timestamp;
+  description: string;
+  account: string;
+  debit?: number;
+  credit?: number;
+  balance: number;
+  entity?: string;
+}
+
+export interface LaborEntry {
+    id: string;
+    date: Date;
+    userId: string;
+    userName: string;
+    clientId: string;
+    projectName: string;
+    hoursWorked: number;
+    cost: number;
+}
+
+export interface Expense {
+    id: string;
+    date: Date;
+    clientId?: string;
+    projectName?: string;
+    category: string;
+    description: string;
+    payee: string;
+    amount: number;
+    paymentMode: string;
+}
+
+export interface MaterialRequisitionItem {
+    productRef: DocumentReference;
+    quantity: number;
+}
+
+export interface MaterialRequisition {
+    id: string;
+    mrfNumber: string;
+    projectRef: DocumentReference;
+    requestedByRef: DocumentReference;
+    date: Timestamp;
+    status: 'Pending' | 'Approved' | 'Rejected' | 'Fulfilled';
+    items: MaterialRequisitionItem[];
+}
