@@ -267,5 +267,3 @@ export function Sidebar({ className, inSheet, isCollapsed, setIsCollapsed }: Sid
     </aside>
   );
 }
-
-    
