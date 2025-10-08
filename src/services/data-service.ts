@@ -2795,7 +2795,7 @@ export async function addExpense(expenseData: NewExpenseData): Promise<void> {
 
   return runTransaction(db, async (transaction) => {
     let clientName = 'General';
-    if(expenseData.clientId) {
+    if(expenseData.clientId && expenseData.clientId !== 'none') {
         const clientRef = doc(db, 'clients', expenseData.clientId);
         const clientDoc = await transaction.get(clientRef);
         if(clientDoc.exists()) {
@@ -2803,9 +2803,14 @@ export async function addExpense(expenseData: NewExpenseData): Promise<void> {
         }
     }
     
+    const finalExpenseData: any = {...expenseData};
+    if (expenseData.clientId === 'none') {
+        delete finalExpenseData.clientId;
+    }
+    
     const expenseRef = doc(collection(db, 'expenses'));
     transaction.set(expenseRef, {
-        ...expenseData,
+        ...finalExpenseData,
         date: Timestamp.fromDate(expenseData.date),
     });
 

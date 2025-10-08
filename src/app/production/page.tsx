@@ -150,7 +150,7 @@ export default function ProductionPage() {
                                 <Select onValueChange={field.onChange} defaultValue={field.value}>
                                     <SelectTrigger><div className="flex items-center gap-2"><Briefcase /> <SelectValue placeholder="Select a project" /></div></SelectTrigger>
                                     <SelectContent>
-                                        <SelectItem value="">None (General Expense)</SelectItem>
+                                        <SelectItem value="none">None (General Expense)</SelectItem>
                                         {clients.map(c => <SelectItem key={c.id} value={c.id}>{c.projectName} ({c.clientName})</SelectItem>)}
                                     </SelectContent>
                                 </Select>
