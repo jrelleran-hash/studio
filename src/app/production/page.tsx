@@ -1,245 +1,158 @@
 
 "use client";
 
-import { useState, useMemo } from "react";
-import { useForm, useFieldArray, Controller } from "react-hook-form";
-import { zodResolver } from "@hookform/resolvers/zod";
-import * as z from "zod";
-import { format } from "date-fns";
-import { PlusCircle, X, Briefcase, ChevronsUpDown, Check } from "lucide-react";
-
-import { useData } from "@/context/data-context";
-import { useAuth } from "@/hooks/use-auth";
-import { useToast } from "@/hooks/use-toast";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { addMaterialRequisition } from "@/services/data-service";
-import { Popover, PopoverTrigger, PopoverContent } from "@/components/ui/popover";
-import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
-import { cn } from "@/lib/utils";
-import type { MaterialRequisition } from "@/types";
-
-const requisitionItemSchema = z.object({
-  productId: z.string().min(1, "Product is required."),
-  quantity: z.coerce.number().min(1, "Quantity must be at least 1."),
-});
-
-const requisitionSchema = z.object({
-  projectId: z.string().min(1, "A project must be selected."),
-  items: z.array(requisitionItemSchema).min(1, "At least one material is required."),
-});
-
-type RequisitionFormValues = z.infer<typeof requisitionSchema>;
 
 export default function ProductionPage() {
-  const { clients, products, loading, refetchData } = useData();
-  const { userProfile } = useAuth();
-  const { toast } = useToast();
-
-  const [isClientPopoverOpen, setClientPopoverOpen] = useState(false);
-  const [productPopovers, setProductPopovers] = useState<Record<number, boolean>>({});
-
-  const form = useForm<RequisitionFormValues>({
-    resolver: zodResolver(requisitionSchema),
-    defaultValues: {
-      items: [{ productId: "", quantity: 1 }],
-    },
-  });
-  
-  const { control, handleSubmit, register, formState: { errors } } = form;
-  const { fields, append, remove } = useFieldArray({
-    control,
-    name: "items"
-  });
-
-  const onSubmit = async (data: RequisitionFormValues) => {
-    if (!userProfile) {
-        toast({ variant: "destructive", title: "Not Authenticated", description: "You must be logged in to create a request." });
-        return;
-    }
-    try {
-      await addMaterialRequisition({
-        ...data,
-        requestedBy: userProfile.uid,
-      });
-      toast({
-        title: "Success",
-        description: "Material requisition has been submitted.",
-      });
-      form.reset({
-        projectId: "",
-        items: [{ productId: "", quantity: 1 }],
-      });
-      await refetchData();
-    } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : "Failed to submit requisition.";
-      toast({
-        variant: "destructive",
-        title: "Error",
-        description: errorMessage,
-      });
-    }
-  };
-  
-  const formatDate = (date: Date) => {
-      return format(date, 'PPP');
-  }
-
   return (
-    <div className="space-y-6">
-      <div>
-        <h1 className="text-2xl font-bold font-headline tracking-tight">Production Management</h1>
-        <p className="text-muted-foreground">Create material requisitions and manage production workflows.</p>
-      </div>
+    <div className="space-y-6 prose dark:prose-invert max-w-none">
+      <h1>Production Management System</h1>
+      <p className="lead">
+        A Production Management System for a Modular Cabinet Installation Company that handles project-based fabrication, scheduling, material requisition, manpower deployment, and installation — synchronized with accounting, procurement, and client contract milestones (50%–40%–10% payment structure). The system must ensure real-time visibility, workflow automation, and cost-efficiency tracking from design approval to project turnover.
+      </p>
+
+      <h2>⚙️ 1. System Overview</h2>
+      <p>The Production Department operates as the execution arm of the company — transforming client-approved designs into finished modular cabinets, ready for installation.</p>
+      <p>The system will integrate:</p>
+      <ul>
+        <li>Project Production Planning</li>
+        <li>Material Request & Inventory</li>
+        <li>Fabrication Workflow Tracking</li>
+        <li>Installation Scheduling</li>
+        <li>Quality Assurance</li>
+        <li>Labor Allocation & Productivity Tracking</li>
+        <li>Progress Reporting & Communication</li>
+      </ul>
+      <p>Each project will have a unique code (linked to the Accounting System) for unified financial and operational tracking.</p>
+
+      <h2>🧱 2. Project Production Lifecycle</h2>
+      <p>Each project follows a structured production flow, monitored within the system.</p>
+      <h3>Phases:</h3>
+      <ol>
+        <li><strong>Design & Approval Phase</strong>
+          <ul>
+            <li>Upload of design files (SketchUp, AutoCAD, PDF, etc.)</li>
+            <li>Design revisions, material finalization, and approval logs.</li>
+            <li>Design-to-production checklist.</li>
+          </ul>
+        </li>
+        <li><strong>Material Requisition & Procurement Phase</strong>
+          <ul>
+            <li>Generate Material Requisition Form (MRF) from the approved design.</li>
+            <li>Check inventory levels and available stock.</li>
+            <li>Auto-forward shortages to Procurement for purchasing.</li>
+            <li>Link MRF to corresponding project and cost center.</li>
+          </ul>
+        </li>
+        <li><strong>Cutting & Fabrication Phase</strong>
+          <ul>
+            <li>Job orders assigned to specific personnel or teams.</li>
+            <li>Each item/component is tagged (QR or barcode ready).</li>
+            <li>Status tracking: “Pending → In Progress → Completed → QC Passed → Dispatched”.</li>
+          </ul>
+        </li>
+        <li><strong>Assembly & Finishing Phase</strong>
+          <ul>
+            <li>Track assembly progress, lamination, edge-banding, painting, etc.</li>
+            <li>Material consumption auto-deducted from inventory.</li>
+          </ul>
+        </li>
+        <li><strong>Quality Control & Dispatch Phase</strong>
+          <ul>
+            <li>QC checklist per cabinet (dimension, finish, color, hardware fitment).</li>
+            <li>Defects logged for rework tracking.</li>
+            <li>Approval for site delivery or warehouse storage.</li>
+          </ul>
+        </li>
+        <li><strong>Installation & Turnover Phase</strong>
+          <ul>
+            <li>Installation schedule per site and assigned crew.</li>
+            <li>On-site punchlist tracking.</li>
+            <li>Handover readiness status for final 10% billing.</li>
+          </ul>
+        </li>
+      </ol>
       
-      <div className="grid lg:grid-cols-2 gap-6">
-        <Card>
-            <CardHeader>
-                <CardTitle>New Material Requisition</CardTitle>
-                <CardDescription>Request materials from the warehouse for a specific project.</CardDescription>
-            </CardHeader>
-            <CardContent>
-                 <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
-                    <div className="space-y-2">
-                        <Label>Project</Label>
-                        <Controller
-                            name="projectId"
-                            control={control}
-                            render={({ field }) => (
-                                <Popover open={isClientPopoverOpen} onOpenChange={setClientPopoverOpen}>
-                                    <PopoverTrigger asChild>
-                                        <Button
-                                            variant="outline"
-                                            role="combobox"
-                                            className={cn("w-full justify-between", !field.value && "text-muted-foreground")}
-                                        >
-                                            <div className="flex items-center gap-2">
-                                                <Briefcase />
-                                                {field.value
-                                                    ? clients.find(c => c.id === field.value)?.projectName
-                                                    : "Select a project"}
-                                            </div>
-                                            <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
-                                        </Button>
-                                    </PopoverTrigger>
-                                    <PopoverContent className="w-[--radix-popover-trigger-width] p-0">
-                                        <Command>
-                                            <CommandInput placeholder="Search project..." />
-                                            <CommandEmpty>No project found.</CommandEmpty>
-                                            <CommandList>
-                                                <CommandGroup>
-                                                    {clients.map(c => (
-                                                        <CommandItem
-                                                            key={c.id}
-                                                            value={c.id}
-                                                            onSelect={(currentValue) => {
-                                                                field.onChange(currentValue === field.value ? "" : currentValue)
-                                                                setClientPopoverOpen(false);
-                                                            }}
-                                                        >
-                                                            <Check className={cn("mr-2 h-4 w-4", field.value === c.id ? "opacity-100" : "opacity-0")} />
-                                                            {c.projectName} ({c.clientName})
-                                                        </CommandItem>
-                                                    ))}
-                                                </CommandGroup>
-                                            </CommandList>
-                                        </Command>
-                                    </PopoverContent>
-                                </Popover>
-                            )}
-                        />
-                         {errors.projectId && <p className="text-sm text-destructive">{errors.projectId.message}</p>}
-                    </div>
+      <h2>🧾 3. Material Requisition & Inventory Integration</h2>
+      <p>Each project generates itemized material requests linked to design BOM (Bill of Materials).</p>
+      <h4>Automation Goals:</h4>
+      <ul>
+          <li>Auto-check stock availability before request approval.</li>
+          <li>Push purchase request to Procurement if item is out of stock.</li>
+          <li>Sync material usage with Accounting for cost tracking.</li>
+          <li>Enable barcode-based inventory deduction when items are issued to production.</li>
+      </ul>
 
-                    <div className="space-y-4">
-                      <Label>Materials</Label>
-                      {fields.map((item, index) => {
-                        const selectedProduct = products.find(p => p.id === form.watch(`items.${index}.productId`));
-                        return (
-                            <div key={item.id} className="grid grid-cols-[1fr_100px_auto] gap-2 items-start p-3 border rounded-md">
-                                <div className="flex flex-col gap-1">
-                                    <Controller
-                                      name={`items.${index}.productId`}
-                                      control={control}
-                                      render={({ field }) => (
-                                        <Popover open={productPopovers[index]} onOpenChange={(open) => setProductPopovers(prev => ({ ...prev, [index]: open }))}>
-                                            <PopoverTrigger asChild>
-                                                <Button variant="outline" role="combobox" className="w-full justify-between">
-                                                    {field.value ? products.find(p => p.id === field.value)?.name : "Select material"}
-                                                    <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
-                                                </Button>
-                                            </PopoverTrigger>
-                                            <PopoverContent className="w-[--radix-popover-trigger-width] p-0">
-                                                 <Command>
-                                                    <CommandInput placeholder="Search material..." />
-                                                    <CommandEmpty>No material found.</CommandEmpty>
-                                                    <CommandList>
-                                                        {products.map(p => (
-                                                            <CommandItem
-                                                                key={p.id}
-                                                                value={p.name}
-                                                                onSelect={() => {
-                                                                    field.onChange(p.id)
-                                                                    setProductPopovers(prev => ({...prev, [index]: false}))
-                                                                }}
-                                                            >
-                                                                <Check className={cn("mr-2 h-4 w-4", field.value === p.id ? "opacity-100" : "opacity-0")} />
-                                                                {p.name}
-                                                            </CommandItem>
-                                                        ))}
-                                                    </CommandList>
-                                                 </Command>
-                                            </PopoverContent>
-                                        </Popover>
-                                      )}
-                                    />
-                                    {selectedProduct && <p className="text-xs text-muted-foreground px-1">Stock: {selectedProduct.stock}</p>}
-                                    {errors.items?.[index]?.productId && <p className="text-xs text-destructive">{errors.items[index]?.productId?.message}</p>}
-                                </div>
-                                <div>
-                                    <Input type="number" placeholder="Qty" {...register(`items.${index}.quantity`)} />
-                                    {errors.items?.[index]?.quantity && <p className="text-xs text-destructive">{errors.items[index]?.quantity?.message}</p>}
-                                </div>
-                                <Button variant="ghost" size="icon" onClick={() => remove(index)}><X className="h-4 w-4" /></Button>
-                            </div>
-                        )
-                      })}
-                      <Button
-                        type="button"
-                        variant="outline"
-                        size="sm"
-                        className="mt-2"
-                        onClick={() => append({ productId: "", quantity: 1 })}
-                      >
-                        <PlusCircle className="mr-2 h-4 w-4" />
-                        Add Material
-                      </Button>
-                       {errors.items && <p className="text-sm text-destructive mt-2">{errors.items.root?.message || errors.items.message}</p>}
-                    </div>
-                    
-                    <div className="pt-2">
-                        <Button type="submit" className="w-full" disabled={form.formState.isSubmitting}>
-                            {form.formState.isSubmitting ? "Submitting..." : "Submit Material Requisition"}
-                        </Button>
-                    </div>
-                 </form>
-            </CardContent>
-        </Card>
-        
-        <Card>
-            <CardHeader>
-                <CardTitle>Recent Requisitions</CardTitle>
-                <CardDescription>A log of the most recent material requests.</CardDescription>
-            </CardHeader>
-            <CardContent>
-               <p className="text-sm text-muted-foreground text-center py-10">No material requisitions have been created yet.</p>
-            </CardContent>
-        </Card>
-      </div>
+      <h2>👷 4. Manpower & Task Allocation</h2>
+      <p>Track fabrication workload, task assignments, and labor efficiency.</p>
+      <h4>Features:</h4>
+      <ul>
+          <li>Assign fabrication tasks by workstation (cutting, edge banding, assembly, finishing).</li>
+          <li>Real-time progress updates per worker/team.</li>
+          <li>Productivity KPIs: units per day, rework ratio, and idle time.</li>
+          <li>Integration with payroll for labor cost analysis per project.</li>
+      </ul>
 
+      <h2>🧰 5. Production Planning & Scheduling</h2>
+      <p>A Gantt-style or calendar-based planner to manage production workloads.</p>
+       <h4>Automation Goals:</h4>
+      <ul>
+          <li>Auto-calculate estimated completion dates based on resource load.</li>
+          <li>Flag overlapping projects or over-capacity periods.</li>
+          <li>Sync production timeline with client milestones (for coordination with 40% payment phase).</li>
+      </ul>
+
+      <h2>🧾 6. Quality Control (QC) & Rework Management</h2>
+      <p>Ensure every output passes standardized quality checks.</p>
+      <h4>Automation Goals:</h4>
+        <ul>
+            <li>QC failures auto-log rework orders.</li>
+            <li>Calculate rework rate % per project.</li>
+            <li>Notify supervisor for items pending rework beyond SLA.</li>
+        </ul>
+
+
+      <h2>🚚 7. Installation Scheduling & Site Coordination</h2>
+      <p>Link field operations with production completion.</p>
+       <h4>Automation Goals:</h4>
+        <ul>
+            <li>Automatically notify installation team when cabinets are QC-approved.</li>
+            <li>Sync with logistics for delivery scheduling.</li>
+            <li>Log on-site progress and punchlist issues in real time.</li>
+            <li>Connect completion status with Accounting for triggering final invoice (10%).</li>
+        </ul>
+
+      <h2>🏭 8. Production Dashboard & Reporting</h2>
+      <p>A centralized dashboard for management oversight.</p>
+      
+      <h2>🧩 9. Integration Points</h2>
+      <p>To ensure seamless inter-departmental flow:</p>
+      
+      <h2>🔒 10. Roles & Permissions</h2>
+
+      <h2>🔍 11. Advanced Enhancements (AI + Automation Layer)</h2>
+       <ul>
+            <li>Predictive Scheduling: Estimate completion delays based on material readiness and labor workload.</li>
+            <li>Smart Resource Allocation: Suggest optimal crew assignment based on skills and availability.</li>
+            <li>Anomaly Detection: Identify projects with abnormal rework rates or slow progress.</li>
+            <li>Visual Tracker: Real-time Kanban view of all projects and their phases.</li>
+            <li>AR/3D Integration (Optional): View modular layouts and verify assembly before cutting.</li>
+            <li>QR/Barcode Support: Scan item tags to track status across cutting → QC → dispatch.</li>
+        </ul>
+
+      <h2>📊 12. KPIs for Production Department</h2>
+      
+      <h2>🧠 13. Example Workflow Summary</h2>
+      <p>Trigger Chain Example:</p>
+      <ol>
+        <li>Client approves design → system generates MRF.</li>
+        <li>Inventory checks stock → Procurement notified for shortages.</li>
+        <li>Production schedule auto-updates based on material readiness.</li>
+        <li>Fabrication starts → QC logs defects → Rework auto-assigned.</li>
+        <li>Cabinets dispatched → Installation progress monitored.</li>
+        <li>Completion marked → Accounting triggers 40% or 10% invoice.</li>
+        <li>Final turnover report generated for management.</li>
+      </ol>
     </div>
   );
 }
