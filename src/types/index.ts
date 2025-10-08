@@ -1,3 +1,4 @@
+
 import { Timestamp, DocumentReference } from "firebase/firestore";
 
 export interface Activity {
@@ -217,7 +218,7 @@ export interface OutboundReturn {
 }
 
 export type UserRole = "Admin" | "Manager" | "Staff";
-export type PagePermission = "/" | "/clients" | "/logistics" | "/analytics" | "/orders" | "/purchase-orders" | "/suppliers" | "/inventory" | "/issuance" | "/returns" | "/quality-control" | "/settings" | "/warehouse" | "/tools" | "/tool-maintenance" | "/waste-management" | "/logistics-booking" | "/tool-booking" | "/vehicles" | "/production" | "/general-ledger" | "/accounts-payable";
+export type PagePermission = "/" | "/clients" | "/logistics" | "/analytics" | "/orders" | "/purchase-orders" | "/suppliers" | "/inventory" | "/issuance" | "/returns" | "/quality-control" | "/settings" | "/warehouse" | "/tools" | "/tool-maintenance" | "/waste-management" | "/logistics-booking" | "/tool-booking" | "/vehicles" | "/production" | "/general-ledger" | "/accounts-payable" | "/daily-labor";
 
 export interface UserProfile {
     uid: string;
@@ -226,6 +227,7 @@ export interface UserProfile {
     lastName: string;
     role: UserRole;
     permissions: PagePermission[];
+    dailyRate?: number;
 }
 
 export interface Tool {
@@ -326,4 +328,15 @@ export interface Transaction {
     credit?: number;
     balance: number;
     entity: string;
+}
+
+export interface LaborEntry {
+    id: string;
+    date: Date;
+    userId: string;
+    userName: string;
+    clientId: string;
+    projectName: string;
+    hoursWorked: number;
+    cost: number;
 }

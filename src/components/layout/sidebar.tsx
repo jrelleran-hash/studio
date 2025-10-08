@@ -1,3 +1,4 @@
+
 "use client";
 
 import Link from "next/link";
@@ -26,6 +27,7 @@ import {
   Factory,
   BookCopy,
   Landmark,
+  Clock,
 } from "lucide-react";
 import { CoreFlowLogo } from "@/components/icons";
 import { cn } from "@/lib/utils";
@@ -79,6 +81,10 @@ const assuranceNavItems = [
     { href: "/waste-management", label: "Waste Management", icon: Trash2 },
 ];
 
+const hrNavItems = [
+    { href: "/daily-labor", label: "Daily Labor", icon: Clock },
+]
+
 export const navItemsPermissions = [
   ...navItems,
   ...accountingNavItems,
@@ -87,6 +93,7 @@ export const navItemsPermissions = [
   ...warehouseNavItems,
   ...productionNavItems,
   ...assuranceNavItems,
+  ...hrNavItems,
   { href: "/settings", label: "Settings", icon: Settings },
 ] as const;
 
@@ -235,6 +242,7 @@ export function Sidebar({ className, inSheet, isCollapsed, setIsCollapsed }: Sid
             ))}
             
             <NavSection title="Accounting" items={accountingNavItems as any} pathname={pathname} inSheet={inSheet} userPermissions={userPermissions} isCollapsed={isCollapsed} />
+            <NavSection title="HR & Payroll" items={hrNavItems as any} pathname={pathname} inSheet={inSheet} userPermissions={userPermissions} isCollapsed={isCollapsed} />
             <NavSection title="Logistics" items={logisticsNavItems as any} pathname={pathname} inSheet={inSheet} userPermissions={userPermissions} isCollapsed={isCollapsed} />
             <NavSection title="Procurement" items={procurementNavItems as any} pathname={pathname} inSheet={inSheet} userPermissions={userPermissions} isCollapsed={isCollapsed} />
             <NavSection title="Warehouse" items={warehouseNavItems as any} pathname={pathname} inSheet={inSheet} userPermissions={userPermissions} isCollapsed={isCollapsed} />

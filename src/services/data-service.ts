@@ -1,8 +1,9 @@
 
+
 import { db, storage, auth } from "@/lib/firebase";
 import { collection, getDocs, getDoc, doc, orderBy, query, limit, Timestamp, where, DocumentReference, addDoc, updateDoc, deleteDoc, arrayUnion, runTransaction, writeBatch, setDoc } from "firebase/firestore";
 import { EmailAuthProvider, reauthenticateWithCredential, updatePassword, createUserWithEmailAndPassword } from "firebase/auth";
-import type { Activity, Notification, Order, Product, Client, Issuance, Supplier, PurchaseOrder, Shipment, Return, ReturnItem, OutboundReturn, OutboundReturnItem, UserProfile, OrderItem, PurchaseOrderItem, IssuanceItem, Backorder, UserRole, PagePermission, ProductCategory, ProductLocation, Tool, ToolBorrowRecord, SalvagedPart, DisposalRecord, ToolMaintenanceRecord, ToolBookingRequest, Vehicle, Transaction, PaymentMilestone } from "@/types";
+import type { Activity, Notification, Order, Product, Client, Issuance, Supplier, PurchaseOrder, Shipment, Return, ReturnItem, OutboundReturn, OutboundReturnItem, UserProfile, OrderItem, PurchaseOrderItem, IssuanceItem, Backorder, UserRole, PagePermission, ProductCategory, ProductLocation, Tool, ToolBorrowRecord, SalvagedPart, DisposalRecord, ToolMaintenanceRecord, ToolBookingRequest, Vehicle, Transaction, LaborEntry } from "@/types";
 import { format, subDays, addDays } from 'date-fns';
 
 function timeSince(date: Date) {
@@ -2683,3 +2684,80 @@ export async function payPurchaseOrder(poId: string, amount: number): Promise<vo
     transaction.set(doc(collection(db, 'transactions')), accountsPayableTx);
   });
 }
+
+export async function getLaborEntries(): Promise<LaborEntry[]> {
+    try {
+        const laborCol = collection(db, "laborEntries");
+        const q = query(laborCol, orderBy("date", "desc"));
+        const snapshot = await getDocs(q);
+        return snapshot.docs.map(doc => {
+            const data = doc.data();
+            return {
+                id: doc.id,
+                ...data,
+                date: (data.date as Timestamp).toDate(),
+            } as LaborEntry;
+        });
+    } catch (error) {
+        console.error("Error fetching labor entries:", error);
+        return [];
+    }
+}
+
+export async function addLaborEntry(entryData: Omit<LaborEntry, 'id' | 'cost' | 'userName' | 'projectName'>): Promise<void> {
+  const now = Timestamp.now();
+
+  return runTransaction(db, async (transaction) => {
+    // --- 1. READS ---
+    const userRef = doc(db, 'users', entryData.userId);
+    const clientRef = doc(db, 'clients', entryData.clientId);
+    
+    const [userDoc, clientDoc] = await Promise.all([
+      transaction.get(userRef),
+      transaction.get(clientRef)
+    ]);
+    
+    if (!userDoc.exists()) throw new Error("Worker not found.");
+    if (!clientDoc.exists()) throw new Error("Project not found.");
+
+    const userData = userDoc.data() as UserProfile;
+    const clientData = clientDoc.data() as Client;
+    
+    // --- 2. LOGIC ---
+    const dailyRate = userData.dailyRate || 0; // Default to 0 if not set
+    const hourlyRate = dailyRate / 8; // Assuming an 8-hour workday
+    const cost = entryData.hoursWorked * hourlyRate;
+
+    // --- 3. WRITES ---
+    const laborEntryRef = doc(collection(db, 'laborEntries'));
+    transaction.set(laborEntryRef, {
+      ...entryData,
+      date: Timestamp.fromDate(entryData.date),
+      userName: `${userData.firstName} ${userData.lastName}`,
+      projectName: clientData.projectName,
+      cost: cost,
+    });
+    
+    // Create GL entry for the labor cost
+    const wagesTx = {
+      date: now,
+      description: `Wages for ${userData.firstName} ${userData.lastName} on project ${clientData.projectName}`,
+      account: 'Wages Expense',
+      debit: cost,
+      credit: 0,
+      entity: `${userData.firstName} ${userData.lastName}`,
+    };
+    transaction.set(doc(collection(db, 'transactions')), wagesTx);
+
+    const cashTx = {
+      date: now,
+      description: `Cash payment for labor: ${userData.firstName} ${userData.lastName}`,
+      account: 'Cash',
+      debit: 0,
+      credit: cost,
+      entity: `${userData.firstName} ${userData.lastName}`,
+    };
+    transaction.set(doc(collection(db, 'transactions')), cashTx);
+  });
+}
+
