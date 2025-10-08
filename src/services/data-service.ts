@@ -3,7 +3,7 @@
 import { db, storage, auth } from "@/lib/firebase";
 import { collection, getDocs, getDoc, doc, orderBy, query, limit, Timestamp, where, DocumentReference, addDoc, updateDoc, deleteDoc, arrayUnion, runTransaction, writeBatch, setDoc } from "firebase/firestore";
 import { EmailAuthProvider, reauthenticateWithCredential, updatePassword, createUserWithEmailAndPassword } from "firebase/auth";
-import type { Activity, Notification, Order, Product, Client, Issuance, Supplier, PurchaseOrder, Shipment, Return, ReturnItem, OutboundReturn, OutboundReturnItem, UserProfile, OrderItem, PurchaseOrderItem, IssuanceItem, Backorder, UserRole, PagePermission, ProductCategory, ProductLocation, Tool, ToolBorrowRecord, SalvagedPart, DisposalRecord, ToolMaintenanceRecord, ToolBookingRequest, Vehicle, Transaction, LaborEntry } from "@/types";
+import type { Activity, Notification, Order, Product, Client, Issuance, Supplier, PurchaseOrder, Shipment, Return, ReturnItem, OutboundReturn, OutboundReturnItem, UserProfile, OrderItem, PurchaseOrderItem, IssuanceItem, Backorder, UserRole, PagePermission, ProductCategory, ProductLocation, Tool, ToolBorrowRecord, SalvagedPart, DisposalRecord, ToolMaintenanceRecord, ToolBookingRequest, Vehicle, Transaction, LaborEntry, Expense } from "@/types";
 import { format, subDays, addDays } from 'date-fns';
 
 function timeSince(date: Date) {
@@ -2761,3 +2761,74 @@ export async function addLaborEntry(entryData: Omit<LaborEntry, 'id' | 'cost' | 
   });
 }
 
+export async function getExpenses(): Promise<Expense[]> {
+    try {
+        const expensesCol = collection(db, "expenses");
+        const q = query(expensesCol, orderBy("date", "desc"));
+        const snapshot = await getDocs(q);
+        
+        const expenses: Expense[] = await Promise.all(snapshot.docs.map(async (doc) => {
+            const data = doc.data();
+            let projectName: string | undefined;
+            if (data.clientId) {
+                const client = await resolveDoc<Client>(doc(db, 'clients', data.clientId));
+                projectName = client?.projectName;
+            }
+            return {
+                id: doc.id,
+                ...data,
+                date: (data.date as Timestamp).toDate(),
+                projectName,
+            } as Expense;
+        }));
+        return expenses;
+
+    } catch (error) {
+        console.error("Error fetching expenses:", error);
+        return [];
+    }
+}
+
+type NewExpenseData = Omit<Expense, 'id' | 'projectName'>;
+export async function addExpense(expenseData: NewExpenseData): Promise<void> {
+  const now = Timestamp.now();
+
+  return runTransaction(db, async (transaction) => {
+    let clientName = 'General';
+    if(expenseData.clientId) {
+        const clientRef = doc(db, 'clients', expenseData.clientId);
+        const clientDoc = await transaction.get(clientRef);
+        if(clientDoc.exists()) {
+            clientName = clientDoc.data().clientName;
+        }
+    }
+    
+    const expenseRef = doc(collection(db, 'expenses'));
+    transaction.set(expenseRef, {
+        ...expenseData,
+        date: Timestamp.fromDate(expenseData.date),
+    });
+
+    const expenseTx = {
+      date: now,
+      description: expenseData.description,
+      account: expenseData.category,
+      debit: expenseData.amount,
+      credit: 0,
+      entity: expenseData.payee,
+    };
+    transaction.set(doc(collection(db, 'transactions')), expenseTx);
+
+    const cashTx = {
+      date: now,
+      description: `Payment to ${expenseData.payee} for ${expenseData.description}`,
+      account: 'Cash',
+      debit: 0,
+      credit: expenseData.amount,
+      entity: expenseData.payee,
+    };
+    transaction.set(doc(collection(db, 'transactions')), cashTx);
+  });
+}
+
+    

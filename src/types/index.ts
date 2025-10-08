@@ -340,3 +340,17 @@ export interface LaborEntry {
     hoursWorked: number;
     cost: number;
 }
+
+export interface Expense {
+    id: string;
+    date: Date;
+    clientId?: string;
+    projectName?: string;
+    category: string;
+    description: string;
+    payee: string;
+    amount: number;
+    paymentMode: string;
+}
+
+    
