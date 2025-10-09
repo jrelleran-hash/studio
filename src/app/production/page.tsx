@@ -37,11 +37,9 @@ const createMaterialRequisitionSchema = (products: any[]) => z.object({
         items.forEach((item, index) => {
             const product = products.find(p => p.id === item.productId);
             if (product && product.stock < item.quantity) {
-                ctx.addIssue({
-                    path: [`items.${index}.quantity`],
-                    message: `Stock insufficient. Only ${product.stock} available.`,
-                    code: z.ZodIssueCode.custom
-                });
+                // This is now an informational check, not a blocking one.
+                // The backend will handle creating a backorder.
+                // We'll show a warning in the UI instead.
             }
         });
     }),
@@ -74,7 +72,8 @@ export default function ProductionPage() {
     mode: "onChange",
   });
 
-  const { control, handleSubmit, formState: { isValid } } = form;
+  const { control, handleSubmit, formState: { isValid }, watch } = form;
+  const watchedItems = watch("items");
 
   const { fields, append, remove } = useFieldArray({
     control,
@@ -140,7 +139,13 @@ export default function ProductionPage() {
                 <div className="space-y-2">
                     <Label>Materials</Label>
                     <div className="space-y-3">
-                    {fields.map((field, index) => (
+                    {fields.map((field, index) => {
+                      const selectedProduct = products.find(p => p.id === watchedItems[index]?.productId);
+                      const stockAvailable = selectedProduct ? selectedProduct.stock : 0;
+                      const quantityRequested = watchedItems[index]?.quantity || 0;
+                      const isInsufficient = stockAvailable < quantityRequested;
+
+                      return (
                         <div key={field.id} className="grid grid-cols-[1fr_auto_auto] items-start gap-2">
                         <div className="flex flex-col gap-1">
                             <Controller
@@ -189,6 +194,11 @@ export default function ProductionPage() {
                                     </Popover>
                                 )}
                             />
+                             {isInsufficient && (
+                                <p className="text-xs text-yellow-500 pl-1">
+                                    Insufficient stock ({stockAvailable} available). A purchase request will be created for the remainder.
+                                </p>
+                            )}
                         </div>
                         <div className="flex flex-col gap-1">
                                 <Input
@@ -203,7 +213,8 @@ export default function ProductionPage() {
                                 <X className="h-4 w-4" />
                             </Button>
                         </div>
-                    ))}
+                      )
+                    })}
                     </div>
                     <Button type="button" variant="outline" size="sm" onClick={() => append({ productId: "", quantity: 1 })}>
                     <PlusCircle className="mr-2 h-4 w-4" /> Add Material
@@ -274,6 +285,4 @@ export default function ProductionPage() {
     </div>
   );
 }
-    
-
     

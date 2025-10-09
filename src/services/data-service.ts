@@ -2907,37 +2907,82 @@ type NewMaterialRequisitionData = {
 }
 
 export async function addMaterialRequisition(data: NewMaterialRequisitionData): Promise<void> {
-    const requisitionRef = doc(collection(db, "materialRequisitions"));
-    
-    await runTransaction(db, async (transaction) => {
-        let projectRef: DocumentReference | null = null;
-        if (data.projectId !== 'general-use') {
-            projectRef = doc(db, "clients", data.projectId);
-            const projectDoc = await transaction.get(projectRef);
-            if (!projectDoc.exists()) throw new Error("Project not found.");
-        }
+  const requisitionRef = doc(collection(db, "materialRequisitions"));
+  const now = Timestamp.now();
 
-        const productRefs = data.items.map(item => doc(db, 'inventory', item.productId));
-        const productDocs = await Promise.all(productRefs.map(ref => transaction.get(ref)));
+  await runTransaction(db, async (transaction) => {
+    let projectRef: DocumentReference | null = null;
+    let clientRef: DocumentReference | null = null;
+    let clientDoc: any = null;
 
-        const newRequisition = {
-            mrfNumber: `MRF-${Date.now()}`,
-            projectRef: projectRef,
-            requestedByRef: doc(db, 'users', data.requestedBy),
-            date: Timestamp.now(),
-            status: 'Pending',
-            items: data.items.map((item, index) => {
-                if (!productDocs[index].exists()) throw new Error(`Product with ID ${item.productId} not found.`);
-                return {
-                    productRef: productDocs[index].ref,
-                    quantity: item.quantity,
-                }
-            })
-        };
-        
-        transaction.set(requisitionRef, newRequisition);
+    if (data.projectId !== 'general-use') {
+      projectRef = doc(db, "clients", data.projectId);
+      clientRef = projectRef;
+      clientDoc = await transaction.get(clientRef);
+      if (!clientDoc.exists()) throw new Error("Project/Client not found.");
+    }
+
+    const productRefs = data.items.map(item => doc(db, 'inventory', item.productId));
+    const productDocs = await Promise.all(productRefs.map(ref => transaction.get(ref)));
+
+    const backorderItems: any[] = [];
+    const itemsForRequisition = data.items.map((item, index) => {
+      const productDoc = productDocs[index];
+      if (!productDoc.exists()) throw new Error(`Product with ID ${item.productId} not found.`);
+      
+      const productData = productDoc.data() as Product;
+      const stockNeeded = item.quantity;
+      const stockAvailable = productData.stock;
+
+      if (stockAvailable < stockNeeded) {
+        const backorderQty = stockNeeded - stockAvailable;
+        backorderItems.push({
+          orderId: requisitionRef.id,
+          orderRef: null, // MRFs don't have an order ref in the same way
+          clientRef: clientRef,
+          productId: productDoc.id,
+          productRef: productDoc.ref,
+          productName: productData.name,
+          productSku: productData.sku,
+          quantity: backorderQty,
+          date: now,
+          status: 'Pending',
+        });
+      }
+
+      return {
+        productRef: productDoc.ref,
+        quantity: item.quantity,
+      };
+    });
+
+    const newRequisition = {
+      mrfNumber: `MRF-${Date.now()}`,
+      projectRef: projectRef,
+      requestedByRef: doc(db, 'users', data.requestedBy),
+      date: now,
+      status: 'Pending',
+      items: itemsForRequisition
+    };
+
+    transaction.set(requisitionRef, newRequisition);
+
+    // Create Backorder records for shortfalls
+    for (const backorderItem of backorderItems) {
+      const backorderRef = doc(collection(db, 'backorders'));
+      transaction.set(backorderRef, backorderItem);
+    }
+  });
+
+   await createNotification({
+        title: "Material Request Submitted",
+        description: `A new material requisition has been submitted.`,
+        details: `A new material requisition (MRF-${now.toMillis()}) has been submitted for approval.`,
+        href: "/production",
+        icon: "Package",
     });
 }
+
 
 export async function getJobOrders(): Promise<JobOrder[]> {
     try {
