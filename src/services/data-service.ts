@@ -2851,8 +2851,8 @@ export async function getMaterialRequisitions(): Promise<MaterialRequisition[]> 
             const data = doc.data();
             
             // Resolve projectRef to get project details
-            const projectDoc = await getDoc(data.projectRef);
-            const projectData = projectDoc.exists() ? {id: projectDoc.id, ...projectDoc.data()} : null;
+            const projectDoc = data.projectRef ? await getDoc(data.projectRef) : null;
+            const projectData = projectDoc && projectDoc.exists() ? {id: projectDoc.id, ...projectDoc.data()} : null;
 
             // Resolve product details within items
             const items = await Promise.all(data.items.map(async (item: any) => {
@@ -2886,16 +2886,19 @@ export async function addMaterialRequisition(data: NewMaterialRequisitionData): 
     const requisitionRef = doc(collection(db, "materialRequisitions"));
     
     await runTransaction(db, async (transaction) => {
-        const projectRef = doc(db, "clients", data.projectId);
-        const projectDoc = await transaction.get(projectRef);
-        if (!projectDoc.exists()) throw new Error("Project not found.");
+        let projectRef: DocumentReference | null = null;
+        if (data.projectId !== 'general-use') {
+            projectRef = doc(db, "clients", data.projectId);
+            const projectDoc = await transaction.get(projectRef);
+            if (!projectDoc.exists()) throw new Error("Project not found.");
+        }
 
         const productRefs = data.items.map(item => doc(db, 'inventory', item.productId));
         const productDocs = await Promise.all(productRefs.map(ref => transaction.get(ref)));
 
         const newRequisition = {
             mrfNumber: `MRF-${Date.now()}`,
-            projectRef,
+            projectRef: projectRef,
             requestedByRef: doc(db, 'users', data.requestedBy),
             date: Timestamp.now(),
             status: 'Pending',

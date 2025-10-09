@@ -131,7 +131,7 @@ export default function ProductionPage() {
                             materialRequisitions.map(req => (
                                 <TableRow key={req.id}>
                                     <TableCell>{req.mrfNumber}</TableCell>
-                                    <TableCell>{req.projectRef.id}</TableCell>
+                                    <TableCell>{req.projectRef?.id || 'General Use'}</TableCell>
                                     <TableCell>{req.date.toDateString()}</TableCell>
                                     <TableCell>{req.status}</TableCell>
                                 </TableRow>
@@ -164,6 +164,7 @@ export default function ProductionPage() {
                         <SelectValue placeholder="Select a project" />
                       </SelectTrigger>
                       <SelectContent>
+                        <SelectItem value="general-use">General Use</SelectItem>
                         {clients.map(c => (
                           <SelectItem key={c.id} value={c.id}>{c.projectName} ({c.clientName})</SelectItem>
                         ))}
