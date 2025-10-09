@@ -1,4 +1,3 @@
-
 "use client";
 
 import Link from "next/link";
@@ -29,6 +28,7 @@ import {
   Landmark,
   Clock,
   Hammer,
+  Construction,
 } from "lucide-react";
 import { CoreFlowLogo } from "@/components/icons";
 import { cn } from "@/lib/utils";
@@ -78,6 +78,7 @@ const warehouseNavItems = [
 const productionNavItems = [
     { href: "/production", label: "Material Requisitions", icon: Factory },
     { href: "/fabrication", label: "Fabrication Jobs", icon: Hammer },
+    { href: "/installation", label: "Installation", icon: Construction },
 ]
 
 const assuranceNavItems = [
@@ -247,7 +248,7 @@ export function Sidebar({ className, inSheet, isCollapsed, setIsCollapsed }: Sid
             
             <NavSection title="Production" items={productionNavItems as any} pathname={pathname} inSheet={inSheet} userPermissions={userPermissions} isCollapsed={isCollapsed} />
             <NavSection title="Accounting" items={accountingNavItems as any} pathname={pathname} inSheet={inSheet} userPermissions={userPermissions} isCollapsed={isCollapsed} />
-            <NavSection title="HR & Payroll" items={hrNavItems as any} pathname={pathname} inSheet={inSheet} userPermissions={userPermissions} isCollapsed={isCollapsed} />
+            <NavSection title="HR &amp; Payroll" items={hrNavItems as any} pathname={pathname} inSheet={inSheet} userPermissions={userPermissions} isCollapsed={isCollapsed} />
             <NavSection title="Logistics" items={logisticsNavItems as any} pathname={pathname} inSheet={inSheet} userPermissions={userPermissions} isCollapsed={isCollapsed} />
             <NavSection title="Procurement" items={procurementNavItems as any} pathname={pathname} inSheet={inSheet} userPermissions={userPermissions} isCollapsed={isCollapsed} />
             <NavSection title="Warehouse" items={warehouseNavItems as any} pathname={pathname} inSheet={inSheet} userPermissions={userPermissions} isCollapsed={isCollapsed} />
@@ -271,5 +272,3 @@ export function Sidebar({ className, inSheet, isCollapsed, setIsCollapsed }: Sid
     </aside>
   );
 }
-
-    

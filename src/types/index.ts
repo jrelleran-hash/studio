@@ -218,7 +218,7 @@ export interface OutboundReturn {
 }
 
 export type UserRole = "Admin" | "Manager" | "Staff";
-export type PagePermission = "/" | "/clients" | "/logistics" | "/analytics" | "/orders" | "/purchase-orders" | "/suppliers" | "/inventory" | "/issuance" | "/returns" | "/quality-control" | "/settings" | "/warehouse" | "/tools" | "/tool-maintenance" | "/waste-management" | "/logistics-booking" | "/tool-booking" | "/vehicles" | "/production" | "/general-ledger" | "/accounts-payable" | "/daily-labor" | "/fabrication";
+export type PagePermission = "/" | "/clients" | "/logistics" | "/analytics" | "/orders" | "/purchase-orders" | "/suppliers" | "/inventory" | "/issuance" | "/returns" | "/quality-control" | "/settings" | "/warehouse" | "/tools" | "/tool-maintenance" | "/waste-management" | "/logistics-booking" | "/tool-booking" | "/vehicles" | "/production" | "/general-ledger" | "/accounts-payable" | "/daily-labor" | "/fabrication" | "/installation";
 
 export interface UserProfile {
     uid: string;
@@ -391,4 +391,24 @@ export interface JobOrder {
     items: JobOrderItem[];
 }
 
-    
+export interface PunchlistItem {
+    id: string;
+    description: string;
+    status: 'Pending' | 'Completed';
+    completedAt?: Timestamp;
+}
+
+export interface Installation {
+    id: string;
+    installationNumber: string;
+    jobOrderIds: string[];
+    projectName: string;
+    assignedCrewId: string;
+    assignedCrewName: string;
+    scheduledStartDate: Date;
+    scheduledEndDate: Date;
+    actualStartDate?: Date;
+    actualEndDate?: Date;
+    status: 'Scheduled' | 'In Progress' | 'Completed' | 'Punchlist Required';
+    punchlist: PunchlistItem[];
+}

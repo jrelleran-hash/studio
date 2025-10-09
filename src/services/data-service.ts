@@ -3,7 +3,7 @@
 import { db, storage, auth } from "@/lib/firebase";
 import { collection, getDocs, getDoc, doc, orderBy, query, limit, Timestamp, where, DocumentReference, addDoc, updateDoc, deleteDoc, arrayUnion, runTransaction, writeBatch, setDoc } from "firebase/firestore";
 import { EmailAuthProvider, reauthenticateWithCredential, updatePassword, createUserWithEmailAndPassword } from "firebase/auth";
-import type { Activity, Notification, Order, Product, Client, Issuance, Supplier, PurchaseOrder, Shipment, Return, ReturnItem, OutboundReturn, OutboundReturnItem, UserProfile, OrderItem, PurchaseOrderItem, IssuanceItem, Backorder, UserRole, PagePermission, ProductCategory, ProductLocation, Tool, ToolBorrowRecord, SalvagedPart, DisposalRecord, ToolMaintenanceRecord, ToolBookingRequest, Vehicle, Transaction, LaborEntry, Expense, MaterialRequisition, JobOrder, JobOrderItem } from "@/types";
+import type { Activity, Notification, Order, Product, Client, Issuance, Supplier, PurchaseOrder, Shipment, Return, ReturnItem, OutboundReturn, OutboundReturnItem, UserProfile, OrderItem, PurchaseOrderItem, IssuanceItem, Backorder, UserRole, PagePermission, ProductCategory, ProductLocation, Tool, ToolBorrowRecord, SalvagedPart, DisposalRecord, ToolMaintenanceRecord, ToolBookingRequest, Vehicle, Transaction, LaborEntry, Expense, MaterialRequisition, JobOrder, JobOrderItem, Installation } from "@/types";
 import { format, subDays, addDays } from 'date-fns';
 
 function timeSince(date: Date) {
@@ -2998,4 +2998,90 @@ export async function updateJobOrderItemStatus(jobOrderId: string, itemId: strin
     });
 }
 
+export async function getInstallations(): Promise<Installation[]> {
+    try {
+        const installationsCol = collection(db, "installations");
+        const q = query(installationsCol, orderBy("scheduledStartDate", "desc"));
+        const snapshot = await getDocs(q);
+
+        const installations: Installation[] = await Promise.all(snapshot.docs.map(async doc => {
+            const data = doc.data();
+            const assignedCrew = await resolveDoc<UserProfile>(data.assignedCrewRef);
+
+            // For simplicity, we'll derive the project name from the first job order
+            let projectName = 'Multiple Projects';
+            if (data.jobOrderRefs && data.jobOrderRefs.length > 0) {
+                const firstJobOrder = await resolveDoc<JobOrder>(data.jobOrderRefs[0]);
+                if (firstJobOrder?.projectRef) {
+                    const project = await resolveDoc<Client>(firstJobOrder.projectRef);
+                    if(project) projectName = project.projectName;
+                } else if (firstJobOrder) {
+                    projectName = 'General Use';
+                }
+            }
+            
+            return {
+                id: doc.id,
+                ...data,
+                assignedCrewName: assignedCrew ? `${assignedCrew.firstName} ${assignedCrew.lastName}` : 'Unassigned',
+                projectName: projectName,
+                scheduledStartDate: (data.scheduledStartDate as Timestamp).toDate(),
+                scheduledEndDate: (data.scheduledEndDate as Timestamp).toDate(),
+            } as Installation;
+        }));
+
+        return installations;
+    } catch (error) {
+        console.error("Error fetching installations:", error);
+        return [];
+    }
+}
+
+type NewInstallationData = {
+    assignedCrewId: string;
+    startDate: Date;
+    endDate: Date;
+    items: { jobId: string, itemId: string }[];
+};
+
+export async function addInstallation(data: NewInstallationData): Promise<void> {
+    const installationRef = doc(collection(db, "installations"));
+    
+    await runTransaction(db, async (transaction) => {
+        const jobOrderRefsMap = new Map<string, DocumentReference>();
+        data.items.forEach(item => {
+            if (!jobOrderRefsMap.has(item.jobId)) {
+                jobOrderRefsMap.set(item.jobId, doc(db, "jobOrders", item.jobId));
+            }
+        });
+
+        const jobOrderDocs = await Promise.all(Array.from(jobOrderRefsMap.values()).map(ref => transaction.get(ref)));
+
+        for (const jobDoc of jobOrderDocs) {
+            if (!jobDoc.exists()) throw new Error(`Job Order with ID ${jobDoc.id} not found.`);
+            const jobData = jobDoc.data() as JobOrder;
+            
+            const updatedItems = jobData.items.map(item => {
+                if (data.items.some(i => i.jobId === jobDoc.id && i.itemId === item.id)) {
+                    if (item.status !== 'QC Passed') throw new Error(`Item ${item.id} is not ready for installation.`);
+                    return { ...item, status: 'Dispatched' };
+                }
+                return item;
+            });
+            transaction.update(jobDoc.ref, { items: updatedItems });
+        }
+        
+        const newInstallation = {
+            installationNumber: `INSTALL-${Date.now()}`,
+            jobOrderRefs: Array.from(jobOrderRefsMap.values()),
+            assignedCrewRef: doc(db, "users", data.assignedCrewId),
+            scheduledStartDate: Timestamp.fromDate(data.startDate),
+            scheduledEndDate: Timestamp.fromDate(data.endDate),
+            status: "Scheduled",
+            punchlist: [],
+        };
+        
+        transaction.set(installationRef, newInstallation);
+    });
+}
     
