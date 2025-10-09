@@ -2850,11 +2850,9 @@ export async function getMaterialRequisitions(): Promise<MaterialRequisition[]> 
         const requisitions = await Promise.all(snapshot.docs.map(async doc => {
             const data = doc.data();
             
-            // Resolve projectRef to get project details
-            const projectDoc = data.projectRef ? await getDoc(data.projectRef) : null;
-            const projectData = projectDoc && projectDoc.exists() ? {id: projectDoc.id, ...projectDoc.data()} : null;
+            const project = data.projectRef ? await resolveDoc<Client>(data.projectRef) : null;
+            const requester = data.requestedByRef ? await resolveDoc<UserProfile>(data.requestedByRef) : null;
 
-            // Resolve product details within items
             const items = await Promise.all(data.items.map(async (item: any) => {
                 const productDoc = await getDoc(item.productRef);
                 const productData = productDoc.exists() ? {id: productDoc.id, ...productDoc.data()} : null;
@@ -2865,8 +2863,9 @@ export async function getMaterialRequisitions(): Promise<MaterialRequisition[]> 
                 id: doc.id,
                 ...data,
                 date: (data.date as Timestamp),
-                projectRef: projectData, // Replace ref with resolved data
-                items: items, // Replace refs in items with resolved data
+                projectName: project ? project.projectName : 'General Use',
+                requestedByName: requester ? `${requester.firstName} ${requester.lastName}` : 'Unknown',
+                items: items,
             } as MaterialRequisition;
         }));
         return requisitions;

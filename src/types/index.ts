@@ -362,11 +362,11 @@ export interface MaterialRequisitionItem {
 export interface MaterialRequisition {
     id: string;
     mrfNumber: string;
-    projectRef: DocumentReference;
+    projectRef: DocumentReference | null;
+    projectName?: string;
     requestedByRef: DocumentReference;
+    requestedByName?: string;
     date: Timestamp;
     status: 'Pending' | 'Approved' | 'Rejected' | 'Fulfilled';
     items: MaterialRequisitionItem[];
 }
-
-    

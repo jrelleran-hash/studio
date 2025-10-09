@@ -6,6 +6,7 @@ import { useForm, useFieldArray, Controller } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
 import { PlusCircle, X, ChevronsUpDown, Check } from "lucide-react";
+import { format } from "date-fns";
 
 import { useData } from "@/context/data-context";
 import { useAuth } from "@/hooks/use-auth";
@@ -22,6 +23,7 @@ import { addMaterialRequisition } from "@/services/data-service";
 import { Skeleton } from "@/components/ui/skeleton";
 import { cn } from "@/lib/utils";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from "@/components/ui/dialog";
+import { Badge } from "@/components/ui/badge";
 
 const materialRequisitionItemSchema = z.object({
   productId: z.string().min(1, "Product is required."),
@@ -46,6 +48,13 @@ const createMaterialRequisitionSchema = (products: any[]) => z.object({
 });
 
 type MaterialRequisitionFormValues = z.infer<ReturnType<typeof createMaterialRequisitionSchema>>;
+
+const statusVariant: { [key: string]: "default" | "secondary" | "destructive" | "outline" } = {
+  Fulfilled: "default",
+  Pending: "secondary",
+  Rejected: "destructive",
+  Approved: "outline",
+};
 
 export default function ProductionPage() {
   const { clients, products, materialRequisitions, loading, refetchData } = useData();
@@ -114,6 +123,7 @@ export default function ProductionPage() {
                             <TableHead>MRF #</TableHead>
                             <TableHead>Project</TableHead>
                             <TableHead>Date</TableHead>
+                            <TableHead>Requested By</TableHead>
                             <TableHead>Status</TableHead>
                         </TableRow>
                     </TableHeader>
@@ -124,6 +134,7 @@ export default function ProductionPage() {
                                     <TableCell><Skeleton className="h-4 w-24" /></TableCell>
                                     <TableCell><Skeleton className="h-4 w-32" /></TableCell>
                                     <TableCell><Skeleton className="h-4 w-24" /></TableCell>
+                                    <TableCell><Skeleton className="h-4 w-24" /></TableCell>
                                     <TableCell><Skeleton className="h-6 w-20 rounded-full" /></TableCell>
                                 </TableRow>
                             ))
@@ -131,14 +142,15 @@ export default function ProductionPage() {
                             materialRequisitions.map(req => (
                                 <TableRow key={req.id}>
                                     <TableCell>{req.mrfNumber}</TableCell>
-                                    <TableCell>{req.projectRef?.id || 'General Use'}</TableCell>
-                                    <TableCell>{req.date.toDateString()}</TableCell>
-                                    <TableCell>{req.status}</TableCell>
+                                    <TableCell>{req.projectName || 'General Use'}</TableCell>
+                                    <TableCell>{format(req.date.toDate(), 'PP')}</TableCell>
+                                    <TableCell>{req.requestedByName}</TableCell>
+                                    <TableCell><Badge variant={statusVariant[req.status] || 'default'}>{req.status}</Badge></TableCell>
                                 </TableRow>
                             ))
                         ) : (
                              <TableRow>
-                                <TableCell colSpan={4} className="h-24 text-center">
+                                <TableCell colSpan={5} className="h-24 text-center">
                                     No material requisitions have been created yet.
                                 </TableCell>
                             </TableRow>
