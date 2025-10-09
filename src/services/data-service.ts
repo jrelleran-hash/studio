@@ -3,7 +3,7 @@
 import { db, storage, auth } from "@/lib/firebase";
 import { collection, getDocs, getDoc, doc, orderBy, query, limit, Timestamp, where, DocumentReference, addDoc, updateDoc, deleteDoc, arrayUnion, runTransaction, writeBatch, setDoc } from "firebase/firestore";
 import { EmailAuthProvider, reauthenticateWithCredential, updatePassword, createUserWithEmailAndPassword } from "firebase/auth";
-import type { Activity, Notification, Order, Product, Client, Issuance, Supplier, PurchaseOrder, Shipment, Return, ReturnItem, OutboundReturn, OutboundReturnItem, UserProfile, OrderItem, PurchaseOrderItem, IssuanceItem, Backorder, UserRole, PagePermission, ProductCategory, ProductLocation, Tool, ToolBorrowRecord, SalvagedPart, DisposalRecord, ToolMaintenanceRecord, ToolBookingRequest, Vehicle, Transaction, LaborEntry, Expense, MaterialRequisition } from "@/types";
+import type { Activity, Notification, Order, Product, Client, Issuance, Supplier, PurchaseOrder, Shipment, Return, ReturnItem, OutboundReturn, OutboundReturnItem, UserProfile, OrderItem, PurchaseOrderItem, IssuanceItem, Backorder, UserRole, PagePermission, ProductCategory, ProductLocation, Tool, ToolBorrowRecord, SalvagedPart, DisposalRecord, ToolMaintenanceRecord, ToolBookingRequest, Vehicle, Transaction, LaborEntry, Expense, MaterialRequisition, JobOrder } from "@/types";
 import { format, subDays, addDays } from 'date-fns';
 
 function timeSince(date: Date) {
@@ -751,12 +751,13 @@ export async function addIssuance(issuanceData: NewIssuanceData): Promise<Docume
       orderDoc = await transaction.get(orderRef);
     }
     
+    let mrfRef: DocumentReference | null = null;
     if (issuanceData.materialRequisitionId) {
-        const mrfRef = doc(db, "materialRequisitions", issuanceData.materialRequisitionId);
-        transaction.update(mrfRef, { status: 'Fulfilled' });
+        mrfRef = doc(db, "materialRequisitions", issuanceData.materialRequisitionId);
     }
 
     const backordersToCreate: any[] = [];
+    const jobOrderItems: any[] = [];
 
     for (let i = 0; i < issuanceData.items.length; i++) {
       const item = issuanceData.items[i];
@@ -765,6 +766,7 @@ export async function addIssuance(issuanceData: NewIssuanceData): Promise<Docume
       if (!productDoc?.exists()) throw new Error(`Product with ID ${item.productId} not found.`);
 
       const productData = productDoc.data() as Product;
+      jobOrderItems.push({ productRef: productDoc.ref, quantity: item.quantity });
 
       if (productData.stock < item.quantity) throw new Error(`Insufficient stock for ${productData.name}. Available: ${productData.stock}, Requested: ${item.quantity}`);
 
@@ -836,9 +838,27 @@ export async function addIssuance(issuanceData: NewIssuanceData): Promise<Docume
     if (issuanceData.orderId) {
       newIssuance.orderId = issuanceData.orderId;
     }
+    if (mrfRef) {
+        transaction.update(mrfRef, { status: 'Fulfilled' });
+    }
 
     const docRef = doc(collection(db, "issuances"));
     transaction.set(docRef, newIssuance);
+    
+    // Create Job Order if it's from an MRF
+    if (mrfRef) {
+        const jobOrderRef = doc(collection(db, "jobOrders"));
+        const newJobOrder = {
+            jobOrderNumber: `JO-${Date.now()}`,
+            materialRequisitionRef: mrfRef,
+            projectRef: (await transaction.get(mrfRef)).data()?.projectRef,
+            date: issuanceDate,
+            status: "Pending",
+            items: jobOrderItems,
+        };
+        transaction.set(jobOrderRef, newJobOrder);
+    }
+
 
     for (const productDoc of productDocs) {
       if (productDoc?.exists()) {
@@ -2912,4 +2932,31 @@ export async function addMaterialRequisition(data: NewMaterialRequisitionData): 
         
         transaction.set(requisitionRef, newRequisition);
     });
+}
+
+export async function getJobOrders(): Promise<JobOrder[]> {
+    try {
+        const jobsCol = collection(db, "jobOrders");
+        const q = query(jobsCol, orderBy("date", "desc"));
+        const snapshot = await getDocs(q);
+
+        const jobs: JobOrder[] = await Promise.all(snapshot.docs.map(async doc => {
+            const data = doc.data();
+            
+            const project = data.projectRef ? await resolveDoc<Client>(data.projectRef) : null;
+            const assignedTo = data.assignedToRef ? await resolveDoc<UserProfile>(data.assignedToRef) : null;
+
+            return {
+                id: doc.id,
+                ...data,
+                date: data.date,
+                projectName: project ? project.projectName : 'General Use',
+                assignedToName: assignedTo ? `${assignedTo.firstName} ${assignedTo.lastName}` : undefined,
+            } as JobOrder;
+        }));
+        return jobs;
+    } catch (error) {
+        console.error("Error fetching job orders:", error);
+        return [];
+    }
 }

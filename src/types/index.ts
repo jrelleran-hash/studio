@@ -370,3 +370,21 @@ export interface MaterialRequisition {
     status: 'Pending' | 'Approved' | 'Rejected' | 'Fulfilled';
     items: MaterialRequisitionItem[];
 }
+
+export interface JobOrderItem {
+    productRef: DocumentReference;
+    quantity: number;
+}
+
+export interface JobOrder {
+    id: string;
+    jobOrderNumber: string;
+    materialRequisitionRef: DocumentReference;
+    projectRef: DocumentReference | null;
+    projectName?: string;
+    assignedToRef?: DocumentReference;
+    assignedToName?: string;
+    date: Timestamp;
+    status: 'Pending' | 'In Progress' | 'Completed' | 'QC Passed' | 'Dispatched';
+    items: JobOrderItem[];
+}
