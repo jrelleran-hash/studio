@@ -757,7 +757,7 @@ export async function addIssuance(issuanceData: NewIssuanceData): Promise<Docume
     }
 
     const backordersToCreate: any[] = [];
-    const jobOrderItems: Omit<JobOrderItem, 'productRef'>[] = [];
+    const jobOrderItems: JobOrderItem[] = [];
 
     for (let i = 0; i < issuanceData.items.length; i++) {
       const item = issuanceData.items[i];
@@ -2951,6 +2951,12 @@ export async function getJobOrders(): Promise<JobOrder[]> {
             
             const project = data.projectRef ? await resolveDoc<Client>(data.projectRef) : null;
             const assignedTo = data.assignedToRef ? await resolveDoc<UserProfile>(data.assignedToRef) : null;
+            
+             const items = await Promise.all((data.items || []).map(async (item: any) => {
+                const productDoc = await getDoc(item.productRef);
+                const productData = productDoc.exists() ? {id: productDoc.id, ...productDoc.data()} : null;
+                return { ...item, productRef: { ...productData } };
+            }));
 
             return {
                 id: doc.id,
@@ -2958,6 +2964,7 @@ export async function getJobOrders(): Promise<JobOrder[]> {
                 date: data.date,
                 projectName: project ? project.projectName : 'General Use',
                 assignedToName: assignedTo ? `${assignedTo.firstName} ${assignedTo.lastName}` : undefined,
+                items,
             } as JobOrder;
         }));
         return jobs;
