@@ -1,7 +1,7 @@
 
 "use client";
 
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { useForm, useFieldArray, Controller } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
@@ -27,12 +27,24 @@ const materialRequisitionItemSchema = z.object({
   quantity: z.coerce.number().min(1, "Quantity must be at least 1."),
 });
 
-const materialRequisitionSchema = z.object({
+const createMaterialRequisitionSchema = (products: any[]) => z.object({
   projectId: z.string().min(1, "A project must be selected."),
-  items: z.array(materialRequisitionItemSchema).min(1, "At least one material is required."),
+  items: z.array(materialRequisitionItemSchema).min(1, "At least one material is required.")
+    .superRefine((items, ctx) => {
+        items.forEach((item, index) => {
+            const product = products.find(p => p.id === item.productId);
+            if (product && product.stock < item.quantity) {
+                ctx.addIssue({
+                    path: [`${index}.quantity`],
+                    message: `Stock insufficient. Only ${product.stock} available.`,
+                    code: z.ZodIssueCode.custom
+                });
+            }
+        });
+    }),
 });
 
-type MaterialRequisitionFormValues = z.infer<typeof materialRequisitionSchema>;
+type MaterialRequisitionFormValues = z.infer<ReturnType<typeof createMaterialRequisitionSchema>>;
 
 export default function ProductionPage() {
   const { clients, products, materialRequisitions, loading, refetchData } = useData();
@@ -41,11 +53,14 @@ export default function ProductionPage() {
   
   const [productPopovers, setProductPopovers] = useState<Record<number, boolean>>({});
 
+  const materialRequisitionSchema = useMemo(() => createMaterialRequisitionSchema(products), [products]);
+
   const form = useForm<MaterialRequisitionFormValues>({
     resolver: zodResolver(materialRequisitionSchema),
     defaultValues: {
       items: [{ productId: "", quantity: 1 }],
     },
+    mode: "onChange",
   });
 
   const { control, handleSubmit } = form;
@@ -111,8 +126,8 @@ export default function ProductionPage() {
                 <Label>Materials</Label>
                 <div className="space-y-3">
                   {fields.map((field, index) => (
-                    <div key={field.id} className="flex items-start gap-2">
-                       <div className="flex-grow">
+                    <div key={field.id} className="grid grid-cols-[1fr_auto_auto] items-start gap-2">
+                       <div className="flex flex-col gap-1">
                         <Controller
                             control={form.control}
                             name={`items.${index}.productId`}
@@ -160,13 +175,16 @@ export default function ProductionPage() {
                             )}
                         />
                        </div>
-                       <Input
-                            type="number"
-                            placeholder="Qty"
-                            className="w-24"
-                            {...form.register(`items.${index}.quantity`)}
-                        />
-                         <Button variant="ghost" size="icon" className="shrink-0" onClick={() => remove(index)}>
+                       <div className="flex flex-col gap-1">
+                            <Input
+                                type="number"
+                                placeholder="Qty"
+                                className="w-24"
+                                {...form.register(`items.${index}.quantity`)}
+                            />
+                             {form.formState.errors.items?.[index]?.quantity && <p className="text-xs text-destructive">{form.formState.errors.items?.[index]?.quantity?.message}</p>}
+                       </div>
+                         <Button variant="ghost" size="icon" className="shrink-0 mt-1" onClick={() => remove(index)}>
                             <X className="h-4 w-4" />
                         </Button>
                     </div>
@@ -175,11 +193,11 @@ export default function ProductionPage() {
                 <Button type="button" variant="outline" size="sm" onClick={() => append({ productId: "", quantity: 1 })}>
                   <PlusCircle className="mr-2 h-4 w-4" /> Add Material
                 </Button>
-                 {form.formState.errors.items && <p className="text-sm text-destructive">{typeof form.formState.errors.items === 'object' && 'message' in form.formState.errors.items ? form.formState.errors.items.message : 'An error occurred with the items.'}</p>}
+                 {form.formState.errors.items && !Array.isArray(form.formState.errors.items) && <p className="text-sm text-destructive">{form.formState.errors.items.message}</p>}
               </div>
 
               <div className="pt-2">
-                <Button type="submit" className="w-full" disabled={form.formState.isSubmitting}>
+                <Button type="submit" className="w-full" disabled={form.formState.isSubmitting || !form.formState.isValid}>
                     {form.formState.isSubmitting ? "Submitting..." : "Submit Material Requisition"}
                 </Button>
               </div>
