@@ -24,8 +24,6 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { cn } from "@/lib/utils";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from "@/components/ui/dialog";
 import { Badge } from "@/components/ui/badge";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import type { JobOrder } from "@/types";
 
 const materialRequisitionItemSchema = z.object({
   productId: z.string().min(1, "Product is required."),
@@ -58,16 +56,8 @@ const mrfStatusVariant: { [key: string]: "default" | "secondary" | "destructive"
   Approved: "outline",
 };
 
-const jobStatusVariant: { [key: string]: "default" | "secondary" | "destructive" | "outline" } = {
-  Pending: "secondary",
-  "In Progress": "outline",
-  Completed: "default",
-  "QC Passed": "default",
-  Dispatched: "default",
-};
-
 export default function ProductionPage() {
-  const { clients, products, materialRequisitions, jobOrders, loading, refetchData } = useData();
+  const { clients, products, materialRequisitions, loading, refetchData } = useData();
   const { userProfile } = useAuth();
   const { toast } = useToast();
   
@@ -110,94 +100,148 @@ export default function ProductionPage() {
 
   return (
     <div className="space-y-6">
-       <div>
-        <h1 className="text-2xl font-bold font-headline tracking-tight">Production Management</h1>
-        <p className="text-muted-foreground">Create material requisitions and manage production workflows.</p>
+       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+        <div>
+            <h1 className="text-2xl font-bold font-headline tracking-tight">Material Requisitions</h1>
+            <p className="text-muted-foreground">Request materials from the warehouse for a specific project.</p>
+        </div>
+        <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
+            <DialogTrigger asChild>
+                <Button size="sm" className="w-full sm:w-auto"><PlusCircle className="mr-2 h-4 w-4" /> New Requisition</Button>
+            </DialogTrigger>
+             <DialogContent className="sm:max-w-2xl">
+                <DialogHeader>
+                    <DialogTitle>New Material Requisition</DialogTitle>
+                    <DialogDescription>Request materials from the warehouse for a specific project.</DialogDescription>
+                </DialogHeader>
+                <form onSubmit={handleSubmit(onSubmit)} className="space-y-4 pt-4">
+                <div className="space-y-2">
+                    <Label>Project</Label>
+                    <Controller
+                    name="projectId"
+                    control={control}
+                    render={({ field }) => (
+                        <Select onValueChange={field.onChange} value={field.value}>
+                        <SelectTrigger>
+                            <SelectValue placeholder="Select a project" />
+                        </SelectTrigger>
+                        <SelectContent>
+                            <SelectItem value="general-use">General Use</SelectItem>
+                            {clients.map(c => (
+                            <SelectItem key={c.id} value={c.id}>{c.projectName} ({c.clientName})</SelectItem>
+                            ))}
+                        </SelectContent>
+                        </Select>
+                    )}
+                    />
+                    {form.formState.errors.projectId && <p className="text-sm text-destructive">{form.formState.errors.projectId.message}</p>}
+                </div>
+
+                <div className="space-y-2">
+                    <Label>Materials</Label>
+                    <div className="space-y-3">
+                    {fields.map((field, index) => (
+                        <div key={field.id} className="grid grid-cols-[1fr_auto_auto] items-start gap-2">
+                        <div className="flex flex-col gap-1">
+                            <Controller
+                                control={form.control}
+                                name={`items.${index}.productId`}
+                                render={({ field: controllerField }) => (
+                                    <Popover open={productPopovers[index]} onOpenChange={(open) => setProductPopovers(prev => ({...prev, [index]: open}))}>
+                                        <PopoverTrigger asChild>
+                                            <Button
+                                                variant="outline"
+                                                role="combobox"
+                                                className={cn("w-full justify-between font-normal", !controllerField.value && "text-muted-foreground")}
+                                            >
+                                                {controllerField.value ? products.find(p => p.id === controllerField.value)?.name : "Select material"}
+                                                <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                                            </Button>
+                                        </PopoverTrigger>
+                                        <PopoverContent className="w-[--radix-popover-trigger-width] p-0">
+                                            <Command>
+                                                <CommandInput placeholder="Search material..." />
+                                                <CommandEmpty>No materials found.</CommandEmpty>
+                                                <CommandList>
+                                                    <CommandGroup>
+                                                        {products.map(p => (
+                                                            <CommandItem
+                                                                key={p.id}
+                                                                value={p.name}
+                                                                onSelect={() => {
+                                                                    controllerField.onChange(p.id)
+                                                                    setProductPopovers(prev => ({...prev, [index]: false}));
+                                                                }}
+                                                            >
+                                                                <div className="flex items-center justify-between w-full">
+                                                                    <div className="flex items-center">
+                                                                        <Check className={cn("mr-2 h-4 w-4", controllerField.value === p.id ? "opacity-100" : "opacity-0")} />
+                                                                        {p.name}
+                                                                    </div>
+                                                                    <span className="ml-auto text-xs text-muted-foreground">Stock: {p.stock}</span>
+                                                                </div>
+                                                            </CommandItem>
+                                                        ))}
+                                                    </CommandGroup>
+                                                </CommandList>
+                                            </Command>
+                                        </PopoverContent>
+                                    </Popover>
+                                )}
+                            />
+                        </div>
+                        <div className="flex flex-col gap-1">
+                                <Input
+                                    type="number"
+                                    placeholder="Qty"
+                                    className="w-24"
+                                    {...form.register(`items.${index}.quantity`)}
+                                />
+                                {form.formState.errors.items?.[index]?.quantity && <p className="text-xs text-destructive">{form.formState.errors.items?.[index]?.quantity?.message}</p>}
+                        </div>
+                            <Button variant="ghost" size="icon" className="shrink-0 mt-1" onClick={() => remove(index)}>
+                                <X className="h-4 w-4" />
+                            </Button>
+                        </div>
+                    ))}
+                    </div>
+                    <Button type="button" variant="outline" size="sm" onClick={() => append({ productId: "", quantity: 1 })}>
+                    <PlusCircle className="mr-2 h-4 w-4" /> Add Material
+                    </Button>
+                    {form.formState.errors.items && !Array.isArray(form.formState.errors.items) && <p className="text-sm text-destructive">{form.formState.errors.items.message}</p>}
+                </div>
+                <DialogFooter className="pt-4">
+                <Button type="button" variant="outline" onClick={() => setIsDialogOpen(false)}>Cancel</Button>
+                <Button type="submit" className="w-full sm:w-auto" disabled={form.formState.isSubmitting || !isValid}>
+                        {form.formState.isSubmitting ? "Submitting..." : "Submit Material Requisition"}
+                </Button>
+                </DialogFooter>
+                </form>
+            </DialogContent>
+        </Dialog>
       </div>
 
-      <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
-         <Tabs defaultValue="requisitions">
-            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-4">
-              <TabsList>
-                <TabsTrigger value="requisitions">Material Requisitions</TabsTrigger>
-                <TabsTrigger value="fabrication">Fabrication Jobs</TabsTrigger>
-              </TabsList>
-              <DialogTrigger asChild>
-                  <Button size="sm" className="w-full sm:w-auto"><PlusCircle className="mr-2 h-4 w-4" /> New Requisition</Button>
-              </DialogTrigger>
-            </div>
-            <TabsContent value="requisitions">
-                <Card>
-                    <CardHeader>
-                        <div>
-                            <CardTitle>Recent Requisitions</CardTitle>
-                            <CardDescription>A log of the most recent material requests.</CardDescription>
-                        </div>
-                    </CardHeader>
-                    <CardContent>
-                        <Table>
-                            <TableHeader>
-                                <TableRow>
-                                    <TableHead>MRF #</TableHead>
-                                    <TableHead>Project</TableHead>
-                                    <TableHead>Date</TableHead>
-                                    <TableHead>Requested By</TableHead>
-                                    <TableHead>Status</TableHead>
-                                </TableRow>
-                            </TableHeader>
-                            <TableBody>
-                                {loading ? (
-                                    Array.from({ length: 5 }).map((_, i) => (
-                                        <TableRow key={i}>
-                                            <TableCell><Skeleton className="h-4 w-24" /></TableCell>
-                                            <TableCell><Skeleton className="h-4 w-32" /></TableCell>
-                                            <TableCell><Skeleton className="h-4 w-24" /></TableCell>
-                                            <TableCell><Skeleton className="h-4 w-24" /></TableCell>
-                                            <TableCell><Skeleton className="h-6 w-20 rounded-full" /></TableCell>
-                                        </TableRow>
-                                    ))
-                                ) : materialRequisitions.length > 0 ? (
-                                    materialRequisitions.map(req => (
-                                        <TableRow key={req.id}>
-                                            <TableCell>{req.mrfNumber}</TableCell>
-                                            <TableCell>{req.projectName || 'General Use'}</TableCell>
-                                            <TableCell>{format(req.date.toDate(), 'PP')}</TableCell>
-                                            <TableCell>{req.requestedByName}</TableCell>
-                                            <TableCell><Badge variant={mrfStatusVariant[req.status] || 'default'}>{req.status}</Badge></TableCell>
-                                        </TableRow>
-                                    ))
-                                ) : (
-                                    <TableRow>
-                                        <TableCell colSpan={5} className="h-24 text-center">
-                                            No material requisitions have been created yet.
-                                        </TableCell>
-                                    </TableRow>
-                                )}
-                            </TableBody>
-                        </Table>
-                    </CardContent>
-                </Card>
-            </TabsContent>
-             <TabsContent value="fabrication">
-              <Card>
-                <CardHeader>
-                  <CardTitle>Fabrication Jobs</CardTitle>
-                  <CardDescription>A log of all ongoing and pending fabrication jobs.</CardDescription>
-                </CardHeader>
-                <CardContent>
-                  <Table>
+       <Card>
+            <CardHeader>
+                <div>
+                    <CardTitle>Recent Requisitions</CardTitle>
+                    <CardDescription>A log of the most recent material requests.</CardDescription>
+                </div>
+            </CardHeader>
+            <CardContent>
+                <Table>
                     <TableHeader>
-                      <TableRow>
-                        <TableHead>Job Order #</TableHead>
-                        <TableHead>Project</TableHead>
-                        <TableHead>Assigned To</TableHead>
-                        <TableHead>Date</TableHead>
-                        <TableHead>Status</TableHead>
-                      </TableRow>
+                        <TableRow>
+                            <TableHead>MRF #</TableHead>
+                            <TableHead>Project</TableHead>
+                            <TableHead>Date</TableHead>
+                            <TableHead>Requested By</TableHead>
+                            <TableHead>Status</TableHead>
+                        </TableRow>
                     </TableHeader>
                     <TableBody>
                         {loading ? (
-                             Array.from({ length: 5 }).map((_, i) => (
+                            Array.from({ length: 5 }).map((_, i) => (
                                 <TableRow key={i}>
                                     <TableCell><Skeleton className="h-4 w-24" /></TableCell>
                                     <TableCell><Skeleton className="h-4 w-32" /></TableCell>
@@ -206,140 +250,30 @@ export default function ProductionPage() {
                                     <TableCell><Skeleton className="h-6 w-20 rounded-full" /></TableCell>
                                 </TableRow>
                             ))
-                        ) : jobOrders.length > 0 ? (
-                            jobOrders.map(job => (
-                                <TableRow key={job.id}>
-                                    <TableCell>{job.jobOrderNumber}</TableCell>
-                                    <TableCell>{job.projectName}</TableCell>
-                                    <TableCell>{job.assignedToName || 'Unassigned'}</TableCell>
-                                    <TableCell>{format(job.date.toDate(), 'PP')}</TableCell>
-                                    <TableCell><Badge variant={jobStatusVariant[job.status] || 'default'}>{job.status}</Badge></TableCell>
+                        ) : materialRequisitions.length > 0 ? (
+                            materialRequisitions.map(req => (
+                                <TableRow key={req.id}>
+                                    <TableCell>{req.mrfNumber}</TableCell>
+                                    <TableCell>{req.projectName || 'General Use'}</TableCell>
+                                    <TableCell>{format(req.date.toDate(), 'PP')}</TableCell>
+                                    <TableCell>{req.requestedByName}</TableCell>
+                                    <TableCell><Badge variant={mrfStatusVariant[req.status] || 'default'}>{req.status}</Badge></TableCell>
                                 </TableRow>
                             ))
                         ) : (
-                             <TableRow>
+                            <TableRow>
                                 <TableCell colSpan={5} className="h-24 text-center">
-                                    No fabrication jobs found.
+                                    No material requisitions have been created yet.
                                 </TableCell>
                             </TableRow>
                         )}
                     </TableBody>
-                  </Table>
-                </CardContent>
-              </Card>
-            </TabsContent>
-         </Tabs>
-        <DialogContent className="sm:max-w-2xl">
-          <DialogHeader>
-            <DialogTitle>New Material Requisition</DialogTitle>
-            <DialogDescription>Request materials from the warehouse for a specific project.</DialogDescription>
-          </DialogHeader>
-            <form onSubmit={handleSubmit(onSubmit)} className="space-y-4 pt-4">
-              <div className="space-y-2">
-                <Label>Project</Label>
-                <Controller
-                  name="projectId"
-                  control={control}
-                  render={({ field }) => (
-                    <Select onValueChange={field.onChange} value={field.value}>
-                      <SelectTrigger>
-                        <SelectValue placeholder="Select a project" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="general-use">General Use</SelectItem>
-                        {clients.map(c => (
-                          <SelectItem key={c.id} value={c.id}>{c.projectName} ({c.clientName})</SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  )}
-                />
-                 {form.formState.errors.projectId && <p className="text-sm text-destructive">{form.formState.errors.projectId.message}</p>}
-              </div>
-
-              <div className="space-y-2">
-                <Label>Materials</Label>
-                <div className="space-y-3">
-                  {fields.map((field, index) => (
-                    <div key={field.id} className="grid grid-cols-[1fr_auto_auto] items-start gap-2">
-                       <div className="flex flex-col gap-1">
-                        <Controller
-                            control={form.control}
-                            name={`items.${index}.productId`}
-                            render={({ field: controllerField }) => (
-                                <Popover open={productPopovers[index]} onOpenChange={(open) => setProductPopovers(prev => ({...prev, [index]: open}))}>
-                                    <PopoverTrigger asChild>
-                                        <Button
-                                            variant="outline"
-                                            role="combobox"
-                                            className={cn("w-full justify-between font-normal", !controllerField.value && "text-muted-foreground")}
-                                        >
-                                            {controllerField.value ? products.find(p => p.id === controllerField.value)?.name : "Select material"}
-                                            <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
-                                        </Button>
-                                    </PopoverTrigger>
-                                    <PopoverContent className="w-[--radix-popover-trigger-width] p-0">
-                                        <Command>
-                                            <CommandInput placeholder="Search material..." />
-                                            <CommandEmpty>No materials found.</CommandEmpty>
-                                            <CommandList>
-                                                <CommandGroup>
-                                                    {products.map(p => (
-                                                        <CommandItem
-                                                            key={p.id}
-                                                            value={p.name}
-                                                            onSelect={() => {
-                                                                controllerField.onChange(p.id)
-                                                                setProductPopovers(prev => ({...prev, [index]: false}));
-                                                            }}
-                                                        >
-                                                             <div className="flex items-center justify-between w-full">
-                                                                <div className="flex items-center">
-                                                                    <Check className={cn("mr-2 h-4 w-4", controllerField.value === p.id ? "opacity-100" : "opacity-0")} />
-                                                                    {p.name}
-                                                                </div>
-                                                                <span className="ml-auto text-xs text-muted-foreground">Stock: {p.stock}</span>
-                                                            </div>
-                                                        </CommandItem>
-                                                    ))}
-                                                </CommandGroup>
-                                            </CommandList>
-                                        </Command>
-                                    </PopoverContent>
-                                </Popover>
-                            )}
-                        />
-                       </div>
-                       <div className="flex flex-col gap-1">
-                            <Input
-                                type="number"
-                                placeholder="Qty"
-                                className="w-24"
-                                {...form.register(`items.${index}.quantity`)}
-                            />
-                             {form.formState.errors.items?.[index]?.quantity && <p className="text-xs text-destructive">{form.formState.errors.items?.[index]?.quantity?.message}</p>}
-                       </div>
-                         <Button variant="ghost" size="icon" className="shrink-0 mt-1" onClick={() => remove(index)}>
-                            <X className="h-4 w-4" />
-                        </Button>
-                    </div>
-                  ))}
-                </div>
-                <Button type="button" variant="outline" size="sm" onClick={() => append({ productId: "", quantity: 1 })}>
-                  <PlusCircle className="mr-2 h-4 w-4" /> Add Material
-                </Button>
-                 {form.formState.errors.items && !Array.isArray(form.formState.errors.items) && <p className="text-sm text-destructive">{form.formState.errors.items.message}</p>}
-              </div>
-            <DialogFooter className="pt-4">
-              <Button type="button" variant="outline" onClick={() => setIsDialogOpen(false)}>Cancel</Button>
-              <Button type="submit" className="w-full sm:w-auto" disabled={form.formState.isSubmitting || !isValid}>
-                    {form.formState.isSubmitting ? "Submitting..." : "Submit Material Requisition"}
-              </Button>
-            </DialogFooter>
-            </form>
-        </DialogContent>
-      </Dialog>
+                </Table>
+            </CardContent>
+        </Card>
     </div>
   );
 }
+    
+
     

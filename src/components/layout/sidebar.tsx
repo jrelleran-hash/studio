@@ -28,6 +28,7 @@ import {
   BookCopy,
   Landmark,
   Clock,
+  Hammer,
 } from "lucide-react";
 import { CoreFlowLogo } from "@/components/icons";
 import { cn } from "@/lib/utils";
@@ -75,7 +76,8 @@ const warehouseNavItems = [
 ];
 
 const productionNavItems = [
-    { href: "/production", label: "Production", icon: Factory },
+    { href: "/production", label: "Material Requisitions", icon: Factory },
+    { href: "/fabrication", label: "Fabrication Jobs", icon: Hammer },
 ]
 
 const assuranceNavItems = [
@@ -96,6 +98,7 @@ export const navItemsPermissions = [
   ...assuranceNavItems,
   ...hrNavItems,
   { href: "/settings", label: "Settings", icon: Settings },
+  { href: "/fabrication", label: "Fabrication Jobs", icon: Hammer },
 ] as const;
 
 
