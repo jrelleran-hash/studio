@@ -3,7 +3,7 @@
 
 import { useState, useMemo, useEffect } from "react";
 import { format } from "date-fns";
-import { useForm, useFieldArray, Controller } from "react-hook-form";
+import { useForm, Controller } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
 
@@ -16,9 +16,10 @@ import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
-import type { Return, PurchaseOrder } from "@/types";
-import { completeInspection, completePOInspection } from "@/services/data-service";
+import type { Return, PurchaseOrder, JobOrder, JobOrderItem } from "@/types";
+import { completeInspection, completePOInspection, updateJobOrderItemStatus } from "@/services/data-service";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
 
@@ -77,12 +78,18 @@ const poInspectionSchema = z.object({
 
 type POInspectionFormValues = z.infer<typeof poInspectionSchema>;
 
+const jobItemInspectionSchema = z.object({
+    qcNotes: z.string().optional(),
+});
+type JobItemInspectionFormValues = z.infer<typeof jobItemInspectionSchema>;
+
 
 export default function QualityControlPage() {
-  const { returns, purchaseOrders, loading, refetchData } = useData();
+  const { returns, purchaseOrders, jobOrders, loading, refetchData } = useData();
   const { toast } = useToast();
   const [selectedReturn, setSelectedReturn] = useState<Return | null>(null);
   const [selectedPO, setSelectedPO] = useState<PurchaseOrder | null>(null);
+  const [selectedJobItem, setSelectedJobItem] = useState<{ job: JobOrder, item: JobOrderItem} | null>(null);
 
   const returnsAwaitingInspection = useMemo(() => {
     return returns.filter(r => r.status === "Received");
@@ -92,10 +99,18 @@ export default function QualityControlPage() {
     return purchaseOrders.filter(po => po.status === "Delivered");
   }, [purchaseOrders]);
   
+  const jobsAwaitingInspection = useMemo(() => {
+    return jobOrders.flatMap(job => 
+        job.items
+            .filter(item => item.status === 'Completed')
+            .map(item => ({ job, item }))
+    );
+  }, [jobOrders]);
+  
   const returnForm = useForm<ReturnInspectionFormValues>({
     resolver: zodResolver(returnInspectionSchema),
   });
-
+  
   const { fields: returnFields, control: returnControl } = useFieldArray({
     control: returnForm.control,
     name: "items",
@@ -108,6 +123,10 @@ export default function QualityControlPage() {
   const { fields: poFields, control: poControl } = useFieldArray({
       control: poForm.control,
       name: "items",
+  });
+  
+  const jobItemInspectionForm = useForm<JobItemInspectionFormValues>({
+    resolver: zodResolver(jobItemInspectionSchema),
   });
 
   useEffect(() => {
@@ -142,6 +161,12 @@ export default function QualityControlPage() {
       poForm.reset({ items: [] });
     }
   }, [selectedPO, poForm]);
+  
+   useEffect(() => {
+    if (selectedJobItem) {
+      jobItemInspectionForm.reset({ qcNotes: '' });
+    }
+  }, [selectedJobItem, jobItemInspectionForm]);
 
 
   const onSubmitReturnInspection = async (data: ReturnInspectionFormValues) => {
@@ -170,6 +195,20 @@ export default function QualityControlPage() {
           toast({ variant: "destructive", title: "Error", description: errorMessage });
       }
   };
+  
+  const onJobItemInspectionSubmit = async (newStatus: 'QC Passed' | 'Rework Needed', data: JobItemInspectionFormValues) => {
+    if (!selectedJobItem) return;
+    try {
+        await updateJobOrderItemStatus(selectedJobItem.job.id, selectedJobItem.item.id, newStatus, data.qcNotes);
+        toast({ title: "Success", description: `Item status updated to ${newStatus}.`});
+        await refetchData();
+        setSelectedJobItem(null);
+    } catch (error) {
+        const errorMessage = error instanceof Error ? error.message : "Failed to update item status.";
+        toast({ variant: "destructive", title: "Error", description: errorMessage });
+    }
+  };
+
 
   const formatDate = (date?: Date) => {
     if (!date) return 'N/A';
@@ -186,9 +225,60 @@ export default function QualityControlPage() {
 
         <Tabs defaultValue="po-arrivals">
           <TabsList>
+            <TabsTrigger value="fabrication-output">Fabrication Output</TabsTrigger>
             <TabsTrigger value="po-arrivals">Purchase Order Arrivals</TabsTrigger>
             <TabsTrigger value="customer-returns">Customer Returns</TabsTrigger>
           </TabsList>
+          <TabsContent value="fabrication-output">
+            <Card>
+                <CardHeader>
+                    <CardTitle>Fabrication QC Queue</CardTitle>
+                    <CardDescription>Inspect items that have completed the fabrication process.</CardDescription>
+                </CardHeader>
+                 <CardContent>
+                    <Table>
+                        <TableHeader>
+                            <TableRow>
+                                <TableHead>Item</TableHead>
+                                <TableHead>Job Order #</TableHead>
+                                <TableHead>Project</TableHead>
+                                <TableHead>Date Completed</TableHead>
+                                <TableHead className="text-right">Actions</TableHead>
+                            </TableRow>
+                        </TableHeader>
+                        <TableBody>
+                            {loading ? (
+                                Array.from({ length: 5 }).map((_, i) => (
+                                    <TableRow key={i}>
+                                        <TableCell><Skeleton className="h-4 w-32" /></TableCell>
+                                        <TableCell><Skeleton className="h-4 w-24" /></TableCell>
+                                        <TableCell><Skeleton className="h-4 w-32" /></TableCell>
+                                        <TableCell><Skeleton className="h-4 w-24" /></TableCell>
+                                        <TableCell className="text-right"><Skeleton className="h-8 w-20" /></TableCell>
+                                    </TableRow>
+                                ))
+                            ) : jobsAwaitingInspection.length > 0 ? (
+                                jobsAwaitingInspection.map(({ job, item }) => (
+                                    <TableRow key={item.id}>
+                                        <TableCell className="font-medium">{(item.productRef as any)?.name || 'N/A'}</TableCell>
+                                        <TableCell>{job.jobOrderNumber}</TableCell>
+                                        <TableCell>{job.projectName}</TableCell>
+                                        <TableCell>N/A</TableCell> {/* Placeholder for completion date */}
+                                        <TableCell className="text-right">
+                                            <Button variant="outline" size="sm" onClick={() => setSelectedJobItem({job, item})}>Inspect</Button>
+                                        </TableCell>
+                                    </TableRow>
+                                ))
+                            ) : (
+                                 <TableRow>
+                                    <TableCell colSpan={5} className="h-24 text-center">No fabricated items are currently awaiting inspection.</TableCell>
+                                </TableRow>
+                            )}
+                        </TableBody>
+                    </Table>
+                </CardContent>
+            </Card>
+          </TabsContent>
           <TabsContent value="po-arrivals">
             <Card>
                 <CardHeader>
@@ -404,6 +494,44 @@ export default function QualityControlPage() {
               </DialogFooter>
             </form>
           </DialogContent>
+        </Dialog>
+      )}
+      
+      {selectedJobItem && (
+        <Dialog open={!!selectedJobItem} onOpenChange={(open) => !open && setSelectedJobItem(null)}>
+            <DialogContent>
+                <DialogHeader>
+                    <DialogTitle>QC for {(selectedJobItem.item.productRef as any)?.name}</DialogTitle>
+                    <DialogDescription>
+                        From Job Order {selectedJobItem.job.jobOrderNumber}
+                    </DialogDescription>
+                </DialogHeader>
+                <form onSubmit={jobItemInspectionForm.handleSubmit((data) => onJobItemInspectionSubmit('QC Passed', data))} className="space-y-4">
+                    <div className="space-y-2">
+                        <Label>QC Checklist</Label>
+                        <div className="space-y-2 rounded-md border p-4">
+                           {['Dimension', 'Finish', 'Color', 'Hardware Fitment'].map(check => (
+                               <div key={check} className="flex items-center gap-2">
+                                   <input type="checkbox" id={check} defaultChecked />
+                                   <Label htmlFor={check}>{check}</Label>
+                               </div>
+                           ))}
+                        </div>
+                    </div>
+                     <div className="space-y-2">
+                        <Label htmlFor="qcNotes">QC Notes (Optional)</Label>
+                        <Textarea id="qcNotes" {...jobItemInspectionForm.register("qcNotes")} placeholder="Log any observations..."/>
+                    </div>
+                    <DialogFooter>
+                        <Button type="button" variant="destructive" onClick={jobItemInspectionForm.handleSubmit((data) => onJobItemInspectionSubmit('Rework Needed', data))}>
+                            Fail & Rework
+                        </Button>
+                        <Button type="submit">
+                            Pass
+                        </Button>
+                    </DialogFooter>
+                </form>
+            </DialogContent>
         </Dialog>
       )}
     </>

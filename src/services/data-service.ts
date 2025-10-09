@@ -757,7 +757,7 @@ export async function addIssuance(issuanceData: NewIssuanceData): Promise<Docume
     }
 
     const backordersToCreate: any[] = [];
-    const jobOrderItems: JobOrderItem[] = [];
+    const jobOrderItems: Omit<JobOrderItem, 'id'>[] = [];
 
     for (let i = 0; i < issuanceData.items.length; i++) {
       const item = issuanceData.items[i];
@@ -768,7 +768,6 @@ export async function addIssuance(issuanceData: NewIssuanceData): Promise<Docume
       const productData = productDoc.data() as Product;
       
       jobOrderItems.push({ 
-        id: `${Date.now()}-${i}`,
         productRef: productDoc.ref, 
         quantity: item.quantity,
         status: 'Pending'
@@ -860,7 +859,7 @@ export async function addIssuance(issuanceData: NewIssuanceData): Promise<Docume
             projectRef: (await transaction.get(mrfRef)).data()?.projectRef,
             date: issuanceDate,
             status: "Pending",
-            items: jobOrderItems,
+            items: jobOrderItems.map(item => ({...item, id: `${Date.now()}-${Math.random()}`})),
         };
         transaction.set(jobOrderRef, newJobOrder);
     }
@@ -2973,3 +2972,30 @@ export async function getJobOrders(): Promise<JobOrder[]> {
         return [];
     }
 }
+
+export async function updateJobOrderItemStatus(jobOrderId: string, itemId: string, newStatus: JobOrderItem['status'], qcNotes?: string): Promise<void> {
+    const jobOrderRef = doc(db, "jobOrders", jobOrderId);
+    await runTransaction(db, async (transaction) => {
+        const jobOrderDoc = await transaction.get(jobOrderRef);
+        if (!jobOrderDoc.exists()) throw new Error("Job Order not found.");
+
+        const jobOrderData = jobOrderDoc.data() as JobOrder;
+        const items = jobOrderData.items;
+        
+        const itemIndex = items.findIndex(i => i.id === itemId);
+        if (itemIndex === -1) throw new Error("Job order item not found.");
+        
+        items[itemIndex].status = newStatus;
+        if (qcNotes) {
+            items[itemIndex].qcNotes = qcNotes;
+        }
+
+        // Optionally, update the overall job order status
+        const allItemsCompleted = items.every(i => i.status === 'QC Passed' || i.status === 'Dispatched');
+        const newJobStatus = allItemsCompleted ? 'Completed' : jobOrderData.status;
+
+        transaction.update(jobOrderRef, { items: items, status: newJobStatus });
+    });
+}
+
+    

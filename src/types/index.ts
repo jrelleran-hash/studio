@@ -374,7 +374,8 @@ export interface JobOrderItem {
     id: string;
     productRef: DocumentReference;
     quantity: number;
-    status: 'Pending' | 'In Progress' | 'Completed' | 'QC Passed' | 'Dispatched';
+    status: 'Pending' | 'In Progress' | 'Completed' | 'QC Passed' | 'Rework Needed' | 'Dispatched';
+    qcNotes?: string;
 }
 
 export interface JobOrder {
@@ -389,3 +390,5 @@ export interface JobOrder {
     status: 'Pending' | 'In Progress' | 'Completed' | 'QC Passed' | 'Dispatched';
     items: JobOrderItem[];
 }
+
+    
