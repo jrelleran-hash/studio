@@ -215,7 +215,7 @@ export default function DashboardPage() {
     <>
       <div className="flex flex-col gap-6">
         <WelcomeCard />
-        <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-4">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 auto-rows-fr gap-6">
           <KpiCard
             title={revenueTitle}
             value={totalRevenue}
