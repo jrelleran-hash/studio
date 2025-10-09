@@ -1,3 +1,4 @@
+
 "use client";
 
 import Link from "next/link";
@@ -52,7 +53,6 @@ const accountingNavItems = [
 ]
 
 const hrNavItems = [
-    { href: "/daily-labor", label: "Daily Labor", icon: Clock },
 ]
 
 const logisticsNavItems = [
@@ -78,6 +78,7 @@ const warehouseNavItems = [
 const productionNavItems = [
     { href: "/production", label: "Material Requisitions", icon: Factory },
     { href: "/fabrication", label: "Fabrication Jobs", icon: Hammer },
+    { href: "/daily-labor", label: "Daily Labor", icon: Clock },
     { href: "/installation", label: "Installation", icon: Construction },
 ]
 
