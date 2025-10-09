@@ -78,7 +78,7 @@ export default function SignupPage() {
         firstName: data.firstName,
         lastName: data.lastName,
         email: data.email,
-        role: "Staff", // Default role
+        role: "Worker", // Default role
         permissions: ["/"], // Default permissions
       });
       

@@ -1866,7 +1866,7 @@ export async function initiateOutboundReturn(returnData: NewOutboundReturnData):
 export async function createUserProfile(uid: string, data: Omit<UserProfile, 'uid'>) {
     try {
         const userRef = doc(db, "users", uid);
-        await setDoc(userRef, { ...data, uid });
+        await setDoc(userRef, { ...data, uid, role: 'Worker' }); // Default to Worker role
     } catch (error) {
         console.error("Error creating user profile:", error);
         throw new Error("Failed to create user profile.");

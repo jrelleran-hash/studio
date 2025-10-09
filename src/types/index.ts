@@ -218,7 +218,7 @@ export interface OutboundReturn {
     dateShipped?: Date;
 }
 
-export type UserRole = "Admin" | "Manager" | "Staff";
+export type UserRole = "Admin" | "Manager" | "Staff" | "Worker";
 export type PagePermission = "/" | "/clients" | "/logistics" | "/analytics" | "/orders" | "/purchase-orders" | "/suppliers" | "/inventory" | "/issuance" | "/returns" | "/quality-control" | "/settings" | "/warehouse" | "/tools" | "/tool-maintenance" | "/waste-management" | "/logistics-booking" | "/tool-booking" | "/vehicles" | "/production" | "/general-ledger" | "/accounts-payable" | "/daily-labor" | "/fabrication" | "/installation";
 
 export interface UserProfile {
