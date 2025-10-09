@@ -21,20 +21,20 @@ import { addLaborEntry } from "@/services/data-service";
 import { formatCurrency } from "@/lib/currency";
 import { Popover, PopoverTrigger, PopoverContent } from "@/components/ui/popover";
 import { Calendar } from "@/components/ui/calendar";
-import { CalendarIcon, User, Briefcase } from "lucide-react";
+import { CalendarIcon, User, Briefcase, Factory } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 const laborEntrySchema = z.object({
   date: z.date({ required_error: "Date is required."}),
   userId: z.string().min(1, "Worker is required."),
-  clientId: z.string().min(1, "Project is required."),
+  jobOrderId: z.string().min(1, "Job Order is required."),
   hoursWorked: z.coerce.number().min(0.5, "Minimum 0.5 hours.").max(24, "Maximum 24 hours."),
 });
 
 type LaborEntryFormValues = z.infer<typeof laborEntrySchema>;
 
 export default function DailyLaborPage() {
-  const { users, clients, laborEntries, loading, refetchData } = useData();
+  const { users, jobOrders, laborEntries, loading, refetchData } = useData();
   const { toast } = useToast();
 
   const form = useForm<LaborEntryFormValues>({
@@ -58,7 +58,7 @@ export default function DailyLaborPage() {
         date: new Date(),
         hoursWorked: 8,
         userId: '',
-        clientId: ''
+        jobOrderId: ''
       });
       await refetchData();
     } catch (error) {
@@ -79,7 +79,7 @@ export default function DailyLaborPage() {
     <div className="space-y-6">
       <div>
         <h1 className="text-2xl font-bold font-headline tracking-tight">Daily Labor Tracker</h1>
-        <p className="text-muted-foreground">Log hours worked by your team on different projects.</p>
+        <p className="text-muted-foreground">Log hours worked by your team on different production jobs.</p>
       </div>
       
       <div className="grid lg:grid-cols-3 gap-6">
@@ -126,20 +126,20 @@ export default function DailyLaborPage() {
                          {errors.userId && <p className="text-sm text-destructive">{errors.userId.message}</p>}
                     </div>
                      <div className="space-y-2">
-                        <Label>Project</Label>
+                        <Label>Job Order</Label>
                         <Controller
-                            name="clientId"
+                            name="jobOrderId"
                             control={control}
                             render={({ field }) => (
                                 <Select onValueChange={field.onChange} defaultValue={field.value}>
-                                    <SelectTrigger><div className="flex items-center gap-2"><Briefcase /> <SelectValue placeholder="Select a project" /></div></SelectTrigger>
+                                    <SelectTrigger><div className="flex items-center gap-2"><Factory /> <SelectValue placeholder="Select a Job Order" /></div></SelectTrigger>
                                     <SelectContent>
-                                        {clients.map(c => <SelectItem key={c.id} value={c.id}>{c.projectName} ({c.clientName})</SelectItem>)}
+                                        {jobOrders.map(jo => <SelectItem key={jo.id} value={jo.id}>{jo.jobOrderNumber} ({jo.projectName})</SelectItem>)}
                                     </SelectContent>
                                 </Select>
                             )}
                         />
-                         {errors.clientId && <p className="text-sm text-destructive">{errors.clientId.message}</p>}
+                         {errors.jobOrderId && <p className="text-sm text-destructive">{errors.jobOrderId.message}</p>}
                     </div>
                     <div className="space-y-2">
                         <Label htmlFor="hoursWorked">Hours Worked</Label>
@@ -166,7 +166,7 @@ export default function DailyLaborPage() {
                         <TableRow>
                             <TableHead>Date</TableHead>
                             <TableHead>Worker</TableHead>
-                            <TableHead>Project</TableHead>
+                            <TableHead>Job Order</TableHead>
                             <TableHead className="text-right">Hours</TableHead>
                             <TableHead className="text-right">Cost</TableHead>
                         </TableRow>
@@ -187,7 +187,7 @@ export default function DailyLaborPage() {
                                 <TableRow key={entry.id}>
                                     <TableCell>{formatDate(entry.date)}</TableCell>
                                     <TableCell>{entry.userName}</TableCell>
-                                    <TableCell>{entry.projectName}</TableCell>
+                                    <TableCell>{entry.jobOrderNumber}</TableCell>
                                     <TableCell className="text-right">{entry.hoursWorked}</TableCell>
                                     <TableCell className="text-right">{formatCurrency(entry.cost)}</TableCell>
                                 </TableRow>

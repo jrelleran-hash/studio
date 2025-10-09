@@ -2735,24 +2735,24 @@ export async function getLaborEntries(): Promise<LaborEntry[]> {
     }
 }
 
-export async function addLaborEntry(entryData: Omit<LaborEntry, 'id' | 'cost' | 'userName' | 'projectName'>): Promise<void> {
+export async function addLaborEntry(entryData: Omit<LaborEntry, 'id' | 'cost' | 'userName' | 'projectName' | 'jobOrderNumber' | 'clientId'> & { jobOrderId: string }): Promise<void> {
   const now = Timestamp.now();
 
   return runTransaction(db, async (transaction) => {
     // --- 1. READS ---
     const userRef = doc(db, 'users', entryData.userId);
-    const clientRef = doc(db, 'clients', entryData.clientId);
+    const jobOrderRef = doc(db, 'jobOrders', entryData.jobOrderId);
     
-    const [userDoc, clientDoc] = await Promise.all([
+    const [userDoc, jobOrderDoc] = await Promise.all([
       transaction.get(userRef),
-      transaction.get(clientRef)
+      transaction.get(jobOrderRef)
     ]);
     
     if (!userDoc.exists()) throw new Error("Worker not found.");
-    if (!clientDoc.exists()) throw new Error("Project not found.");
+    if (!jobOrderDoc.exists()) throw new Error("Job Order not found.");
 
     const userData = userDoc.data() as UserProfile;
-    const clientData = clientDoc.data() as Client;
+    const jobOrderData = jobOrderDoc.data() as JobOrder;
     
     // --- 2. LOGIC ---
     const dailyRate = userData.dailyRate || 0; // Default to 0 if not set
@@ -2765,14 +2765,14 @@ export async function addLaborEntry(entryData: Omit<LaborEntry, 'id' | 'cost' | 
       ...entryData,
       date: Timestamp.fromDate(entryData.date),
       userName: `${userData.firstName} ${userData.lastName}`,
-      projectName: clientData.projectName,
+      jobOrderNumber: jobOrderData.jobOrderNumber,
       cost: cost,
     });
     
     // Create GL entry for the labor cost
     const wagesTx = {
       date: now,
-      description: `Wages for ${userData.firstName} ${userData.lastName} on project ${clientData.projectName}`,
+      description: `Wages for ${userData.firstName} ${userData.lastName} on Job Order ${jobOrderData.jobOrderNumber}`,
       account: 'Wages Expense',
       debit: cost,
       credit: 0,

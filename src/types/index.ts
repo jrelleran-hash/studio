@@ -1,4 +1,5 @@
 
+
 import { Timestamp, DocumentReference } from "firebase/firestore";
 
 export interface Activity {
@@ -337,6 +338,8 @@ export interface LaborEntry {
     userName: string;
     clientId: string;
     projectName: string;
+    jobOrderId: string;
+    jobOrderNumber: string;
     hoursWorked: number;
     cost: number;
 }
