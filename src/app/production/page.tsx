@@ -21,6 +21,7 @@ import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, Command
 import { addMaterialRequisition } from "@/services/data-service";
 import { Skeleton } from "@/components/ui/skeleton";
 import { cn } from "@/lib/utils";
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from "@/components/ui/dialog";
 
 const materialRequisitionItemSchema = z.object({
   productId: z.string().min(1, "Product is required."),
@@ -35,7 +36,7 @@ const createMaterialRequisitionSchema = (products: any[]) => z.object({
             const product = products.find(p => p.id === item.productId);
             if (product && product.stock < item.quantity) {
                 ctx.addIssue({
-                    path: [`${index}.quantity`],
+                    path: [`items.${index}.quantity`],
                     message: `Stock insufficient. Only ${product.stock} available.`,
                     code: z.ZodIssueCode.custom
                 });
@@ -52,6 +53,7 @@ export default function ProductionPage() {
   const { toast } = useToast();
   
   const [productPopovers, setProductPopovers] = useState<Record<number, boolean>>({});
+  const [isDialogOpen, setIsDialogOpen] = useState(false);
 
   const materialRequisitionSchema = useMemo(() => createMaterialRequisitionSchema(products), [products]);
 
@@ -79,6 +81,7 @@ export default function ProductionPage() {
       await addMaterialRequisition({ ...data, requestedBy: userProfile.uid });
       toast({ title: 'Success', description: 'Material requisition has been submitted.'});
       form.reset({ items: [{ productId: "", quantity: 1 }], projectId: "" });
+      setIsDialogOpen(false);
       await refetchData();
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : "Failed to submit request.";
@@ -93,14 +96,63 @@ export default function ProductionPage() {
         <p className="text-muted-foreground">Create material requisitions and manage production workflows.</p>
       </div>
 
-      <div className="grid lg:grid-cols-3 gap-6">
-        <Card className="lg:col-span-1">
-          <CardHeader>
-            <CardTitle>New Material Requisition</CardTitle>
-            <CardDescription>Request materials from the warehouse for a specific project.</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
+      <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
+         <Card>
+            <CardHeader className="flex flex-row items-center justify-between">
+                <div>
+                    <CardTitle>Recent Requisitions</CardTitle>
+                    <CardDescription>A log of the most recent material requests.</CardDescription>
+                </div>
+                 <DialogTrigger asChild>
+                    <Button size="sm"><PlusCircle className="mr-2 h-4 w-4" /> New Requisition</Button>
+                </DialogTrigger>
+            </CardHeader>
+            <CardContent>
+                <Table>
+                    <TableHeader>
+                        <TableRow>
+                            <TableHead>MRF #</TableHead>
+                            <TableHead>Project</TableHead>
+                            <TableHead>Date</TableHead>
+                            <TableHead>Status</TableHead>
+                        </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                        {loading ? (
+                             Array.from({ length: 5 }).map((_, i) => (
+                                <TableRow key={i}>
+                                    <TableCell><Skeleton className="h-4 w-24" /></TableCell>
+                                    <TableCell><Skeleton className="h-4 w-32" /></TableCell>
+                                    <TableCell><Skeleton className="h-4 w-24" /></TableCell>
+                                    <TableCell><Skeleton className="h-6 w-20 rounded-full" /></TableCell>
+                                </TableRow>
+                            ))
+                        ) : materialRequisitions.length > 0 ? (
+                            materialRequisitions.map(req => (
+                                <TableRow key={req.id}>
+                                    <TableCell>{req.mrfNumber}</TableCell>
+                                    <TableCell>{req.projectRef.id}</TableCell>
+                                    <TableCell>{req.date.toDateString()}</TableCell>
+                                    <TableCell>{req.status}</TableCell>
+                                </TableRow>
+                            ))
+                        ) : (
+                             <TableRow>
+                                <TableCell colSpan={4} className="h-24 text-center">
+                                    No material requisitions have been created yet.
+                                </TableCell>
+                            </TableRow>
+                        )}
+                    </TableBody>
+                </Table>
+            </CardContent>
+        </Card>
+        <DialogContent className="sm:max-w-2xl">
+          <DialogHeader>
+            <DialogTitle>New Material Requisition</DialogTitle>
+            <DialogDescription>Request materials from the warehouse for a specific project.</DialogDescription>
+          </DialogHeader>
+            <form onSubmit={handleSubmit(onSubmit)} className="space-y-4 pt-4">
               <div className="space-y-2">
                 <Label>Project</Label>
                 <Controller
@@ -195,61 +247,15 @@ export default function ProductionPage() {
                 </Button>
                  {form.formState.errors.items && !Array.isArray(form.formState.errors.items) && <p className="text-sm text-destructive">{form.formState.errors.items.message}</p>}
               </div>
-
-              <div className="pt-2">
-                <Button type="submit" className="w-full" disabled={form.formState.isSubmitting || !form.formState.isValid}>
+            <DialogFooter className="pt-4">
+              <Button type="button" variant="outline" onClick={() => setIsDialogOpen(false)}>Cancel</Button>
+              <Button type="submit" className="w-full sm:w-auto" disabled={form.formState.isSubmitting || !form.formState.isValid}>
                     {form.formState.isSubmitting ? "Submitting..." : "Submit Material Requisition"}
-                </Button>
-              </div>
+              </Button>
+            </DialogFooter>
             </form>
-          </CardContent>
-        </Card>
-         <Card className="lg:col-span-2">
-            <CardHeader>
-                <CardTitle>Recent Requisitions</CardTitle>
-                <CardDescription>A log of the most recent material requests.</CardDescription>
-            </CardHeader>
-            <CardContent>
-                <Table>
-                    <TableHeader>
-                        <TableRow>
-                            <TableHead>MRF #</TableHead>
-                            <TableHead>Project</TableHead>
-                            <TableHead>Date</TableHead>
-                            <TableHead>Status</TableHead>
-                        </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                        {loading ? (
-                             Array.from({ length: 5 }).map((_, i) => (
-                                <TableRow key={i}>
-                                    <TableCell><Skeleton className="h-4 w-24" /></TableCell>
-                                    <TableCell><Skeleton className="h-4 w-32" /></TableCell>
-                                    <TableCell><Skeleton className="h-4 w-24" /></TableCell>
-                                    <TableCell><Skeleton className="h-6 w-20 rounded-full" /></TableCell>
-                                </TableRow>
-                            ))
-                        ) : materialRequisitions.length > 0 ? (
-                            materialRequisitions.map(req => (
-                                <TableRow key={req.id}>
-                                    <TableCell>{req.mrfNumber}</TableCell>
-                                    <TableCell>{req.projectRef.id}</TableCell>
-                                    <TableCell>{req.date.toDateString()}</TableCell>
-                                    <TableCell>{req.status}</TableCell>
-                                </TableRow>
-                            ))
-                        ) : (
-                             <TableRow>
-                                <TableCell colSpan={4} className="h-24 text-center">
-                                    No material requisitions have been created yet.
-                                </TableCell>
-                            </TableRow>
-                        )}
-                    </TableBody>
-                </Table>
-            </CardContent>
-        </Card>
-      </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
