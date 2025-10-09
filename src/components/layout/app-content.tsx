@@ -1,11 +1,11 @@
 
 "use client";
 
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import { useAuth } from "@/hooks/use-auth";
 import { Sidebar } from "@/components/layout/sidebar";
 import { Header } from "@/components/layout/header";
-import { ReactNode, useState } from "react";
+import { ReactNode, useState, useEffect } from "react";
 import { cn } from "@/lib/utils";
 import { StartupAnimation } from "./startup-animation";
 
@@ -14,16 +14,30 @@ const unprotectedRoutes = ["/login", "/signup", "/verify-email"];
 export function AppContent({ children }: { children: ReactNode }) {
   const { user, loading } = useAuth();
   const pathname = usePathname();
+  const router = useRouter();
   const [isCollapsed, setIsCollapsed] = useState(false);
 
   const isUnprotected = unprotectedRoutes.includes(pathname);
 
+  useEffect(() => {
+    if (!loading && user && isUnprotected) {
+      router.push('/');
+    }
+  }, [loading, user, isUnprotected, router, pathname]);
+  
+
   if (loading && !isUnprotected) {
     return <StartupAnimation />;
   }
-
+  
   if (isUnprotected) {
     return <>{children}</>;
+  }
+  
+  if (!user && !isUnprotected) {
+      // This can happen briefly on page load, so a loading state is good.
+      // If a user is truly unauthenticated, the auth context will eventually redirect them.
+      return <StartupAnimation />;
   }
 
   return (
