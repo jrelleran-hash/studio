@@ -1,5 +1,4 @@
 
-
 import { Timestamp, DocumentReference } from "firebase/firestore";
 
 export interface Activity {
@@ -219,7 +218,7 @@ export interface OutboundReturn {
 }
 
 export type UserRole = "Admin" | "Manager" | "Staff";
-export type PagePermission = "/" | "/clients" | "/logistics" | "/analytics" | "/orders" | "/purchase-orders" | "/suppliers" | "/inventory" | "/issuance" | "/returns" | "/quality-control" | "/settings" | "/warehouse" | "/tools" | "/tool-maintenance" | "/waste-management" | "/logistics-booking" | "/tool-booking" | "/vehicles" | "/production" | "/general-ledger" | "/accounts-payable" | "/daily-labor";
+export type PagePermission = "/" | "/clients" | "/logistics" | "/analytics" | "/orders" | "/purchase-orders" | "/suppliers" | "/inventory" | "/issuance" | "/returns" | "/quality-control" | "/settings" | "/warehouse" | "/tools" | "/tool-maintenance" | "/waste-management" | "/logistics-booking" | "/tool-booking" | "/vehicles" | "/production" | "/general-ledger" | "/accounts-payable" | "/daily-labor" | "/fabrication";
 
 export interface UserProfile {
     uid: string;
@@ -372,8 +371,10 @@ export interface MaterialRequisition {
 }
 
 export interface JobOrderItem {
+    id: string;
     productRef: DocumentReference;
     quantity: number;
+    status: 'Pending' | 'In Progress' | 'Completed' | 'QC Passed' | 'Dispatched';
 }
 
 export interface JobOrder {

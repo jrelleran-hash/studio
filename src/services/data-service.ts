@@ -3,7 +3,7 @@
 import { db, storage, auth } from "@/lib/firebase";
 import { collection, getDocs, getDoc, doc, orderBy, query, limit, Timestamp, where, DocumentReference, addDoc, updateDoc, deleteDoc, arrayUnion, runTransaction, writeBatch, setDoc } from "firebase/firestore";
 import { EmailAuthProvider, reauthenticateWithCredential, updatePassword, createUserWithEmailAndPassword } from "firebase/auth";
-import type { Activity, Notification, Order, Product, Client, Issuance, Supplier, PurchaseOrder, Shipment, Return, ReturnItem, OutboundReturn, OutboundReturnItem, UserProfile, OrderItem, PurchaseOrderItem, IssuanceItem, Backorder, UserRole, PagePermission, ProductCategory, ProductLocation, Tool, ToolBorrowRecord, SalvagedPart, DisposalRecord, ToolMaintenanceRecord, ToolBookingRequest, Vehicle, Transaction, LaborEntry, Expense, MaterialRequisition, JobOrder } from "@/types";
+import type { Activity, Notification, Order, Product, Client, Issuance, Supplier, PurchaseOrder, Shipment, Return, ReturnItem, OutboundReturn, OutboundReturnItem, UserProfile, OrderItem, PurchaseOrderItem, IssuanceItem, Backorder, UserRole, PagePermission, ProductCategory, ProductLocation, Tool, ToolBorrowRecord, SalvagedPart, DisposalRecord, ToolMaintenanceRecord, ToolBookingRequest, Vehicle, Transaction, LaborEntry, Expense, MaterialRequisition, JobOrder, JobOrderItem } from "@/types";
 import { format, subDays, addDays } from 'date-fns';
 
 function timeSince(date: Date) {
@@ -757,7 +757,7 @@ export async function addIssuance(issuanceData: NewIssuanceData): Promise<Docume
     }
 
     const backordersToCreate: any[] = [];
-    const jobOrderItems: any[] = [];
+    const jobOrderItems: Omit<JobOrderItem, 'productRef'>[] = [];
 
     for (let i = 0; i < issuanceData.items.length; i++) {
       const item = issuanceData.items[i];
@@ -766,7 +766,13 @@ export async function addIssuance(issuanceData: NewIssuanceData): Promise<Docume
       if (!productDoc?.exists()) throw new Error(`Product with ID ${item.productId} not found.`);
 
       const productData = productDoc.data() as Product;
-      jobOrderItems.push({ productRef: productDoc.ref, quantity: item.quantity });
+      
+      jobOrderItems.push({ 
+        id: `${Date.now()}-${i}`,
+        productRef: productDoc.ref, 
+        quantity: item.quantity,
+        status: 'Pending'
+      });
 
       if (productData.stock < item.quantity) throw new Error(`Insufficient stock for ${productData.name}. Available: ${productData.stock}, Requested: ${item.quantity}`);
 
