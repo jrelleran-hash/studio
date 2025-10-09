@@ -28,7 +28,7 @@ export function KpiCard({ title, value, change, icon, children, footer, loading 
         <CardTitle className="text-sm font-medium">{title}</CardTitle>
         <span className="animate-bounce-in">{icon}</span>
       </CardHeader>
-      <CardContent className="flex-1 flex flex-col">
+      <CardContent className="flex flex-1 flex-col">
         {loading ? (
            <div className="space-y-2">
             <Skeleton className="h-8 w-3/4" />
@@ -38,9 +38,9 @@ export function KpiCard({ title, value, change, icon, children, footer, loading 
           <div className="flex-1">
             <div className="text-2xl font-bold font-headline">{value}</div>
             <p className="text-xs text-muted-foreground">{change}</p>
-          </>
+          </div>
         )}
-        {children && <div className="flex-1 flex items-end">{children}</div>}
+        {children && <div className="mt-4 flex flex-1 items-end">{children}</div>}
       </CardContent>
     </>
   );
