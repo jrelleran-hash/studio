@@ -54,7 +54,7 @@ export function AppContent({ children }: { children: ReactNode }) {
         id="main-content"
       >
         <Header />
-        <main className="flex-1 p-4 sm:p-6">
+        <main key={pathname} className="flex-1 p-4 sm:p-6 animate-fade-in">
             <div className="w-full max-w-7xl mx-auto">
              {children}
             </div>
